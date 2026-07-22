@@ -1,9 +1,9 @@
 # ADR 0009: Add Private-Edge Manifest Admission for Bounded Project Quotas
 
-- Status: proposed
+- Status: accepted for PoC validation
 - Date: 2026-07-22
 - Decision owners: Coffer maintainers
-- Related plan: `docs/exec-plans/0002-thin-vertical-poc.md`
+- Related plan: `docs/exec-plans/0003-barbican-kms-quota-poc.md`
 - Research: `docs/research/m3-quota-enforcement-spike.md`
 
 ## Context
@@ -12,7 +12,7 @@ Accepted ADR 0003 defines project quota as logical unique descriptor bytes refer
 
 The implemented token realm can decide repository actions but a standard token request has no upload size or one-use operation identity. Distribution notifications are advisory and RGW sees only one service bucket. These existing seams can observe or globally limit storage, but cannot synchronously bound project logical usage.
 
-## Proposed Decision
+## Decision
 
 Add a narrow manifest-admission hook at the private registry edge:
 
@@ -44,12 +44,16 @@ Distribution tenant write access must be private to the edge so manifest publica
 
 Project-isolated buckets/fleets remain a valid later alternative if users require hard physical isolation. Removing the MVP quota promise is preferable to advertising token-only or notification-only enforcement as bounded.
 
-## Acceptance Required Before Status Change
+## PoC Validation and Production Promotion Gates
 
-1. Review the edge/body-handling boundary against ADRs 0001 and 0004.
-2. Prototype the manifest path with unmodified Docker, Podman, Skopeo, containerd/nerdctl, and ORAS.
-3. Prove atomic concurrent admission, crash-state recovery, shared-digest accounting, conservative deletion refund, and exact 429/503 client behavior.
-4. Measure logical overshoot and physical staging separately under concurrent/chunked uploads.
-5. Prove metrics/logs are bounded and secret-free and direct Distribution writes are unreachable.
+Completed in the local PoC:
 
-Until those gates pass, this ADR remains proposed and no quota gateway dependency is part of the accepted architecture.
+1. Reviewed the edge/body-handling boundary against ADRs 0001 and 0004 and kept blob bodies on the streamed Distribution path.
+2. Exercised pinned Docker 29.5.3, Podman 5.6.0, and Skopeo 1.20.0 through a private edge while Distribution had no host port.
+3. Proved atomic one-winner concurrent admission with 201/429, idempotent 201 retry, missing-quota 503, project-unique shared-digest accounting, and conservative pending/release recovery.
+4. Proved unpublished blob staging increased S3 objects from 28 to 30 while project logical usage stayed unchanged.
+5. Removed all disposable containers, volumes, credentials, JWTs, and private keys; retained logs contained no credential or JWT-shaped value.
+
+Production promotion still requires PostgreSQL/MariaDB migrations and replica-level row-lock evidence, a reconciliation worker against real Distribution/RGW state, multi-replica private ingress enforcement, load/failure testing, and the remaining client matrix such as containerd/nerdctl and ORAS. The PoC's isolated SQLite transaction is concurrency evidence, not a production database recommendation.
+
+The user accepted this seam as the quota PoC implementation target on 2026-07-22. The bounded local validation passed, but the remaining production gates above prevent treating it as a final deployable architecture claim.

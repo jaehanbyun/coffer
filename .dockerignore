@@ -1,0 +1,8 @@
+.git
+.codex
+.pytest_cache
+.venv
+work
+**/__pycache__
+*.egg-info
+*.pyc

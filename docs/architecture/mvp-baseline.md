@@ -1,7 +1,7 @@
 # Coffer MVP Architecture Baseline
 
-- Status: proposed baseline; discovery complete and PoC validation pending
-- Updated: 2026-07-21
+- Status: accepted PoC baseline; production promotion gates remain
+- Updated: 2026-07-22
 - Architecture style: OpenStack-native control plane composed with an upstream OCI Distribution data plane
 
 ## Architecture Drivers
@@ -23,6 +23,7 @@ flowchart LR
     Gateway["TLS load balancer / API gateway"]
     API["Coffer control API"]
     Auth["Coffer registry token service"]
+    Quota["Coffer manifest quota admission"]
     Registry["Upstream OCI Distribution data plane"]
     Keystone["OpenStack Keystone"]
     DB[("Control database")]
@@ -35,13 +36,16 @@ flowchart LR
     OCI -->|"/v2/: push and pull"| Gateway
     Gateway --> API
     Gateway --> Auth
-    Gateway --> Registry
+    Gateway -->|"blob, pull, and non-manifest traffic"| Registry
+    Gateway -->|"bounded manifest PUT"| Quota
     API -->|"validate identity and policy"| Keystone
     API --> DB
     Auth -->|"authenticate application credential; get project and roles"| Keystone
     Auth -->|"resolve repository policy"| DB
     Auth -->|"issue short-lived repository-scoped JWT"| OCI
     Auth -->|"publish signing trust; no per-request call"| Registry
+    Quota -->|"atomic logical-byte reservation"| DB
+    Quota -->|"forward exact admitted manifest"| Registry
     Registry --> Object
     API --> Observe
     Auth --> Observe
@@ -50,15 +54,19 @@ flowchart LR
 
 ### Coffer control API
 
-Owns project-scoped repository resources, repository policy, tag immutability configuration, bounded soft-quota state, administrative GC requests, and audit metadata. It does not proxy blob bodies or duplicate manifests into its database.
+Owns project-scoped repository resources, repository policy, tag immutability configuration, bounded soft-quota state, administrative GC requests, and audit metadata. It does not proxy blob bodies or duplicate canonical manifests into its database.
 
 ### Coffer registry token service
 
 Implements the OCI/Docker Bearer token challenge endpoint. For the MVP it authenticates a finite, role-restricted Keystone application credential supplied through Basic auth, verifies its immutable project scope and roles, and issues a separate approximately five-minute JWT containing only the intersection of requested and authorized `repository:<namespace>/<name>:<actions>` access. It never stores the application-credential secret, never issues a non-expiring refresh token, and Distribution verifies the JWT signature locally.
 
+### Coffer manifest quota admission
+
+Handles only bounded manifest/index PUT requests at a non-bypassable private edge. It verifies the Coffer JWT and explicit repository authority, resolves the descriptor graph, atomically reserves project-unique logical bytes in shared SQL, forwards the exact manifest bytes to unmodified Distribution, and commits or conservatively retains the reservation from the upstream outcome. It returns Distribution-compatible 429 or 503 responses and never stores blob bodies or the canonical manifest payload.
+
 ### Upstream OCI Distribution data plane
 
-Owns `/v2/` blob, upload, manifest, tag, supported artifact, and deletion protocol behavior. Coffer configures its token trust, storage driver, health, and metrics but does not fork the protocol implementation unless an accepted upstream gap makes that unavoidable. Native OCI 1.1 Referrers support must be proven for the pinned release.
+Owns `/v2/` blob, upload, canonical manifest, tag, supported artifact, and deletion protocol behavior. Coffer configures its token trust, storage driver, health, and metrics; manifest publication passes the narrow quota edge, but the protocol implementation remains unmodified. Native OCI 1.1 Referrers support must be proven for the pinned release.
 
 ### Control database
 
@@ -66,7 +74,7 @@ Stores resource identity, stable project mapping, repository policy, signing-key
 
 ### Object storage
 
-Uses one service-owned, non-public regional S3-compatible bucket with a dedicated least-privilege identity. The MVP backend is Ceph RGW through the upstream S3 driver, with redirects disabled initially and server-side KMS encryption verified against the selected stable Ceph release. Distribution v3 does not provide a Swift driver baseline, so a custom Swift adapter is not part of the MVP.
+Uses one service-owned, non-public regional S3-compatible bucket with a dedicated least-privilege identity. The MVP backend is Ceph RGW through the upstream S3 driver, with redirects disabled initially and server-side KMS encryption verified against the selected stable Ceph release. The Tentacle 20.2.2 PoC passed positive-size Barbican SSE-KMS payloads only after forcing Distribution moves through multipart copy; encrypted zero-byte moves remain a production release gate. Distribution v3 does not provide a Swift driver baseline, so a custom Swift adapter is not part of the MVP.
 
 ## Resource Model
 
@@ -151,7 +159,7 @@ sequenceDiagram
 |---|---|---|
 | OCI data plane | Upstream CNCF Distribution v3.1.1 or newer supported release, pinned by PoC | Small protocol-focused component; v3.1.1 includes a material 2026 security fix and must still pass conformance/RGW gates |
 | Control/auth services | Python with OpenStack `oslo.*`, `keystoneauth1`, and `keystonemiddleware` libraries | Fits OpenStack operator and contributor ecosystems |
-| HTTP framework | Minimal WSGI/ASGI layer selected during PoC | Avoid locking the architecture to a framework before lifecycle and OpenStack integration tests |
+| HTTP framework | Falcon 4.3.1 WSGI behind Gunicorn `gthread` workers | Accepted by ADR 0007 after Python 3.11–3.13 and process-model validation |
 | Persistence | SQLAlchemy/Alembic through `oslo.db`; MariaDB/Galera as the operator baseline | Aligns with common OpenStack control-plane deployments |
 | Policy | `oslo.policy`-compatible rules | Familiar deployer overrides and role enforcement |
 | Blob storage | One private regional Ceph RGW S3 bucket through the upstream registry driver | Reuses common OpenStack storage deployments without a custom driver; per-project buckets would require separate registry fleets/routing |
@@ -172,13 +180,13 @@ sequenceDiagram
 
 1. Standard Docker credential storage requires a credential helper and finite application credentials; future federated/MFA users need a separate helper/exchange design.
 2. Distribution's stop-the-world GC requires a maintenance window; always-online GC is not an MVP claim.
-3. Accurate project quota enforcement is difficult when globally deduplicated blobs and asynchronous notifications are used.
+3. Project quota admission now has a validated manifest seam, but production still needs shared-database migrations, reconciliation, replica-level failure tests, and a non-bypassable ingress deployment.
 4. Repository aliases and rename semantics can conflict with immutable security namespaces.
-5. The chosen upstream Distribution release and storage driver must be validated against the operator's Ceph RGW version and S3 semantics.
+5. The chosen Distribution and Ceph combination must pass encrypted move semantics, including positive-size and zero-byte blobs. Tentacle 20.2.2 requires forced multipart copy for positive-size objects and still rejects the zero-byte path.
 6. OpenStack community governance may favor an adjacent-project or external-service path before a new official service.
 7. Current Distribution documentation targets OCI Distribution Spec 1.0.1; native OCI 1.1 Referrers support is an unresolved release gate.
-8. RGW quotas are cached per gateway and a shared bucket cannot provide project-level accounting; the soft-quota overshoot bound must be measured.
-9. SSE-KMS, logging, and rotation behavior must be verified against a selected stable Ceph release rather than development documentation.
+8. RGW quotas are cached per gateway and a shared bucket cannot provide project-level accounting; project logical admission therefore does not bound unpublished physical staging.
+9. Barbican SSE-KMS, wrong-key/outage fail-closed behavior, restart persistence, logging, and bounded cleanup passed against Tentacle 20.2.2. Production promotion still requires a released Ceph fix/backport or another proven combination for encrypted zero-byte moves, plus operational key rotation.
 
 ## Evidence Baseline
 
@@ -190,7 +198,9 @@ sequenceDiagram
 - [Keystone application credentials](https://docs.openstack.org/keystone/latest/user/application_credentials.html) documents project binding, role subsets, expiration, one-time secret disclosure, hashing, invalidation, and rotation behavior.
 - [Keystone service guidance](https://docs.openstack.org/keystone/latest/contributor/services.html) defines project/domain/system scope and identity semantics used by the role model.
 - [Ceph RGW](https://docs.ceph.com/en/latest/radosgw/), [Keystone integration](https://docs.ceph.com/en/latest/radosgw/keystone/), and [encryption](https://docs.ceph.com/en/latest/radosgw/encryption/) define the storage capabilities whose exact stable-release behavior must be tested.
+- [Distribution S3 driver parameters](https://distribution.github.io/distribution/storage-drivers/s3/#parameters) document the multipart-copy threshold used by the Tentacle positive-size workaround; `docs/research/m3-rgw-kms-capability.md` records the exact release boundary and source evidence.
 - `docs/adrs/0001-compose-cnc-distribution.md` records the upstream component comparison and rejected alternatives.
 - `docs/adrs/0002-keystone-application-credential-token-broker.md` records the identity translation and initial role model.
 - `docs/adrs/0003-rgw-s3-single-region-storage.md` records storage, quota, GC, encryption, and HA boundaries.
+- `docs/adrs/0009-add-private-edge-manifest-quota-admission.md` records the accepted-for-PoC manifest admission seam and the remaining production gates.
 - `docs/research/openstack-registry-landscape.md` records the current OpenStack service gap, active OpenStack-Helm deployment chart, consumer projects, and historical false friends.

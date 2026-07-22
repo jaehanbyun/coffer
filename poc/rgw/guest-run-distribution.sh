@@ -18,6 +18,8 @@ auth_service="${COFFER_DISTRIBUTION_AUTH_SERVICE:-}"
 auth_issuer="${COFFER_DISTRIBUTION_AUTH_ISSUER:-}"
 auth_jwks_path="${COFFER_DISTRIBUTION_AUTH_JWKS:-}"
 auth_container_jwks="/etc/distribution/jwks.json"
+s3_encrypt="${COFFER_DISTRIBUTION_S3_ENCRYPT:-}"
+s3_key_id="${COFFER_DISTRIBUTION_S3_KEY_ID:-}"
 expected_status=200
 auth_volume_args=()
 
@@ -42,6 +44,16 @@ if test -n "${auth_realm}"; then
 elif test -n "${auth_service}${auth_issuer}${auth_jwks_path}"; then
   printf 'Distribution token auth settings must be supplied together\n' >&2
   exit 21
+fi
+
+if test -z "${s3_encrypt}${s3_key_id}"; then
+  s3_encrypt=false
+elif test "${s3_encrypt}" = true &&
+  [[ "${s3_key_id}" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ ]]; then
+  :
+else
+  printf 'Distribution S3 encryption requires true plus one UUID key ID\n' >&2
+  exit 22
 fi
 
 umask 077
@@ -148,6 +160,17 @@ storage:
     secure: true
     skipverify: false
     v4auth: true
+EOF
+  if test "${s3_encrypt}" = true; then
+    printf '    encrypt: true\n'
+    printf '    keyid: %s\n' "${s3_key_id}"
+    # Tentacle returns S3 NotImplemented for an SSE-KMS CopyObject. Distribution
+    # finalizes uploads with Move, so select its supported multipart-copy path.
+    printf '    multipartcopythresholdsize: 0\n'
+    printf '    multipartcopychunksize: 5242880\n'
+    printf '    multipartcopymaxconcurrency: 4\n'
+  fi
+  cat <<'EOF'
   maintenance:
     uploadpurging:
       enabled: true

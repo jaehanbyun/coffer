@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: bootstrap-vm deploy-rgw export-distribution-ca export-rgw-ca export-s3-profile info install-ceph provision-s3 run-distribution verify-distribution verify-distribution-ha verify-distribution-host verify-gc-dry-run verify-rgw
+.PHONY: bootstrap-vm deploy-rgw export-distribution-ca export-rgw-ca export-s3-profile info install-ceph provision-s3 rotate-s3-key run-distribution verify-distribution verify-distribution-ha verify-distribution-host verify-gc-dry-run verify-rgw
 
 bootstrap-vm:
 	./bootstrap-vm.sh
@@ -19,6 +19,9 @@ verify-rgw: export-rgw-ca
 
 provision-s3:
 	./provision-s3.sh
+
+rotate-s3-key:
+	./rotate-s3-key.sh
 
 export-s3-profile: provision-s3
 	./export-s3-profile.sh

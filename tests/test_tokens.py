@@ -101,13 +101,6 @@ def test_scope_parser_accepts_encoded_result_shape_and_multiple_unique_scopes() 
             "service": [SERVICE],
             "scope": [f"repository:p/{PROJECT_A}/demo:catalog"],
         },
-        {
-            "service": [SERVICE],
-            "scope": [
-                f"repository:p/{PROJECT_A}/demo:pull",
-                f"repository:p/{PROJECT_A}/demo:push",
-            ],
-        },
     ],
 )
 def test_malformed_or_ambiguous_token_requests_fail_closed(
@@ -115,6 +108,23 @@ def test_malformed_or_ambiguous_token_requests_fail_closed(
 ) -> None:
     with pytest.raises(InvalidTokenRequest):
         parse_token_request(parameters, expected_service=SERVICE)
+
+
+def test_repeated_repository_scopes_merge_actions_for_docker_clients() -> None:
+    request = parse_token_request(
+        {
+            "service": [SERVICE],
+            "scope": [
+                f"repository:p/{PROJECT_A}/demo:pull",
+                f"repository:p/{PROJECT_A}/demo:pull,push",
+            ],
+        },
+        expected_service=SERVICE,
+    )
+
+    assert len(request.scopes) == 1
+    assert request.scopes[0].name == f"p/{PROJECT_A}/demo"
+    assert request.scopes[0].actions == ("pull", "push")
 
 
 @pytest.mark.parametrize(

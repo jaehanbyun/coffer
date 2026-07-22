@@ -153,13 +153,27 @@ def parse_token_request(
     if len(raw_scopes) > MAX_SCOPE_COUNT:
         raise InvalidTokenRequest("too many repository scopes")
 
-    scopes = tuple(_parse_scope(value) for value in raw_scopes)
-    names = [scope.name for scope in scopes]
-    if len(set(names)) != len(names):
-        raise InvalidTokenRequest("duplicate repository scope")
+    parsed_scopes = tuple(_parse_scope(value) for value in raw_scopes)
+    merged_actions: dict[str, set[str]] = {}
+    scopes_by_name: dict[str, RequestedScope] = {}
+    for scope in parsed_scopes:
+        scopes_by_name.setdefault(scope.name, scope)
+        merged_actions.setdefault(scope.name, set()).update(scope.actions)
+    scopes = tuple(
+        RequestedScope(
+            type=scopes_by_name[name].type,
+            name=name,
+            project_id=scopes_by_name[name].project_id,
+            repository=scopes_by_name[name].repository,
+            actions=tuple(
+                action for action in ACTION_ORDER if action in merged_actions[name]
+            ),
+        )
+        for name in sorted(scopes_by_name)
+    )
     return TokenRequest(
         service=service,
-        scopes=tuple(sorted(scopes, key=lambda scope: scope.name)),
+        scopes=scopes,
         account=account,
         client_id=client_id,
     )

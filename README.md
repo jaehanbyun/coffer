@@ -28,7 +28,7 @@ The service type is a project proposal and is not currently registered in the Op
 
 ## Current Implementation
 
-M0 proves the unmodified OCI Distribution data path against local S3-compatible storage. M1 contains the first Coffer-owned seam: a Keystone-middleware-wrapped repository API with project UUID ownership, reader/member policy, and SQLite-backed test persistence. Local M2 adds a separately composed application-credential token realm, explicit repository and `oslo.policy` authorization, short-lived RS256 Distribution JWTs, and overlapping-JWKS verification.
+M0 proves the unmodified OCI Distribution data path against local S3-compatible storage. M1 contains the first Coffer-owned seam: a Keystone-middleware-wrapped repository API with project UUID ownership, reader/member policy, and SQLite-backed test persistence. Local M2 adds a separately composed application-credential token realm, explicit repository and `oslo.policy` authorization, short-lived RS256 Distribution JWTs, and overlapping-JWKS verification. M3 adds a private manifest-admission seam with shared-SQL logical quota accounting and validates the real Keystone, Ceph RGW, and Barbican SSE-KMS path in disposable labs.
 
 The API currently supports:
 
@@ -82,7 +82,10 @@ Do not place Keystone, database, signing, or cache secrets in the repository. Th
 - [M1 application-credential authentication](docs/research/m1-application-credential-authentication.md)
 - [M2 registry token contract](docs/research/m2-token-contract.md)
 - [M3 local observability baseline](docs/research/m3-local-observability.md)
+- [M3 RGW/Barbican KMS capability and executed evidence](docs/research/m3-rgw-kms-capability.md)
+- [M3 bounded quota design and validation](docs/research/m3-quota-enforcement-spike.md)
 - [Real Keystone and Ceph RGW PoC runbook](docs/runbooks/real-keystone-rgw-poc.md)
 - [Disposable Mac DevStack identity lab](poc/devstack/README.md)
 - [Completed discovery plan](docs/exec-plans/0001-product-discovery.md)
-- [Active thin vertical PoC](docs/exec-plans/0002-thin-vertical-poc.md)
+- [Superseded thin vertical PoC](docs/exec-plans/0002-thin-vertical-poc.md)
+- [Active Barbican KMS and quota PoC](docs/exec-plans/0003-barbican-kms-quota-poc.md)

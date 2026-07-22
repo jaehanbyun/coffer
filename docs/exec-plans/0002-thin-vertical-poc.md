@@ -1,6 +1,6 @@
 ---
 title: "Keystone-to-OCI thin vertical proof of concept"
-status: active
+status: superseded
 updated: 2026-07-22
 owner: primary-agent
 depends_on: docs/exec-plans/0001-product-discovery.md
@@ -9,6 +9,8 @@ depends_on: docs/exec-plans/0001-product-discovery.md
 # Objective
 
 Prove the smallest end-to-end Coffer path with a real Keystone test environment and unmodified OCI clients: a user in project A creates a repository, authenticates the registry token realm with a finite role-restricted Keystone application credential, receives a short-lived Distribution JWT, and pushes/pulls through upstream Distribution backed by Ceph RGW, while a user scoped only to project B is denied access to project A.
+
+The core thin vertical slice and its repeated clean evidence are complete. Remaining Barbican SSE-KMS and accepted quota-admission work moved to `docs/exec-plans/0003-barbican-kms-quota-poc.md` on 2026-07-22 so there is exactly one active execution plan.
 
 ## Done Criteria
 

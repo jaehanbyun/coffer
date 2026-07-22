@@ -1,0 +1,40 @@
+version: 0.1
+
+log:
+  level: info
+  formatter: json
+  fields:
+    service: coffer-quota-distribution
+
+auth:
+  token:
+    realm: http://edge:5000/auth/token
+    service: coffer-quota-registry
+    issuer: coffer-quota-poc
+    jwks: /etc/distribution/jwks.json
+    signingalgorithms: [RS256]
+
+storage:
+  delete:
+    enabled: true
+  redirect:
+    disable: true
+  s3:
+    region: us-east-1
+    regionendpoint: http://minio:9000
+    forcepathstyle: true
+    bucket: coffer-registry
+    rootdirectory: /distribution
+    secure: false
+    v4auth: true
+
+http:
+  addr: :5000
+  headers:
+    X-Content-Type-Options: [nosniff]
+
+health:
+  storagedriver:
+    enabled: true
+    interval: 10s
+    threshold: 3

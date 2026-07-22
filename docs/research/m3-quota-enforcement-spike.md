@@ -1,7 +1,7 @@
 # M3 Bounded Soft-Quota Enforcement Spike
 
 - Date: 2026-07-22
-- Status: design spike complete; implementation requires ADR acceptance
+- Status: design accepted for PoC; local implementation and hardened black box passed
 - Scope: project logical quota with unmodified OCI clients, Distribution, and a shared RGW bucket
 
 ## Result
@@ -13,7 +13,15 @@ The current token broker, Distribution notifications, and RGW bucket quota canno
 - Distribution notifications are asynchronous, in-memory per instance, and unsuitable for admission;
 - the one shared RGW bucket can enforce only a service-wide physical guardrail, not per-project logical usage.
 
-The smallest enforceable seam is therefore a narrow **manifest admission path at the private registry edge**. Blob uploads remain streaming Distribution traffic. Before a manifest becomes visible, the edge buffers only the bounded manifest payload, asks Coffer to reserve its new project-logical descriptor bytes in a shared SQL transaction, then forwards the unchanged request to unmodified Distribution. This is a proposed architecture change, not an implemented or accepted decision.
+The smallest enforceable seam is therefore a narrow **manifest admission path at the private registry edge**. Blob uploads remain streaming Distribution traffic. Before a manifest becomes visible, the edge buffers only the bounded manifest payload, asks Coffer to reserve its new project-logical descriptor bytes in a shared SQL transaction, then forwards the unchanged request to unmodified Distribution. ADR 0009 accepted this boundary for PoC validation, and the local implementation plus hardened black box passed.
+
+## Executed PoC Result
+
+- The shared-SQL model implements project quota, descriptor, reservation, reservation-edge, and manifest state with serialized project-row mutation and conservative pending/release recovery.
+- The edge enforces exact RS256/JWKS issuer, audience, expiry, project/repository, and `push` authority; validates authoritative upstream descriptor sizes and media-type shapes; rejects residual encoded paths; bounds manifests to 4 MiB and 4,096 descriptors; and maps auth, validation, quota, and dependency failures to Distribution-compatible outcomes.
+- Forty-four focused token/quota/proxy tests pass after review hardening. The isolated black box passed pinned Docker, Podman, and Skopeo; one-winner 201/429 concurrency; idempotent retry; missing-quota 503; forged-size and encoded-path 400; and unchanged logical usage while unpublished physical staging changed the S3 object count from 28 to 30.
+- Distribution is reachable only on the backend/storage topology in the fixture, and cleanup removes containers, volumes, credentials, signing material, and JWT-shaped values.
+- Production promotion still requires PostgreSQL/MariaDB migrations and real row-lock evidence, a reconciliation worker, replica/load failure tests, a non-bypassable production ingress, and the remaining client matrix.
 
 Token-time reservation alone is rejected. Without inspecting a manifest or upload byte count, no reservation unit can be both safe and usable: a fixed maximum is excessively conservative, while a smaller unit can be exceeded repeatedly with the same token.
 
@@ -32,7 +40,7 @@ The control database stores digest, verified size, project reference count, mani
 
 Deletion is conservative: a manifest delete records an unlink event, but quota is refunded only after reference reconciliation proves the project reference count reached zero. Delayed refund reduces available capacity; it does not allow quota overshoot.
 
-## Proposed Request Flow
+## Accepted PoC Request Flow
 
 ```mermaid
 sequenceDiagram
@@ -101,24 +109,24 @@ Notifications accelerate projection updates but remain advisory. The authoritati
 | RGW user/bucket quota | Retained only as global guardrail | One shared bucket has no project boundary |
 | Per-project bucket/registry fleet | Deferred | Strong isolation but multiplies routing, upgrade, and operational state |
 | Fork or custom Distribution middleware | Rejected | Violates the upstream-composition baseline and image pin |
-| Narrow private-edge manifest admission | Proposed | Preserves clients and Distribution while adding the minimum synchronous policy point |
+| Narrow private-edge manifest admission | Accepted for PoC | Preserves clients and Distribution while adding the minimum synchronous policy point |
 
-## PoC Measurement Plan
+## PoC Measurement Plan and Remaining Work
 
-1. Put two edge/admission replicas behind one endpoint and one shared SQL database; make direct Distribution write access unreachable.
-2. Set a tiny logical quota and publish two concurrent manifests whose unique descriptor deltas cannot both fit. Exactly one must return 201 and one 429; `used + reserved` must never exceed the limit.
-3. Repeat with shared layers, cross-repository references in one project, and identical content in two projects. Charge once within a project and once per project.
-4. Exercise Docker, Podman, Skopeo, containerd/nerdctl, and ORAS; preserve native challenge/push behavior and error parsing.
-5. Kill the edge before forwarding, after forwarding, and after Distribution's 201 but before commit. Pending reservations must bound capacity and reconcile without double charge.
-6. Upload concurrent/chunked blobs without publishing manifests. Record physical staging growth separately; project logical usage must remain unchanged and the service-wide RGW guardrail must be explicit.
-7. Delete tags/manifests and prove quota refunds only after reference reconciliation. Shared referenced blobs must remain charged and pullable.
-8. Emit bounded `admit`, `deny`, `dependency_unavailable`, `pending`, `commit`, `release`, and reconciliation-drift metrics with no project/digest labels.
+1. Remaining: put two edge/admission replicas behind one endpoint and one production shared SQL database; make direct Distribution write access unreachable.
+2. Completed locally: set a tiny logical quota and publish two concurrent manifests whose unique descriptor deltas cannot both fit. Exactly one returned 201 and one 429; `used + reserved` stayed within the limit.
+3. Completed in focused tests: shared descriptors charge once within a project and once per project. Real cross-repository/reconciliation expansion remains.
+4. Partially completed: Docker, Podman, and Skopeo preserve native challenge/push behavior; containerd/nerdctl and ORAS remain.
+5. Partially completed in focused state-machine tests: pending and release recovery remain conservative. Process-kill and replica-level reconciliation tests remain.
+6. Completed locally: an unpublished blob increased physical S3 objects from 28 to 30 while project logical usage remained unchanged.
+7. Remaining: delete tags/manifests and prove quota refunds only after reference reconciliation while shared referenced blobs remain charged and pullable.
+8. Remaining: emit bounded `admit`, `deny`, `dependency_unavailable`, `pending`, `commit`, `release`, and reconciliation-drift metrics with no project/digest labels.
 
-## Decision Gate
+## Decision Outcome
 
-Do not implement a proxy, gateway plugin, notification consumer, or new shared-state schema until ADR 0009 is reviewed. Acceptance requires agreement that manifest admission at the private edge is within Coffer's MVP boundary and that the project-logical/physical-staging distinction is an acceptable product contract.
+ADR 0009 accepted manifest admission at the private edge as the quota PoC implementation target on 2026-07-22, including the project-logical/physical-staging distinction. The completed local slice does not by itself authorize a production gateway, schema rollout, or service deployment.
 
-If that boundary is rejected, the honest alternatives are to remove the bounded project-quota promise from the MVP or move to project-isolated registry/storage topology. Token-only or notification-only enforcement must not be described as bounded.
+If later production validation rejects this boundary, the honest alternatives are to remove the bounded project-quota promise from the MVP or move to project-isolated registry/storage topology. Token-only or notification-only enforcement must not be described as bounded.
 
 ## Evidence References
 

@@ -7,6 +7,7 @@ host_name="coffer-rgw-poc"
 bind_network="192.168.122.0/24"
 https_port="8443"
 ca_path="/etc/ceph/coffer-rgw-root-ca.crt"
+barbican_ca_bundle="/etc/coffer-rgw/devstack-ca-bundle.crt"
 
 test "$(id -u)" -eq 0
 test "$(hostname)" = "${host_name}"
@@ -22,6 +23,12 @@ unexpected_rgw_services="$(
 test -z "${unexpected_rgw_services}"
 
 apply_spec() {
+  local extra_container_args=""
+  if test -f "${barbican_ca_bundle}"; then
+    extra_container_args="extra_container_args:
+  - \"-v\"
+  - \"${barbican_ca_bundle}:/etc/pki/tls/certs/ca-bundle.crt:ro\""
+  fi
   cephadm shell -- ceph orch apply -i - "$@" <<EOF
 service_type: rgw
 service_id: coffer
@@ -31,6 +38,7 @@ placement:
   count: 1
 networks:
   - ${bind_network}
+${extra_container_args}
 spec:
   rgw_frontend_port: ${https_port}
   rgw_frontend_type: beast

@@ -62,7 +62,7 @@ Rejected because cross-repository/global deduplication makes ownership and billi
 
 - RGW S3 compatibility becomes a release/version gate and requires real-Ceph acceptance, not only MinIO/local testing.
 - A shared bucket increases the blast radius of the registry storage credential and depends on strict private access and rotation.
-- Soft quotas can overshoot under concurrency; the bound and operator alerting must be measured and documented.
+- The local private-edge quota PoC serializes project admission and proved one-winner concurrency, but production migrations, row-lock behavior, reconciliation, and operator alerting remain release gates.
 - Always-online GC is not supported by the selected baseline.
 - Tenant-specific encryption keys likely require a different topology and are deferred.
 
@@ -84,7 +84,10 @@ Rejected because cross-repository/global deduplication makes ownership and billi
 - Confirmed identical digest reads after Distribution and RGW restarts and after online one-OSD lab PG merges. Distribution logs contained none of the S3 or HTTP-secret values.
 - Confirmed the same RGW path behind the real Keystone/Coffer Bearer flow: project A completed Skopeo and Podman push/pull, project B was denied project A, and the Skopeo digest survived both Distribution and Coffer broker restarts.
 - Ran the exact pinned image's `garbage-collect --dry-run` twice while the only Distribution instance was stopped. RGW object count remained 19, no deletion candidate was reported, and the baseline plus integrated Skopeo/Podman manifests retained their digests after restart. No real collection was executed.
-- This closes the first single-replica compatibility and least-privilege slice of evidence items 1 and 3 plus the non-destructive portion of item 7. Multi-replica/mid-upload recovery, native-versus-Keystone EC2 comparison, KMS, quota races, and destructive shared-blob GC remain open; the evidence does not change the production gate on Distribution v3.1.1.
+- A later same-VM two-process test resumed and finalized one upload across Distribution processes with shared RGW state and HTTP secret. It closes the process-level resume slice of items 1 and 2, not separate-host/load-balancer HA.
+- The ADR 0009 private-edge PoC proved authoritative descriptor sizing, one-winner 201/429 concurrency, idempotent retry, fail-closed 503, and unchanged logical usage while unpublished physical staging grew. Production shared-SQL migrations, reconciliation, replica faults, and non-bypassable deployment remain open.
+- Barbican-backed SSE-KMS passed for a direct S3 object and novel positive-size OCI config/layer/manifest objects, including wrong-key and fresh-process identity/KMS outage failure, recovery, restart persistence, and bucket-wide selected-key cleanup. Tentacle 20.2.2 rejects encrypted-source ordinary `CopyObject`; forcing Distribution's multipart-copy threshold to zero closes positive-size moves, but zero-byte moves remain incompatible and block production promotion.
+- Destructive shared-blob GC, native-versus-Keystone EC2 credential comparison, separate-host HA, and the encrypted zero-byte path remain open. The evidence does not change the production gate on Distribution v3.1.1.
 
 ## Primary Evidence
 
@@ -95,5 +98,6 @@ Rejected because cross-repository/global deduplication makes ownership and billi
 - [Ceph Object Gateway](https://docs.ceph.com/en/latest/radosgw/)
 - [Ceph RGW Keystone integration](https://docs.ceph.com/en/latest/radosgw/keystone/)
 - [Ceph RGW encryption](https://docs.ceph.com/en/latest/radosgw/encryption/)
+- [Distribution S3 driver multipart parameters](https://distribution.github.io/distribution/storage-drivers/s3/#parameters)
 - [Ceph RGW administration, quotas, and rate limits](https://docs.ceph.com/en/latest/radosgw/admin/)
 - [Swift S3 compatibility](https://docs.openstack.org/swift/rocky/s3_compat.html)

@@ -1,0 +1,124 @@
+name: coffer-quota
+
+services:
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: cofferquota
+      MINIO_ROOT_PASSWORD: cofferquota
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    networks:
+      - storage
+
+  minio-init:
+    image: quay.io/minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: cofferquota
+      MINIO_ROOT_PASSWORD: cofferquota
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
+        mc mb --ignore-existing local/coffer-registry
+        mc anonymous set none local/coffer-registry
+    restart: "no"
+    networks:
+      - storage
+
+  registry:
+    image: docker.io/library/registry:3.1.1@sha256:1be55279f18a2fe1a74edf2664cac61c1bea305b7b4642dab412e7affdcb3e33
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      OTEL_TRACES_EXPORTER: none
+      REGISTRY_STORAGE_S3_ACCESSKEY: cofferquota
+      REGISTRY_STORAGE_S3_SECRETKEY: cofferquota
+    volumes:
+      - ./registry-config.yml:/etc/distribution/config.yml:ro
+      - ../../work/quota/jwks.json:/etc/distribution/jwks.json:ro
+    networks:
+      - backend
+      - storage
+
+  edge:
+    build:
+      context: ../..
+      dockerfile: poc/quota/Dockerfile
+    depends_on:
+      registry:
+        condition: service_started
+    environment:
+      COFFER_QUOTA_DATABASE: sqlite:////state/coffer.sqlite
+      COFFER_QUOTA_PRIVATE_KEY: /runtime/private.pem
+      COFFER_QUOTA_UPSTREAM: http://registry:5000
+    ports:
+      - "127.0.0.1:5002:5000"
+    volumes:
+      - ../../work/quota/fixture.env:/runtime/fixture.env:ro
+      - ../../work/quota/private.pem:/runtime/private.pem:ro
+      - quota-state:/state
+    networks:
+      - client
+      - backend
+
+  docker-daemon:
+    image: docker.io/library/docker:29.5.3-dind@sha256:7278248384185bcbb54c7a76b2f0a7d354c4aac920605cc1ab48968d961052fb
+    profiles: ["client"]
+    privileged: true
+    depends_on:
+      edge:
+        condition: service_started
+    command:
+      - --host=tcp://0.0.0.0:2375
+      - --tls=false
+      - --insecure-registry=edge:5000
+    environment:
+      DOCKER_HOST: tcp://127.0.0.1:2375
+      DOCKER_TLS_CERTDIR: ""
+    volumes:
+      - ../../work/quota/client.env:/runtime/client.env:ro
+      - docker-data:/var/lib/docker
+    networks:
+      - client
+
+  skopeo:
+    image: quay.io/skopeo/stable:v1.20.0@sha256:47853bb9fb24202af9110531ebd6e43c5f97701254ca290596640290d17942f4
+    profiles: ["client"]
+    entrypoint: ["/bin/sh", "-ec"]
+    volumes:
+      - ../../work/quota/client.env:/runtime/client.env:ro
+    networks:
+      - client
+
+  podman:
+    image: quay.io/podman/stable:v5.6.0@sha256:7c9381b9af167cf2218831c3af3135856c99f488b543b78435c8f18e19ad739a
+    profiles: ["client"]
+    privileged: true
+    entrypoint: ["/bin/sh", "-ec"]
+    volumes:
+      - ../../work/quota/client.env:/runtime/client.env:ro
+    networks:
+      - client
+
+networks:
+  backend:
+    internal: true
+  client:
+  storage:
+    internal: true
+
+volumes:
+  docker-data:
+  minio-data:
+  quota-state:

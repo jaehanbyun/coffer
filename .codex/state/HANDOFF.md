@@ -1,13 +1,14 @@
 # Coffer Handoff
 
 - Updated: 2026-07-22
-- Status: KMS capability is documented; backend/key deployment and proposed quota ADR require user decisions
-- Completed execution plan: `docs/exec-plans/0001-product-discovery.md`
-- Active execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
+- Status: Barbican SSE-KMS and ADR 0009 quota PoC work package completed and atomically published
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`
+- Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
+- Active execution plan: none
 
 ## Current Objective
 
-Validate the thin Coffer vertical slice while preserving durable decisions and evidence: local M0/M1/M2, bounded M3 observability, the real Keystone matrix, real Ceph/RGW Distribution storage, two clean integrated Bearer-token runs, a safe GC dry-run, and same-VM cross-process upload resume have passed. KMS, quota architecture, multi-worker aggregation, and separate-host HA remain open.
+No work package is active. The authorized Barbican SSE-KMS and ADR 0009 quota milestone is complete, verified, and atomically published. Multi-worker aggregation, production shared-state migrations/reconciliation, and separate-host HA remain later work requiring a new execution plan.
 
 ## Completed
 
@@ -55,9 +56,21 @@ Validate the thin Coffer vertical slice while preserving durable decisions and e
 - Repeated the complete real integration harness from the restored clean state; stable identities, digest/restart results, and 200/401 authorization outcomes matched while independent request IDs differed, and the second cleanup again restored the pre-integration lab state.
 - Completed a write-stopped Distribution GC dry-run against real RGW: 19 objects remained 19, zero deletion candidates were reported, three selected referenced manifests preserved their digests after restart, and no destructive collector was run.
 - Bound the real integration broker to production `/healthz`, `/readyz`, and `/metrics`; both process generations were healthy/ready, issued-token observations existed, metrics were free of tenant/request/credential/repository/secret/JWT values, and local aggregate decision time was recorded without making a production benchmark claim.
-- Completed the quota enforcement spike: token-only, notification-only, and shared-bucket storage controls cannot bound project logical bytes; proposed ADR 0009 introduces a narrow private-edge manifest admission seam but remains unaccepted and unimplemented.
+- Completed the quota enforcement spike: token-only, notification-only, and shared-bucket storage controls cannot bound project logical bytes; it introduced the private-edge manifest admission seam later accepted for PoC implementation in ADR 0009.
 - Proved two pinned Distribution processes can share RGW upload state and the persistent HTTP secret: a 2 MiB upload started on replica 1, replica 1 stopped after 1 MiB, replica 2 finalized with 201, and both endpoints returned the completed blob/selected manifest after restart.
 - Inspected Tentacle 20.2.2 KMS support read-only: Barbican/Vault/KMIP are viable SSE-KMS backends, testing is inadmissible, SSL is required by default, no KMS option is configured, and the current DevStack has no Barbican service.
+- Published the fully verified baseline as root commit `f437995` to `jaehanbyun/coffer` `main` with an atomic push.
+- Enabled exact Barbican commit `586152c223b9e1373f5e422276bcaa152686b761` plus RabbitMQ in the disposable DevStack, forced Barbican `host_href` and catalog endpoints to verified HTTPS, and passed strict-CA health checks.
+- Created a dedicated `coffer-rgw-kms-poc` project/user with only the exact effective Barbican `creator` assignment and a server-stored random 256-bit AES/CBC secret; its password and key UUID remain guest-root mode `0600`, while retained host evidence contains only non-secret identity IDs and metadata, never the key UUID or secret values.
+- Streamed the RGW caller binding directly between guest-root contexts with no Mac-side credential file, installed the public CA, redeployed `rgw.coffer` with a read-only CentOS libcurl CA bundle mount, and passed strict-TLS Barbican/Keystone probes from both the RGW host and daemon container.
+- Completed the hardened Barbican SSE-KMS matrix: direct S3 plus five repository and three global novel OCI objects reported `aws:kms` with the selected key; new and pre-KMS digests survived fresh processes; random wrong-key and combined Keystone/Barbican outage writes failed with zero novel objects and multipart uploads; recovery passed; 17 isolated objects were removed; bucket-wide selected-key residue is zero; Ceph/Distribution returned to non-KMS baseline; DevStack and the tunnel are stopped.
+- Implemented the ADR 0009 shared-SQL quota core and bounded manifest admission resource. Twelve focused tests pass for unique descriptor accounting, cross-project charging, concurrent one-winner admission, retry idempotency, conservative pending/release recovery, exact JWT/repository authorization, byte-for-byte forwarding, and Distribution-compatible 401/400/413/429/503 outcomes.
+- Completed the private-edge quota black box with pinned Docker 29.5.3, Podman 5.6.0, and Skopeo 1.20.0. Distribution had no host binding; concurrent manifests returned one 201 and one 429; retry returned 201 without a second charge; missing quota returned 503; and an unpublished blob changed S3 objects from 28 to 30 while logical usage remained unchanged.
+- Corrected a real Docker compatibility gap by merging repeated scopes for the same canonical repository before policy reduction. Forty-eight targeted token/quota tests pass, and the fixture cleanup removed every container, volume, credential, private key, generated JWKS, and JWT-shaped value.
+- Completed the Ultra-review quota corrections: authoritative Distribution descriptor sizes, explicit media-type shapes, encoded-path rejection, SQLAlchemy 503 handling, valid retry state transitions, and project-row serialization now close the discovered admission/ledger bypasses.
+- Reran the quota black box on isolated client/backend/storage networks. Docker, Podman, and Skopeo could reach only the edge and received no signing/cross-project secrets; forged-size and encoded-path requests returned 400; concurrent publication returned 201/429; retry returned 201; missing quota returned 503; staging remained physically separate; cleanup passed.
+- Completed the hardened Barbican rerun with secret-free helper arguments, exact effective creator assignment, a rotated registry S3 key, deterministic novel OCI config/layer payloads, eight selected-key Distribution objects, positive-size multipart-copy compatibility, explicit zero-byte fail-closed evidence, wrong-key and combined identity/KMS outage closure, recovery, 17-object cleanup, and zero selected-key/multipart residue.
+- Completed final regression and publication: 91 tests passed on each supported Python version; all Bash/ShellCheck, compile, lock, Gunicorn, Compose, Make, Markdown, Mermaid, external-link, diff, and secret scans passed; the lab safe state was rechecked; the milestone was committed once and atomically pushed to `jaehanbyun/coffer` `main`.
 
 ## Decisions and Reasons
 
@@ -70,6 +83,9 @@ Validate the thin Coffer vertical slice while preserving durable decisions and e
 - OpenStack naming is separated by concern: project codename `coffer`, descriptive service name `OCI Registry service`, proposed service type `oci-registry`, and CLI noun `registry`.
 - Finite restricted Keystone application credentials authenticate the broker; the broker issues short-lived Distribution JWTs and no non-expiring refresh token.
 - Ceph RGW S3 is the single-region storage baseline. Project accounting is logical and bounded-soft, not byte-perfect physical quota.
+- Barbican is the validated OpenStack-native SSE-KMS path for the pinned Tentacle PoC; owner-only bindings and deterministic rollback remain mandatory, and the disposable cross-host tunnel is not production topology.
+- Tentacle 20.2.2 rejects encrypted-source ordinary `CopyObject`, so the Distribution S3 driver uses `multipartcopythresholdsize: 0` for positive-size payloads in this PoC. Zero-byte encrypted moves still fail closed and block production promotion until a released Ceph fix/backport or another proven backend/release closes the gap.
+- ADR 0009 is accepted for PoC validation: only bounded manifest PUTs cross the admission seam, blob bodies stay streamed to unmodified Distribution, shared SQL is the logical quota authority, and physical staging remains a separate service-wide concern.
 - M0 remains unauthenticated and defers generated signing material to the M2 token-contract test; this keeps the upstream data-plane spike separate from Coffer authentication behavior.
 - Host-side M0 clients use `127.0.0.1` because macOS AirPlay can own IPv6 `::1:5000` even when Docker publishes the registry only on IPv4 loopback.
 - Distribution v3.1.1 is a functional PoC-only pin: its current Linux ARM64 image is blocked from production promotion by the recorded Scout findings.
@@ -91,7 +107,7 @@ Validate the thin Coffer vertical slice while preserving durable decisions and e
 
 ## Changed Files
 
-- Architecture and state: `docs/adrs/0001-compose-cnc-distribution.md`, `docs/adrs/0002-keystone-application-credential-token-broker.md`, `docs/adrs/0003-rgw-s3-single-region-storage.md`, `docs/adrs/0004-mvp-scope-private-project-registry.md`, `docs/adrs/0006-gate-production-distribution-release.md`, `docs/adrs/0007-use-falcon-wsgi-and-gunicorn.md`, accepted ADR `docs/adrs/0008-finite-application-credentials-as-provisioning-contract.md`, proposed ADR `docs/adrs/0009-add-private-edge-manifest-quota-admission.md`, `docs/research/m0-upstream-compatibility.md`, `docs/research/m1-framework-selection.md`, `docs/research/m1-application-credential-authentication.md`, `docs/exec-plans/0002-thin-vertical-poc.md`, and this handoff.
+- Architecture and state: `docs/architecture/mvp-baseline.md`, accepted ADRs 0001–0008, accepted-for-PoC ADR `docs/adrs/0009-add-private-edge-manifest-quota-admission.md`, active execution plan 0003, the real-environment runbook, and this handoff.
 - M0 environment: `.gitignore`, `poc/m0/compose.yaml`, `poc/m0/registry-config.yml`, `poc/m0/Makefile`, `poc/m0/verify.sh`, `poc/m0/run-conformance.sh`, `poc/m0/scan-security.sh`, and `poc/m0/README.md`.
 - M1 implementation: `pyproject.toml`, `uv.lock`, `src/coffer/`, `tests/`, and `README.md`.
 - M2 and acceptance preparation: `src/coffer/authorization.py`, token/Keystone/policy/WSGI modules, related tests, `poc/m2/`, `docs/research/m2-token-contract.md`, `docs/runbooks/real-keystone-rgw-poc.md`, ADR 0002, README, the active plan, and this handoff.
@@ -101,9 +117,10 @@ Validate the thin Coffer vertical slice while preserving durable decisions and e
 - Real vertical integration: `poc/integration/`, the two-project fixture extension in `poc/devstack/guest-verify.sh`, optional token/JWKS support in `poc/rgw/guest-run-distribution.sh`, ADRs 0002/0003, the active plan, and this handoff.
 - GC acceptance: `poc/rgw/guest-verify-gc-dry-run.sh`, `poc/rgw/verify-gc-dry-run.sh`, its Make target/README guidance, ADR 0003, the active plan, and this handoff.
 - Real observability: `poc/integration/real_broker.py`, `poc/integration/verify.sh`, its README, `docs/research/m3-local-observability.md`, the active plan, and this handoff.
-- Quota design: `docs/research/m3-quota-enforcement-spike.md`, proposed ADR `docs/adrs/0009-add-private-edge-manifest-quota-admission.md`, the active plan, and this handoff.
+- Quota implementation: `src/coffer/quota.py`, `src/coffer/quota_admission.py`, `src/coffer/registry_proxy.py`, token-scope compatibility, focused tests, `poc/quota/`, accepted-for-PoC ADR 0009, the active plan, and this handoff.
 - Process-level HA: `poc/rgw/guest-verify-distribution-ha.sh`, `poc/rgw/verify-distribution-ha.sh`, its Make target/README guidance, the active plan, and this handoff.
 - KMS capability: `docs/research/m3-rgw-kms-capability.md`, the active plan, and this handoff.
+- Barbican KMS execution: `poc/barbican/`, RGW KMS-aware deploy/Distribution helpers, the real-environment runbook, active plan 0003, and this handoff.
 
 ## Verification
 
@@ -157,21 +174,26 @@ Validate the thin Coffer vertical slice while preserving durable decisions and e
 - The two-replica Distribution harness passed: the first 1 MiB and second 1 MiB of one blob crossed different processes around a primary stop, finalize returned 201, both endpoints returned the blob and selected manifest, logs were secret-free, and the temporary replica was removed.
 - Final consistency checks passed: `uv lock --check`, 70 tests, Python compilation, Bash syntax, full PoC ShellCheck, both Compose models, all Make target dry runs, 36 Markdown files and 13 local links, three rendered and visually inspected Mermaid diagrams, scoped Gitleaks/private-key/JWT scans, and trailing-whitespace checks.
 - Final lab-safety checks passed: DevStack is stopped; only the baseline Distribution container runs; its CA-verified `/v2/` returns 200; guest integration and temporary evidence state is absent; Ceph reports only the expected one-OSD no-replica warning; no KMS option is configured; private integration credentials, keys, and SQLite state are absent.
+- The hardened Barbican rerun passed: eight novel Distribution objects and the direct S3 proof used the selected key; wrong-key and fresh-process combined identity/KMS outage writes failed closed; the zero-byte encrypted-move limitation failed closed; recovery passed; 17 isolated objects were removed; selected-key residue and incomplete multipart uploads are zero.
+- The final KMS safe-state check passed: all nine Ceph KMS options and Distribution KMS settings are absent, the CA-verified non-KMS `/v2/` endpoint returns 200, the pre-KMS digest remains readable, DevStack and its tunnel are stopped, and exact temporary OCI layouts are absent.
+- Final repository regression passed: 91 tests on each of Python 3.11.14, 3.12.2, and 3.13.14; `uv lock --check`; Python compilation; all PoC Bash/ShellCheck; Gunicorn config; three Compose models; every Make target dry run; 39 Markdown files and 16 local links; 99 external links; three rendered and visually inspected Mermaid diagrams; trailing-whitespace, Gitleaks, private-key/JWT, and diff checks.
+- Final host/lab residue passed: Podman machine and DevStack are stopped, Docker is not running, no quota resource or secret remains, RGW has zero Ceph/Distribution KMS settings and temporary layouts, the baseline Distribution alone returns CA-verified 200, and Ceph reports only `POOL_NO_REDUNDANCY`.
 
 ## Blockers and Risks
 
 - Project hooks must be reviewed and trusted in Codex before they run.
 - Local memories are experimental and must never replace checked-in project state.
 - Coffer's product scope and architecture baseline are accepted for the PoC; empirical PoC failures may amend them through new ADR evidence.
-- The real identity, storage, integrated token path, repeated clean run, GC dry-run, single-process observability, and same-VM Distribution shared state are complete. Final acceptance still requires KMS, an accepted quota direction, multi-worker/shared-control-state evidence, and separate-host/load-balancer HA evidence.
+- The real identity, storage, integrated token path, repeated clean run, GC dry-run, same-VM Distribution shared state, Barbican SSE-KMS, and bounded local quota admission are complete. Production promotion still requires multi-worker/shared-control-state evidence, quota migrations/reconciliation, and separate-host/load-balancer HA.
 - `POOL_NO_REDUNDANCY` is intentionally retained as an honest warning for the one-OSD functional lab. No durability, HA, performance, or physical-failure-domain conclusion may be drawn from it.
-- Native OCI 1.1 Referrers, SSE-KMS, and quota overshoot remain empirical PoC gates. RGW compatibility and non-destructive GC behavior have functional evidence; destructive reclamation remains a separately approved maintenance test.
+- Native OCI 1.1 Referrers remain an empirical gate. SSE-KMS and logical-versus-physical quota behavior now have bounded PoC evidence; destructive reclamation remains a separately approved maintenance test.
+- Ceph Tentacle 20.2.2 cannot finalize an encrypted zero-byte Distribution blob through ordinary `CopyObject`. The positive-size multipart-copy workaround is verified, but production SSE-KMS promotion requires a released Ceph fix/backport or a separately proven release/backend that closes the zero-byte path.
 - The pinned Distribution v3.1.1 Linux ARM64 image has 8 Critical and 9 High Docker Scout findings. Production use is blocked pending an upstream-patched supported image or complete reachability/VEX resolution.
 - Distribution v3.1.1 has one core supported-profile conformance failure: a malformed digest-like manifest reference returns 500. Native Referrers and optional automatic cross-mount are not supported.
 - The active Codex workspace still enters through a compatibility symlink. Reopen it from `/Users/byeonjaehan/projects/personal/coffer`, then remove the legacy symlink; the Git root already resolves to the canonical Coffer path.
 - The Mac lab closes real Keystone HTTP/TLS, duplicate-name isolation, reader/member/admin/service mapping, domain/system isolation, finite credential lifecycle, real control middleware, incoming service-token enforcement, bounded cache, and outage behavior. Shared production SQL/memcache and multi-worker consistency remain deployment gates.
 - Keystone authentication proves current credential validity but does not reveal whether the credential record has a non-null future `expires_at`; accepted ADR 0008 therefore requires explicit provisioning expiry plus the verified lifecycle regression matrix.
-- The runbook's identity, private RGW bucket, Distribution TLS, single-process integrated auth, GC dry-run, and same-VM shared upload state now have evidence. An approved KMS backend/key, routine OS credential-helper mechanism, accepted quota design, and separate-host HA evidence are still required for final acceptance.
+- The runbook's identity, private RGW bucket, Distribution TLS, single-process integrated auth, GC dry-run, shared upload state, and Barbican KMS paths now have evidence. ADR 0009 has local quota evidence; routine production credential helpers, shared SQL/reconciliation, and separate-host HA remain deployment gates.
 - Application-credential access rules currently fail closed rather than being supported. Exact service/method/path semantics need a later accepted design if users require them.
 - The static two-key fixture does not prove per-replica trust rollout, signer transition, old-key retirement, rollback, or Distribution key reload without restart.
 - Broker decision logs correlate request/JTI/Keystone audit IDs and reductions with explicit Distribution 200/401 outcomes, and single-process bounded metrics are verified. Multi-worker and multi-replica aggregation remains open M3 work.
@@ -180,10 +202,8 @@ Validate the thin Coffer vertical slice while preserving durable decisions and e
 
 ## Exact Next Action
 
-Ask the user to choose and authorize a KMS path: Barbican deployment for OpenStack-native evidence, Vault for narrower RGW functional evidence, or an existing approved KMIP endpoint. Also request review of proposed quota ADR 0009 before implementation.
+No action remains for completed plan 0003. When the user authorizes the next package, create a new execution plan for production shared-SQL migrations and quota reconciliation before separate-host ingress/HA validation.
 
-## Next Three Actions
+## After This Work Package
 
-1. Receive the KMS backend/key/deployment decision and approved credential-delivery boundary.
-2. Review proposed ADR 0009 before implementing any quota gateway; otherwise remove the bounded quota promise or select project-isolated storage.
-3. After those decisions, execute M3-B encryption and the accepted quota path; separate-host/load-balancer HA and destructive GC remain distinct work.
+Separate-host/load-balancer HA, shared production database migrations and reconciliation, multi-worker observability, native Referrers, and destructive GC remain distinct future work packages.

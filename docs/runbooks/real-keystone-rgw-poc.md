@@ -1,8 +1,14 @@
 # Real Keystone and Ceph RGW PoC Runbook
 
-- Status: ready for environment binding; not yet executed
-- Related plan: `docs/exec-plans/0002-thin-vertical-poc.md`
+- Status: executed in the disposable lab; retained as a rerun template
+- Related plan: `docs/exec-plans/0003-barbican-kms-quota-poc.md`
 - Purpose: close the M1 identity lifecycle and M3 RGW evidence that synthetic fixtures cannot prove
+
+## Executed Evidence
+
+The disposable Mac/`bb00` lab completed real Keystone scope and application-credential lifecycle tests, Ceph RGW TLS and least-privilege storage, integrated Bearer-token push/pull, restart persistence, a write-stopped GC dry run, two-process upload resume, and Barbican-backed SSE-KMS. The hardened KMS run used exact Barbican and Ceph release pins, owner-only runtime bindings, a rotated least-privilege S3 key, selected-key metadata on five repository plus three global novel OCI objects, wrong-key and fresh-process combined Keystone/Barbican outage failures, recovery, 17-object bounded cleanup, zero selected-key/multipart residue, and deterministic rollback to the non-KMS baseline. See `poc/barbican/`, `poc/rgw/`, and execution plan 0003 for the repeatable harness and redacted result boundaries.
+
+ADR 0009 quota admission is validated separately under `poc/quota/`: Distribution remains private, Docker/Podman/Skopeo publish through the edge, concurrent manifest admission returns one 201 and one 429, missing quota returns 503, and physical staging is measured separately from logical usage. The disposable client fixture does not close the production OS credential-helper, shared-SQL/reconciliation, or separate-host ingress gates.
 
 ## Safety Boundary
 
@@ -229,6 +235,10 @@ An anonymous `HEAD`/`GET` of the bucket and a TLS request with an intentionally 
 
 For the selected stable Ceph release, configure bucket SSE-KMS through the operator's approved RGW/KMS procedure. Distribution's S3 driver must use `encrypt: true` and the approved `keyid`. Verify the actual stored object metadata:
 
+For the executed Tentacle 20.2.2 lab, use `poc/barbican/` instead of manually entering secret-bearing Ceph options. The harness streams the owner-only binding between guest-root contexts, mounts only the public CA into `rgw.coffer`, reads secret values inside guest helpers rather than from process arguments, and provides an explicit rollback target. The proof used per-object SSE-KMS requests; bucket-default encryption is optional evidence and must not substitute for `head-object` metadata on newly written registry objects.
+
+Tentacle 20.2.2 returns 501 when Distribution tries to finalize an encrypted source with ordinary `CopyObject`. Set `multipartcopythresholdsize: 0` in the Distribution S3 driver so every positive-size move uses RGW's multipart decrypt-and-re-encrypt path; keep an explicit chunk size and bounded concurrency. This workaround does not cover a zero-byte blob because Distribution retains ordinary `CopyObject` for size zero. The zero-byte test must fail closed and leave no object or incomplete multipart upload; production promotion requires a released Ceph fix/backport or another proven release/backend combination.
+
 ```bash
 aws --profile "${COFFER_RGW_AWS_PROFILE}" \
   --endpoint-url "${COFFER_RGW_ENDPOINT}" \
@@ -251,7 +261,7 @@ Exercise approved, bounded dependency faults one at a time:
 - Keystone unreachable: new exchange returns 503; an already-issued registry JWT remains usable only until `exp`.
 - SQL unreachable: repository/token authorization fails closed and readiness reports dependency failure.
 - RGW unreachable: upload/pull fails without redirecting clients to object storage; recovery needs no content rewrite.
-- KMS unavailable: encrypted writes fail and emit a dependency error without a key or credential value.
+- KMS/identity path unavailable: after stopping both Barbican and Keystone reachability and starting a fresh RGW process, encrypted writes fail without plaintext fallback, object residue, multipart residue, or a key/credential value in logs.
 - wrong Keystone/RGW CA: connection fails closed; never retry with verification disabled.
 
 For every token decision, verify request ID, JTI, project/user IDs, Keystone audit IDs, normalized requested grants, reduced grants, and result. For registry requests, record Distribution request IDs, repository/action/result, digest when present, and storage error class. Metrics must expose request/error/latency and dependency health without labels containing user IDs, repositories, tokens, or unbounded values.
@@ -278,7 +288,7 @@ Cleanup is a required test phase. Resolve every target by immutable ID before mu
 3. Re-enable dedicated test users and restore or delete only the test role assignments according to the environment reset plan.
 4. Delete the PoC repository through the future control API deletion path when implemented; until then, reset the disposable control database through the environment owner.
 5. Delete only the approved RGW prefix/bucket after the operator confirms no non-PoC objects exist.
-6. Revoke or delete the disposable S3 identity and KMS grants.
+6. After proving that no retained object depends on the disposable key, either revoke/delete the S3 identity and KMS grants or retain them owner-only for an explicitly documented exact rerun. The executed lab retained them after rotating the exposed S3 key and proving zero selected-key object residue.
 7. Unset all token/secret variables and delete the secure temporary directories.
 8. Re-run the service health checks and secret scan.
 
@@ -304,7 +314,7 @@ The run is accepted only when all required rows are recorded with timestamps, ex
 - explicit repository and cross-project isolation;
 - helper-backed unmodified Docker flow with no refresh token;
 - push/pull by digest after Coffer and Distribution restart from a clean client;
-- Ceph RGW object presence, other-bucket/anonymous denial, TLS verification, and selected-release SSE-KMS evidence;
+- Ceph RGW object presence, other-bucket/anonymous denial, TLS verification, selected-release SSE-KMS evidence, encrypted-move compatibility boundaries, and zero incomplete-multipart cleanup;
 - correlated audit/health/metrics evidence and zero retained secrets.
 
 Do not mark M1 or M3 complete from a partial run or from local MinIO/fixture substitutions.
@@ -318,3 +328,4 @@ Do not mark M1 or M3 complete from a partial run or from local MinIO/fixture sub
 - [Distribution configuration](https://distribution.github.io/distribution/about/configuration/)
 - [Ceph RGW S3 authentication](https://docs.ceph.com/en/latest/radosgw/s3/authentication/)
 - [Ceph RGW encryption](https://docs.ceph.com/en/latest/radosgw/encryption/)
+- [Distribution S3 storage driver multipart parameters](https://distribution.github.io/distribution/storage-drivers/s3/#parameters)
