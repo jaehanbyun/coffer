@@ -80,7 +80,7 @@ for project_id, names in (
         except RepositoryAlreadyExists:
             pass
 
-quotas = QuotaStore(database)
+quotas = QuotaStore(database, bootstrap_schema=True)
 quotas.set_limit(os.environ["COFFER_QUOTA_PROJECT_A"], 16 * 1024 * 1024)
 
 issuer = TokenIssuer.from_pem_file(

@@ -1,0 +1,71 @@
+name: coffer-quota-sql
+
+services:
+  postgres:
+    image: docker.io/library/postgres@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+    environment:
+      POSTGRES_DB: coffer
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_USER: coffer
+    secrets:
+      - postgres_password
+    ports:
+      - "127.0.0.1:${COFFER_POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --dbname=$${POSTGRES_DB} --username=$${POSTGRES_USER}"]
+      interval: 1s
+      timeout: 3s
+      retries: 90
+    labels:
+      org.openstack.coffer.poc: quota-sql
+    networks:
+      - database
+    restart: "no"
+
+  mariadb:
+    image: docker.io/library/mariadb@sha256:a794d9eb009e20de605858a11f32f63b4075cbd197c650436f0e3b457e4caed7
+    environment:
+      MARIADB_DATABASE: coffer
+      MARIADB_PASSWORD_FILE: /run/secrets/mariadb_password
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/mariadb_root_password
+      MARIADB_USER: coffer
+    secrets:
+      - mariadb_password
+      - mariadb_root_password
+    ports:
+      - "127.0.0.1:${COFFER_MARIADB_PORT:-53306}:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 1s
+      timeout: 3s
+      retries: 90
+    labels:
+      org.openstack.coffer.poc: quota-sql
+    networks:
+      - database
+    restart: "no"
+
+secrets:
+  postgres_password:
+    file: ${COFFER_QUOTA_SQL_SECRET_DIR:-../../work/quota-sql}/postgres-password
+  mariadb_password:
+    file: ${COFFER_QUOTA_SQL_SECRET_DIR:-../../work/quota-sql}/mariadb-password
+  mariadb_root_password:
+    file: ${COFFER_QUOTA_SQL_SECRET_DIR:-../../work/quota-sql}/mariadb-root-password
+
+volumes:
+  postgres_data:
+    labels:
+      org.openstack.coffer.poc: quota-sql
+  mariadb_data:
+    labels:
+      org.openstack.coffer.poc: quota-sql
+
+networks:
+  database:
+    labels:
+      org.openstack.coffer.poc: quota-sql

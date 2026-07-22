@@ -10,20 +10,28 @@ import re
 import uuid
 
 from sqlalchemy import (
+    and_,
     BigInteger,
+    CheckConstraint,
     Column,
     DateTime,
+    ForeignKey,
+    Index,
     MetaData,
     String,
     Table,
     UniqueConstraint,
     delete,
     insert,
+    or_,
     select,
     update,
     create_engine,
+    inspect,
+    text,
 )
 from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.pool import StaticPool
 
 
@@ -32,6 +40,9 @@ MAX_MANIFEST_BYTES = 4 * 1024 * 1024
 MAX_LOGICAL_BYTES = 2**63 - 1
 MAX_DESCRIPTOR_COUNT = 4096
 PENDING_STATES = ("pending", "release_pending")
+RECONCILIATION_STATES = ("pending", "release_pending", "committed")
+MAX_RECONCILIATION_BATCH = 1000
+CURRENT_QUOTA_SCHEMA_REVISION = "0001_quota_ledger"
 
 OCI_IMAGE_MANIFEST = "application/vnd.oci.image.manifest.v1+json"
 OCI_IMAGE_INDEX = "application/vnd.oci.image.index.v1+json"
@@ -51,6 +62,9 @@ project_quotas = Table(
     Column("used_bytes", BigInteger, nullable=False, default=0),
     Column("reserved_bytes", BigInteger, nullable=False, default=0),
     Column("updated_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("limit_bytes >= 0", name="ck_project_quota_limit"),
+    CheckConstraint("used_bytes >= 0", name="ck_project_quota_used"),
+    CheckConstraint("reserved_bytes >= 0", name="ck_project_quota_reserved"),
 )
 quota_descriptors = Table(
     "quota_descriptors",
@@ -59,19 +73,33 @@ quota_descriptors = Table(
     Column("digest", String(71), primary_key=True),
     Column("size", BigInteger, nullable=False),
     Column("reference_count", BigInteger, nullable=False),
+    CheckConstraint("size >= 0", name="ck_quota_descriptor_size"),
+    CheckConstraint("reference_count > 0", name="ck_quota_descriptor_refs"),
 )
 quota_reservations = Table(
     "quota_reservations",
     quota_metadata,
     Column("id", String(36), primary_key=True),
-    Column("project_id", String(64), nullable=False),
+    Column(
+        "project_id",
+        String(64),
+        ForeignKey("project_quotas.project_id", ondelete="CASCADE"),
+        nullable=False,
+    ),
     Column("repository_id", String(36), nullable=False),
     Column("manifest_digest", String(71), nullable=False),
     Column("request_id", String(128), nullable=False),
     Column("state", String(24), nullable=False),
+    Column("version", BigInteger, nullable=False),
     Column("delta_bytes", BigInteger, nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint(
+        "state IN ('pending', 'release_pending', 'committed', 'released')",
+        name="ck_quota_reservation_state",
+    ),
+    CheckConstraint("version > 0", name="ck_quota_reservation_version"),
+    CheckConstraint("delta_bytes >= 0", name="ck_quota_reservation_delta"),
     UniqueConstraint(
         "project_id",
         "repository_id",
@@ -86,12 +114,29 @@ quota_reservations = Table(
         name="uq_quota_reservation_request",
     ),
 )
+Index(
+    "ix_quota_reservations_reconcile",
+    quota_reservations.c.state,
+    quota_reservations.c.updated_at,
+    quota_reservations.c.id,
+)
+Index(
+    "ix_quota_reservations_project_state",
+    quota_reservations.c.project_id,
+    quota_reservations.c.state,
+)
 quota_reservation_descriptors = Table(
     "quota_reservation_descriptors",
     quota_metadata,
-    Column("reservation_id", String(36), primary_key=True),
+    Column(
+        "reservation_id",
+        String(36),
+        ForeignKey("quota_reservations.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
     Column("digest", String(71), primary_key=True),
     Column("size", BigInteger, nullable=False),
+    CheckConstraint("size >= 0", name="ck_quota_reservation_descriptor_size"),
 )
 quota_manifests = Table(
     "quota_manifests",
@@ -99,9 +144,23 @@ quota_manifests = Table(
     Column("project_id", String(64), primary_key=True),
     Column("repository_id", String(36), primary_key=True),
     Column("digest", String(71), primary_key=True),
-    Column("reservation_id", String(36), nullable=False),
+    Column(
+        "reservation_id",
+        String(36),
+        ForeignKey("quota_reservations.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
     Column("state", String(24), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint(
+        "state IN ('committed', 'released')", name="ck_quota_manifest_state"
+    ),
+)
+Index(
+    "ix_quota_manifests_project_digest_state",
+    quota_manifests.c.project_id,
+    quota_manifests.c.digest,
+    quota_manifests.c.state,
 )
 
 
@@ -118,6 +177,14 @@ class QuotaNotConfigured(Exception):
 
 
 class ReservationNotFound(Exception):
+    pass
+
+
+class QuotaSchemaNotReady(Exception):
+    pass
+
+
+class StaleReconciliationCandidate(Exception):
     pass
 
 
@@ -155,6 +222,7 @@ class Reservation:
     manifest_digest: str
     request_id: str
     state: str
+    version: int
     delta_bytes: int
 
     @classmethod
@@ -167,6 +235,7 @@ class Reservation:
             manifest_digest=mapping["manifest_digest"],
             request_id=mapping["request_id"],
             state=mapping["state"],
+            version=mapping["version"],
             delta_bytes=mapping["delta_bytes"],
         )
 
@@ -177,6 +246,45 @@ class QuotaUsage:
     limit_bytes: int
     used_bytes: int
     reserved_bytes: int
+
+
+@dataclass(frozen=True, slots=True)
+class ReconciliationCursor:
+    updated_at: datetime
+    reservation_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReconciliationCandidate:
+    reservation_id: str
+    project_id: str
+    repository_id: str
+    manifest_digest: str
+    state: str
+    version: int
+    updated_at: datetime
+
+    @classmethod
+    def from_row(cls, row: object) -> ReconciliationCandidate:
+        mapping = row._mapping  # type: ignore[attr-defined]
+        updated_at = mapping["updated_at"]
+        if updated_at.tzinfo is None:
+            updated_at = updated_at.replace(tzinfo=UTC)
+        return cls(
+            reservation_id=mapping["id"],
+            project_id=mapping["project_id"],
+            repository_id=mapping["repository_id"],
+            manifest_digest=mapping["manifest_digest"],
+            state=mapping["state"],
+            version=mapping["version"],
+            updated_at=updated_at,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ReconciliationPage:
+    candidates: tuple[ReconciliationCandidate, ...]
+    next_cursor: ReconciliationCursor | None
 
 
 def _descriptor(value: object) -> Descriptor:
@@ -255,7 +363,7 @@ def parse_manifest(body: bytes, *, media_type: str | None = None) -> ParsedManif
 
 
 class QuotaStore:
-    def __init__(self, connection: str) -> None:
+    def __init__(self, connection: str, *, bootstrap_schema: bool = False) -> None:
         engine_options: dict[str, object] = {"pool_pre_ping": True}
         if connection.startswith("sqlite:"):
             engine_options["connect_args"] = {
@@ -265,7 +373,41 @@ class QuotaStore:
             if connection in {"sqlite://", "sqlite:///:memory:"}:
                 engine_options["poolclass"] = StaticPool
         self._engine: Engine = create_engine(connection, **engine_options)
-        quota_metadata.create_all(self._engine)
+        if bootstrap_schema:
+            quota_metadata.create_all(self._engine)
+        else:
+            self._require_migrated_schema()
+
+    def _require_migrated_schema(self) -> None:
+        expected_tables = set(quota_metadata.tables)
+        try:
+            actual_tables = set(inspect(self._engine).get_table_names())
+            missing = sorted(expected_tables - actual_tables)
+            if missing:
+                raise QuotaSchemaNotReady(
+                    "quota schema migration is required; missing tables: "
+                    + ", ".join(missing)
+                )
+            if "alembic_version" not in actual_tables:
+                raise QuotaSchemaNotReady(
+                    "quota schema has no Alembic revision; migration is required"
+                )
+            with self._engine.connect() as connection:
+                revisions = tuple(
+                    connection.execute(
+                        text("SELECT version_num FROM alembic_version")
+                    ).scalars()
+                )
+        except QuotaSchemaNotReady:
+            raise
+        except SQLAlchemyError as exc:
+            raise QuotaSchemaNotReady(
+                "quota schema revision could not be verified"
+            ) from exc
+        if revisions != (CURRENT_QUOTA_SCHEMA_REVISION,):
+            raise QuotaSchemaNotReady(
+                "quota schema revision does not match the application"
+            )
 
     @contextmanager
     def _writer(self) -> Iterator[Connection]:
@@ -353,6 +495,70 @@ class QuotaStore:
             reserved_bytes=value["reserved_bytes"],
         )
 
+    def get_reservation(self, reservation_id: str) -> Reservation:
+        with self._reader() as conn:
+            row = conn.execute(
+                select(quota_reservations).where(
+                    quota_reservations.c.id == reservation_id
+                )
+            ).first()
+        if row is None:
+            raise ReservationNotFound(reservation_id)
+        return Reservation.from_row(row)
+
+    def list_reconciliation_candidates(
+        self,
+        *,
+        stale_before: datetime,
+        limit: int,
+        after: ReconciliationCursor | None = None,
+    ) -> ReconciliationPage:
+        if stale_before.tzinfo is None or stale_before.utcoffset() is None:
+            raise ValueError("stale_before must be timezone-aware")
+        if (
+            isinstance(limit, bool)
+            or not isinstance(limit, int)
+            or not 1 <= limit <= MAX_RECONCILIATION_BATCH
+        ):
+            raise ValueError(
+                f"reconciliation limit must be between 1 and {MAX_RECONCILIATION_BATCH}"
+            )
+        if after is not None and (
+            after.updated_at.tzinfo is None
+            or after.updated_at.utcoffset() is None
+            or not after.reservation_id
+        ):
+            raise ValueError("reconciliation cursor is invalid")
+
+        statement = select(quota_reservations).where(
+            quota_reservations.c.state.in_(RECONCILIATION_STATES),
+            quota_reservations.c.updated_at <= stale_before,
+        )
+        if after is not None:
+            statement = statement.where(
+                or_(
+                    quota_reservations.c.updated_at > after.updated_at,
+                    and_(
+                        quota_reservations.c.updated_at == after.updated_at,
+                        quota_reservations.c.id > after.reservation_id,
+                    ),
+                )
+            )
+        statement = statement.order_by(
+            quota_reservations.c.updated_at, quota_reservations.c.id
+        ).limit(limit)
+        with self._reader() as conn:
+            rows = tuple(conn.execute(statement))
+        candidates = tuple(ReconciliationCandidate.from_row(row) for row in rows)
+        next_cursor = None
+        if len(candidates) == limit:
+            final = candidates[-1]
+            next_cursor = ReconciliationCursor(
+                updated_at=final.updated_at,
+                reservation_id=final.reservation_id,
+            )
+        return ReconciliationPage(candidates=candidates, next_cursor=next_cursor)
+
     @staticmethod
     def _reservation_descriptors(conn: object, reservation_id: str) -> list[Descriptor]:
         rows = conn.execute(  # type: ignore[attr-defined]
@@ -392,7 +598,11 @@ class QuotaStore:
             conn.execute(  # type: ignore[attr-defined]
                 update(quota_reservations)
                 .where(quota_reservations.c.id == row.id)
-                .values(delta_bytes=delta, updated_at=datetime.now(UTC))
+                .values(
+                    delta_bytes=delta,
+                    version=quota_reservations.c.version + 1,
+                    updated_at=datetime.now(UTC),
+                )
             )
         if used > MAX_LOGICAL_BYTES or reserved > MAX_LOGICAL_BYTES:
             raise QuotaExceeded("project logical usage exceeds the SQL integer bound")
@@ -454,6 +664,7 @@ class QuotaStore:
                     .values(
                         request_id=request_id,
                         state="pending",
+                        version=quota_reservations.c.version + 1,
                         updated_at=now,
                     )
                 )
@@ -475,6 +686,7 @@ class QuotaStore:
                         manifest_digest=manifest_digest,
                         request_id=request_id,
                         state="pending",
+                        version=1,
                         delta_bytes=0,
                         created_at=now,
                         updated_at=now,
@@ -493,6 +705,7 @@ class QuotaStore:
                     .values(
                         request_id=request_id,
                         state="pending",
+                        version=quota_reservations.c.version + 1,
                         delta_bytes=0,
                         created_at=now,
                         updated_at=now,
@@ -544,86 +757,101 @@ class QuotaStore:
             raise ReservationNotFound(reservation_id)
         return row
 
-    def commit(self, reservation_id: str) -> Reservation:
-        with self._writer() as conn:
-            row = self._get_locked(conn, reservation_id)
-            if row.state == "committed":
-                return Reservation.from_row(row)
-            if row.state != "pending":
-                raise ValueError("only a pending reservation can be committed")
-            descriptors = self._reservation_descriptors(conn, reservation_id)
-            for descriptor in descriptors:
-                existing = conn.execute(
-                    select(quota_descriptors).where(
-                        quota_descriptors.c.project_id == row.project_id,
-                        quota_descriptors.c.digest == descriptor.digest,
-                    )
-                ).first()
-                if existing is None:
-                    conn.execute(
-                        insert(quota_descriptors).values(
-                            project_id=row.project_id,
-                            digest=descriptor.digest,
-                            size=descriptor.size,
-                            reference_count=1,
-                        )
-                    )
-                else:
-                    if existing.size != descriptor.size:
-                        raise InvalidManifest("committed descriptor size changed")
-                    conn.execute(
-                        update(quota_descriptors)
-                        .where(
-                            quota_descriptors.c.project_id == row.project_id,
-                            quota_descriptors.c.digest == descriptor.digest,
-                        )
-                        .values(reference_count=existing.reference_count + 1)
-                    )
-            now = datetime.now(UTC)
-            conn.execute(
-                update(quota_reservations)
-                .where(quota_reservations.c.id == reservation_id)
-                .values(state="committed", delta_bytes=0, updated_at=now)
-            )
-            existing_manifest = conn.execute(
-                select(quota_manifests).where(
-                    quota_manifests.c.project_id == row.project_id,
-                    quota_manifests.c.repository_id == row.repository_id,
-                    quota_manifests.c.digest == row.manifest_digest,
+    @staticmethod
+    def _check_reconciliation_version(
+        row: object, expected_version: int | None
+    ) -> None:
+        if expected_version is not None and row.version != expected_version:  # type: ignore[attr-defined]
+            raise StaleReconciliationCandidate(str(row.id))  # type: ignore[attr-defined]
+
+    def _commit_locked(self, conn: object, row: object) -> Reservation:
+        if row.state == "committed":  # type: ignore[attr-defined]
+            return Reservation.from_row(row)
+        if row.state != "pending":  # type: ignore[attr-defined]
+            raise ValueError("only a pending reservation can be committed")
+        reservation_id = row.id  # type: ignore[attr-defined]
+        descriptors = self._reservation_descriptors(conn, reservation_id)
+        for descriptor in descriptors:
+            existing = conn.execute(  # type: ignore[attr-defined]
+                select(quota_descriptors).where(
+                    quota_descriptors.c.project_id == row.project_id,  # type: ignore[attr-defined]
+                    quota_descriptors.c.digest == descriptor.digest,
                 )
             ).first()
-            if existing_manifest is None:
-                conn.execute(
-                    insert(quota_manifests).values(
-                        project_id=row.project_id,
-                        repository_id=row.repository_id,
-                        digest=row.manifest_digest,
-                        reservation_id=reservation_id,
-                        state="committed",
-                        updated_at=now,
+            if existing is None:
+                conn.execute(  # type: ignore[attr-defined]
+                    insert(quota_descriptors).values(
+                        project_id=row.project_id,  # type: ignore[attr-defined]
+                        digest=descriptor.digest,
+                        size=descriptor.size,
+                        reference_count=1,
                     )
                 )
             else:
-                conn.execute(
-                    update(quota_manifests)
+                if existing.size != descriptor.size:
+                    raise InvalidManifest("committed descriptor size changed")
+                conn.execute(  # type: ignore[attr-defined]
+                    update(quota_descriptors)
                     .where(
-                        quota_manifests.c.project_id == row.project_id,
-                        quota_manifests.c.repository_id == row.repository_id,
-                        quota_manifests.c.digest == row.manifest_digest,
+                        quota_descriptors.c.project_id == row.project_id,  # type: ignore[attr-defined]
+                        quota_descriptors.c.digest == descriptor.digest,
                     )
-                    .values(
-                        reservation_id=reservation_id,
-                        state="committed",
-                        updated_at=now,
-                    )
+                    .values(reference_count=existing.reference_count + 1)
                 )
-            self._recompute(conn, row.project_id)
-            committed = conn.execute(
-                select(quota_reservations).where(
-                    quota_reservations.c.id == reservation_id
+        now = datetime.now(UTC)
+        conn.execute(  # type: ignore[attr-defined]
+            update(quota_reservations)
+            .where(quota_reservations.c.id == reservation_id)
+            .values(
+                state="committed",
+                version=quota_reservations.c.version + 1,
+                delta_bytes=0,
+                updated_at=now,
+            )
+        )
+        existing_manifest = conn.execute(  # type: ignore[attr-defined]
+            select(quota_manifests).where(
+                quota_manifests.c.project_id == row.project_id,  # type: ignore[attr-defined]
+                quota_manifests.c.repository_id == row.repository_id,  # type: ignore[attr-defined]
+                quota_manifests.c.digest == row.manifest_digest,  # type: ignore[attr-defined]
+            )
+        ).first()
+        if existing_manifest is None:
+            conn.execute(  # type: ignore[attr-defined]
+                insert(quota_manifests).values(
+                    project_id=row.project_id,  # type: ignore[attr-defined]
+                    repository_id=row.repository_id,  # type: ignore[attr-defined]
+                    digest=row.manifest_digest,  # type: ignore[attr-defined]
+                    reservation_id=reservation_id,
+                    state="committed",
+                    updated_at=now,
                 )
-            ).one()
-            return Reservation.from_row(committed)
+            )
+        else:
+            conn.execute(  # type: ignore[attr-defined]
+                update(quota_manifests)
+                .where(
+                    quota_manifests.c.project_id == row.project_id,  # type: ignore[attr-defined]
+                    quota_manifests.c.repository_id == row.repository_id,  # type: ignore[attr-defined]
+                    quota_manifests.c.digest == row.manifest_digest,  # type: ignore[attr-defined]
+                )
+                .values(
+                    reservation_id=reservation_id,
+                    state="committed",
+                    updated_at=now,
+                )
+            )
+        self._recompute(conn, row.project_id)  # type: ignore[attr-defined]
+        committed = conn.execute(  # type: ignore[attr-defined]
+            select(quota_reservations).where(
+                quota_reservations.c.id == reservation_id
+            )
+        ).one()
+        return Reservation.from_row(committed)
+
+    def commit(self, reservation_id: str) -> Reservation:
+        with self._writer() as conn:
+            return self._commit_locked(conn, self._get_locked(conn, reservation_id))
 
     def mark_release_pending(self, reservation_id: str) -> Reservation:
         with self._writer() as conn:
@@ -633,7 +861,11 @@ class QuotaStore:
             conn.execute(
                 update(quota_reservations)
                 .where(quota_reservations.c.id == reservation_id)
-                .values(state="release_pending", updated_at=datetime.now(UTC))
+                .values(
+                    state="release_pending",
+                    version=quota_reservations.c.version + 1,
+                    updated_at=datetime.now(UTC),
+                )
             )
             self._recompute(conn, row.project_id)
             result = conn.execute(
@@ -643,9 +875,77 @@ class QuotaStore:
             ).one()
             return Reservation.from_row(result)
 
-    def reconcile_absent(self, reservation_id: str) -> Reservation:
+    def reconcile_present(
+        self, reservation_id: str, *, expected_version: int | None = None
+    ) -> Reservation:
         with self._writer() as conn:
             row = self._get_locked(conn, reservation_id)
+            self._check_reconciliation_version(row, expected_version)
+            if row.state == "released":
+                return Reservation.from_row(row)
+            if row.state == "pending":
+                return self._commit_locked(conn, row)
+            now = datetime.now(UTC)
+            if row.state == "committed":
+                conn.execute(
+                    update(quota_reservations)
+                    .where(quota_reservations.c.id == reservation_id)
+                    .values(
+                        version=quota_reservations.c.version + 1,
+                        updated_at=now,
+                    )
+                )
+                conn.execute(
+                    update(quota_manifests)
+                    .where(quota_manifests.c.reservation_id == reservation_id)
+                    .values(state="committed", updated_at=now)
+                )
+            elif row.state == "release_pending":
+                committed_manifest = conn.execute(
+                    select(quota_manifests).where(
+                        quota_manifests.c.reservation_id == reservation_id,
+                        quota_manifests.c.state == "committed",
+                    )
+                ).first()
+                next_state = "committed" if committed_manifest is not None else "pending"
+                conn.execute(
+                    update(quota_reservations)
+                    .where(quota_reservations.c.id == reservation_id)
+                    .values(
+                        state=next_state,
+                        version=quota_reservations.c.version + 1,
+                        delta_bytes=0 if next_state == "committed" else row.delta_bytes,
+                        updated_at=now,
+                    )
+                )
+                current = conn.execute(
+                    select(quota_reservations).where(
+                        quota_reservations.c.id == reservation_id
+                    )
+                ).one()
+                if next_state == "pending":
+                    return self._commit_locked(conn, current)
+                conn.execute(
+                    update(quota_manifests)
+                    .where(quota_manifests.c.reservation_id == reservation_id)
+                    .values(state="committed", updated_at=now)
+                )
+                self._recompute(conn, row.project_id)
+            else:
+                raise ValueError("reservation cannot be reconciled as present")
+            result = conn.execute(
+                select(quota_reservations).where(
+                    quota_reservations.c.id == reservation_id
+                )
+            ).one()
+            return Reservation.from_row(result)
+
+    def reconcile_absent(
+        self, reservation_id: str, *, expected_version: int | None = None
+    ) -> Reservation:
+        with self._writer() as conn:
+            row = self._get_locked(conn, reservation_id)
+            self._check_reconciliation_version(row, expected_version)
             if row.state == "released":
                 return Reservation.from_row(row)
             if row.state not in {"pending", "release_pending", "committed"}:
@@ -684,7 +984,12 @@ class QuotaStore:
             conn.execute(
                 update(quota_reservations)
                 .where(quota_reservations.c.id == reservation_id)
-                .values(state="released", delta_bytes=0, updated_at=now)
+                .values(
+                    state="released",
+                    version=quota_reservations.c.version + 1,
+                    delta_bytes=0,
+                    updated_at=now,
+                )
             )
             conn.execute(
                 update(quota_manifests)

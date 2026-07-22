@@ -3,7 +3,7 @@
 - Status: accepted for PoC validation
 - Date: 2026-07-22
 - Decision owners: Coffer maintainers
-- Related plan: `docs/exec-plans/0003-barbican-kms-quota-poc.md`
+- Related plans: `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`
 - Research: `docs/research/m3-quota-enforcement-spike.md`
 
 ## Context
@@ -24,6 +24,14 @@ Add a narrow manifest-admission hook at the private registry edge:
 6. Keep a service-wide RGW quota, upload purging, request limits, and GC as physical-staging guardrails. Do not claim a per-project hard physical-byte quota.
 
 Distribution tenant write access must be private to the edge so manifest publication cannot bypass admission. Notifications may accelerate reconciliation but are never authorization or quota authority.
+
+### Schema and reconciliation authority
+
+- Alembic revisions are the sole production quota-schema authority. Application startup validates the exact expected revision and fails closed when quota tables or revision metadata are missing; `MetaData.create_all()` is restricted to explicit test-fixture bootstrap.
+- Reconciliation reads bounded, deterministic `(updated_at, reservation_id)` pages from the durable ledger. It includes stale `pending` and `release_pending` work and periodically revisits `committed` manifests so a lost deletion notification is eventually repaired.
+- Repository paths are rebuilt from immutable project and repository records in Coffer's control authority. The worker probes only the exact canonical digest with `HEAD /v2/<repository>/manifests/<digest>` over a private Distribution service path.
+- Only HTTP 200 with exactly one matching `Docker-Content-Digest` proves presence. Exact 404 proves absence. Missing, mismatched, or duplicate digest headers, 401/403, every other status, and transport failures are indeterminate and leave the charge unchanged.
+- Every reservation has a monotonically increasing version. Reconciliation applies an observation only when that version still matches, preventing a delayed or reordered probe from overwriting newer state. This compare-and-set guard is not a distributed work claim or lease.
 
 ## Consequences
 
@@ -52,8 +60,11 @@ Completed in the local PoC:
 2. Exercised pinned Docker 29.5.3, Podman 5.6.0, and Skopeo 1.20.0 through a private edge while Distribution had no host port.
 3. Proved atomic one-winner concurrent admission with 201/429, idempotent 201 retry, missing-quota 503, project-unique shared-digest accounting, and conservative pending/release recovery.
 4. Proved unpublished blob staging increased S3 objects from 28 to 30 while project logical usage stayed unchanged.
-5. Removed all disposable containers, volumes, credentials, JWTs, and private keys; retained logs contained no credential or JWT-shaped value.
+5. Applied the Alembic baseline from empty PostgreSQL 17.10 and MariaDB 11.4.12 databases, repeated the upgrade, compared the schema to the model, used two independent connections, proved one-winner row-lock behavior and retry/commit/release transitions, and completed a bounded downgrade/re-upgrade.
+6. Exercised bounded reconciliation against an unmodified pinned Distribution v3.1.1 process. Exact presence committed a pending reservation, exact absence released unpublished and deleted manifests, stale observations lost their version race, and shared descriptor bytes remained charged until the last manifest reference disappeared.
+7. Covered exact 200/404, 401/403/500/503, malformed success headers, and transport failure in focused tests. Only verified presence or absence changed ledger state.
+8. Removed all disposable containers, volumes, networks, database passwords, SQLite state, credentials, JWTs, and private keys; retained logs contained no credential or JWT-shaped value.
 
-Production promotion still requires PostgreSQL/MariaDB migrations and replica-level row-lock evidence, a reconciliation worker against real Distribution/RGW state, multi-replica private ingress enforcement, load/failure testing, and the remaining client matrix such as containerd/nerdctl and ORAS. The PoC's isolated SQLite transaction is concurrency evidence, not a production database recommendation.
+Production promotion still requires an operator-owned online rollout/import and backup procedure for existing data, TLS and service authentication on the private reconciliation path, multi-worker scheduling with an explicit claim/lease policy, reconciliation in the integrated Distribution/RGW deployment, multi-replica non-bypassable ingress, load/failure testing, and the remaining client matrix such as containerd/nerdctl and ORAS. The disposable PostgreSQL/MariaDB and filesystem-backed Distribution fixtures prove the database and state-machine semantics; they are not a production deployment recommendation.
 
 The user accepted this seam as the quota PoC implementation target on 2026-07-22. The bounded local validation passed, but the remaining production gates above prevent treating it as a final deployable architecture claim.

@@ -111,7 +111,9 @@ def test_logical_sizes_fit_the_signed_sql_integer_boundary(tmp_path: Path) -> No
     with pytest.raises(InvalidManifest, match="signed 64-bit"):
         Descriptor(digest(b"too-large"), MAX_LOGICAL_BYTES + 1)
 
-    store = QuotaStore(f"sqlite:///{tmp_path / 'quota.sqlite'}")
+    store = QuotaStore(
+        f"sqlite:///{tmp_path / 'quota.sqlite'}", bootstrap_schema=True
+    )
     with pytest.raises(ValueError, match="signed 64-bit"):
         store.set_limit(PROJECT_A, MAX_LOGICAL_BYTES + 1)
     store.set_limit(PROJECT_A, MAX_LOGICAL_BYTES)
@@ -131,7 +133,9 @@ def test_logical_sizes_fit_the_signed_sql_integer_boundary(tmp_path: Path) -> No
 def test_shared_descriptors_charge_once_per_project_and_once_in_another_project(
     tmp_path: Path,
 ) -> None:
-    store = QuotaStore(f"sqlite:///{tmp_path / 'quota.sqlite'}")
+    store = QuotaStore(
+        f"sqlite:///{tmp_path / 'quota.sqlite'}", bootstrap_schema=True
+    )
     store.set_limit(PROJECT_A, 10_000)
     store.set_limit(PROJECT_B, 10_000)
     shared_config = Descriptor(digest(b"shared-config"), 100)
@@ -167,7 +171,9 @@ def test_shared_descriptors_charge_once_per_project_and_once_in_another_project(
 def test_pending_is_conservative_and_release_reassigns_shared_reservation(
     tmp_path: Path,
 ) -> None:
-    store = QuotaStore(f"sqlite:///{tmp_path / 'quota.sqlite'}")
+    store = QuotaStore(
+        f"sqlite:///{tmp_path / 'quota.sqlite'}", bootstrap_schema=True
+    )
     store.set_limit(PROJECT_A, 10_000)
     shared = Descriptor(digest(b"shared"), 500)
     first = parse_manifest(
@@ -203,7 +209,9 @@ def test_pending_is_conservative_and_release_reassigns_shared_reservation(
 def test_retry_is_idempotent_and_committed_release_refunds_only_after_proof(
     tmp_path: Path,
 ) -> None:
-    store = QuotaStore(f"sqlite:///{tmp_path / 'quota.sqlite'}")
+    store = QuotaStore(
+        f"sqlite:///{tmp_path / 'quota.sqlite'}", bootstrap_schema=True
+    )
     store.set_limit(PROJECT_A, 10_000)
     parsed = parse_manifest(
         image_manifest(Descriptor(digest(b"config"), 20), ())
@@ -222,7 +230,9 @@ def test_retry_is_idempotent_and_committed_release_refunds_only_after_proof(
 
 
 def test_quota_exceeded_rolls_back_reservation(tmp_path: Path) -> None:
-    store = QuotaStore(f"sqlite:///{tmp_path / 'quota.sqlite'}")
+    store = QuotaStore(
+        f"sqlite:///{tmp_path / 'quota.sqlite'}", bootstrap_schema=True
+    )
     parsed = parse_manifest(
         image_manifest(Descriptor(digest(b"config"), 100), ())
     )
@@ -238,7 +248,7 @@ def test_quota_exceeded_rolls_back_reservation(tmp_path: Path) -> None:
 
 def test_concurrent_admission_never_exceeds_limit(tmp_path: Path) -> None:
     database = f"sqlite:///{tmp_path / 'quota.sqlite'}"
-    setup = QuotaStore(database)
+    setup = QuotaStore(database, bootstrap_schema=True)
     first = parse_manifest(
         image_manifest(Descriptor(digest(b"config-a"), 400), ())
     )
@@ -253,7 +263,7 @@ def test_concurrent_admission_never_exceeds_limit(tmp_path: Path) -> None:
     barrier = threading.Barrier(2)
 
     def admit(parsed: object, repository: str, request_id: str) -> str:
-        store = QuotaStore(database)
+        store = QuotaStore(database, bootstrap_schema=True)
         barrier.wait()
         try:
             reservation = reserve_parsed(

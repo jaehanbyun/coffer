@@ -24,7 +24,9 @@ def render(store: QuotaStore, project_id: str) -> None:
 def main() -> int:
     if len(sys.argv) not in {2, 3}:
         raise SystemExit("usage: fixture_admin.py usage | set-headroom BYTES")
-    store = QuotaStore(os.environ["COFFER_QUOTA_DATABASE"])
+    store = QuotaStore(
+        os.environ["COFFER_QUOTA_DATABASE"], bootstrap_schema=True
+    )
     project_id = os.environ["COFFER_QUOTA_PROJECT_A"]
     if sys.argv[1] == "usage" and len(sys.argv) == 2:
         render(store, project_id)

@@ -17,11 +17,12 @@ The smallest enforceable seam is therefore a narrow **manifest admission path at
 
 ## Executed PoC Result
 
-- The shared-SQL model implements project quota, descriptor, reservation, reservation-edge, and manifest state with serialized project-row mutation and conservative pending/release recovery.
+- The shared-SQL model implements project quota, descriptor, reservation, reservation-edge, and manifest state with serialized project-row mutation, Alembic-owned schema, monotonic reconciliation versions, and conservative pending/release recovery.
 - The edge enforces exact RS256/JWKS issuer, audience, expiry, project/repository, and `push` authority; validates authoritative upstream descriptor sizes and media-type shapes; rejects residual encoded paths; bounds manifests to 4 MiB and 4,096 descriptors; and maps auth, validation, quota, and dependency failures to Distribution-compatible outcomes.
 - Forty-four focused token/quota/proxy tests pass after review hardening. The isolated black box passed pinned Docker, Podman, and Skopeo; one-winner 201/429 concurrency; idempotent retry; missing-quota 503; forged-size and encoded-path 400; and unchanged logical usage while unpublished physical staging changed the S3 object count from 28 to 30.
 - Distribution is reachable only on the backend/storage topology in the fixture, and cleanup removes containers, volumes, credentials, signing material, and JWT-shaped values.
-- Production promotion still requires PostgreSQL/MariaDB migrations and real row-lock evidence, a reconciliation worker, replica/load failure tests, a non-bypassable production ingress, and the remaining client matrix.
+- Disposable PostgreSQL 17.10 and MariaDB 11.4.12 fixtures passed empty/repeated migration, model drift, independent-connection row locks, concurrent one-winner admission, recovery, and downgrade/re-upgrade checks. A pinned unmodified Distribution fixture passed exact-digest presence, deletion and unpublished absence, reordered-observation CAS, and last-reference refund behavior.
+- Production promotion still requires existing-data rollout/backups, authenticated TLS reconciliation in the integrated Distribution/RGW deployment, multi-worker claims/leases, replica/load failure tests, a non-bypassable production ingress, and the remaining client matrix.
 
 Token-time reservation alone is rejected. Without inspecting a manifest or upload byte count, no reservation unit can be both safe and usable: a fixed maximum is excessively conservative, while a smaller unit can be exceeded repeatedly with the same token.
 
@@ -113,13 +114,13 @@ Notifications accelerate projection updates but remain advisory. The authoritati
 
 ## PoC Measurement Plan and Remaining Work
 
-1. Remaining: put two edge/admission replicas behind one endpoint and one production shared SQL database; make direct Distribution write access unreachable.
+1. Partially completed: real PostgreSQL and MariaDB semantics pass; two edge/admission replicas, production database operations, and non-bypassable Distribution write ingress remain.
 2. Completed locally: set a tiny logical quota and publish two concurrent manifests whose unique descriptor deltas cannot both fit. Exactly one returned 201 and one 429; `used + reserved` stayed within the limit.
-3. Completed in focused tests: shared descriptors charge once within a project and once per project. Real cross-repository/reconciliation expansion remains.
+3. Completed in focused and Distribution-backed reconciliation tests: shared descriptors charge once within a project, remain charged across two repositories, and refund after the final manifest disappears. Cross-project charging remains covered by focused tests.
 4. Partially completed: Docker, Podman, and Skopeo preserve native challenge/push behavior; containerd/nerdctl and ORAS remain.
-5. Partially completed in focused state-machine tests: pending and release recovery remain conservative. Process-kill and replica-level reconciliation tests remain.
+5. Partially completed: focused tests cover pending/release recovery and lost, duplicate, or reordered observations; the Distribution fixture covers exact presence and absence. Process-kill, authenticated TLS, and replica-level scheduler tests remain.
 6. Completed locally: an unpublished blob increased physical S3 objects from 28 to 30 while project logical usage remained unchanged.
-7. Remaining: delete tags/manifests and prove quota refunds only after reference reconciliation while shared referenced blobs remain charged and pullable.
+7. Completed in the isolated Distribution fixture: deleted manifests refund only after exact absence, while shared descriptor bytes remain charged until the last repository manifest disappears. The same behavior still needs integrated RGW deployment evidence.
 8. Remaining: emit bounded `admit`, `deny`, `dependency_unavailable`, `pending`, `commit`, `release`, and reconciliation-drift metrics with no project/digest labels.
 
 ## Decision Outcome
@@ -134,4 +135,6 @@ If later production validation rejects this boundary, the honest alternatives ar
 - `docs/adrs/0003-rgw-s3-single-region-storage.md`
 - `docs/architecture/mvp-baseline.md`
 - `docs/runbooks/real-keystone-rgw-poc.md`
+- `docs/runbooks/quota-schema-reconciliation.md`
 - `docs/exec-plans/0002-thin-vertical-poc.md`
+- `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`

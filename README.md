@@ -28,7 +28,7 @@ The service type is a project proposal and is not currently registered in the Op
 
 ## Current Implementation
 
-M0 proves the unmodified OCI Distribution data path against local S3-compatible storage. M1 contains the first Coffer-owned seam: a Keystone-middleware-wrapped repository API with project UUID ownership, reader/member policy, and SQLite-backed test persistence. Local M2 adds a separately composed application-credential token realm, explicit repository and `oslo.policy` authorization, short-lived RS256 Distribution JWTs, and overlapping-JWKS verification. M3 adds a private manifest-admission seam with shared-SQL logical quota accounting and validates the real Keystone, Ceph RGW, and Barbican SSE-KMS path in disposable labs.
+M0 proves the unmodified OCI Distribution data path against local S3-compatible storage. M1 contains the first Coffer-owned seam: a Keystone-middleware-wrapped repository API with project UUID ownership, reader/member policy, and SQLite-backed test persistence. Local M2 adds a separately composed application-credential token realm, explicit repository and `oslo.policy` authorization, short-lived RS256 Distribution JWTs, and overlapping-JWKS verification. M3 adds a private manifest-admission seam with Alembic-versioned shared-SQL logical quota accounting and bounded exact-digest reconciliation, and validates the real Keystone, Ceph RGW, and Barbican SSE-KMS path in disposable labs.
 
 The API currently supports:
 
@@ -45,6 +45,15 @@ make -C poc/m2 verify
 ```
 
 The fixture uses synthetic identity, plaintext loopback HTTP, and MinIO. It cannot satisfy the real Keystone, TLS, Ceph RGW, or production release gates.
+
+Run the disposable quota database and exact-digest reconciliation proofs with a working Podman machine:
+
+```bash
+make -C poc/quota-sql verify
+make -C poc/quota-reconciliation verify
+```
+
+These fixtures validate PostgreSQL/MariaDB migration and row-lock semantics plus reconciliation against isolated unmodified Distribution. They do not provide production database credentials, existing-data rollout, authenticated TLS scheduling, or multi-worker leases.
 
 The WSGI factory also exposes process liveness at `/healthz` and database readiness at `/readyz`. Prometheus-compatible `/metrics` is disabled by default and can be enabled with `[observability] metrics_enabled=true`; it is process-local PoC evidence and requires an operator-protected endpoint plus a multi-worker aggregation design before production use.
 
@@ -85,7 +94,9 @@ Do not place Keystone, database, signing, or cache secrets in the repository. Th
 - [M3 RGW/Barbican KMS capability and executed evidence](docs/research/m3-rgw-kms-capability.md)
 - [M3 bounded quota design and validation](docs/research/m3-quota-enforcement-spike.md)
 - [Real Keystone and Ceph RGW PoC runbook](docs/runbooks/real-keystone-rgw-poc.md)
+- [Quota schema and reconciliation operator boundary](docs/runbooks/quota-schema-reconciliation.md)
 - [Disposable Mac DevStack identity lab](poc/devstack/README.md)
 - [Completed discovery plan](docs/exec-plans/0001-product-discovery.md)
 - [Superseded thin vertical PoC](docs/exec-plans/0002-thin-vertical-poc.md)
-- [Active Barbican KMS and quota PoC](docs/exec-plans/0003-barbican-kms-quota-poc.md)
+- [Completed Barbican KMS and quota PoC](docs/exec-plans/0003-barbican-kms-quota-poc.md)
+- [Completed shared-SQL quota and reconciliation plan](docs/exec-plans/0004-shared-sql-quota-reconciliation.md)

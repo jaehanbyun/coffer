@@ -1,14 +1,14 @@
 # Real Keystone and Ceph RGW PoC Runbook
 
 - Status: executed in the disposable lab; retained as a rerun template
-- Related plan: `docs/exec-plans/0003-barbican-kms-quota-poc.md`
+- Related plans: `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`
 - Purpose: close the M1 identity lifecycle and M3 RGW evidence that synthetic fixtures cannot prove
 
 ## Executed Evidence
 
 The disposable Mac/`bb00` lab completed real Keystone scope and application-credential lifecycle tests, Ceph RGW TLS and least-privilege storage, integrated Bearer-token push/pull, restart persistence, a write-stopped GC dry run, two-process upload resume, and Barbican-backed SSE-KMS. The hardened KMS run used exact Barbican and Ceph release pins, owner-only runtime bindings, a rotated least-privilege S3 key, selected-key metadata on five repository plus three global novel OCI objects, wrong-key and fresh-process combined Keystone/Barbican outage failures, recovery, 17-object bounded cleanup, zero selected-key/multipart residue, and deterministic rollback to the non-KMS baseline. See `poc/barbican/`, `poc/rgw/`, and execution plan 0003 for the repeatable harness and redacted result boundaries.
 
-ADR 0009 quota admission is validated separately under `poc/quota/`: Distribution remains private, Docker/Podman/Skopeo publish through the edge, concurrent manifest admission returns one 201 and one 429, missing quota returns 503, and physical staging is measured separately from logical usage. The disposable client fixture does not close the production OS credential-helper, shared-SQL/reconciliation, or separate-host ingress gates.
+ADR 0009 quota admission is validated separately under `poc/quota/`: Distribution remains private, Docker/Podman/Skopeo publish through the edge, concurrent manifest admission returns one 201 and one 429, missing quota returns 503, and physical staging is measured separately from logical usage. `poc/quota-sql/` now proves the Alembic revision and independent-connection row locks on PostgreSQL and MariaDB, while `poc/quota-reconciliation/` proves exact-digest repair against isolated unmodified Distribution. These fixtures do not close production credential-helper, existing-data rollout/backups, authenticated TLS reconciliation in the integrated RGW topology, multi-worker scheduling, or separate-host ingress gates. See `docs/runbooks/quota-schema-reconciliation.md` for that authority boundary.
 
 ## Safety Boundary
 

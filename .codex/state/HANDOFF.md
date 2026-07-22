@@ -1,14 +1,14 @@
 # Coffer Handoff
 
-- Updated: 2026-07-22
-- Status: Barbican SSE-KMS and ADR 0009 quota PoC work package completed and atomically published
-- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`
+- Updated: 2026-07-23
+- Status: shared-SQL quota migration and reconciliation work package completed and published as an atomic `main` milestone
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: none
 
 ## Current Objective
 
-No work package is active. The authorized Barbican SSE-KMS and ADR 0009 quota milestone is complete, verified, and atomically published. Multi-worker aggregation, production shared-state migrations/reconciliation, and separate-host HA remain later work requiring a new execution plan.
+Activate the next bounded work package for multi-worker reconciliation scheduling and fixed-cardinality observability. Preserve plan 0004's published schema/reconciliation baseline; production deployment, existing-data rollout, separate-host ingress/HA, credentials, and destructive operations remain outside authorization.
 
 ## Completed
 
@@ -71,6 +71,11 @@ No work package is active. The authorized Barbican SSE-KMS and ADR 0009 quota mi
 - Reran the quota black box on isolated client/backend/storage networks. Docker, Podman, and Skopeo could reach only the edge and received no signing/cross-project secrets; forged-size and encoded-path requests returned 400; concurrent publication returned 201/429; retry returned 201; missing quota returned 503; staging remained physically separate; cleanup passed.
 - Completed the hardened Barbican rerun with secret-free helper arguments, exact effective creator assignment, a rotated registry S3 key, deterministic novel OCI config/layer payloads, eight selected-key Distribution objects, positive-size multipart-copy compatibility, explicit zero-byte fail-closed evidence, wrong-key and combined identity/KMS outage closure, recovery, 17-object cleanup, and zero selected-key/multipart residue.
 - Completed final regression and publication: 91 tests passed on each supported Python version; all Bash/ShellCheck, compile, lock, Gunicorn, Compose, Make, Markdown, Mermaid, external-link, diff, and secret scans passed; the lab safe state was rechecked; the milestone was committed once and atomically pushed to `jaehanbyun/coffer` `main`.
+- Activated plan 0004 and completed its first milestone: Alembic revision `0001_quota_ledger` now owns the production quota schema; named constraints, foreign keys, and reconciliation indexes are explicit; production construction rejects missing/unversioned schema; test-only `create_all()` requires `bootstrap_schema=True`; 22 focused migration/quota/admission tests pass.
+- Completed plan 0004's shared-SQL milestone: pinned PostgreSQL 17.10 and MariaDB 11.4.12 image indexes and SQLAlchemy drivers; both engines passed empty/repeated Alembic upgrade, drift detection, named database constraints, distinct backend connections, concurrent one-winner quota admission, idempotent retry/commit/release, downgrade/re-upgrade, and zero container/volume/network/credential residue through `poc/quota-sql/`.
+- Completed plan 0004's reconciliation implementation and Distribution fixture: monotonic reservation versions reject reordered probe results; bounded deterministic cursor pages cover pending, release-pending, and periodic committed candidates; exact matching 200 commits/refreshes, exact 404 releases, and every auth/dependency/header/transport ambiguity leaves quota charged. Focused tests and pinned unmodified Distribution proved lost/duplicate/reordered handling, shared-descriptor deletion refund, final zero usage, and complete cleanup.
+- Completed plan 0004's documentation and final regression: ADR 0009, architecture, research, README, real-lab runbook, and the new quota schema/reconciliation operator boundary now record Alembic and exact-probe authority plus the remaining lease/ingress gates. Python 3.11–3.13 each pass 108 tests; static/runtime/documentation/secret checks and both disposable integration harnesses pass with zero residue.
+- Corrected an order-dependent logging regression discovered by the full matrix: Alembic's `fileConfig()` disabled existing Coffer loggers. The environment now sets `disable_existing_loggers=False`, and a focused test proves migration cannot silence application audit logs.
 
 ## Decisions and Reasons
 
@@ -86,6 +91,8 @@ No work package is active. The authorized Barbican SSE-KMS and ADR 0009 quota mi
 - Barbican is the validated OpenStack-native SSE-KMS path for the pinned Tentacle PoC; owner-only bindings and deterministic rollback remain mandatory, and the disposable cross-host tunnel is not production topology.
 - Tentacle 20.2.2 rejects encrypted-source ordinary `CopyObject`, so the Distribution S3 driver uses `multipartcopythresholdsize: 0` for positive-size payloads in this PoC. Zero-byte encrypted moves still fail closed and block production promotion until a released Ceph fix/backport or another proven backend/release closes the gap.
 - ADR 0009 is accepted for PoC validation: only bounded manifest PUTs cross the admission seam, blob bodies stay streamed to unmodified Distribution, shared SQL is the logical quota authority, and physical staging remains a separate service-wide concern.
+- Alembic revisions are the sole quota-schema upgrade authority; normal startup validates the exact revision, while `create_all()` is explicit fixture-only behavior.
+- Ledger-driven reconciliation uses immutable repository authority, exact digest HEAD probes, conservative indeterminate outcomes, and monotonic reservation-version compare-and-set. The version guard prevents stale result application but does not replace a production multi-worker claim/lease.
 - M0 remains unauthenticated and defers generated signing material to the M2 token-contract test; this keeps the upstream data-plane spike separate from Coffer authentication behavior.
 - Host-side M0 clients use `127.0.0.1` because macOS AirPlay can own IPv6 `::1:5000` even when Docker publishes the registry only on IPv4 loopback.
 - Distribution v3.1.1 is a functional PoC-only pin: its current Linux ARM64 image is blocked from production promotion by the recorded Scout findings.
@@ -121,6 +128,9 @@ No work package is active. The authorized Barbican SSE-KMS and ADR 0009 quota mi
 - Process-level HA: `poc/rgw/guest-verify-distribution-ha.sh`, `poc/rgw/verify-distribution-ha.sh`, its Make target/README guidance, the active plan, and this handoff.
 - KMS capability: `docs/research/m3-rgw-kms-capability.md`, the active plan, and this handoff.
 - Barbican KMS execution: `poc/barbican/`, RGW KMS-aware deploy/Distribution helpers, the real-environment runbook, active plan 0003, and this handoff.
+- Shared-SQL migration baseline: `alembic.ini`, `migrations/`, quota schema enforcement in `src/coffer/quota.py`, `tests/test_migrations.py`, PostgreSQL/MariaDB package extras, `poc/quota-sql/`, active plan 0004, and this handoff.
+- Quota reconciliation baseline: reservation candidate/version behavior in `src/coffer/quota.py`, `src/coffer/quota_reconciliation.py`, `tests/test_quota_reconciliation.py`, `poc/quota-reconciliation/`, active plan 0004, and this handoff.
+- Quota operations and documentation: `docs/runbooks/quota-schema-reconciliation.md`, ADR 0009, architecture and quota research updates, README, completed plan 0004, and the Alembic logging regression in `migrations/env.py`/`tests/test_migrations.py`.
 
 ## Verification
 
@@ -178,13 +188,18 @@ No work package is active. The authorized Barbican SSE-KMS and ADR 0009 quota mi
 - The final KMS safe-state check passed: all nine Ceph KMS options and Distribution KMS settings are absent, the CA-verified non-KMS `/v2/` endpoint returns 200, the pre-KMS digest remains readable, DevStack and its tunnel are stopped, and exact temporary OCI layouts are absent.
 - Final repository regression passed: 91 tests on each of Python 3.11.14, 3.12.2, and 3.13.14; `uv lock --check`; Python compilation; all PoC Bash/ShellCheck; Gunicorn config; three Compose models; every Make target dry run; 39 Markdown files and 16 local links; 99 external links; three rendered and visually inspected Mermaid diagrams; trailing-whitespace, Gitleaks, private-key/JWT, and diff checks.
 - Final host/lab residue passed: Podman machine and DevStack are stopped, Docker is not running, no quota resource or secret remains, RGW has zero Ceph/Distribution KMS settings and temporary layouts, the baseline Distribution alone returns CA-verified 200, and Ceph reports only `POOL_NO_REDUNDANCY`.
+- `make -C poc/quota-sql verify` passed on PostgreSQL 17.10 and MariaDB 11.4.12: each used two distinct backend connections, admitted exactly one of two concurrent reservations, denied the other, preserved retry/release idempotency, finished at zero used/reserved bytes, passed migration drift and downgrade/re-upgrade checks, and removed every labeled runtime resource and generated password.
+- Reconciliation focused verification passed: 24 migration/quota/reconciliation tests cover deterministic stale pages, CAS, lost/duplicate/reordered results, exact 200/404, 401/403/5xx/transport ambiguity, and shared-descriptor refunds. The isolated pinned Distribution fixture committed the present digest, released unpublished/deleted digests, retained shared bytes to the last reference, ended at zero usage, and removed every runtime resource and SQLite state file.
+- Plan 0004 final regression passed: 108 tests on each of Python 3.11, 3.12, and 3.13; lock and compilation; Alembic head; all PoC Bash/ShellCheck; Gunicorn; five Compose models; every PoC Make target dry run; 45 Markdown files and 18 local links; three rendered and visually inspected Mermaid diagrams; diff, project-owned Gitleaks, private-key, and JWT-shaped scans.
+- The final PostgreSQL/MariaDB and Distribution reruns passed after documentation and logging corrections. Labeled containers, volumes, networks, generated database passwords, and reconciliation SQLite state all ended at zero.
+- The disposable Podman machine used for the final database and Distribution reruns is stopped.
 
 ## Blockers and Risks
 
 - Project hooks must be reviewed and trusted in Codex before they run.
 - Local memories are experimental and must never replace checked-in project state.
 - Coffer's product scope and architecture baseline are accepted for the PoC; empirical PoC failures may amend them through new ADR evidence.
-- The real identity, storage, integrated token path, repeated clean run, GC dry-run, same-VM Distribution shared state, Barbican SSE-KMS, and bounded local quota admission are complete. Production promotion still requires multi-worker/shared-control-state evidence, quota migrations/reconciliation, and separate-host/load-balancer HA.
+- The real identity, storage, integrated token path, repeated clean run, GC dry-run, same-VM Distribution shared state, Barbican SSE-KMS, bounded quota admission, shared-SQL schema, and isolated exact-digest reconciliation are complete. Production promotion still requires existing-data rollout/backups, authenticated TLS reconciliation in the integrated RGW topology, multi-worker claims/leases, and separate-host/load-balancer HA.
 - `POOL_NO_REDUNDANCY` is intentionally retained as an honest warning for the one-OSD functional lab. No durability, HA, performance, or physical-failure-domain conclusion may be drawn from it.
 - Native OCI 1.1 Referrers remain an empirical gate. SSE-KMS and logical-versus-physical quota behavior now have bounded PoC evidence; destructive reclamation remains a separately approved maintenance test.
 - Ceph Tentacle 20.2.2 cannot finalize an encrypted zero-byte Distribution blob through ordinary `CopyObject`. The positive-size multipart-copy workaround is verified, but production SSE-KMS promotion requires a released Ceph fix/backport or a separately proven release/backend that closes the zero-byte path.
@@ -193,7 +208,7 @@ No work package is active. The authorized Barbican SSE-KMS and ADR 0009 quota mi
 - The active Codex workspace still enters through a compatibility symlink. Reopen it from `/Users/byeonjaehan/projects/personal/coffer`, then remove the legacy symlink; the Git root already resolves to the canonical Coffer path.
 - The Mac lab closes real Keystone HTTP/TLS, duplicate-name isolation, reader/member/admin/service mapping, domain/system isolation, finite credential lifecycle, real control middleware, incoming service-token enforcement, bounded cache, and outage behavior. Shared production SQL/memcache and multi-worker consistency remain deployment gates.
 - Keystone authentication proves current credential validity but does not reveal whether the credential record has a non-null future `expires_at`; accepted ADR 0008 therefore requires explicit provisioning expiry plus the verified lifecycle regression matrix.
-- The runbook's identity, private RGW bucket, Distribution TLS, single-process integrated auth, GC dry-run, shared upload state, and Barbican KMS paths now have evidence. ADR 0009 has local quota evidence; routine production credential helpers, shared SQL/reconciliation, and separate-host HA remain deployment gates.
+- The runbook's identity, private RGW bucket, Distribution TLS, single-process integrated auth, GC dry-run, shared upload state, Barbican KMS, shared-SQL quota, and isolated reconciliation paths now have evidence. Routine production credential helpers, existing-data upgrade, integrated authenticated reconciliation, multi-worker scheduling, and separate-host HA remain deployment gates.
 - Application-credential access rules currently fail closed rather than being supported. Exact service/method/path semantics need a later accepted design if users require them.
 - The static two-key fixture does not prove per-replica trust rollout, signer transition, old-key retirement, rollback, or Distribution key reload without restart.
 - Broker decision logs correlate request/JTI/Keystone audit IDs and reductions with explicit Distribution 200/401 outcomes, and single-process bounded metrics are verified. Multi-worker and multi-replica aggregation remains open M3 work.
@@ -202,8 +217,8 @@ No work package is active. The authorized Barbican SSE-KMS and ADR 0009 quota mi
 
 ## Exact Next Action
 
-No action remains for completed plan 0003. When the user authorizes the next package, create a new execution plan for production shared-SQL migrations and quota reconciliation before separate-host ingress/HA validation.
+Create `docs/exec-plans/0005-multi-worker-reconciliation.md` from the execution-plan template, scope SQL-backed claims/leases plus bounded metrics and process-failure evidence, and activate it in this handoff.
 
 ## After This Work Package
 
-Separate-host/load-balancer HA, shared production database migrations and reconciliation, multi-worker observability, native Referrers, and destructive GC remain distinct future work packages.
+Existing-data production migration/import, integrated authenticated reconciliation, multi-worker scheduling and observability, separate-host/load-balancer HA, native Referrers, and destructive GC remain distinct future work packages.

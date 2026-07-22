@@ -74,7 +74,7 @@ def fixture(tmp_path: Path, *, quota_limit: int | None, upstream: FakeUpstream):
     database = f"sqlite:///{tmp_path / 'quota.sqlite'}"
     repositories = RepositoryStore(database)
     repositories.create(PROJECT, "demo")
-    quotas = QuotaStore(database)
+    quotas = QuotaStore(database, bootstrap_schema=True)
     if quota_limit is not None:
         quotas.set_limit(PROJECT, quota_limit)
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)

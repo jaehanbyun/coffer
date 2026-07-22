@@ -1,0 +1,32 @@
+name: coffer-quota-reconciliation
+
+services:
+  registry:
+    image: docker.io/library/registry:3.1.1@sha256:1be55279f18a2fe1a74edf2664cac61c1bea305b7b4642dab412e7affdcb3e33
+    environment:
+      OTEL_TRACES_EXPORTER: none
+    ports:
+      - "127.0.0.1:${COFFER_RECONCILIATION_PORT:-55003}:5000"
+    volumes:
+      - ./registry-config.yml:/etc/distribution/config.yml:ro
+      - registry_data:/var/lib/registry
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:5000/v2/"]
+      interval: 1s
+      timeout: 3s
+      retries: 60
+    labels:
+      org.openstack.coffer.poc: quota-reconciliation
+    networks:
+      - registry
+    restart: "no"
+
+volumes:
+  registry_data:
+    labels:
+      org.openstack.coffer.poc: quota-reconciliation
+
+networks:
+  registry:
+    labels:
+      org.openstack.coffer.poc: quota-reconciliation

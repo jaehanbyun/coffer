@@ -17,38 +17,48 @@
 
 ```mermaid
 flowchart LR
-    User["User / CI workload"]
-    OSC["OpenStack CLI plugin"]
-    OCI["Docker / Podman / ORAS / containerd"]
+    subgraph Clients["Users and clients"]
+        direction TB
+        User["User / CI workload"]
+        OSC["OpenStack CLI plugin"]
+        OCI["Docker / Podman / ORAS / containerd"]
+    end
     Gateway["TLS load balancer / API gateway"]
-    API["Coffer control API"]
-    Auth["Coffer registry token service"]
-    Quota["Coffer manifest quota admission"]
+    subgraph Coffer["Coffer-owned services"]
+        direction TB
+        API["Control API"]
+        Auth["Registry token service"]
+        Quota["Manifest quota admission"]
+        Reconcile["Quota reconciler"]
+    end
     Registry["Upstream OCI Distribution data plane"]
-    Keystone["OpenStack Keystone"]
-    DB[("Control database")]
-    Object[("Ceph RGW S3 object storage")]
-    Observe["OpenStack logs / metrics / audit"]
+    subgraph OpenStack["OpenStack and operator dependencies"]
+        direction TB
+        Keystone["Keystone"]
+        DB[("HA control database")]
+        Object[("Ceph RGW S3 object storage")]
+        Observe["Logs / metrics / audit"]
+    end
 
     User --> OSC
     User --> OCI
-    OSC -->|"X-Auth-Token: repository operations"| Gateway
-    OCI -->|"/v2/: push and pull"| Gateway
-    Gateway --> API
-    Gateway --> Auth
-    Gateway -->|"blob, pull, and non-manifest traffic"| Registry
+    OSC -->|"repository operations"| Gateway
+    OCI -->|"OCI /v2/ and token exchange"| Gateway
+    Gateway -->|"control API"| API
+    Gateway -->|"token realm"| Auth
+    Gateway -->|"blob, pull, non-manifest"| Registry
     Gateway -->|"bounded manifest PUT"| Quota
-    API -->|"validate identity and policy"| Keystone
+    API --> Keystone
     API --> DB
-    Auth -->|"authenticate application credential; get project and roles"| Keystone
-    Auth -->|"resolve repository policy"| DB
-    Auth -->|"issue short-lived repository-scoped JWT"| OCI
-    Auth -->|"publish signing trust; no per-request call"| Registry
-    Quota -->|"atomic logical-byte reservation"| DB
-    Quota -->|"forward exact admitted manifest"| Registry
+    Auth --> Keystone
+    Auth --> DB
+    Auth -. "JWKS trust" .-> Registry
+    Quota -->|"reserve logical bytes"| DB
+    Quota -->|"admitted manifest"| Registry
+    Reconcile -->|"bounded ledger pages"| DB
+    Reconcile -->|"HEAD exact digest"| Registry
     Registry --> Object
-    API --> Observe
-    Auth --> Observe
+    Coffer -. "structured telemetry" .-> Observe
     Registry --> Observe
 ```
 
@@ -64,13 +74,17 @@ Implements the OCI/Docker Bearer token challenge endpoint. For the MVP it authen
 
 Handles only bounded manifest/index PUT requests at a non-bypassable private edge. It verifies the Coffer JWT and explicit repository authority, resolves the descriptor graph, atomically reserves project-unique logical bytes in shared SQL, forwards the exact manifest bytes to unmodified Distribution, and commits or conservatively retains the reservation from the upstream outcome. It returns Distribution-compatible 429 or 503 responses and never stores blob bodies or the canonical manifest payload.
 
+### Coffer quota reconciler
+
+Scans bounded deterministic ledger pages and repairs stale admission or deletion state by resolving the immutable repository authority and probing the exact manifest digest through Distribution's private service endpoint. A matching HTTP 200 is presence, exact 404 is absence, and every authentication, dependency, transport, or digest-header ambiguity retains the charge. Reservation-version compare-and-set prevents stale probe results from changing newer state; a production multi-worker scheduler still needs an explicit claim/lease policy.
+
 ### Upstream OCI Distribution data plane
 
 Owns `/v2/` blob, upload, canonical manifest, tag, supported artifact, and deletion protocol behavior. Coffer configures its token trust, storage driver, health, and metrics; manifest publication passes the narrow quota edge, but the protocol implementation remains unmodified. Native OCI 1.1 Referrers support must be proven for the pinned release.
 
 ### Control database
 
-Stores resource identity, stable project mapping, repository policy, signing-key metadata, logical quota reservations/usage observations, operation records, and audit references. It does not become a permanent registry credential store. Blob content and the canonical manifest payload remain in object storage.
+Stores resource identity, stable project mapping, repository policy, signing-key metadata, logical quota reservations/usage observations, monotonic reconciliation versions, operation records, and audit references. Alembic revisions are the quota-schema authority; normal application startup validates the expected revision and never creates production quota tables implicitly. The database does not become a permanent registry credential store. Blob content and the canonical manifest payload remain in object storage.
 
 ### Object storage
 
@@ -126,14 +140,16 @@ sequenceDiagram
 
 - Object-store digests are the canonical content identity.
 - The control database is authoritative for repository existence and policy, not blob presence.
-- Registry push/delete notifications can update usage and audit projections asynchronously; their per-instance queues are in-memory and unordered, so consumers must be idempotent and a reconciliation crawler must repair missing projection state. Notifications are never sufficient for authorization.
-- Coffer charges logical unique digests per project even when physical blobs deduplicate globally. Reservation/admission plus authoritative reconciliation provides a measured bounded soft quota; byte-perfect physical enforcement is not an MVP claim.
+- Registry push/delete notifications can provide advisory wake-up hints; their per-instance queues are in-memory and unordered, so they are never authorization, quota, or reconciliation authority.
+- Coffer charges logical unique digests per project even when physical blobs deduplicate globally. Reservation/admission plus bounded ledger-driven reconciliation provides a measured bounded soft quota; byte-perfect physical enforcement is not an MVP claim.
+- Reconciliation periodically revisits committed rows as well as stale pending work. Only an exact digest HEAD returning one matching `Docker-Content-Digest` or exact 404 may change state; all other outcomes retain the charge.
 - Manifest deletion unlinks content; physical blob reclamation uses the upstream mark-and-sweep collector only during a coordinated read-only or stopped-registry window, beginning with dry run.
 
 ## HA and Operations Baseline
 
 - At least two stateless control/auth replicas and two Distribution replicas with identical backend configuration and HTTP secret behind the regional TLS load balancer; use shared Redis when configured.
 - Shared HA SQL and object storage are external dependencies with independent backup and recovery procedures.
+- Run quota reconciliation through a bounded scheduler. The current version compare-and-set protects against stale results, but production promotion requires a tested multi-worker claim/lease and retry policy rather than relying on duplicate scans.
 - Signing keys are versioned with overlapping public trust during rotation; private keys and S3/Redis/HTTP secrets belong in a Barbican/Vault/HSM-backed secret path, not ordinary configuration files.
 - Health endpoints distinguish process readiness from Keystone, SQL, and object-storage dependency health.
 - Structured audit events include actor, project, repository, action, result, request ID, and digest where available; they exclude tokens and secrets.
@@ -160,7 +176,7 @@ sequenceDiagram
 | OCI data plane | Upstream CNCF Distribution v3.1.1 or newer supported release, pinned by PoC | Small protocol-focused component; v3.1.1 includes a material 2026 security fix and must still pass conformance/RGW gates |
 | Control/auth services | Python with OpenStack `oslo.*`, `keystoneauth1`, and `keystonemiddleware` libraries | Fits OpenStack operator and contributor ecosystems |
 | HTTP framework | Falcon 4.3.1 WSGI behind Gunicorn `gthread` workers | Accepted by ADR 0007 after Python 3.11–3.13 and process-model validation |
-| Persistence | SQLAlchemy/Alembic through `oslo.db`; MariaDB/Galera as the operator baseline | Aligns with common OpenStack control-plane deployments |
+| Persistence | SQLAlchemy/Alembic through `oslo.db`; MariaDB/Galera as the operator baseline, PostgreSQL supported by the PoC schema | Aligns with common OpenStack control-plane deployments; the initial revision and row-lock behavior pass both disposable engines |
 | Policy | `oslo.policy`-compatible rules | Familiar deployer overrides and role enforcement |
 | Blob storage | One private regional Ceph RGW S3 bucket through the upstream registry driver | Reuses common OpenStack storage deployments without a custom driver; per-project buckets would require separate registry fleets/routing |
 | Edge | Operator-provided TLS load balancer/reverse proxy | Keeps network topology and certificate ownership deployer-controlled |
@@ -180,7 +196,7 @@ sequenceDiagram
 
 1. Standard Docker credential storage requires a credential helper and finite application credentials; future federated/MFA users need a separate helper/exchange design.
 2. Distribution's stop-the-world GC requires a maintenance window; always-online GC is not an MVP claim.
-3. Project quota admission now has a validated manifest seam, but production still needs shared-database migrations, reconciliation, replica-level failure tests, and a non-bypassable ingress deployment.
+3. Project quota admission, Alembic schema, PostgreSQL/MariaDB row locks, and exact-digest reconciliation have bounded local evidence. Production still needs existing-data rollout/backup procedures, authenticated TLS reconciliation in the integrated RGW deployment, multi-worker claim/lease behavior, replica-level failure tests, and non-bypassable ingress.
 4. Repository aliases and rename semantics can conflict with immutable security namespaces.
 5. The chosen Distribution and Ceph combination must pass encrypted move semantics, including positive-size and zero-byte blobs. Tentacle 20.2.2 requires forced multipart copy for positive-size objects and still rejects the zero-byte path.
 6. OpenStack community governance may favor an adjacent-project or external-service path before a new official service.
@@ -203,4 +219,5 @@ sequenceDiagram
 - `docs/adrs/0002-keystone-application-credential-token-broker.md` records the identity translation and initial role model.
 - `docs/adrs/0003-rgw-s3-single-region-storage.md` records storage, quota, GC, encryption, and HA boundaries.
 - `docs/adrs/0009-add-private-edge-manifest-quota-admission.md` records the accepted-for-PoC manifest admission seam and the remaining production gates.
+- `docs/runbooks/quota-schema-reconciliation.md` records the migration and reconciliation operator boundary and repeatable local verification.
 - `docs/research/openstack-registry-landscape.md` records the current OpenStack service gap, active OpenStack-Helm deployment chart, consumer projects, and historical false friends.
