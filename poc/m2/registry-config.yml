@@ -1,0 +1,46 @@
+version: 0.1
+
+log:
+  level: info
+  formatter: json
+  fields:
+    service: coffer-m2-registry
+
+auth:
+  token:
+    realm: http://host.docker.internal:8081/auth/token
+    service: coffer-m2-registry
+    issuer: coffer-m2
+    jwks: /etc/distribution/jwks.json
+    signingalgorithms: [RS256]
+
+storage:
+  delete:
+    enabled: true
+  redirect:
+    disable: true
+  s3:
+    region: us-east-1
+    regionendpoint: http://minio:9000
+    forcepathstyle: true
+    bucket: coffer-registry
+    rootdirectory: /distribution
+    secure: false
+    v4auth: true
+  maintenance:
+    uploadpurging:
+      enabled: true
+      age: 24h
+      interval: 1h
+      dryrun: false
+
+http:
+  addr: :5000
+  headers:
+    X-Content-Type-Options: [nosniff]
+
+health:
+  storagedriver:
+    enabled: true
+    interval: 10s
+    threshold: 3

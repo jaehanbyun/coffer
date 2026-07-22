@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "coffer"
+version = "0.1.0"
+description = "OpenStack-native OCI Registry control plane"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "cryptography==43.0.3",
+  "falcon==4.3.1",
+  "gunicorn==26.0.0",
+  "keystoneauth1==5.15.0",
+  "keystonemiddleware==13.0.0",
+  "oslo.cache==4.3.0",
+  "oslo.config==10.5.0",
+  "oslo.context==6.5.0",
+  "oslo.db==18.1.0",
+  "oslo.log==8.3.0",
+  "oslo.policy==6.0.0",
+  "prometheus-client==0.25.0",
+  "PyJWT==2.13.0",
+  "SQLAlchemy==2.0.51",
+  "WebOb==1.8.10",
+]
+
+[dependency-groups]
+test = [
+  "fixtures==4.3.2",
+  "pytest==8.4.2",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

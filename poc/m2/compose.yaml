@@ -1,0 +1,50 @@
+name: coffer-m2
+
+services:
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: cofferpoc
+      MINIO_ROOT_PASSWORD: cofferpoc
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  minio-init:
+    image: quay.io/minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: cofferpoc
+      MINIO_ROOT_PASSWORD: cofferpoc
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
+        mc mb --ignore-existing local/coffer-registry
+        mc anonymous set none local/coffer-registry
+    restart: "no"
+
+  registry:
+    image: docker.io/library/registry:3.1.1@sha256:1be55279f18a2fe1a74edf2664cac61c1bea305b7b4642dab412e7affdcb3e33
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      OTEL_TRACES_EXPORTER: none
+      REGISTRY_STORAGE_S3_ACCESSKEY: cofferpoc
+      REGISTRY_STORAGE_S3_SECRETKEY: cofferpoc
+    ports:
+      - "127.0.0.1:5001:5000"
+    volumes:
+      - ./registry-config.yml:/etc/distribution/config.yml:ro
+      - ../../work/m2/jwks.json:/etc/distribution/jwks.json:ro
+
+volumes:
+  minio-data:

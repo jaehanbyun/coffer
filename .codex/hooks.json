@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreCompact": [
+      {
+        "matcher": "manual|auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/pre_compact_snapshot.py\"",
+            "timeout": 15,
+            "statusMessage": "Saving pre-compaction repository state"
+          }
+        ]
+      }
+    ]
+  }
+}

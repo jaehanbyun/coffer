@@ -1,0 +1,9 @@
+.DS_Store
+.pytest_cache/
+.venv/
+*.pyc
+*.egg-info/
+__pycache__/
+.codex/hooks/__pycache__/
+.codex/state/precompact-snapshot.md
+work/

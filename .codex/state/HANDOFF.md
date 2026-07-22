@@ -1,0 +1,189 @@
+# Coffer Handoff
+
+- Updated: 2026-07-22
+- Status: KMS capability is documented; backend/key deployment and proposed quota ADR require user decisions
+- Completed execution plan: `docs/exec-plans/0001-product-discovery.md`
+- Active execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
+
+## Current Objective
+
+Validate the thin Coffer vertical slice while preserving durable decisions and evidence: local M0/M1/M2, bounded M3 observability, the real Keystone matrix, real Ceph/RGW Distribution storage, two clean integrated Bearer-token runs, a safe GC dry-run, and same-VM cross-process upload resume have passed. KMS, quota architecture, multi-worker aggregation, and separate-host HA remain open.
+
+## Completed
+
+- Initialized the repository.
+- Added durable agent rules, model configuration, compaction guidance, and a pre-compaction Git snapshot hook.
+- Added an execution-plan template, operating guide, and reusable long-horizon prompt.
+- Started `docs/exec-plans/0001-product-discovery.md` and launched three read-only Ultra research tracks.
+- Mapped ECR, Azure Container Registry, and Google Artifact Registry expectations into a proposed Coffer MVP, deferred scope, and explicit non-goals in `docs/product-discovery.md`.
+- Verified the current OpenStack landscape, including the active OpenStack-Helm registry chart, OCI-consuming projects, historical false friends, and the absence of a verified first-class registry service/type in the researched official sources.
+- Selected an unmodified Distribution v3.1.1+ data plane, a Keystone application-credential token broker, immutable project-ID namespaces, a regional Ceph RGW S3 bucket, bounded soft quotas, and coordinated read-only GC as proposed ADR baselines.
+- Expanded the follow-up PoC plan with real Keystone/RGW, role/scope attack, conformance, encryption, quota, HA, and GC acceptance gates.
+- Added a top-level `README.md` that introduces Coffer, records the naming contract, summarizes the architecture baseline, and routes readers to the durable documents.
+- Completed cross-document verification after the rename: 47/47 external links returned HTTP 200 after retrying one transient OpenDev 500, both Mermaid diagrams rendered and were visually inspected with Coffer labels, 18 Markdown files passed structure/local-link checks, the documented PoC Bash parsed, and Gitleaks found no leaks.
+- Accepted `coffer` as the project codename, `OCI Registry service` as the descriptive service name, proposed `oci-registry` as the future service type, and retained `registry` as the CLI noun. The decision is recorded in accepted ADR 0005.
+- Renamed the canonical local repository directory to `/Users/byeonjaehan/projects/personal/coffer`; retained a compatibility symlink at the legacy path so the active Codex workspace remains usable.
+- Accepted architecture ADRs 0001–0004 under the user's instruction to proceed and activated the thin vertical PoC plan.
+- Pinned Distribution v3.1.1 and the M0 fixture images by digest, recorded the image vulnerability gate, and added a loopback-only unmodified Distribution plus MinIO compatibility environment under `poc/m0/`.
+- Passed the M0 functional path: Docker push/pull by digest, persistence across a registry restart, ORAS artifact attach/discover, fallback referrer discovery, and S3 object presence.
+- Completed the M0 upstream compatibility baseline: full OCI conformance 68/7/4, supported-capability conformance 59/1/19, exact image security and reachability scans, token/GC contract documentation, and visual inspection of both reports.
+- Added proposed ADR 0006 to keep Distribution v3.1.1 PoC-only and gate any production candidate on security, supported-capability conformance, native Referrers or explicit fallback acceptance, and real RGW evidence.
+- Accepted ADR 0007 after a Python 3.11–3.13 compatibility spike: Falcon 4.3.1 WSGI is the control API framework and Gunicorn 26.0.0 native `gthread` workers are the reference process model.
+- Added a locked Python package and the first Coffer-owned vertical seam: repository create/get/list with Keystone project UUID ownership, reader/member `oslo.policy` rules, and `oslo.db` persistence.
+- Added nine negative/positive API tests covering project/domain/system/unscoped/invalid/expired tokens, duplicate names across projects, cross-project non-disclosure, and identity-header spoofing.
+- Added a request-local Keystone application-credential authenticator and bounded Basic parser. The code retains no submitted secret in Coffer state, principal objects, logs, exceptions, or persistence.
+- Added and then accepted ADR 0008 after real lifecycle evidence confirmed that a standard authentication token cannot prove the credential record's configured expiry while Keystone enforces expiration, role removal, owner disablement, and deletion.
+- Completed the hardened local M2 token contract with a separate Basic-auth realm, explicit control-database repository authority, `oslo.policy` action reduction, RS256/JWKS offline verification, five-minute maximum tokens, request/audit correlation, and no refresh token.
+- Corrected three security gaps found by read-only parallel review: application-credential access rules now fail closed, dependency exception graphs and request locals no longer retain the Basic secret on expected failures, and unregistered repositories receive no registry grant.
+- Added a two-project Docker/Distribution black-box fixture with direct post-restart blob checksum, reader/member/delete/missing/cross-project denials, positive and denied mounts, negative JWTs, overlapping two-key JWKS, log scans, and full secret/container/volume cleanup.
+- Added `docs/runbooks/real-keystone-rgw-poc.md` for real TLS/lifecycle/credential-helper/RGW/SSE-KMS/audit acceptance without placing credentials in the repository.
+- Added process liveness, database readiness, optional bounded Prometheus metrics, token-decision metrics, and the local multi-worker limitation record.
+- Completed the final local verification matrix across Python 3.11–3.13, Docker/Distribution, documentation, runtime configuration, cleanup, and secret hygiene.
+- Added a pinned, secret-safe `poc/devstack` harness for a Lima Ubuntu 24.04 guest, Keystone, MySQL, TLS, duplicate-domain identities, finite application-credential lifecycle, and Coffer's real authenticator seam.
+- Bootstrapped the independent `coffer-devstack` Lima VM and passed strict CA trust, duplicate-domain/project/user isolation, project-scoped token, finite application-credential authentication/deletion, and host-side production authenticator checks against real Keystone.
+- Corrected Coffer's empirical deleted-credential mapping: Keystone's `NotFound` response now becomes `InvalidApplicationCredential`, with no dependency exception graph or submitted secret retained.
+- Proved real Keystone rejects finite credentials after configured expiration, delegated-role removal, owner disablement, and explicit deletion; accepted ADR 0008's provisioning-and-lifecycle enforcement boundary.
+- Proved reader/member/admin effective-role mapping, service-role exclusion from registry roles, and domain/system nonproject isolation with real Keystone; temporary roles, users, and credentials are removed after verification.
+- Passed real project/domain/system tokens through Coffer's production control middleware; proved project-only admission, incoming service-token role enforcement, a two-second revoke-cache bound, and 503 fail-closed behavior during a bounded Keystone outage.
+- Reclaimed the explicitly approved retired `openstack-ebpf-controller-1` and `openstack-ebpf-compute-1` domains and their VM-specific disks and cloud-init files while preserving their shared Ubuntu base image, storage pool, and libvirt networks.
+- Created the `coffer-rgw` libvirt directory pool on the local `/srv/nfs` XFS filesystem and bootstrapped `coffer-rgw-poc` with 8 x86_64 vCPUs, 24 GiB RAM, a 60 GiB root overlay, a separate 200 GiB raw OSD device, reserved NAT address `192.168.122.200`, and autostart disabled.
+- Installed Ceph Tentacle 20.2.2 from a SHA-256-verified `cephadm` artifact, pinned the exact Ceph container manifest digest, bootstrapped without dashboard or monitoring, and added only `/dev/vdb` as the single `up`/`in` OSD.
+- Deployed one cephadm-managed `rgw.coffer` Beast frontend on `192.168.122.200:8443`, validated its cephadm-signed certificate and SANs through an SSH tunnel, and proved that untrusted TLS and plaintext HTTP fail.
+- Created a non-system registry identity and separately owned denial identity with no admin capabilities and one-bucket limits; proved private object round trip, anonymous denial, cross-owner denial, and extra-bucket denial without printing either key.
+- Ran unmodified pinned Distribution v3.1.1 against real RGW with verified TLS and no redirects; preserved digest `sha256:7a3ebe5bfd1a4a19797d20b0c0bb39d44393e9a03fd852c0865b0f540d868df0` across Distribution/RGW restarts and online PG merges.
+- Joined real DevStack Keystone, Coffer's production application-credential/repository-policy/RS256 seam, unmodified Distribution, and real RGW in `poc/integration`; project A passed Skopeo and Podman push/pull and preserved the Skopeo digest across Distribution and Coffer restarts, while project B received 401 and a failed push for project A.
+- Repeated the complete real integration harness from the restored clean state; stable identities, digest/restart results, and 200/401 authorization outcomes matched while independent request IDs differed, and the second cleanup again restored the pre-integration lab state.
+- Completed a write-stopped Distribution GC dry-run against real RGW: 19 objects remained 19, zero deletion candidates were reported, three selected referenced manifests preserved their digests after restart, and no destructive collector was run.
+- Bound the real integration broker to production `/healthz`, `/readyz`, and `/metrics`; both process generations were healthy/ready, issued-token observations existed, metrics were free of tenant/request/credential/repository/secret/JWT values, and local aggregate decision time was recorded without making a production benchmark claim.
+- Completed the quota enforcement spike: token-only, notification-only, and shared-bucket storage controls cannot bound project logical bytes; proposed ADR 0009 introduces a narrow private-edge manifest admission seam but remains unaccepted and unimplemented.
+- Proved two pinned Distribution processes can share RGW upload state and the persistent HTTP secret: a 2 MiB upload started on replica 1, replica 1 stopped after 1 MiB, replica 2 finalized with 201, and both endpoints returned the completed blob/selected manifest after restart.
+- Inspected Tentacle 20.2.2 KMS support read-only: Barbican/Vault/KMIP are viable SSE-KMS backends, testing is inadmissible, SSL is required by default, no KMS option is configured, and the current DevStack has no Barbican service.
+
+## Decisions and Reasons
+
+- Checked-in files are the source of truth because conversation summaries and experimental memories may be incomplete or stale.
+- Semantic state is written manually to the active plan and this handoff; the hook captures only mechanical Git state to avoid guessing decisions or copying sensitive transcript data.
+- The main implementation model is `gpt-5.6-sol` at `high`; plan mode uses `xhigh` for architecture and risk analysis without paying that cost for every implementation step.
+- The automatic compaction threshold remains at the model default until real sessions show a reason to tune it.
+- Three read-only `gpt-5.6-sol` Ultra agents were used for independent OpenStack, OCI data-plane, and identity/storage/security research; the primary agent verified and integrated their evidence.
+- Coffer composes upstream Distribution instead of building/forking a registry or adopting Harbor/Quay as a component.
+- OpenStack naming is separated by concern: project codename `coffer`, descriptive service name `OCI Registry service`, proposed service type `oci-registry`, and CLI noun `registry`.
+- Finite restricted Keystone application credentials authenticate the broker; the broker issues short-lived Distribution JWTs and no non-expiring refresh token.
+- Ceph RGW S3 is the single-region storage baseline. Project accounting is logical and bounded-soft, not byte-perfect physical quota.
+- M0 remains unauthenticated and defers generated signing material to the M2 token-contract test; this keeps the upstream data-plane spike separate from Coffer authentication behavior.
+- Host-side M0 clients use `127.0.0.1` because macOS AirPlay can own IPv6 `::1:5000` even when Docker publishes the registry only on IPv4 loopback.
+- Distribution v3.1.1 is a functional PoC-only pin: its current Linux ARM64 image is blocked from production promotion by the recorded Scout findings.
+- Coffer's HTTP stack is synchronous WSGI: Falcon plus a portable WSGI entry point, with Gunicorn pre-fork `gthread` workers and no Eventlet, Gevent, embedded `oslo.service` WSGI server, or ASGI bridge.
+- Control requests require both confirmed middleware identity and `keystone.token_auth.user.project_scoped`; raw token data and AccessInfo objects are not retained in the application context.
+- The app-credential exchange uses an ID-based `keystoneauth1` plugin and a one-call session with TLS verification, a finite timeout, and no catalog. Only project/user/roles/token-expiry/audit identifiers survive the call.
+- Finite application-credential lifetime is a provisioning and lifecycle-regression contract, not a privileged per-login metadata query; ADR 0008 is accepted from real Keystone evidence.
+- Docker's `offline_token=true` flag is accepted for compatibility, but Coffer never returns a refresh token.
+- Registry authorization requires an explicit control-database repository plus same-project scope and `oslo.policy`; create-on-push is disabled.
+- Application credentials carrying Keystone access rules are rejected until Coffer can enforce an exact `oci-registry` service/method/path contract against real Keystone.
+- Token keys are RSA 2048 bits or stronger, PEM files must be owner-only, and token lifetime is bounded to 60–300 seconds. Static overlapping JWKS is proven; live multi-replica rotation is not.
+- `/metrics` is disabled by default and process-local. It uses only fixed route/result/method labels; production requires operator-edge protection and a tested multi-worker aggregation design.
+- Gatekeeper was not bypassed for the unnotarized Multipass package. Lima 2.1.4 with Apple Virtualization and `vzNAT` is the reproducible Mac lab provider, and existing Lima instances remain untouched.
+- Guest negative TLS checks must use an isolated trust context because DevStack registers its CA in Ubuntu's system trust store; `curl --cacert` alone does not exclude those system anchors.
+- A deleted or nonexistent application credential returned `keystoneauth1.exceptions.NotFound` in real Keystone. That response is an authentication rejection; connection, discovery, timeout, and unexpected client failures remain dependency-unavailable results.
+- The `bb00` single-host VM is the M3-A functional RGW target. Its rotational directory-backed OSD proves compatibility, TLS, persistence, and failure behavior only; it is not HA, performance, or physical-failure-domain evidence.
+- Immutable OpenStack IDs are validated but not reformatted at storage or authorization boundaries; compact 32-hex and hyphenated UUID spellings are both syntactically accepted namespace forms, but the exact Keystone project ID remains the authority key.
+- The integration broker's private CA and SSH loopback tunnel are disposable protocol-test scaffolding, not a production endpoint topology. Distribution receives only the public JWKS; all private keys and finite client credentials are removed after each run.
+
+## Changed Files
+
+- Architecture and state: `docs/adrs/0001-compose-cnc-distribution.md`, `docs/adrs/0002-keystone-application-credential-token-broker.md`, `docs/adrs/0003-rgw-s3-single-region-storage.md`, `docs/adrs/0004-mvp-scope-private-project-registry.md`, `docs/adrs/0006-gate-production-distribution-release.md`, `docs/adrs/0007-use-falcon-wsgi-and-gunicorn.md`, accepted ADR `docs/adrs/0008-finite-application-credentials-as-provisioning-contract.md`, proposed ADR `docs/adrs/0009-add-private-edge-manifest-quota-admission.md`, `docs/research/m0-upstream-compatibility.md`, `docs/research/m1-framework-selection.md`, `docs/research/m1-application-credential-authentication.md`, `docs/exec-plans/0002-thin-vertical-poc.md`, and this handoff.
+- M0 environment: `.gitignore`, `poc/m0/compose.yaml`, `poc/m0/registry-config.yml`, `poc/m0/Makefile`, `poc/m0/verify.sh`, `poc/m0/run-conformance.sh`, `poc/m0/scan-security.sh`, and `poc/m0/README.md`.
+- M1 implementation: `pyproject.toml`, `uv.lock`, `src/coffer/`, `tests/`, and `README.md`.
+- M2 and acceptance preparation: `src/coffer/authorization.py`, token/Keystone/policy/WSGI modules, related tests, `poc/m2/`, `docs/research/m2-token-contract.md`, `docs/runbooks/real-keystone-rgw-poc.md`, ADR 0002, README, the active plan, and this handoff.
+- M3 local observability: `src/coffer/observability.py`, database/config/WSGI/token instrumentation, `tests/test_observability.py`, `prometheus-client` lock updates, `docs/research/m3-local-observability.md`, README, plan, and handoff.
+- Mac identity lab: `poc/devstack/Makefile`, README, host bootstrap/export/verify scripts, guest install/verify scripts, host-side Coffer authenticator and control-middleware verifiers, `src/coffer/keystone.py`, `tests/test_keystone.py`, the M1 research notes, accepted ADR 0008, the active plan, and this handoff.
+- RGW VM lab: `poc/rgw/bootstrap-vm.sh`, Ceph/RGW guest and host scripts under `poc/rgw/`, its Makefile/README, the active plan, and this handoff.
+- Real vertical integration: `poc/integration/`, the two-project fixture extension in `poc/devstack/guest-verify.sh`, optional token/JWKS support in `poc/rgw/guest-run-distribution.sh`, ADRs 0002/0003, the active plan, and this handoff.
+- GC acceptance: `poc/rgw/guest-verify-gc-dry-run.sh`, `poc/rgw/verify-gc-dry-run.sh`, its Make target/README guidance, ADR 0003, the active plan, and this handoff.
+- Real observability: `poc/integration/real_broker.py`, `poc/integration/verify.sh`, its README, `docs/research/m3-local-observability.md`, the active plan, and this handoff.
+- Quota design: `docs/research/m3-quota-enforcement-spike.md`, proposed ADR `docs/adrs/0009-add-private-edge-manifest-quota-admission.md`, the active plan, and this handoff.
+- Process-level HA: `poc/rgw/guest-verify-distribution-ha.sh`, `poc/rgw/verify-distribution-ha.sh`, its Make target/README guidance, the active plan, and this handoff.
+- KMS capability: `docs/research/m3-rgw-kms-capability.md`, the active plan, and this handoff.
+
+## Verification
+
+- Parsed `.codex/config.toml` with Python `tomllib`: passed.
+- Parsed `.codex/hooks.json` with Python `json`: passed.
+- Compiled `.codex/hooks/pre_compact_snapshot.py`: passed.
+- Ran the hook with a representative `PreCompact` payload: passed and wrote the expected snapshot.
+- Confirmed `.codex/state/precompact-snapshot.md` is ignored by Git.
+- Rendered both Mermaid blocks in `docs/architecture/mvp-baseline.md` with local Chrome after the rename: passed; both outputs were visually readable and used Coffer labels.
+- Checked all 47 unique external Markdown URLs with redirected parallel HTTP requests: passed with HTTP 200 after one transient OpenDev 500 passed three immediate retries.
+- Checked balanced Markdown fences, local link targets, and trailing whitespace across 18 files: passed.
+- Parsed the documented PoC Bash block with `bash -n`: passed.
+- Ran `gitleaks dir . --redact --no-banner --exit-code 1`: passed with no leaks.
+- Verified `git rev-parse --show-toplevel` resolves to `/Users/byeonjaehan/projects/personal/coffer` from both the canonical directory and the temporary compatibility link.
+- `codex features list` in the already-running environment still reports `memories=false`; trust the project and start a new task before validating the project-level feature override.
+- Parsed the M0 Bash scripts with `bash -n` and the Compose model with `docker compose config --quiet`: passed.
+- Ran `make verify`: passed with subject digest `sha256:8050eefb54ecfbc909bb9937862ed100e9d361e3181a46b4d79a124f8d279d34`; the digest remained pullable after restart and the bucket contained 23 registry objects.
+- ORAS v1.3.3 artifact attach/discover passed through the fallback tag scheme; the native Referrers endpoint returned 404.
+- Ran the full OCI v1.1.1 profile: 68 passed, 7 failed, 4 skipped. Five failures are native Referrers, one is optional automatic cross-mount, and one is the malformed-reference core failure.
+- Ran the supported-capability profile: 59 passed, 1 failed, 19 skipped. The remaining malformed-reference request returns 500 rather than 400/404.
+- Visually inspected both generated HTML reports in the in-app browser: summary counts and failure cards rendered correctly without layout clipping at the default 1280x720 viewport.
+- Docker Scout reported 8 Critical and 9 High findings on the exact Linux ARM64 image; `govulncheck` v1.6.0 with Go 1.25.9 found eight symbol-reachable vulnerabilities.
+- Ran the six-check Falcon/Keystone/Oslo compatibility spike on Python 3.11.14, 3.12.2, and 3.13.14: all passed.
+- Ran the durable repository API suite on Python 3.11, 3.12, and 3.13: 9 passed on each version. Python 3.11/3.12 emitted only WebOb's expected `cgi` deprecation warning.
+- Ran Gunicorn `--check-config` for `coffer.wsgi:create_application()` with two `gthread` workers and four threads: passed; an expected warning remains until a real Keystone public URI is configured.
+- Ran the hardened complete local suite on Python 3.13: 63 passed. Coverage includes access-rule fail-closed behavior, secret-free exception graphs, explicit repository/`oslo.policy` grants, request IDs/audit IDs, key/lifetime/file-mode bounds, and middleware-path separation.
+- Ran `make -C poc/m2 verify`: passed. Unmodified Docker and Distribution proved challenge/login, member push/pull, reader reduction, denied delete/missing/cross-project access, direct post-restart blob SHA-256, positive same-project mount, equal denial/non-disclosure for existing and nonexistent cross-project mount sources, six negative JWT classes, and two accepted JWKS `kid` values.
+- Confirmed M2 cleanup: no running Compose services or named volume; private keys, fixture secrets, bearer cases, SQLite database, downloaded blob, and temporary Docker credential config are absent. Retained logs were scanned for all fixture secrets and JWT-shaped values.
+- Parsed the M2 Bash and Python sources and both M0/M2 Compose models: passed. The final M2 cross-version Python 3.11/3.12 rerun remains to be performed after observability changes.
+- Ran the final complete suite on Python 3.11.14, 3.12.2, and 3.13.14: 69 passed on each version. Python 3.11/3.12 emitted only WebOb's expected `cgi` deprecation warning.
+- Reran `make -C poc/m2 verify` after M3 instrumentation: passed, with complete cleanup confirmed.
+- Ran Gunicorn configuration, Python compilation, Bash syntax, both Compose model, and lock checks: passed; only the expected missing real Keystone public URI warning remains in the default smoke configuration.
+- Checked 30 Markdown files, 12 local links, 18 Bash/sh blocks, and 81 external Markdown link targets: passed.
+- Ran scoped Gitleaks and private-key/JWT-shaped value scans over project-owned files: passed.
+- Parsed every `poc/devstack` Bash script with `bash -n` and ShellCheck, compiled its Python verifier, and dry-ran all Make targets: passed.
+- Bootstrapped Lima 2.1.4 instance `coffer-devstack`: Ubuntu 24.04 ARM64, four CPUs, 8 GiB RAM, 50 GiB disk, VZ/vzNAT, DevStack `stable/2026.1` commit `da2f4d73f5ad74fc8ecfbe15bd7e20f6b0982dbb`.
+- `make -C poc/devstack verify`: passed against `https://192.168.64.6/identity/v3`; strict CA accepted the exported chain and rejected an unrelated CA; Coffer authenticated reader/member/admin/service effective roles; service had no registry role; domain/system-only identity could not gain project scope or create an application credential; Keystone rejected credentials after expiration, role removal, owner disablement, and deletion; the real control middleware enforced project and incoming service-token scope; revoked-token cache exposure ended after two seconds; and a bounded Keystone outage returned 503.
+- Confirmed Apache and MySQL are active, the host HTTPS probe succeeds without `-k`, the test user has zero residual application credentials, retained `work/devstack` evidence contains no secret-shaped field, and generated CA/binding files are owner-only.
+- Added the real deleted-credential regression and ran the full suite sequentially: 70 passed on Python 3.11.14, 3.12.2, and 3.13.14. Python 3.11/3.12 emit only WebOb's known `cgi` deprecation warning.
+- Reran Bash syntax, DevStack-scoped ShellCheck, both Compose models, and `uv lock --check`: passed. Project-owned Gitleaks scans found no leaks; the whole-tree scan's 55 redacted findings were confined to ignored upstream/M2 files under `work/`.
+- `poc/rgw/bootstrap-vm.sh` passed Bash syntax and ShellCheck; its Make targets dry-ran successfully.
+- `coffer-rgw-poc` passed cloud-init, x86_64/KVM, 8-vCPU, 24-GiB, root-resize, empty 200-GiB OSD device, qemu-guest-agent, reserved DHCP, ProxyJump SSH, autostart-disabled, and normal-reboot persistence checks. After boot, `bb00` reported about 61 GiB available RAM and 896 GiB free in the pool filesystem.
+- The Ceph installer passed Bash syntax and ShellCheck, verified the pinned artifact and image digest, recovered safely from a Tentacle device-list schema mismatch, and exited successfully on retry. Ceph reports monitor quorum, two running managers, and one 20.2.2 OSD that is `up` and `in`; the disposable cluster config records pool size and minimum size one.
+- The RGW deploy target passed idempotently. `rgw.coffer` runs on port 8443; CA-verified HTTPS returned 200; the certificate contains the expected DNS and IP SANs; untrusted TLS and plaintext failed; all five size-one pools and 129 PGs are active and clean. The stale bootstrap warnings are gone, leaving only the expected `POOL_NO_REDUNDANCY` warning.
+- S3 provisioning passed: the registry identity owns only `coffer-registry-poc`, the denial identity owns only `coffer-denial-poc`, a private sentinel round trip succeeded, and anonymous/cross-owner/extra-bucket operations returned 403/403/400. Secret-bearing guest and ignored host files are mode 0600.
+- Distribution/RGW persistence passed with eight bucket objects, direct non-redirected blob digest verification, secret-free logs, private TLS on both hops, and Mac-side tunnel validation. Lab PG tuning removed `TOO_MANY_PGS`; only `POOL_NO_REDUNDANCY` remains by design.
+- `make -C poc/integration verify` passed from a clean state: real finite Keystone credentials completed the standard TLS Bearer challenge through unmodified Skopeo and Podman; project A received 200 and project B received 401 for project A; the Skopeo digest survived Distribution and Coffer restarts; request IDs matched project/audit/grant decisions; retained logs contained no credential secret or JWT; cleanup removed credentials/private runtime state, stopped DevStack, and restored the unauthenticated registry fixture.
+- The same final integration harness passed a second clean run. A structured comparison proved stable repository/digest/restart/authorization results and different request IDs; second-run cleanup left DevStack stopped, no host private runtime file, no guest integration directory, and the restored registry returning HTTP 200.
+- The RGW GC dry-run wrapper passed after its cleanup correction: writes were stopped, objects stayed 19, candidate counts were zero, baseline/integration/Podman digests survived restart, retained logs were secret-free, and remote public evidence was removed.
+- The observability-enabled real integration rerun passed: health/readiness and bounded metrics were captured before and after broker restart, first/second process decision counts were 18/4 with aggregate decision time 0.2166/0.0481 seconds, expected denial/probe failures were classified, and no forbidden identifier or secret appeared in metrics.
+- The two-replica Distribution harness passed: the first 1 MiB and second 1 MiB of one blob crossed different processes around a primary stop, finalize returned 201, both endpoints returned the blob and selected manifest, logs were secret-free, and the temporary replica was removed.
+- Final consistency checks passed: `uv lock --check`, 70 tests, Python compilation, Bash syntax, full PoC ShellCheck, both Compose models, all Make target dry runs, 36 Markdown files and 13 local links, three rendered and visually inspected Mermaid diagrams, scoped Gitleaks/private-key/JWT scans, and trailing-whitespace checks.
+- Final lab-safety checks passed: DevStack is stopped; only the baseline Distribution container runs; its CA-verified `/v2/` returns 200; guest integration and temporary evidence state is absent; Ceph reports only the expected one-OSD no-replica warning; no KMS option is configured; private integration credentials, keys, and SQLite state are absent.
+
+## Blockers and Risks
+
+- Project hooks must be reviewed and trusted in Codex before they run.
+- Local memories are experimental and must never replace checked-in project state.
+- Coffer's product scope and architecture baseline are accepted for the PoC; empirical PoC failures may amend them through new ADR evidence.
+- The real identity, storage, integrated token path, repeated clean run, GC dry-run, single-process observability, and same-VM Distribution shared state are complete. Final acceptance still requires KMS, an accepted quota direction, multi-worker/shared-control-state evidence, and separate-host/load-balancer HA evidence.
+- `POOL_NO_REDUNDANCY` is intentionally retained as an honest warning for the one-OSD functional lab. No durability, HA, performance, or physical-failure-domain conclusion may be drawn from it.
+- Native OCI 1.1 Referrers, SSE-KMS, and quota overshoot remain empirical PoC gates. RGW compatibility and non-destructive GC behavior have functional evidence; destructive reclamation remains a separately approved maintenance test.
+- The pinned Distribution v3.1.1 Linux ARM64 image has 8 Critical and 9 High Docker Scout findings. Production use is blocked pending an upstream-patched supported image or complete reachability/VEX resolution.
+- Distribution v3.1.1 has one core supported-profile conformance failure: a malformed digest-like manifest reference returns 500. Native Referrers and optional automatic cross-mount are not supported.
+- The active Codex workspace still enters through a compatibility symlink. Reopen it from `/Users/byeonjaehan/projects/personal/coffer`, then remove the legacy symlink; the Git root already resolves to the canonical Coffer path.
+- The Mac lab closes real Keystone HTTP/TLS, duplicate-name isolation, reader/member/admin/service mapping, domain/system isolation, finite credential lifecycle, real control middleware, incoming service-token enforcement, bounded cache, and outage behavior. Shared production SQL/memcache and multi-worker consistency remain deployment gates.
+- Keystone authentication proves current credential validity but does not reveal whether the credential record has a non-null future `expires_at`; accepted ADR 0008 therefore requires explicit provisioning expiry plus the verified lifecycle regression matrix.
+- The runbook's identity, private RGW bucket, Distribution TLS, single-process integrated auth, GC dry-run, and same-VM shared upload state now have evidence. An approved KMS backend/key, routine OS credential-helper mechanism, accepted quota design, and separate-host HA evidence are still required for final acceptance.
+- Application-credential access rules currently fail closed rather than being supported. Exact service/method/path semantics need a later accepted design if users require them.
+- The static two-key fixture does not prove per-replica trust rollout, signer transition, old-key retirement, rollback, or Distribution key reload without restart.
+- Broker decision logs correlate request/JTI/Keystone audit IDs and reductions with explicit Distribution 200/401 outcomes, and single-process bounded metrics are verified. Multi-worker and multi-replica aggregation remains open M3 work.
+- Local bounded Prometheus metrics now exist, but process-local counters cannot be considered correct under the reference two-worker Gunicorn model until aggregation/restart semantics are selected and tested.
+- Multipass 1.16.3 was not installed. Its checksum matched Homebrew and its Canonical Developer ID signature was valid, but Gatekeeper rejected it as unnotarized. No bypass was attempted; preinstalled Lima 2.1.4 is the selected VM provider.
+
+## Exact Next Action
+
+Ask the user to choose and authorize a KMS path: Barbican deployment for OpenStack-native evidence, Vault for narrower RGW functional evidence, or an existing approved KMIP endpoint. Also request review of proposed quota ADR 0009 before implementation.
+
+## Next Three Actions
+
+1. Receive the KMS backend/key/deployment decision and approved credential-delivery boundary.
+2. Review proposed ADR 0009 before implementing any quota gateway; otherwise remove the bounded quota promise or select project-isolated storage.
+3. After those decisions, execute M3-B encryption and the accepted quota path; separate-host/load-balancer HA and destructive GC remain distinct work.
