@@ -17,8 +17,8 @@ make -C poc/quota-sql verify
 ```
 
 Override `COFFER_POSTGRES_PORT` or `COFFER_MARIADB_PORT` if the loopback-only
-defaults `55432` and `53306` are occupied. The verification applies both
-Alembic revisions from an empty database, repeats the upgrade, checks the model
+defaults `55432` and `53306` are occupied. The verification applies the full
+Alembic chain from an empty database, repeats the upgrade, checks the model
 for migration drift, opens two independent SQL connections, and proves
 concurrent one-winner admission, idempotent retry/commit/release behavior,
 database check constraints, bounded downgrade/re-upgrade, and zero logical
@@ -34,11 +34,23 @@ transactions completed acquired the remaining item. A scheduler must
 therefore tolerate a transient empty batch and retry later without treating it
 as durable backlog exhaustion.
 
+After the clean downgrade/re-upgrade cycle, the harness creates synthetic exact
+repository/quota authority and exercises revision `0004_inventory_import`. A
+temporary database constraint forces the second manifest row to fail; marker
+and every ledger table remain empty. Two simultaneous exact imports then
+converge to one writer and one no-op, a different baseline is rejected, the
+2-manifest/5-edge/2-manifest-row/4-descriptor shape matches, and honest usage
+220 remains recorded against limit 10. The first MariaDB run exposed marker
+deadlock 1213; the importer now uses a three-attempt whole-transaction retry
+limited to known MySQL/PostgreSQL deadlock, lock-timeout, and serialization
+codes.
+
 Cleanup proves that no labeled container, volume, network, or generated
 credential remains.
 
 The `postgresql` and `mariadb` package extras provide the pinned SQLAlchemy
 drivers used by this harness. A production deployment still needs operator
-database credentials, backups, an existing-data rollout plan, connection-pool
-sizing, TLS, scheduler cadence/jitter and lease policy, clock/deadlock retry,
-Galera behavior, and restart-correct metric aggregation.
+database credentials, backups, production-scale inventory/import/comparison and
+rollback ownership, connection-pool sizing, TLS, scheduler cadence/jitter and
+lease policy, broader clock/deadlock policy, Galera behavior, and
+restart-correct metric aggregation.

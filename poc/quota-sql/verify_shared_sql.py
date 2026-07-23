@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 import hashlib
 import json
@@ -13,7 +14,7 @@ import threading
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, inspect, insert, select, text
+from sqlalchemy import create_engine, func, inspect, insert, select, text
 from sqlalchemy.engine import URL
 from sqlalchemy.exc import DBAPIError
 
@@ -23,8 +24,15 @@ from coffer.db import (
     metadata as repository_metadata,
     repositories,
 )
+from coffer.inventory import (
+    INVENTORY_SCHEMA,
+    PINNED_DISTRIBUTION_VERSION,
+    PINNED_ENUMERATOR,
+)
 from coffer.quota import (
     Descriptor,
+    OCI_IMAGE_INDEX,
+    OCI_IMAGE_MANIFEST,
     QuotaExceeded,
     QuotaSchemaNotReady,
     QuotaStore,
@@ -32,6 +40,18 @@ from coffer.quota import (
     Reservation,
     StaleReconciliationClaim,
     project_quotas,
+    quota_descriptors,
+    quota_inventory_imports,
+    quota_manifests,
+    quota_reservation_descriptors,
+    quota_reservations,
+)
+from coffer.quota_import import (
+    InventoryArtifact,
+    InventoryImportConflict,
+    InventoryImportFailed,
+    import_inventory,
+    parse_inventory_artifact,
 )
 
 
@@ -51,6 +71,8 @@ ABANDONED_PROJECT_ID = "55555555-5555-4555-8555-555555555555"
 ABANDONED_REPOSITORY_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff"
 LEGACY_PROJECT_ID = "66666666-6666-4666-8666-666666666666"
 LEGACY_REPOSITORY_ID = "99999999-9999-4999-8999-999999999999"
+IMPORT_PROJECT_ID = "77777777-7777-4777-8777-777777777777"
+IMPORT_REPOSITORY_ID = "88888888-8888-4888-8888-888888888888"
 
 
 def digest(value: str) -> str:
@@ -379,6 +401,197 @@ def assert_database_constraint(url: URL) -> None:
     raise AssertionError("the migrated database accepted a negative quota limit")
 
 
+def inventory_artifact() -> tuple[InventoryArtifact, str]:
+    child_digest = f"sha256:{'1' * 64}"
+    index_digest = f"sha256:{'2' * 64}"
+    config_digest = f"sha256:{'3' * 64}"
+    layer_digest = f"sha256:{'4' * 64}"
+    descriptors = [
+        {
+            "digest": child_digest,
+            "media_type": OCI_IMAGE_MANIFEST,
+            "size": 101,
+        },
+        {
+            "digest": index_digest,
+            "media_type": OCI_IMAGE_INDEX,
+            "size": 79,
+        },
+        {
+            "digest": config_digest,
+            "media_type": "application/vnd.oci.image.config.v1+json",
+            "size": 17,
+        },
+        {
+            "digest": layer_digest,
+            "media_type": "application/vnd.oci.image.layer.v1.tar+gzip",
+            "size": 23,
+        },
+    ]
+    descriptors.sort(key=lambda value: value["digest"])
+    value = {
+        "projects": [
+            {
+                "descriptor_count": 4,
+                "descriptors": descriptors,
+                "logical_bytes": 220,
+                "project_id": IMPORT_PROJECT_ID,
+            }
+        ],
+        "repositories": [
+            {
+                "manifests": [
+                    {
+                        "digest": child_digest,
+                        "media_type": OCI_IMAGE_MANIFEST,
+                        "references": [
+                            {
+                                "digest": config_digest,
+                                "media_type": (
+                                    "application/vnd.oci.image.config.v1+json"
+                                ),
+                                "size": 17,
+                            },
+                            {
+                                "digest": layer_digest,
+                                "media_type": (
+                                    "application/vnd.oci.image.layer.v1.tar+gzip"
+                                ),
+                                "size": 23,
+                            },
+                        ],
+                        "size": 101,
+                    },
+                    {
+                        "digest": index_digest,
+                        "media_type": OCI_IMAGE_INDEX,
+                        "references": [
+                            {
+                                "digest": child_digest,
+                                "media_type": OCI_IMAGE_MANIFEST,
+                                "size": 101,
+                            }
+                        ],
+                        "size": 79,
+                    },
+                ],
+                "project_id": IMPORT_PROJECT_ID,
+                "repository_id": IMPORT_REPOSITORY_ID,
+            }
+        ],
+        "schema": INVENTORY_SCHEMA,
+        "source": {
+            "distribution_version": PINNED_DISTRIBUTION_VERSION,
+            "enumerator": PINNED_ENUMERATOR,
+            "snapshot_scans": 2,
+        },
+        "summary": {
+            "descriptor_count": 4,
+            "logical_bytes": 220,
+            "manifest_count": 2,
+            "project_count": 1,
+            "repository_count": 1,
+        },
+    }
+    payload = (
+        json.dumps(value, separators=(",", ":"), sort_keys=True) + "\n"
+    ).encode()
+    artifact_digest = f"sha256:{hashlib.sha256(payload).hexdigest()}"
+    return (
+        parse_inventory_artifact(value, artifact_digest=artifact_digest),
+        index_digest,
+    )
+
+
+def table_count(connection: object, table: object) -> int:
+    return connection.execute(  # type: ignore[attr-defined]
+        select(func.count()).select_from(table)  # type: ignore[arg-type]
+    ).scalar_one()
+
+
+def exercise_inventory_import(
+    stores: tuple[QuotaStore, QuotaStore],
+) -> dict[str, object]:
+    artifact, failing_digest = inventory_artifact()
+    with stores[0]._engine.begin() as connection:
+        connection.execute(
+            insert(repositories).values(
+                id=IMPORT_REPOSITORY_ID,
+                project_id=IMPORT_PROJECT_ID,
+                name="inventory-import",
+                immutable_tags=False,
+                created_at=datetime.now(UTC),
+            )
+        )
+    stores[0].set_limit(IMPORT_PROJECT_ID, 10)
+
+    constraint_name = "ck_poc_inventory_forced_failure"
+    with stores[0]._engine.begin() as connection:
+        connection.exec_driver_sql(
+            "ALTER TABLE quota_reservations ADD CONSTRAINT "
+            f"{constraint_name} CHECK (manifest_digest <> '{failing_digest}')"
+        )
+    try:
+        try:
+            import_inventory(stores[0], artifact)
+        except InventoryImportFailed:
+            pass
+        else:
+            raise AssertionError("the forced shared-SQL import failure was accepted")
+        with stores[0]._engine.connect() as connection:
+            for table in (
+                quota_inventory_imports,
+                quota_reservations,
+                quota_reservation_descriptors,
+                quota_manifests,
+                quota_descriptors,
+            ):
+                assert table_count(connection, table) == 0
+        usage = stores[0].usage(IMPORT_PROJECT_ID)
+        assert (usage.used_bytes, usage.reserved_bytes) == (0, 0)
+    finally:
+        with stores[0]._engine.begin() as connection:
+            connection.exec_driver_sql(
+                f"ALTER TABLE quota_reservations DROP CONSTRAINT {constraint_name}"
+            )
+
+    barrier = threading.Barrier(2)
+
+    def run(index: int) -> str:
+        barrier.wait(timeout=10)
+        return import_inventory(stores[index], artifact).status
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        statuses = sorted(executor.map(run, range(2)))
+    assert statuses == ["already_imported", "imported"]
+    replay = import_inventory(stores[0], artifact)
+    assert replay.status == "already_imported"
+    assert replay.over_limit_project_count == 1
+    usage = stores[1].usage(IMPORT_PROJECT_ID)
+    assert (usage.limit_bytes, usage.used_bytes, usage.reserved_bytes) == (10, 220, 0)
+    with stores[0]._engine.connect() as connection:
+        assert table_count(connection, quota_inventory_imports) == 1
+        assert table_count(connection, quota_reservations) == 2
+        assert table_count(connection, quota_reservation_descriptors) == 5
+        assert table_count(connection, quota_manifests) == 2
+        assert table_count(connection, quota_descriptors) == 4
+
+    different = replace(artifact, digest=f"sha256:{'9' * 64}")
+    try:
+        import_inventory(stores[1], different)
+    except InventoryImportConflict:
+        pass
+    else:
+        raise AssertionError("a different baseline replaced the committed import")
+    return {
+        "atomic_failure_rollback": True,
+        "different_baseline_rejected": True,
+        "exact_replay_noop": True,
+        "one_writer": True,
+        "over_limit_usage_recorded": True,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--engine", choices=("postgresql", "mariadb"), required=True)
@@ -444,6 +657,7 @@ def main() -> None:
         "alembic_version",
         "project_quotas",
         "quota_descriptors",
+        "quota_inventory_imports",
         "quota_manifests",
         "quota_reconciliation_claims",
         "quota_reservation_descriptors",
@@ -502,13 +716,20 @@ def main() -> None:
     retained_engine.dispose()
     command.upgrade(config, "head")
     command.check(config)
-    final_store = QuotaStore(database_connection)
-    final_store._engine.dispose()
+    final_stores = (
+        QuotaStore(database_connection),
+        QuotaStore(database_connection),
+    )
     readopted = RepositoryStore(database_connection).get(
         LEGACY_PROJECT_ID, LEGACY_REPOSITORY_ID
     )
     assert readopted is not None
     assert readopted.name == "legacy"
+    inventory_import = exercise_inventory_import(
+        final_stores,
+    )
+    for store in final_stores:
+        store._engine.dispose()
 
     print(
         json.dumps(
@@ -516,6 +737,7 @@ def main() -> None:
                 "backend_connections_distinct": True,
                 "concurrency": concurrency,
                 "engine": args.engine,
+                "inventory_import": inventory_import,
                 "reconciliation_claims": claims,
                 "migration_downgrade_reupgrade": True,
                 "migration_repeat_upgrade": True,

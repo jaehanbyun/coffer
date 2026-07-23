@@ -1,8 +1,8 @@
 # Existing OCI Content Inventory Boundary
 
 - Status: verified read-only filesystem PoC; not a production import procedure
-- Related ADR: `docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md`
-- Related plan: `docs/exec-plans/0008-existing-content-inventory.md`
+- Related ADRs: `docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md`, `docs/adrs/0012-import-existing-content-into-empty-quota-ledger.md`
+- Related plans: `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`
 
 ## Purpose
 
@@ -95,8 +95,11 @@ The following is a design checklist, not an executable production procedure:
 9. Remove transient authority/evidence material according to the approved
    retention policy and restore writers through a controlled rollout.
 
-The checked-in filesystem helper cannot perform steps 4–8 against production
-RGW. Those capabilities and approvals remain explicit gates.
+The checked-in filesystem helper cannot perform steps 4–7 against production
+RGW. `coffer-import-inventory` implements the disposable SQL semantics for step
+8, but it cannot establish writer exclusion, backup/restore, production
+authorization, representative capacity, post-import comparison, rollback
+readiness, or permission to enable admission. Those remain explicit gates.
 
 ## Disposable Verification
 
@@ -128,13 +131,31 @@ The Go environment and module checksums are pinned for a reproducible disposable
 proof, but it downloads and compiles dependencies at run time. That is not an
 approved production packaging model.
 
+The downstream empty-ledger transaction is tested independently with:
+
+```bash
+make -C poc/quota-sql verify
+```
+
+After its normal migration/reconciliation checks, that harness uses synthetic
+authority and a canonical in-memory artifact on PostgreSQL 17.10 and MariaDB
+11.4.12. It forces the second manifest row to fail and observes zero marker and
+ledger rows, then proves concurrent one-writer/exact-no-op convergence, a
+different-baseline refusal, exact 2/5/2/4 reservation-edge-manifest-descriptor
+shape, and honest 220-byte usage against a 10-byte limit. It never connects to
+Distribution/RGW or enables admission and removes all runtime state and random
+database passwords.
+
 ## Separately Approved Next Work
 
 - Build and attest an exact-release helper image with production storage-driver
   configuration support and no command-line secrets.
 - Run read-only against a disposable RGW copy with a non-writing role.
-- Define and test the transactional quota-ledger import, idempotency key,
-  comparison report, admission switch, rollback, and crash recovery.
+- Qualify transaction duration, locks, WAL/binlog, deadlock, crash, capacity,
+  chunking, and Galera behavior with a representative disposable copy.
+- Implement and approve the authenticated post-import comparison, admission
+  switch, and rollback/forward-repair procedure without permitting re-baseline
+  resurrection.
 - Add large-inventory memory/time bounds and evidence chunk storage/retention.
 
 Until those gates pass, `coffer.inventory/v1` is verified PoC evidence only and

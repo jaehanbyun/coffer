@@ -29,6 +29,7 @@ dependencies = [
 
 [project.scripts]
 coffer-inventory-verify = "coffer.inventory:main"
+coffer-import-inventory = "coffer.quota_import:main"
 coffer-reconcile = "coffer.reconciliation_runner:main"
 
 [project.optional-dependencies]

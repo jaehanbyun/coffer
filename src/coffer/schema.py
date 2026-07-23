@@ -7,7 +7,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 
-CURRENT_SCHEMA_REVISION = "0003_repository_metadata"
+CURRENT_SCHEMA_REVISION = "0004_inventory_import"
 
 
 class SchemaNotReady(Exception):

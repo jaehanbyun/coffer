@@ -4,6 +4,7 @@
 - Date: 2026-07-23
 - Decision owners: Coffer maintainers
 - Related plan: `docs/exec-plans/0008-existing-content-inventory.md`
+- Downstream ADR: `docs/adrs/0012-import-existing-content-into-empty-quota-ledger.md`
 - Related research: `docs/research/m3-existing-content-inventory.md`
 - Related runbook: `docs/runbooks/existing-content-inventory.md`
 
@@ -100,6 +101,13 @@ four project-unique descriptor facts validate, registry file-content and control
 SQLite hashes remain unchanged, both digests remain readable after restart, and
 all labeled runtime resources and state are removed.
 
+Proposed ADR 0012 separately proves that one canonical artifact can populate an
+empty disposable SQLite/PostgreSQL/MariaDB quota ledger atomically, roll back a
+forced partial failure, converge concurrent exact replay to one write plus one
+no-op, and retain honest over-limit usage. That downstream evidence does not
+qualify the filesystem helper for production RGW or complete the operator
+cutover sequence.
+
 Before this ADR can be accepted for a production candidate, maintainers must
 still provide:
 
@@ -113,7 +121,8 @@ still provide:
   including nested indexes, malformed/orphan links, paging scale, timeout, and
   restart behavior;
 - an operator-owned restorable backup, control-authority export, inventory
-  retention/signing policy, transactional import, post-import comparison,
-  admission cutover, and rollback procedure; and
+  retention/signing policy, representative-scale transactional import,
+  authenticated post-import comparison, admission cutover, and rollback
+  procedure; and
 - explicit approval for production credentials, data access, SQL writes, and
   the maintenance window.

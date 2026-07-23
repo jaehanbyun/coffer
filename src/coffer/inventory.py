@@ -523,6 +523,12 @@ def build_inventory(evidence: object, authority: object) -> dict[str, object]:
                 "repository_id": authority_record.id,
             }
         )
+    final_repositories.sort(
+        key=lambda repository: (
+            repository["project_id"],
+            repository["repository_id"],
+        )
+    )
 
     projects = []
     for project_id in sorted(project_descriptors):

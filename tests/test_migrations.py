@@ -153,6 +153,7 @@ def test_alembic_upgrade_is_repeatable_and_downgrade_is_bounded(
         "alembic_version",
         "project_quotas",
         "quota_descriptors",
+        "quota_inventory_imports",
         "quota_manifests",
         "quota_reconciliation_claims",
         "quota_reservation_descriptors",
@@ -181,6 +182,20 @@ def test_alembic_upgrade_is_repeatable_and_downgrade_is_bounded(
             "quota_reconciliation_claims"
         )
     } == {"ck_quota_reconciliation_claim_window"}
+    assert {
+        constraint["name"]
+        for constraint in schema.get_check_constraints("quota_inventory_imports")
+    } == {
+        "ck_quota_inventory_import_descriptors",
+        "ck_quota_inventory_import_manifests",
+        "ck_quota_inventory_import_projects",
+        "ck_quota_inventory_import_repositories",
+        "ck_quota_inventory_import_scope",
+    }
+    assert {
+        constraint["name"]
+        for constraint in schema.get_unique_constraints("quota_inventory_imports")
+    } == {"uq_quota_inventory_import_digest"}
     claim_foreign_keys = schema.get_foreign_keys("quota_reconciliation_claims")
     assert len(claim_foreign_keys) == 1
     assert claim_foreign_keys[0]["referred_table"] == "quota_reservations"

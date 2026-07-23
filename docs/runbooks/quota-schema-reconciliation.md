@@ -1,8 +1,8 @@
 # Control Schema and Quota Reconciliation Operator Boundary
 
 - Status: verified development baseline; not a production deployment procedure
-- Related ADRs: `docs/adrs/0009-add-private-edge-manifest-quota-admission.md`, `docs/adrs/0010-adopt-repository-metadata-into-alembic.md`, proposed `docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md`
-- Related plans: `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`
+- Related ADRs: `docs/adrs/0009-add-private-edge-manifest-quota-admission.md`, `docs/adrs/0010-adopt-repository-metadata-into-alembic.md`, proposed `docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md`, proposed `docs/adrs/0012-import-existing-content-into-empty-quota-ledger.md`
+- Related plans: `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0009-transactional-inventory-import.md`
 
 ## Purpose and Safety Boundary
 
@@ -43,11 +43,49 @@ uv run alembic upgrade head
 unset COFFER_DATABASE_URL
 ```
 
-The current head is `0003_repository_metadata`. A fresh database receives repository and quota tables. A database containing the exact older PoC `repositories` table is migrated online: revision `0003` validates its five columns, primary key, string bounds, nullability, and named project/name uniqueness, then adopts it without rewriting rows. Structural drift aborts before revision `0003` is recorded. Do not use `alembic stamp` to bypass this validation.
+The current head is `0004_inventory_import`. A fresh database receives repository and quota tables. A database containing the exact older PoC `repositories` table is migrated online: revision `0003` validates its five columns, primary key, string bounds, nullability, and named project/name uniqueness, then adopts it without rewriting rows. Revision `0004` creates the singleton baseline-import marker; it refuses downgrade when that marker contains a committed import. Structural drift aborts before the relevant revision is recorded. Do not use `alembic stamp` to bypass validation.
 
 The conditional create-or-adopt decision cannot be made safely by offline `--sql` generation, so that path is rejected. Downgrade across revision `0003` deliberately retains repository rows; normal processes still reject the downgraded revision until re-upgrade validates and adopts them again. This is disposable recovery evidence, not a production rollback prescription.
 
-Repository-row adoption does not inspect Distribution/RGW or populate quota descriptors, manifests, references, or reservations. The read-only verifier in `docs/runbooks/existing-content-inventory.md` now proves a deterministic tagged/digest-only filesystem inventory boundary, but a registry containing pre-existing production content still requires an exact RGW/helper qualification, separately reviewed transactional import, restorable backup, maintenance window, comparison, and quota cutover plan before admission can become authoritative.
+Repository-row adoption and marker migration do not inspect Distribution/RGW or populate quota descriptors, manifests, references, or reservations. The read-only verifier in `docs/runbooks/existing-content-inventory.md` proves a deterministic tagged/digest-only filesystem inventory boundary, and proposed ADR 0012 proves a disposable one-transaction import into empty SQLite/PostgreSQL/MariaDB ledgers. Production still requires exact RGW/helper qualification, a restorable backup, approved maintenance/import/rollback owners, representative-scale transaction evidence, authenticated post-import comparison, and admission cutover before quota can become authoritative.
+
+## Existing-Content Baseline Import Contract
+
+`coffer-import-inventory` accepts only a canonical `coffer.inventory/v1` file and
+its independently supplied SHA-256. It reads the database URL from
+`COFFER_DATABASE_URL`; do not place a URL or password on the command line. The
+command is admissible only while every registry/admission writer is stopped, the
+quota ledger is globally empty, quota counters are zero, and exact project quota
+plus repository authority already exists.
+
+The importer recomputes the artifact before database access. In one transaction
+it creates the singleton marker, deterministic committed reservations,
+reservation graphs, committed manifests, project descriptor reference counts,
+and used-byte values. Exact replay is a no-op; a different marker, live/partial
+ledger, missing quota, or mismatched repository owner fails closed. Observed
+usage above a configured limit is retained without raising the limit, so novel
+logical bytes remain denied. The result contains only aggregate counts, the
+artifact digest, status, and over-limit project count.
+
+The executable shape is:
+
+```bash
+set +x
+umask 077
+# Deliver COFFER_DATABASE_URL through the operator secret mechanism.
+# Set INVENTORY_SHA256 to the independently verified sha256:64-hex digest.
+coffer-import-inventory \
+  --inventory /operator/evidence/coffer.inventory.json \
+  --expected-sha256 "$INVENTORY_SHA256"
+unset INVENTORY_SHA256
+unset COFFER_DATABASE_URL
+```
+
+This checked-in command has disposable semantics only. A production invocation
+still requires the sequence and approvals in
+`docs/runbooks/existing-content-inventory.md`; successful exit does not prove
+writer exclusion, backup restorability, post-import comparison, or permission
+to enable admission.
 
 ## Reconciliation Contract
 
@@ -104,7 +142,7 @@ make -C poc/quota-sql verify
 make -C poc/quota-reconciliation verify
 ```
 
-The shared-SQL harness creates owner-only random passwords under ignored `work/`, creates one exact legacy repository row, applies and repeats the migration on PostgreSQL and MariaDB, checks row preservation, model drift, and constraints, opens independent connections, races two admissions, and performs a non-destructive downgrade/re-upgrade with repository re-adoption. It also divides three reconciliation candidates across database workers, verifies MariaDB's bounded contention retry, spawns a separate process that commits a claim and exits with status 17, proves quota remains charged, reclaims after expiry, rejects the old token, and ends at zero logical usage. The reconciliation harness publishes and removes exact OCI digests in an ephemeral unmodified Distribution, proves stale-result rejection and last-reference refunds, and ends at zero logical usage.
+The shared-SQL harness creates owner-only random passwords under ignored `work/`, creates one exact legacy repository row, applies and repeats the migration on PostgreSQL and MariaDB, checks row preservation, model drift, and constraints, opens independent connections, races two admissions, and performs a non-destructive downgrade/re-upgrade with repository re-adoption. It also divides three reconciliation candidates across database workers, verifies MariaDB's bounded contention retry, spawns a separate process that commits a claim and exits with status 17, proves quota remains charged, reclaims after expiry, rejects the old token, and ends at zero logical usage. After re-upgrade it forces the second inventory reservation to fail and proves full rollback, then races two exact importers, rejects a different baseline, and records over-limit usage without raising the limit. The reconciliation harness publishes and removes exact OCI digests in an ephemeral unmodified Distribution, proves stale-result rejection and last-reference refunds, and ends at zero logical usage.
 
 Both harnesses remove their labeled containers, networks, volumes, generated passwords, and SQLite state even after failure. They use loopback or isolated fixture paths and must not be pointed at a production database or registry.
 

@@ -1,14 +1,14 @@
 # Coffer Handoff
 
 - Updated: 2026-07-23
-- Status: plan 0008 complete and ready for atomic publication; no next plan activated yet
-- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`
+- Status: plan 0009 complete and ready for atomic publication; no production cutover is authorized
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
-- Active execution plan: none until the published baseline is verified
+- Active execution plan: none until the next bounded work package is activated after publication
 
 ## Current Objective
 
-Publish the completed read-only existing-content inventory baseline, then bound the next disposable inventory-to-ledger import design without enabling admission or accessing production systems. Production deployment, credentials, Galera policy, import authorization, and restart-correct metric aggregation remain outside authorization or unproven.
+Publish the completed disposable transactional inventory-import baseline atomically, then activate the next bounded read-only/disposable work package. Production deployment, credentials, maintenance authorization, backup/rollback, Galera policy, admission cutover, and restart-correct metric aggregation remain outside authorization or unproven.
 
 ## Completed
 
@@ -97,6 +97,14 @@ Publish the completed read-only existing-content inventory baseline, then bound 
 - Added a pinned Go 1.25.1 helper compiled against Distribution v3.1.1 and a stopped-registry filesystem fixture. The tags API exposed one tagged manifest while storage enumeration exposed it plus one digest-only untagged index; both scans matched, four descriptors resolved, registry/control hashes were unchanged, both digests survived restart, and all resources/state were removed. Podman is stopped.
 - Added proposed ADR 0011, the existing-content inventory research/runbook, and architecture/README/quota-boundary updates. The filesystem helper is PoC evidence only; production RGW support, credentials, packaging, import, backup, cutover, and rollback remain unimplemented and unauthorized.
 - Completed plan 0008 final regression: 151 tests per Python 3.11/3.12/3.13; Go test/vet; the final pinned fixture with explicit snapshot-drift rejection; lock/compile/Alembic/CLI; 58 Bash/ShellCheck files; six Compose models; ten Make dry-runs; 50 Markdown files and 29 local links; 99 external links; 204 project-owned Gitleaks files; key/JWT, whitespace, and diff checks. Podman is stopped and no fixture state remains.
+- Published completed plan 0008 as commit `65bdace` to `jaehanbyun/coffer` `main`; local and remote heads match.
+- Activated plan 0009 for a one-time empty-ledger import contract: canonical artifact hash binding, exact authority, one transaction, immutable baseline marker, exact-replay no-op, different-baseline/non-empty-ledger refusal, and honest over-limit usage. Production access and admission remain excluded.
+- Added strict canonical `coffer.inventory/v1` parsing and expected SHA-256 binding. Nine focused parser tests recompute every redundant aggregate and reject noncanonical bytes, hash/fact/index drift, missing project summaries, and unknown secret-shaped fields before database access; all 17 inventory tests still pass.
+- Added revision/model `0004_inventory_import` and the one-transaction empty-ledger import. Focused SQLite evidence proves committed graphs/reference counts, exact and concurrent replay, different-baseline/non-empty-ledger/authority refusal, downgrade guard, full rollback after a forced second-row failure, and honest over-limit usage with new-byte denial; migration/inventory/import tests total 46 passes.
+- Added installed `coffer-import-inventory` with environment-only database URL input and aggregate-only output. PostgreSQL 17.10 and MariaDB 11.4.12 both prove forced second-row rollback, concurrent one-writer/exact-no-op convergence, different-baseline rejection, and honest over-limit accounting; a discovered MariaDB marker deadlock now has a three-attempt retry limited to known MySQL/PostgreSQL transaction codes. Focused tests total 49; the shared-SQL fixture and cleanup pass; Podman is stopped.
+- Added proposed ADR 0012 and completed the production refusal/cutover boundary across README, architecture, ADRs 0009–0011, inventory/quota runbooks, and the shared-SQL guide. The importer is verified PoC evidence only and does not authorize production data access, maintenance, SQL writes, or admission enablement.
+- Completed plan 0009 regression: 174 tests pass on each Python 3.11.14, 3.12.2, and 3.13.14; lock, compile, Alembic head, installed CLIs, Go, 58 Bash/ShellCheck files, six Compose models, 54 Make dry-runs, 54 Markdown files, 32 local links, 99 external links, diff, and secret-safety checks pass. The successful shared-SQL run removed every disposable resource and generated credential.
+- The final inventory-fixture rerun was not repeated because Podman 5.6.0/libkrun began exiting immediately after reporting successful boot. Two non-destructive retries reproduced it; the machine is stopped and no VM/data was recreated. Plan 0008's live inventory fixture and plan 0009's successful PostgreSQL/MariaDB run remain the relevant completed evidence.
 
 ## Decisions and Reasons
 
@@ -115,6 +123,7 @@ Publish the completed read-only existing-content inventory baseline, then bound 
 - One Alembic chain is the sole repository/quota control-schema upgrade authority; normal startup validates the exact revision and required tables, while `create_all()` is explicit unit/disposable fixture-only behavior.
 - Revision `0003_repository_metadata` runs online and strictly creates or adopts the exact legacy repository table. Drift and offline conditional migration fail closed; downgrade retains repository identity because table provenance cannot be inferred safely. OCI payload inventory remains separate.
 - Proposed ADR 0011 uses the exact qualified Distribution release's exported repository/manifest storage enumerators under write exclusion and two equal scans. HTTP tags, notifications, GC stdout, and direct backend-key parsing are not inventory authority; the resulting artifact still cannot authorize or perform a ledger import.
+- Proposed ADR 0012 allows exactly one verified canonical baseline to populate an otherwise empty quota ledger in one transaction. It requires existing quota/repository authority, records honest over-limit usage, makes exact replay a no-op, and blocks different baselines; production cutover remains separately gated and unauthorized.
 - Ledger-driven reconciliation uses immutable repository authority, exact digest HEAD probes, conservative indeterminate outcomes, and monotonic reservation-version compare-and-set. A separate expiring shared-SQL claim plus opaque fencing token now divides workers and rejects a result after reassignment; successful mutation consumes the claim transactionally.
 - Reconciliation claims lock only selected reservation rows and release the transaction before network I/O. MariaDB may return an empty batch during range-lock contention, so schedulers perform a later bounded retry rather than interpreting an empty batch as durable backlog exhaustion.
 - `coffer-reconcile` runs as a separate native synchronous process rather than inside Gunicorn or an Eventlet/oslo.service loop. Each process is locally serial; independent processes scale only through the shared claim table.
@@ -161,6 +170,7 @@ Publish the completed read-only existing-content inventory baseline, then bound 
 - Reconciliation runner: `pyproject.toml`, `uv.lock`, reconciliation options in `src/coffer/config.py`, new `src/coffer/reconciliation_runner.py`, focused runner/subprocess tests, active plan 0006, and this handoff.
 - Unified control schema: `src/coffer/schema.py`, repository/quota/runner validation, Alembic revision `0003` and unified metadata, focused migration tests, explicit fixture bootstraps, `poc/quota-sql/`, ADR 0010, schema/architecture/runbook updates, active plan 0007, and this handoff.
 - Existing-content inventory: `src/coffer/inventory.py`, `tests/test_inventory.py`, installed CLI metadata, `poc/inventory/`, `docs/research/m3-existing-content-inventory.md`, proposed ADR 0011, `docs/runbooks/existing-content-inventory.md`, architecture/README/quota-runbook/ADR 0009 updates, completed plan 0008, and this handoff.
+- Transactional inventory import: `src/coffer/quota_import.py`, `migrations/versions/0004_inventory_import.py`, quota/schema metadata, `tests/test_quota_import.py`, migration tests, the shared-SQL fixture, proposed ADR 0012, inventory/quota/architecture documentation, completed plan 0009, and this handoff.
 
 ## Verification
 
@@ -231,6 +241,9 @@ Publish the completed read-only existing-content inventory baseline, then bound 
 - Plan 0007 final verification passed after tightening MySQL Boolean reflection: 10 SQLite migration tests reject four drift classes; 134 tests pass per Python version; both shared-SQL engines and isolated Distribution reconciliation pass again; Podman and all labeled runtime/credential/state residue are absent.
 - Plan 0008 focused verification passed: 17 inventory tests cover bounded pages and summaries, start/end drift including tag state, empty-repository/exact authority, unsupported/digest/size/aggregate-bound failures, descriptor conflicts, nested-index children, unknown-field secret exclusion, deterministic output, and atomic exclusive mode-0600 output creation.
 - `make -C poc/inventory verify` passed against pinned unmodified Distribution v3.1.1: API tags=1, storage manifests=2 including one digest-only untagged index, snapshot scans equal, four descriptors, registry/control hashes unchanged, both digests readable after restart, zero labeled/runtime/state residue, and Podman stopped.
+- Plan 0009 import verification passed on SQLite, PostgreSQL 17.10, and MariaDB 11.4.12: forced second-row failure leaves no marker or ledger state; concurrent exact import converges to one writer and one no-op; a different baseline fails; exact graph counts are 2 reservations, 5 edges, 2 manifests, and 4 descriptors; used/reserved bytes are 220/0 at limit 10; all disposable resources and credentials are removed.
+- Plan 0009 final regression passed with 174 tests per Python 3.11/3.12/3.13, only expected WebOb warnings on 3.11/3.12, Alembic head `0004_inventory_import`, three installed CLI helps, lock/compile, Go format/test/vet, 58 Bash/ShellCheck files, six Docker Compose models, 54 Make dry-runs, 54 Markdown files, 32 local links, 99 external links, and diff checks.
+- The first Python 3.11/3.12 commands lacked installed console scripts in disposable ignored environments; editable installation of the current checkout and explicit venv `PATH` corrected the command and all 174 tests passed. The final live fixture retry was blocked by the local Podman 5.6.0/libkrun machine exiting immediately after reported boot; no destructive repair was attempted.
 
 ## Blockers and Risks
 
@@ -253,11 +266,12 @@ Publish the completed read-only existing-content inventory baseline, then bound 
 - Local bounded Prometheus metrics now exist, but process-local counters cannot be considered correct under the reference two-worker Gunicorn model until aggregation/restart semantics are selected and tested.
 - MariaDB 11.4.12 can return an empty safe claim batch to one caller while another transaction range-locks part of the backlog. The verified bounded retry recovers the remaining work, but production scheduler cadence, jitter, deadlock retry, and Galera behavior remain gates.
 - Multipass 1.16.3 was not installed. Its checksum matched Homebrew and its Canonical Developer ID signature was valid, but Gatekeeper rejected it as unnotarized. No bypass was attempted; preinstalled Lima 2.1.4 is the selected VM provider.
+- The local Podman 5.6.0/libkrun machine currently exits immediately after reporting a successful start. Static Compose validation passes through Docker Compose, and the last live plan 0008 inventory and plan 0009 shared-SQL runs passed with zero residue; VM recreation or data reset was not authorized or attempted.
 
 ## Exact Next Action
 
-Commit and atomically push completed plan 0008, verify `main` equals `origin/main`, then activate a new execution plan for a disposable, transactional inventory-to-ledger import contract. Do not access production, handle credentials, or enable quota admission.
+Stage only the plan 0009 file set, run staged secret and cached-diff checks, commit once as `feat: add transactional inventory import`, verify the active GitHub account is `jaehanbyun`, and atomically push only if remote `main` is still `65bdace`.
 
 ## After This Work Package
 
-Existing OCI ledger import/cutover, integrated authenticated reconciliation, production scheduler/Galera and restart-correct observability policy, separate-host/load-balancer HA, native Referrers, and destructive GC remain distinct future work packages.
+Authenticated post-import comparison/admission-cutover design, production scheduler/Galera and restart-correct observability policy, separate-host/load-balancer HA, native Referrers, and destructive GC remain distinct future work packages. The next safe package should design and test the comparison/cutover contract only against disposable evidence; it must not access production or enable admission.

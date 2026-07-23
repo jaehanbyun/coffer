@@ -185,6 +185,35 @@ Index(
     quota_manifests.c.digest,
     quota_manifests.c.state,
 )
+quota_inventory_imports = Table(
+    "quota_inventory_imports",
+    quota_metadata,
+    Column("scope", String(32), primary_key=True),
+    Column("inventory_digest", String(71), nullable=False),
+    Column("project_count", BigInteger, nullable=False),
+    Column("repository_count", BigInteger, nullable=False),
+    Column("manifest_count", BigInteger, nullable=False),
+    Column("descriptor_count", BigInteger, nullable=False),
+    Column("imported_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint(
+        "scope = 'baseline'", name="ck_quota_inventory_import_scope"
+    ),
+    CheckConstraint(
+        "project_count >= 0", name="ck_quota_inventory_import_projects"
+    ),
+    CheckConstraint(
+        "repository_count >= 0", name="ck_quota_inventory_import_repositories"
+    ),
+    CheckConstraint(
+        "manifest_count >= 0", name="ck_quota_inventory_import_manifests"
+    ),
+    CheckConstraint(
+        "descriptor_count >= 0", name="ck_quota_inventory_import_descriptors"
+    ),
+    UniqueConstraint(
+        "inventory_digest", name="uq_quota_inventory_import_digest"
+    ),
+)
 
 
 class InvalidManifest(Exception):
