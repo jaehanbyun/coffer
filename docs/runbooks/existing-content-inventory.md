@@ -2,7 +2,7 @@
 
 - Status: verified read-only filesystem PoC; not a production import procedure
 - Related ADRs: `docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md`, `docs/adrs/0012-import-existing-content-into-empty-quota-ledger.md`, `docs/adrs/0013-require-explicit-authentication-for-live-comparison.md`
-- Related plans: `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`
+- Related plans: `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`
 
 ## Purpose
 
@@ -161,6 +161,30 @@ mutation, restores the row, and verifies the exact ledger again. It never
 connects to Distribution/RGW or enables admission and removes all runtime state
 and random database passwords.
 
+The local algorithmic scale harness is independent:
+
+```bash
+make -C poc/inventory_scale verify
+```
+
+It creates unique two-reference image graphs at 100, 1,000, and 5,000 manifests,
+then measures build/parse, migration/authority, empty-ledger import, exact SQL
+comparison, and the live core with an injected always-present in-process probe.
+The 2026-07-23 Python 3.13 local run completed all profiles and removed every
+temporary database directory. Growth was approximately linear; the 5,000-
+manifest artifact was 4.71 MB, import took 3.642 seconds and 15,032 statements,
+exact comparison took 2.085 seconds with 11 statements and 24.87 MB peak traced
+Python allocation, and the live core issued 5,000 probes in 1.968 seconds while
+repeating the 11-statement exact snapshot. Exact measurements and caveats are in
+`poc/inventory_scale/README.md`.
+
+This is not representative production capacity. SQLite, local storage, unique
+descriptors, CPython traced allocations, and an in-process zero-latency probe do
+not exercise shared-SQL/Galera, descriptor sharing/indexes, TLS/authentication,
+credential fan-out, registry throttling, network latency, partial failure, or
+all-replica consistency. The 64-MiB loader bound is a refusal ceiling, not a
+qualified target.
+
 ## Separately Approved Next Work
 
 - Build and attest an exact-release helper image with production storage-driver
@@ -168,8 +192,9 @@ and random database passwords.
 - Run read-only against a disposable RGW copy with a non-writing role.
 - Qualify transaction duration, locks, WAL/binlog, deadlock, crash, capacity,
   chunking, and Galera behavior with a representative disposable copy.
-- Qualify both comparators at representative scale, select and prove the proposed
-  ADR 0013 authenticated provider/secret-delivery contract, and design the
+- Select an accepted workload target, qualify both comparators against a
+  representative shared-SQL/private-TLS copy, select and prove the proposed ADR
+  0013 authenticated provider/secret-delivery contract, and design the
   admission switch plus rollback/forward-repair procedure without permitting
   re-baseline resurrection.
 - Add large-inventory memory/time bounds and evidence chunk storage/retention.

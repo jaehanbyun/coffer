@@ -1,14 +1,14 @@
 # Coffer Handoff
 
 - Updated: 2026-07-23
-- Status: plan 0011 complete and ready for atomic publication; no active execution plan
-- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`
+- Status: plan 0012 complete and ready for atomic publication; no active execution plan
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: none
 
 ## Current Objective
 
-Publish the completed injected-authentication, read-only live inventory comparison as one atomic commit. Production identity selection, credentials, deployment, maintenance authorization, backup/rollback, admission cutover, Galera policy, and restart-correct metric aggregation remain outside authorization or unproven.
+Publish the completed deterministic synthetic inventory scale characterization as one atomic commit. Production capacity, provider selection, credentials, endpoints, deployment, maintenance authorization, backup/rollback, admission cutover, Galera policy, and restart-correct metric aggregation remain outside authorization or unproven.
 
 ## Completed
 
@@ -255,6 +255,11 @@ Publish the completed injected-authentication, read-only live inventory comparis
 - Added proposed ADR 0013. It forbids anonymous fallback and command-line/environment credential contracts, requires per-repository injected authentication, and defers the production choice among per-project exchange, a reviewed maintenance principal, or an authenticated read-only proxy. No identity or credential was created.
 - Plan 0011 shared-SQL verification passed on PostgreSQL 17.10 and MariaDB 11.4.12 with the extended same-snapshot route query and all existing import/migration/concurrency checks. Cleanup ended with zero containers, volumes, networks, and generated credentials; Podman is stopped.
 - Plan 0011 final regression passed with 199 tests on each of Python 3.11.14, 3.12.2, and 3.13.14; lock, compile, Alembic head, four installed CLIs, Go, 58 Bash/ShellCheck files, six Compose models, 54 Make dry-runs, 56 Markdown files, 32 local links, 99 external links, private-key/JWT scans, project-owned Gitleaks, and diff checks all pass.
+- Published plan 0011 as commit `b45fa32` to `jaehanbyun/coffer` `main`; local and remote heads match and the worktree was clean before plan 0012 activation.
+- Activated plan 0012 to measure deterministic synthetic parse/import/exact-SQL/live-comparison scaling. The package explicitly excludes production workload claims, identities, credentials, endpoints, concurrency policy, tuning, and admission changes.
+- Plan 0012's non-installed harness and two focused tests generate deterministic unique-descriptor artifacts, matching disposable authority, aggregate-only phase metrics, exact SQL statement/probe counts, and zero temporary-state residue. The fixed Make target runs 100, 1,000, and 5,000 manifest profiles.
+- The first local Python 3.13 scale run completed all profiles. At 5,000 manifests the artifact was 4.71 MB, import took 3.642 seconds/15,032 statements, exact comparison took 2.085 seconds/11 statements/24.87 MB peak traced Python allocation, and the live core repeated 11 SQL statements plus exactly 5,000 zero-latency in-process probes in 1.968 seconds. Growth was approximately linear in this bounded SQLite topology; it is not a production capacity result.
+- Plan 0012 final regression passed with 201 tests on each of Python 3.11.14, 3.12.2, and 3.13.14; lock, compile, Alembic head, four installed CLIs, Go, 58 Bash/ShellCheck files, six Compose models, 55 Make dry-runs, 58 Markdown files, 33 local links, 99 external links, private-key/JWT scans, project-owned Gitleaks over 222 files, and diff checks all pass.
 
 ## Blockers and Risks
 
@@ -281,10 +286,10 @@ Publish the completed injected-authentication, read-only live inventory comparis
 
 ## Exact Next Action
 
-Stage only the plan 0011 file set, run cached-diff and staged Gitleaks checks,
-commit once as `feat: compare authenticated live inventory`, verify the GitHub
-account, and atomically push from remote head `d0580cc`.
+Stage only the plan 0012 file set, run cached-diff and staged Gitleaks checks,
+commit once as `test: characterize inventory scale`, verify the GitHub account,
+and atomically push from remote head `b45fa32`.
 
 ## After This Work Package
 
-Production credential delivery and admission-cutover design, production scheduler/Galera and restart-correct observability policy, separate-host/load-balancer HA, native Referrers, and destructive GC remain distinct future work packages. Plan 0011 tests only injected authenticated read-only presence against isolated evidence; it must not access production, provision identities, or enable admission.
+Production credential delivery and admission-cutover design, production scheduler/Galera and restart-correct observability policy, separate-host/load-balancer HA, native Referrers, and destructive GC remain distinct future work packages. Plan 0012 measures only deterministic disposable state and an injected in-process probe; it must not access production, provision identities, infer customer capacity, or enable admission.

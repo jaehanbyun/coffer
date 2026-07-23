@@ -2,7 +2,7 @@
 
 - Status: verified development baseline; not a production deployment procedure
 - Related ADRs: `docs/adrs/0009-add-private-edge-manifest-quota-admission.md`, `docs/adrs/0010-adopt-repository-metadata-into-alembic.md`, proposed `docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md`, proposed `docs/adrs/0012-import-existing-content-into-empty-quota-ledger.md`, proposed `docs/adrs/0013-require-explicit-authentication-for-live-comparison.md`
-- Related plans: `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`
+- Related plans: `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`
 
 ## Purpose and Safety Boundary
 
@@ -157,6 +157,14 @@ make -C poc/quota-reconciliation verify
 The shared-SQL harness creates owner-only random passwords under ignored `work/`, creates one exact legacy repository row, applies and repeats the migration on PostgreSQL and MariaDB, checks row preservation, model drift, and constraints, opens independent connections, races two admissions, and performs a non-destructive downgrade/re-upgrade with repository re-adoption. It also divides three reconciliation candidates across database workers, verifies MariaDB's bounded contention retry, spawns a separate process that commits a claim and exits with status 17, proves quota remains charged, reclaims after expiry, rejects the old token, and ends at zero logical usage. After re-upgrade it forces the second inventory reservation to fail and proves full rollback, then races two exact importers, rejects a different baseline, and records over-limit usage without raising the limit. It accepts the complete imported ledger through each engine's read-only repeatable transaction, rejects a released-manifest mutation, restores the row, and verifies again. The reconciliation harness publishes and removes exact OCI digests in an ephemeral unmodified Distribution, proves stale-result rejection and last-reference refunds, and ends at zero logical usage.
 
 Both harnesses remove their labeled containers, networks, volumes, generated passwords, and SQLite state even after failure. They use loopback or isolated fixture paths and must not be pointed at a production database or registry.
+
+`make -C poc/inventory_scale verify` separately characterizes the current import
+and comparison algorithms at 100, 1,000, and 5,000 deterministic synthetic
+manifests. It observes per-manifest import statements, constant-query/full-result
+SQL comparison, and one serial in-process live probe per manifest. Those local
+SQLite/traced-allocation results are useful for locating growth but do not close
+the production shared-SQL, Galera, private-TLS, authentication, network, or
+capacity gates below.
 
 ## Production Promotion Gates
 
