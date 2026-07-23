@@ -1,7 +1,7 @@
 # Control Schema and Quota Reconciliation Operator Boundary
 
 - Status: verified development baseline; not a production deployment procedure
-- Related ADRs: `docs/adrs/0009-add-private-edge-manifest-quota-admission.md`, `docs/adrs/0010-adopt-repository-metadata-into-alembic.md`, proposed `docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md`, proposed `docs/adrs/0012-import-existing-content-into-empty-quota-ledger.md`
+- Related ADRs: `docs/adrs/0009-add-private-edge-manifest-quota-admission.md`, `docs/adrs/0010-adopt-repository-metadata-into-alembic.md`, proposed `docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md`, proposed `docs/adrs/0012-import-existing-content-into-empty-quota-ledger.md`, proposed `docs/adrs/0013-require-explicit-authentication-for-live-comparison.md`
 - Related plans: `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`
 
 ## Purpose and Safety Boundary
@@ -169,7 +169,7 @@ Both harnesses remove their labeled containers, networks, volumes, generated pas
 - Exact-release existing registry inventory against a disposable RGW copy,
   representative transactional import and exact SQL comparison, writer
   exclusion plus authenticated live Distribution comparison before enabling
-  authoritative admission, and integrated deletion/reference evidence against
-  RGW.
+  authoritative admission, an accepted maintenance identity and owner-only
+  delivery path, and integrated deletion/reference evidence against RGW.
 
 Until every relevant gate passes, this implementation is a verified PoC baseline and must not be represented as a production-ready quota service.

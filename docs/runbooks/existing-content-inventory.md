@@ -1,7 +1,7 @@
 # Existing OCI Content Inventory Boundary
 
 - Status: verified read-only filesystem PoC; not a production import procedure
-- Related ADRs: `docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md`, `docs/adrs/0012-import-existing-content-into-empty-quota-ledger.md`
+- Related ADRs: `docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md`, `docs/adrs/0012-import-existing-content-into-empty-quota-ledger.md`, `docs/adrs/0013-require-explicit-authentication-for-live-comparison.md`
 - Related plans: `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`
 
 ## Purpose
@@ -104,6 +104,16 @@ writer exclusion, backup/restore, production authorization, representative
 capacity, authenticated live content availability, rollback readiness, or
 permission to enable admission. Those remain explicit gates.
 
+The plan 0011 library adds the read-only live-comparison algorithm but no
+installed production command. It verifies the SQL baseline and resolves exact
+repository routes in one snapshot, closes SQL, requires an injected
+authenticated probe for every repository before network access, and aggregates
+conservative digest HEAD results. Proposed ADR 0013 deliberately defers whether
+operators will use per-project exchanges, a narrowly privileged maintenance
+principal, or an authenticated read-only proxy. Until that identity and its
+owner-only secret delivery are accepted and proven, step 8 is not executable as
+a production procedure.
+
 ## Disposable Verification
 
 With an already-running Podman machine:
@@ -158,10 +168,10 @@ and random database passwords.
 - Run read-only against a disposable RGW copy with a non-writing role.
 - Qualify transaction duration, locks, WAL/binlog, deadlock, crash, capacity,
   chunking, and Galera behavior with a representative disposable copy.
-- Qualify the exact SQL comparator at representative scale, implement and
-  approve authenticated live Distribution comparison, and design the admission
-  switch plus rollback/forward-repair procedure without permitting re-baseline
-  resurrection.
+- Qualify both comparators at representative scale, select and prove the proposed
+  ADR 0013 authenticated provider/secret-delivery contract, and design the
+  admission switch plus rollback/forward-repair procedure without permitting
+  re-baseline resurrection.
 - Add large-inventory memory/time bounds and evidence chunk storage/retention.
 
 Until those gates pass, `coffer.inventory/v1` is verified PoC evidence only and

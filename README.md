@@ -28,7 +28,7 @@ The service type is a project proposal and is not currently registered in the Op
 
 ## Current Implementation
 
-M0 proves the unmodified OCI Distribution data path against local S3-compatible storage. M1 contains the first Coffer-owned seam: a Keystone-middleware-wrapped repository API with project UUID ownership, reader/member policy, and explicit fixture persistence. Local M2 adds a separately composed application-credential token realm, explicit repository and `oslo.policy` authorization, short-lived RS256 Distribution JWTs, and overlapping-JWKS verification. M3 adds an Alembic-owned shared-SQL control schema, a private manifest-admission seam with logical quota accounting, bounded exact-digest reconciliation, expiring multi-worker claims and fencing tokens, a deterministic read-only inventory verifier for pre-ledger content, a one-time transactional empty-ledger importer, and a read-only exact post-import ledger comparator. Disposable labs validate the real Keystone, Ceph RGW, and Barbican SSE-KMS path plus tagged/digest-only Distribution storage enumeration and SQLite/PostgreSQL/MariaDB import/comparison semantics.
+M0 proves the unmodified OCI Distribution data path against local S3-compatible storage. M1 contains the first Coffer-owned seam: a Keystone-middleware-wrapped repository API with project UUID ownership, reader/member policy, and explicit fixture persistence. Local M2 adds a separately composed application-credential token realm, explicit repository and `oslo.policy` authorization, short-lived RS256 Distribution JWTs, and overlapping-JWKS verification. M3 adds an Alembic-owned shared-SQL control schema, a private manifest-admission seam with logical quota accounting, bounded exact-digest reconciliation, expiring multi-worker claims and fencing tokens, a deterministic read-only inventory verifier for pre-ledger content, a one-time transactional empty-ledger importer, a read-only exact post-import ledger comparator, and an injected-authentication live manifest-presence comparison core. Disposable labs validate the real Keystone, Ceph RGW, and Barbican SSE-KMS path plus tagged/digest-only Distribution storage enumeration and SQLite/PostgreSQL/MariaDB import/comparison semantics.
 
 The API currently supports:
 
@@ -111,6 +111,7 @@ Do not place Keystone, database, signing, or cache secrets in the repository. Th
 - [ADR 0010: Alembic repository metadata adoption](docs/adrs/0010-adopt-repository-metadata-into-alembic.md)
 - [Proposed ADR 0011: pinned Distribution storage inventory](docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md)
 - [Proposed ADR 0012: transactional empty-ledger inventory import](docs/adrs/0012-import-existing-content-into-empty-quota-ledger.md)
+- [Proposed ADR 0013: explicit authentication for live comparison](docs/adrs/0013-require-explicit-authentication-for-live-comparison.md)
 - [Real Keystone and Ceph RGW PoC runbook](docs/runbooks/real-keystone-rgw-poc.md)
 - [Quota schema and reconciliation operator boundary](docs/runbooks/quota-schema-reconciliation.md)
 - [Existing-content inventory operator boundary](docs/runbooks/existing-content-inventory.md)
@@ -125,3 +126,4 @@ Do not place Keystone, database, signing, or cache secrets in the repository. Th
 - [Completed existing-content inventory plan](docs/exec-plans/0008-existing-content-inventory.md)
 - [Completed transactional inventory-import plan](docs/exec-plans/0009-transactional-inventory-import.md)
 - [Completed read-only post-import comparison plan](docs/exec-plans/0010-post-import-ledger-comparison.md)
+- [Completed authenticated live inventory comparison plan](docs/exec-plans/0011-authenticated-live-inventory-comparison.md)

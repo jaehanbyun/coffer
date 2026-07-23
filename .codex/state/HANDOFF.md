@@ -1,14 +1,14 @@
 # Coffer Handoff
 
 - Updated: 2026-07-23
-- Status: plan 0010 complete and ready for atomic publication; no production cutover is authorized
-- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`
+- Status: plan 0011 complete and ready for atomic publication; no active execution plan
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
-- Active execution plan: none until the next bounded work package is activated after publication
+- Active execution plan: none
 
 ## Current Objective
 
-Publish the completed read-only post-import ledger-comparison baseline atomically, then activate the next bounded safe/disposable work package. Production deployment, live Distribution/RGW comparison, credentials, maintenance authorization, backup/rollback, Galera policy, admission cutover, and restart-correct metric aggregation remain outside authorization or unproven.
+Publish the completed injected-authentication, read-only live inventory comparison as one atomic commit. Production identity selection, credentials, deployment, maintenance authorization, backup/rollback, admission cutover, Galera policy, and restart-correct metric aggregation remain outside authorization or unproven.
 
 ## Completed
 
@@ -249,6 +249,12 @@ Publish the completed read-only post-import ledger-comparison baseline atomicall
 - Plan 0010 focused verification passes 38 import/comparison tests covering exact state, marker false positives, all ledger classes including timestamp drift, extra claims/rows, allowed empty authority, absence of DML, one snapshot across a concurrent commit, fixed secret-safe CLI output, and environment-only database configuration. The concurrency test exposed sqlite3's deferred `BEGIN`; the comparator now explicitly fixes the SQLite read-only snapshot before its first SELECT.
 - Plan 0010 shared-SQL verification passed on PostgreSQL 17.10 and MariaDB 11.4.12: each accepted exact imported state, rejected a released-manifest mutation, accepted the restored ledger, retained all prior import/concurrency/reconciliation/adoption checks, and ended with zero runtime and credential residue. The Podman machine is stopped.
 - Plan 0010 final regression passed with 189 tests on each Python 3.11.14, 3.12.2, and 3.13.14; lock, compile, Alembic head, four installed CLIs, Go, 58 Bash/ShellCheck files, six Compose models, 54 Make dry-runs, 54 Markdown files, 33 local links, 99 external links, private-key/JWT scans, and diff checks all pass. The final shared-SQL rerun ended with zero residue and Podman `Running:false`.
+- Published plan 0010 as commit `d0580cc` to `jaehanbyun/coffer` `main`; local and remote heads match and the worktree was clean before plan 0011 activation.
+- Activated plan 0011 to resolve exact repository routes with the verified ledger in one read-only SQL snapshot and then require injected authentication for conservative live digest HEAD probes. The package explicitly defers the privileged production cross-project identity decision and does not authorize credentials, live data, or admission changes.
+- Plan 0011 focused verification passes 48 import/SQL/live tests: same-snapshot canonical route resolution issues no DML and retains the pre-rename route across a concurrent commit; injected authentication prepares before probes; all manifests are visited; exact present, absent, indeterminate, exception, malformed-provider, protected Bearer HTTP, and wrong-token behavior is aggregate-only, fail-closed, and secret-safe.
+- Added proposed ADR 0013. It forbids anonymous fallback and command-line/environment credential contracts, requires per-repository injected authentication, and defers the production choice among per-project exchange, a reviewed maintenance principal, or an authenticated read-only proxy. No identity or credential was created.
+- Plan 0011 shared-SQL verification passed on PostgreSQL 17.10 and MariaDB 11.4.12 with the extended same-snapshot route query and all existing import/migration/concurrency checks. Cleanup ended with zero containers, volumes, networks, and generated credentials; Podman is stopped.
+- Plan 0011 final regression passed with 199 tests on each of Python 3.11.14, 3.12.2, and 3.13.14; lock, compile, Alembic head, four installed CLIs, Go, 58 Bash/ShellCheck files, six Compose models, 54 Make dry-runs, 56 Markdown files, 32 local links, 99 external links, private-key/JWT scans, project-owned Gitleaks, and diff checks all pass.
 
 ## Blockers and Risks
 
@@ -275,10 +281,10 @@ Publish the completed read-only post-import ledger-comparison baseline atomicall
 
 ## Exact Next Action
 
-Stage only the plan 0010 file set, run staged Gitleaks and cached-diff checks,
-commit once as `feat: verify imported quota ledger`, verify the GitHub account,
-and atomically push from the published remote head `5e9b02e`.
+Stage only the plan 0011 file set, run cached-diff and staged Gitleaks checks,
+commit once as `feat: compare authenticated live inventory`, verify the GitHub
+account, and atomically push from remote head `d0580cc`.
 
 ## After This Work Package
 
-Authenticated live Distribution comparison/admission-cutover design, production scheduler/Galera and restart-correct observability policy, separate-host/load-balancer HA, native Referrers, and destructive GC remain distinct future work packages. Plan 0010 tests only database equality against disposable evidence; it must not access production or enable admission.
+Production credential delivery and admission-cutover design, production scheduler/Galera and restart-correct observability policy, separate-host/load-balancer HA, native Referrers, and destructive GC remain distinct future work packages. Plan 0011 tests only injected authenticated read-only presence against isolated evidence; it must not access production, provision identities, or enable admission.

@@ -32,6 +32,7 @@ from coffer.quota_import import (
     build_inventory_ledger_facts,
     load_inventory_artifact,
 )
+from coffer.tokens import REPOSITORY_NAME
 
 
 class InventoryVerificationFailed(Exception):
@@ -60,6 +61,19 @@ class InventoryVerificationResult:
             "reservation_descriptor_count": self.reservation_descriptor_count,
             "status": self.status,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryRepositoryRoute:
+    repository_id: str
+    canonical_name: str
+    manifest_digests: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryVerificationSnapshot:
+    result: InventoryVerificationResult
+    repositories: tuple[InventoryRepositoryRoute, ...]
 
 
 def _mismatch() -> InventoryVerificationFailed:
@@ -101,10 +115,10 @@ def _read_only_snapshot(store: QuotaStore) -> Iterator[Connection]:
         connection.close()
 
 
-def verify_inventory_import(
+def verify_inventory_import_snapshot(
     store: QuotaStore,
     artifact: InventoryArtifact,
-) -> InventoryVerificationResult:
+) -> InventoryVerificationSnapshot:
     facts = build_inventory_ledger_facts(artifact)
     with _read_only_snapshot(store) as connection:
         marker_rows = connection.execute(select(quota_inventory_imports)).all()
@@ -131,17 +145,36 @@ def verify_inventory_import(
             for repository in artifact.repositories
         }
         actual_authority: set[tuple[str, str]] = set()
+        authority_names: dict[str, str] = {}
         if repository_ids:
+            authority_rows = connection.execute(
+                select(
+                    repository_table.c.id,
+                    repository_table.c.project_id,
+                    repository_table.c.name,
+                ).where(repository_table.c.id.in_(repository_ids))
+            ).all()
             actual_authority = {
-                (row.id, row.project_id)
-                for row in connection.execute(
-                    select(repository_table.c.id, repository_table.c.project_id).where(
-                        repository_table.c.id.in_(repository_ids)
-                    )
-                )
+                (row.id, row.project_id) for row in authority_rows
             }
+            authority_names = {row.id: row.name for row in authority_rows}
         if actual_authority != expected_authority:
             raise _mismatch()
+        routes: list[InventoryRepositoryRoute] = []
+        for repository in artifact.repositories:
+            repository_name = authority_names[repository.repository_id]
+            canonical_name = f"p/{repository.project_id}/{repository_name}"
+            if REPOSITORY_NAME.fullmatch(canonical_name) is None:
+                raise _mismatch()
+            routes.append(
+                InventoryRepositoryRoute(
+                    repository_id=repository.repository_id,
+                    canonical_name=canonical_name,
+                    manifest_digests=tuple(
+                        manifest.digest for manifest in repository.manifests
+                    ),
+                )
+            )
 
         quota_rows = connection.execute(select(project_quotas)).all()
         quotas = {row.project_id: row for row in quota_rows}
@@ -253,7 +286,7 @@ def verify_inventory_import(
         if connection.execute(select(quota_reconciliation_claims)).first() is not None:
             raise _mismatch()
 
-    return InventoryVerificationResult(
+    result = InventoryVerificationResult(
         status="verified",
         inventory_digest=artifact.digest,
         project_count=artifact.summary.project_count,
@@ -263,6 +296,14 @@ def verify_inventory_import(
         reservation_descriptor_count=facts.reservation_descriptor_count,
         over_limit_project_count=over_limit,
     )
+    return InventoryVerificationSnapshot(result, tuple(routes))
+
+
+def verify_inventory_import(
+    store: QuotaStore,
+    artifact: InventoryArtifact,
+) -> InventoryVerificationResult:
+    return verify_inventory_import_snapshot(store, artifact).result
 
 
 def main(argv: list[str] | None = None) -> int:
