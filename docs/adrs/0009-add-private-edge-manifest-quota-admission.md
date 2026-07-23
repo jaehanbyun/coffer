@@ -3,7 +3,7 @@
 - Status: accepted for PoC validation
 - Date: 2026-07-22
 - Decision owners: Coffer maintainers
-- Related plans: `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`
+- Related plans: `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`
 - Research: `docs/research/m3-quota-enforcement-spike.md`
 
 ## Context
@@ -27,7 +27,7 @@ Distribution tenant write access must be private to the edge so manifest publica
 
 ### Schema and reconciliation authority
 
-- Alembic revisions are the sole production quota-schema authority. Application startup validates the exact expected revision and fails closed when quota tables or revision metadata are missing; `MetaData.create_all()` is restricted to explicit test-fixture bootstrap.
+- Alembic revisions are the sole production control-schema authority for repository and quota state. Application startup validates the exact expected revision and required tables; `MetaData.create_all()` is restricted to explicit test/disposable fixture bootstrap. ADR 0010 defines data-preserving adoption of the older repository table.
 - Reconciliation reads bounded, deterministic `(updated_at, reservation_id)` pages from the durable ledger. It includes stale `pending` and `release_pending` work and periodically revisits `committed` manifests so a lost deletion notification is eventually repaired.
 - Repository paths are rebuilt from immutable project and repository records in Coffer's control authority. The worker probes only the exact canonical digest with `HEAD /v2/<repository>/manifests/<digest>` over a private Distribution service path.
 - Only HTTP 200 with exactly one matching `Docker-Content-Digest` proves presence. Exact 404 proves absence. Missing, mismatched, or duplicate digest headers, 401/403, every other status, and transport failures are indeterminate and leave the charge unchanged.
@@ -69,6 +69,7 @@ Completed in the local PoC:
 8. Added Alembic revision `0002` plus multi-worker claims and fixed-cardinality outcomes. PostgreSQL divided one three-item contention run 2+1. MariaDB safely returned 0+2 and a bounded post-contention retry acquired the final item.
 9. Spawned an independent claimant process that committed its claim and exited with status 17 on both database engines. Quota remained charged; another worker reclaimed after expiry; the abandoned token was fenced; the replacement completed; all disposable resources and generated secrets were removed.
 10. Installed `coffer-reconcile` and proved a real one-shot subprocess can load the migrated database/control authority, exact-404 an absent manifest, release quota, and emit an identifier-free aggregate. Deterministic tests cover bounded cursor continuation, non-overlap, lease validation, signals, jitter, backoff reset, and stable exits.
+11. Added revision `0003_repository_metadata`; SQLite, PostgreSQL, and MariaDB preserve exact legacy repository identity through online adoption and non-destructive downgrade/re-upgrade, while focused tests reject structural drift and implicit production table creation.
 
 Production promotion still requires an operator-owned online rollout/import and backup procedure for existing data, TLS and service authentication on the private reconciliation path, production scheduler/lease/clock/deadlock and metric-aggregation policy, reconciliation in the integrated Distribution/RGW deployment, multi-replica non-bypassable ingress, load/failure testing, Galera evidence, and the remaining client matrix such as containerd/nerdctl and ORAS. The disposable PostgreSQL/MariaDB and filesystem-backed Distribution fixtures prove bounded database and state-machine semantics; they are not a production deployment recommendation.
 

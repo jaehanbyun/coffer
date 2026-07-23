@@ -57,7 +57,7 @@ def _authorize(
 ) -> tuple[AccessGrant, ...]:
     conf = new_config()
     conf(args=[])
-    store = RepositoryStore("sqlite://")
+    store = RepositoryStore("sqlite://", bootstrap_schema=True)
     for project_id, name in repositories:
         store.create(project_id, name)
     authorizer = RegistryScopeAuthorizer(store, create_enforcer(conf))

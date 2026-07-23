@@ -80,7 +80,7 @@ def _client(
 ) -> testing.TestClient:
     conf = new_config()
     conf(args=[])
-    store = RepositoryStore("sqlite://")
+    store = RepositoryStore("sqlite://", bootstrap_schema=True)
     store.create(PROJECT_ID, "demo")
     scope_authorizer = RegistryScopeAuthorizer(store, create_enforcer(conf))
     return testing.TestClient(
@@ -287,7 +287,9 @@ def test_token_realm_bypasses_control_api_keystone_middleware(
 ) -> None:
     conf = new_config()
     conf(args=[])
-    store = RepositoryStore(f"sqlite:///{tmp_path / 'coffer.sqlite'}")
+    store = RepositoryStore(
+        f"sqlite:///{tmp_path / 'coffer.sqlite'}", bootstrap_schema=True
+    )
     store.create(PROJECT_ID, "demo")
     token_application = build_token_application(
         FakeAuthenticator(),

@@ -162,7 +162,9 @@ def main() -> None:
     write_file(broker_key_path, private_pem(broker_key), 0o600)
     write_file(broker_certificate_path, certificate_pem(broker_certificate), 0o644)
 
-    store = RepositoryStore(f"sqlite:///{database_path}")
+    store = RepositoryStore(
+        f"sqlite:///{database_path}", bootstrap_schema=True
+    )
     store.create(project_a, REPOSITORY_NAME)
     store.create(project_b, REPOSITORY_NAME)
     os.chmod(database_path, 0o600)

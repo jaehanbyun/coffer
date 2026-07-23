@@ -26,7 +26,8 @@ authenticator = ApplicationCredentialAuthenticator(
     timeout=10.0,
 )
 store = RepositoryStore(
-    f"sqlite:///{os.environ['COFFER_INTEGRATION_DATABASE_FILE']}"
+    f"sqlite:///{os.environ['COFFER_INTEGRATION_DATABASE_FILE']}",
+    bootstrap_schema=True,
 )
 conf = new_config()
 conf(args=[])

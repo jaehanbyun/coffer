@@ -13,10 +13,16 @@ import threading
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, inspect, insert, text
+from sqlalchemy import create_engine, inspect, insert, select, text
 from sqlalchemy.engine import URL
 from sqlalchemy.exc import DBAPIError
 
+from coffer.db import (
+    RepositorySchemaNotReady,
+    RepositoryStore,
+    metadata as repository_metadata,
+    repositories,
+)
 from coffer.quota import (
     Descriptor,
     QuotaExceeded,
@@ -43,6 +49,8 @@ CLAIM_REPOSITORY_IDS = (
 )
 ABANDONED_PROJECT_ID = "55555555-5555-4555-8555-555555555555"
 ABANDONED_REPOSITORY_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff"
+LEGACY_PROJECT_ID = "66666666-6666-4666-8666-666666666666"
+LEGACY_REPOSITORY_ID = "99999999-9999-4999-8999-999999999999"
 
 
 def digest(value: str) -> str:
@@ -384,21 +392,50 @@ def main() -> None:
         raise ValueError("database password file is empty")
     url = database_url(args, password)
     config = migration_config(args.repository_root, url)
+    database_connection = url.render_as_string(hide_password=False)
+
+    legacy_engine = create_engine(url)
+    repository_metadata.create_all(legacy_engine)
+    with legacy_engine.begin() as connection:
+        connection.execute(
+            insert(repositories).values(
+                id=LEGACY_REPOSITORY_ID,
+                project_id=LEGACY_PROJECT_ID,
+                name="legacy",
+                immutable_tags=True,
+                created_at=datetime.now(UTC),
+            )
+        )
+    legacy_engine.dispose()
 
     try:
-        QuotaStore(url.render_as_string(hide_password=False))
+        QuotaStore(database_connection)
     except QuotaSchemaNotReady:
         pass
     else:
         raise AssertionError("an empty database was accepted without migration")
+    try:
+        RepositoryStore(database_connection)
+    except RepositorySchemaNotReady:
+        pass
+    else:
+        raise AssertionError(
+            "an unversioned repository table was accepted without migration"
+        )
 
     command.upgrade(config, "head")
     command.upgrade(config, "head")
     command.check(config)
     stores = (
-        QuotaStore(url.render_as_string(hide_password=False)),
-        QuotaStore(url.render_as_string(hide_password=False)),
+        QuotaStore(database_connection),
+        QuotaStore(database_connection),
     )
+    adopted = RepositoryStore(database_connection).get(
+        LEGACY_PROJECT_ID, LEGACY_REPOSITORY_ID
+    )
+    assert adopted is not None
+    assert adopted.name == "legacy"
+    assert adopted.immutable_tags
     connection_ids = backend_connection_ids(stores)
     assert connection_ids[0] != connection_ids[1]
 
@@ -411,6 +448,7 @@ def main() -> None:
         "quota_reconciliation_claims",
         "quota_reservation_descriptors",
         "quota_reservations",
+        "repositories",
     }.issubset(schema.get_table_names())
     assert {
         "ix_quota_reservations_project_state",
@@ -425,7 +463,7 @@ def main() -> None:
     assert_database_constraint(url)
     concurrency = exercise_concurrency(args.engine, stores)
     claims = exercise_reconciliation_claims(
-        url.render_as_string(hide_password=False), stores
+        database_connection, stores
     )
 
     version_statement = (
@@ -440,15 +478,37 @@ def main() -> None:
 
     command.downgrade(config, "base")
     try:
-        QuotaStore(url.render_as_string(hide_password=False))
+        QuotaStore(database_connection)
     except QuotaSchemaNotReady:
         pass
     else:
         raise AssertionError("a downgraded database was accepted as current")
+    try:
+        RepositoryStore(database_connection)
+    except RepositorySchemaNotReady:
+        pass
+    else:
+        raise AssertionError(
+            "a downgraded repository schema was accepted as current"
+        )
+    retained_engine = create_engine(url)
+    with retained_engine.connect() as connection:
+        assert connection.execute(
+            select(repositories.c.id).where(
+                repositories.c.project_id == LEGACY_PROJECT_ID,
+                repositories.c.id == LEGACY_REPOSITORY_ID,
+            )
+        ).scalar_one() == LEGACY_REPOSITORY_ID
+    retained_engine.dispose()
     command.upgrade(config, "head")
     command.check(config)
-    final_store = QuotaStore(url.render_as_string(hide_password=False))
+    final_store = QuotaStore(database_connection)
     final_store._engine.dispose()
+    readopted = RepositoryStore(database_connection).get(
+        LEGACY_PROJECT_ID, LEGACY_REPOSITORY_ID
+    )
+    assert readopted is not None
+    assert readopted.name == "legacy"
 
     print(
         json.dumps(
@@ -459,6 +519,8 @@ def main() -> None:
                 "reconciliation_claims": claims,
                 "migration_downgrade_reupgrade": True,
                 "migration_repeat_upgrade": True,
+                "repository_metadata_adopted": True,
+                "repository_metadata_retained_on_downgrade": True,
                 "server_version": str(version),
             },
             sort_keys=True,

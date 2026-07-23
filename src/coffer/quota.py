@@ -27,12 +27,11 @@ from sqlalchemy import (
     select,
     update,
     create_engine,
-    inspect,
-    text,
 )
 from sqlalchemy.engine import Connection, Engine
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.pool import StaticPool
+
+from coffer.schema import SchemaNotReady, require_current_schema
 
 
 SHA256_DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
@@ -43,8 +42,6 @@ PENDING_STATES = ("pending", "release_pending")
 RECONCILIATION_STATES = ("pending", "release_pending", "committed")
 MAX_RECONCILIATION_BATCH = 1000
 MAX_RECONCILIATION_LEASE_SECONDS = 3600
-CURRENT_QUOTA_SCHEMA_REVISION = "0002_reconciliation_claims"
-
 OCI_IMAGE_MANIFEST = "application/vnd.oci.image.manifest.v1+json"
 OCI_IMAGE_INDEX = "application/vnd.oci.image.index.v1+json"
 DOCKER_IMAGE_MANIFEST = "application/vnd.docker.distribution.manifest.v2+json"
@@ -206,7 +203,7 @@ class ReservationNotFound(Exception):
     pass
 
 
-class QuotaSchemaNotReady(Exception):
+class QuotaSchemaNotReady(SchemaNotReady):
     pass
 
 
@@ -455,35 +452,12 @@ class QuotaStore:
             self._require_migrated_schema()
 
     def _require_migrated_schema(self) -> None:
-        expected_tables = set(quota_metadata.tables)
-        try:
-            actual_tables = set(inspect(self._engine).get_table_names())
-            missing = sorted(expected_tables - actual_tables)
-            if missing:
-                raise QuotaSchemaNotReady(
-                    "quota schema migration is required; missing tables: "
-                    + ", ".join(missing)
-                )
-            if "alembic_version" not in actual_tables:
-                raise QuotaSchemaNotReady(
-                    "quota schema has no Alembic revision; migration is required"
-                )
-            with self._engine.connect() as connection:
-                revisions = tuple(
-                    connection.execute(
-                        text("SELECT version_num FROM alembic_version")
-                    ).scalars()
-                )
-        except QuotaSchemaNotReady:
-            raise
-        except SQLAlchemyError as exc:
-            raise QuotaSchemaNotReady(
-                "quota schema revision could not be verified"
-            ) from exc
-        if revisions != (CURRENT_QUOTA_SCHEMA_REVISION,):
-            raise QuotaSchemaNotReady(
-                "quota schema revision does not match the application"
-            )
+        require_current_schema(
+            self._engine,
+            expected_tables=quota_metadata.tables,
+            component="quota",
+            error_type=QuotaSchemaNotReady,
+        )
 
     @contextmanager
     def _writer(self) -> Iterator[Connection]:

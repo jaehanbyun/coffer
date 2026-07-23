@@ -71,7 +71,10 @@ issuer = TokenIssuer.from_pem_file(
 )
 conf = new_config()
 conf(args=[])
-store = RepositoryStore(f"sqlite:///{os.environ['COFFER_M2_DATABASE_FILE']}")
+store = RepositoryStore(
+    f"sqlite:///{os.environ['COFFER_M2_DATABASE_FILE']}",
+    bootstrap_schema=True,
+)
 for project_id, repository_names in (
     (
         os.environ["COFFER_M2_PROJECT_ID"],

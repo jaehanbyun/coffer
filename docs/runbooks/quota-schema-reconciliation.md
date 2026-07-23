@@ -1,8 +1,8 @@
-# Quota Schema and Reconciliation Operator Boundary
+# Control Schema and Quota Reconciliation Operator Boundary
 
 - Status: verified development baseline; not a production deployment procedure
-- Related ADR: `docs/adrs/0009-add-private-edge-manifest-quota-admission.md`
-- Related plans: `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`
+- Related ADRs: `docs/adrs/0009-add-private-edge-manifest-quota-admission.md`, `docs/adrs/0010-adopt-repository-metadata-into-alembic.md`
+- Related plans: `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`
 
 ## Purpose and Safety Boundary
 
@@ -14,16 +14,16 @@ Before a production rollout, operators must separately provide a tested backup a
 
 | Concern | Authority | Fail-safe behavior |
 |---|---|---|
-| Quota schema | Checked-in Alembic revisions under `migrations/` | Coffer startup rejects missing, unversioned, or unexpected schema |
+| Repository and quota schema | Checked-in Alembic revisions under `migrations/` | Coffer startup rejects missing, unversioned, drifted, or unexpected schema |
 | Repository identity | Coffer control database | Missing or invalid authority makes the probe indeterminate |
 | Manifest presence | Exact private Distribution digest endpoint | Only one matching digest header on 200 proves presence; exact 404 proves absence |
 | Work ownership and mutation | Expiring shared-SQL claim, opaque fencing token, and reservation version | Expired/reassigned claims and stale versions cannot apply observations |
 | Notification | Advisory wake-up hint | Lost, duplicate, or reordered events cannot authorize a refund |
 | Physical reclamation | Coordinated Distribution GC procedure | Reconciliation changes logical accounting only and never deletes blobs |
 
-`QuotaStore(..., bootstrap_schema=True)` exists only for explicit unit or disposable fixture setup. Normal construction validates `alembic_version` and the expected tables. Production code must never replace `alembic upgrade` with runtime `create_all()`.
+`RepositoryStore(..., bootstrap_schema=True)` and `QuotaStore(..., bootstrap_schema=True)` exist only for explicit unit or disposable fixture setup. Normal construction validates the exact shared `alembic_version` and its required tables. Production code must never replace `alembic upgrade` with runtime `create_all()`.
 
-## Empty-Database Migration
+## Fresh and Legacy-Repository Migration
 
 Install the driver matching the operator database in an isolated environment:
 
@@ -43,7 +43,11 @@ uv run alembic upgrade head
 unset COFFER_DATABASE_URL
 ```
 
-The checked-in baseline is an empty-database revision. Do not stamp or upgrade a database containing an earlier unversioned quota schema. Existing deployments require a separately reviewed inventory/import or data-preserving migration plan, a restorable backup, and an explicit maintenance window. A downgrade is exercised only in disposable verification and is not a production rollback prescription.
+The current head is `0003_repository_metadata`. A fresh database receives repository and quota tables. A database containing the exact older PoC `repositories` table is migrated online: revision `0003` validates its five columns, primary key, string bounds, nullability, and named project/name uniqueness, then adopts it without rewriting rows. Structural drift aborts before revision `0003` is recorded. Do not use `alembic stamp` to bypass this validation.
+
+The conditional create-or-adopt decision cannot be made safely by offline `--sql` generation, so that path is rejected. Downgrade across revision `0003` deliberately retains repository rows; normal processes still reject the downgraded revision until re-upgrade validates and adopts them again. This is disposable recovery evidence, not a production rollback prescription.
+
+Repository-row adoption does not inspect Distribution/RGW or populate quota descriptors, manifests, references, or reservations. A registry containing pre-existing OCI content still requires a separately reviewed write-stopped inventory/import, restorable backup, maintenance window, and quota cutover plan before admission can become authoritative.
 
 ## Reconciliation Contract
 
@@ -100,7 +104,7 @@ make -C poc/quota-sql verify
 make -C poc/quota-reconciliation verify
 ```
 
-The shared-SQL harness creates owner-only random passwords under ignored `work/`, applies and repeats the migration on PostgreSQL and MariaDB, checks model drift and constraints, opens independent connections, races two admissions, and performs a disposable downgrade/re-upgrade. It also divides three reconciliation candidates across database workers, verifies MariaDB's bounded contention retry, spawns a separate process that commits a claim and exits with status 17, proves quota remains charged, reclaims after expiry, rejects the old token, and ends at zero logical usage. The reconciliation harness publishes and removes exact OCI digests in an ephemeral unmodified Distribution, proves stale-result rejection and last-reference refunds, and ends at zero logical usage.
+The shared-SQL harness creates owner-only random passwords under ignored `work/`, creates one exact legacy repository row, applies and repeats the migration on PostgreSQL and MariaDB, checks row preservation, model drift, and constraints, opens independent connections, races two admissions, and performs a non-destructive downgrade/re-upgrade with repository re-adoption. It also divides three reconciliation candidates across database workers, verifies MariaDB's bounded contention retry, spawns a separate process that commits a claim and exits with status 17, proves quota remains charged, reclaims after expiry, rejects the old token, and ends at zero logical usage. The reconciliation harness publishes and removes exact OCI digests in an ephemeral unmodified Distribution, proves stale-result rejection and last-reference refunds, and ends at zero logical usage.
 
 Both harnesses remove their labeled containers, networks, volumes, generated passwords, and SQLite state even after failure. They use loopback or isolated fixture paths and must not be pointed at a production database or registry.
 

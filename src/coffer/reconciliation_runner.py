@@ -23,7 +23,7 @@ from oslo_config import cfg
 from coffer.config import parse_config, setup_logging
 from coffer.db import RepositoryStore
 from coffer.observability import CofferMetrics
-from coffer.quota import QuotaSchemaNotReady, QuotaStore
+from coffer.quota import QuotaStore
 from coffer.quota_reconciliation import (
     HTTPDistributionManifestProbe,
     QuotaReconciler,
@@ -31,6 +31,7 @@ from coffer.quota_reconciliation import (
     ReconciliationRun,
     RepositoryStoreResolver,
 )
+from coffer.schema import SchemaNotReady
 
 
 LOG = logging.getLogger(__name__)
@@ -349,7 +350,7 @@ def run_with_config(
         return EXIT_CONFIG
     try:
         reconciler = reconciler_factory(conf, settings, metrics)
-    except (QuotaSchemaNotReady, ValueError, OSError, ssl.SSLError):
+    except (SchemaNotReady, ValueError, OSError, ssl.SSLError):
         LOG.error("reconciliation startup failed result=invalid_configuration")
         return EXIT_CONFIG
     except Exception:

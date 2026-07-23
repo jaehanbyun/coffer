@@ -27,7 +27,7 @@ class ItemResource:
 
 
 def test_health_readiness_and_metrics_have_bounded_output() -> None:
-    store = RepositoryStore("sqlite://")
+    store = RepositoryStore("sqlite://", bootstrap_schema=True)
     metrics = CofferMetrics()
     client = testing.TestClient(
         build_operational_application(store, metrics, metrics_enabled=True)
@@ -80,7 +80,9 @@ def test_metrics_route_is_absent_when_disabled() -> None:
     metrics = CofferMetrics()
     client = testing.TestClient(
         build_operational_application(
-            RepositoryStore("sqlite://"), metrics, metrics_enabled=False
+            RepositoryStore("sqlite://", bootstrap_schema=True),
+            metrics,
+            metrics_enabled=False,
         )
     )
 

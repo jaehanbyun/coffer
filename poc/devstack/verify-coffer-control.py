@@ -64,7 +64,9 @@ def client_for(config: dict[str, object], database_file: Path) -> testing.TestCl
         conf.set_override(name, value, group="keystone_authtoken")
     middleware = build_application(
         conf,
-        store=RepositoryStore(f"sqlite:///{database_file}"),
+        store=RepositoryStore(
+            f"sqlite:///{database_file}", bootstrap_schema=True
+        ),
     )
 
     def wsgi_app(environ: dict[str, Any], start_response: Any) -> Any:

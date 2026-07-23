@@ -82,7 +82,9 @@ def auth_fixture() -> Iterator[AuthTokenFixture]:
 def client(tmp_path: Any, auth_fixture: AuthTokenFixture) -> testing.TestClient:
     conf = new_config()
     conf(args=[])
-    store = RepositoryStore(f"sqlite:///{tmp_path / 'coffer.sqlite'}")
+    store = RepositoryStore(
+        f"sqlite:///{tmp_path / 'coffer.sqlite'}", bootstrap_schema=True
+    )
     middleware = build_application(
         conf,
         store=store,

@@ -28,7 +28,7 @@ The service type is a project proposal and is not currently registered in the Op
 
 ## Current Implementation
 
-M0 proves the unmodified OCI Distribution data path against local S3-compatible storage. M1 contains the first Coffer-owned seam: a Keystone-middleware-wrapped repository API with project UUID ownership, reader/member policy, and SQLite-backed test persistence. Local M2 adds a separately composed application-credential token realm, explicit repository and `oslo.policy` authorization, short-lived RS256 Distribution JWTs, and overlapping-JWKS verification. M3 adds a private manifest-admission seam with Alembic-versioned shared-SQL logical quota accounting, bounded exact-digest reconciliation, expiring multi-worker claims, and fencing tokens, and validates the real Keystone, Ceph RGW, and Barbican SSE-KMS path in disposable labs.
+M0 proves the unmodified OCI Distribution data path against local S3-compatible storage. M1 contains the first Coffer-owned seam: a Keystone-middleware-wrapped repository API with project UUID ownership, reader/member policy, and explicit fixture persistence. Local M2 adds a separately composed application-credential token realm, explicit repository and `oslo.policy` authorization, short-lived RS256 Distribution JWTs, and overlapping-JWKS verification. M3 adds an Alembic-owned shared-SQL control schema, a private manifest-admission seam with logical quota accounting, bounded exact-digest reconciliation, expiring multi-worker claims, and fencing tokens, and validates the real Keystone, Ceph RGW, and Barbican SSE-KMS path in disposable labs.
 
 The API currently supports:
 
@@ -36,7 +36,7 @@ The API currently supports:
 - `GET /v1/repositories`
 - `GET /v1/repositories/{repository_id}`
 
-This is testable scaffolding, not a production endpoint. The committed default uses in-memory SQLite, the Keystone tests use `AuthTokenFixture`, and the Distribution v3.1.1 fixture is blocked from production promotion by ADR 0006.
+This is testable scaffolding, not a production endpoint. Unit and disposable fixtures opt into ephemeral SQLite schema bootstrap, while normal control and reconciliation processes require the exact Alembic revision. The Keystone tests use `AuthTokenFixture`, and the Distribution v3.1.1 fixture is blocked from production promotion by ADR 0006.
 
 Run the isolated authenticated registry contract with:
 
@@ -53,7 +53,9 @@ make -C poc/quota-sql verify
 make -C poc/quota-reconciliation verify
 ```
 
-These fixtures validate PostgreSQL/MariaDB migration, row-lock, multi-worker claim, abandoned-process lease recovery, and fencing semantics plus reconciliation against isolated unmodified Distribution. They do not provide production database credentials, existing-data rollout, authenticated TLS scheduling, Galera evidence, or production metric aggregation.
+These fixtures validate PostgreSQL/MariaDB migration, legacy repository-row adoption and retention, row locks, multi-worker claims, abandoned-process lease recovery, and fencing semantics plus reconciliation against isolated unmodified Distribution. They do not inventory existing OCI content or provide production database credentials, rollout/backup authorization, authenticated TLS scheduling, Galera evidence, or production metric aggregation.
+
+Before starting a normal Coffer process, an operator-owned migration job must run `uv run alembic upgrade head` with its database URL delivered through protected configuration. Revision `0003_repository_metadata` creates a fresh repository table or strictly adopts the exact legacy PoC table online; drift and offline SQL generation fail closed. See [ADR 0010](docs/adrs/0010-adopt-repository-metadata-into-alembic.md) and the [control schema runbook](docs/runbooks/quota-schema-reconciliation.md). This migration does not import manifests or make quota authoritative for pre-existing Distribution/RGW content.
 
 Run one bounded reconciliation cycle from protected operator configuration with:
 
@@ -77,10 +79,11 @@ uv run --group test pytest -q
 
 The selected runtime matrix is Python 3.11–3.13. A real process uses the WSGI factory `coffer.wsgi:create_application()` with `COFFER_CONFIG_FILE` pointing to an operator-supplied configuration. Multi-worker execution requires a shared SQL database and token cache; the in-memory defaults are intentionally limited to tests and smoke work.
 
-The reference process shape can be validated or started with:
+The reference process shape can be validated or started only after the configured database has reached Alembic head:
 
 ```bash
-uv run gunicorn --check-config --config etc/gunicorn.conf.py \
+COFFER_CONFIG_FILE=/operator/path/coffer.conf \
+  uv run gunicorn --check-config --config etc/gunicorn.conf.py \
   'coffer.wsgi:create_application()'
 
 COFFER_CONFIG_FILE=/operator/path/coffer.conf \
@@ -102,6 +105,7 @@ Do not place Keystone, database, signing, or cache secrets in the repository. Th
 - [M3 local observability baseline](docs/research/m3-local-observability.md)
 - [M3 RGW/Barbican KMS capability and executed evidence](docs/research/m3-rgw-kms-capability.md)
 - [M3 bounded quota design and validation](docs/research/m3-quota-enforcement-spike.md)
+- [ADR 0010: Alembic repository metadata adoption](docs/adrs/0010-adopt-repository-metadata-into-alembic.md)
 - [Real Keystone and Ceph RGW PoC runbook](docs/runbooks/real-keystone-rgw-poc.md)
 - [Quota schema and reconciliation operator boundary](docs/runbooks/quota-schema-reconciliation.md)
 - [Disposable Mac DevStack identity lab](poc/devstack/README.md)
@@ -111,3 +115,4 @@ Do not place Keystone, database, signing, or cache secrets in the repository. Th
 - [Completed shared-SQL quota and reconciliation plan](docs/exec-plans/0004-shared-sql-quota-reconciliation.md)
 - [Completed multi-worker reconciliation plan](docs/exec-plans/0005-multi-worker-reconciliation.md)
 - [Completed reconciliation runner plan](docs/exec-plans/0006-reconciliation-runner.md)
+- [Completed unified control-schema plan](docs/exec-plans/0007-unified-control-schema.md)

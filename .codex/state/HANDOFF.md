@@ -1,14 +1,14 @@
 # Coffer Handoff
 
 - Updated: 2026-07-23
-- Status: plan 0006 completed and verified; ready for atomic publication
-- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`
+- Status: plan 0007 completed and verified; ready for atomic publication
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: none
 
 ## Current Objective
 
-Publish the completed operator-runnable `coffer-reconcile` milestone atomically, then scope the existing-data and unified control-schema migration gate as the next safe work package. Production deployment, credentials, Galera policy, and restart-correct metric aggregation remain outside authorization or unproven.
+Publish completed plan 0007 atomically, then scope read-only OCI content inventory/import discovery without enabling quota or mutating object storage. Production deployment, credentials, Galera policy, and restart-correct metric aggregation remain outside authorization or unproven.
 
 ## Completed
 
@@ -83,6 +83,13 @@ Publish the completed operator-runnable `coffer-reconcile` milestone atomically,
 - Added bounded cursor-preserving cycles, serial periodic execution, monotonic interruptible waits, symmetric jitter, capped/resettable failure backoff, and restored SIGTERM/SIGINT handlers. Fourteen runner tests pass, including config-instance isolation, secret-free missing-config exit 78, and an installed subprocess that exact-404 reconciles a real migrated SQLite reservation without logging its project, digest, or database path.
 - Documented the operator config, exit, cursor/snapshot, lease, signal, retry, credential, and remaining production-gate contract in the quota runbook, README, architecture, ADR 0009, observability notes, quota research, and real-lab runbook.
 - Completed plan 0006 regression: 128 tests pass on each of Python 3.11, 3.12, and 3.13; lock, compile, Alembic head, installed entry point, Gunicorn, Bash/ShellCheck, five Compose models, all Make dry-runs, 43 Markdown files, 21 local links, diff checks, private-key/JWT shapes, and Gitleaks over 184 project-owned files pass.
+- Published plan 0006 as commit `5500e36` to `jaehanbyun/coffer` `main`; local and remote heads match.
+- Activated plan 0007 after mapping the legacy repository schema, Alembic metadata, production constructors, fixture bootstraps, and PostgreSQL/MariaDB downgrade/re-upgrade harness.
+- Added shared schema revision validation and online revision `0003_repository_metadata`. Fresh databases create repository metadata; exact legacy tables are adopted without row rewrites; incompatible columns, primary key, or project/name uniqueness and offline SQL generation fail before revision 0003 is claimed.
+- Normal `RepositoryStore` construction now requires the exact Alembic revision and table. Unit and disposable fixtures declare `bootstrap_schema=True`; API, token, admission, and reconciliation runtime paths no longer create repository tables implicitly.
+- Verified PostgreSQL 17.10 and MariaDB 11.4.12 preserve one exact legacy repository row through adoption, non-destructive downgrade, and re-adoption while all prior quota concurrency, process-abandonment, recovery, fencing, drift, and cleanup checks still pass. Podman is stopped.
+- Added accepted-for-PoC ADR 0010 and updated README, architecture, schema/reconciliation runbook, ADR 0009, and the real-lab runbook. The boundary explicitly does not inventory OCI content or authorize production migration.
+- Completed plan 0007 final regression: 134 tests pass on each of Python 3.11, 3.12, and 3.13; lock, compile, Alembic head, installed entry point, migrated-schema Gunicorn, Bash/ShellCheck, five Compose models, all Make dry-runs, 45 Markdown files, 25 local links, diff checks, private-key/JWT shapes, and Gitleaks over 188 project-owned files pass.
 
 ## Decisions and Reasons
 
@@ -98,7 +105,8 @@ Publish the completed operator-runnable `coffer-reconcile` milestone atomically,
 - Barbican is the validated OpenStack-native SSE-KMS path for the pinned Tentacle PoC; owner-only bindings and deterministic rollback remain mandatory, and the disposable cross-host tunnel is not production topology.
 - Tentacle 20.2.2 rejects encrypted-source ordinary `CopyObject`, so the Distribution S3 driver uses `multipartcopythresholdsize: 0` for positive-size payloads in this PoC. Zero-byte encrypted moves still fail closed and block production promotion until a released Ceph fix/backport or another proven backend/release closes the gap.
 - ADR 0009 is accepted for PoC validation: only bounded manifest PUTs cross the admission seam, blob bodies stay streamed to unmodified Distribution, shared SQL is the logical quota authority, and physical staging remains a separate service-wide concern.
-- Alembic revisions are the sole quota-schema upgrade authority; normal startup validates the exact revision, while `create_all()` is explicit fixture-only behavior.
+- One Alembic chain is the sole repository/quota control-schema upgrade authority; normal startup validates the exact revision and required tables, while `create_all()` is explicit unit/disposable fixture-only behavior.
+- Revision `0003_repository_metadata` runs online and strictly creates or adopts the exact legacy repository table. Drift and offline conditional migration fail closed; downgrade retains repository identity because table provenance cannot be inferred safely. OCI payload inventory remains separate.
 - Ledger-driven reconciliation uses immutable repository authority, exact digest HEAD probes, conservative indeterminate outcomes, and monotonic reservation-version compare-and-set. A separate expiring shared-SQL claim plus opaque fencing token now divides workers and rejects a result after reassignment; successful mutation consumes the claim transactionally.
 - Reconciliation claims lock only selected reservation rows and release the transaction before network I/O. MariaDB may return an empty batch during range-lock contention, so schedulers perform a later bounded retry rather than interpreting an empty batch as durable backlog exhaustion.
 - `coffer-reconcile` runs as a separate native synchronous process rather than inside Gunicorn or an Eventlet/oslo.service loop. Each process is locally serial; independent processes scale only through the shared claim table.
@@ -143,6 +151,7 @@ Publish the completed operator-runnable `coffer-reconcile` milestone atomically,
 - Quota operations and documentation: `docs/runbooks/quota-schema-reconciliation.md`, ADR 0009, architecture and quota research updates, README, completed plan 0004, and the Alembic logging regression in `migrations/env.py`/`tests/test_migrations.py`.
 - Multi-worker reconciliation: migration `0002`, claim metadata/store/reconciler/metrics, focused tests, shared-SQL process-failure evidence, Distribution fixture worker identity, active plan 0005, and this handoff.
 - Reconciliation runner: `pyproject.toml`, `uv.lock`, reconciliation options in `src/coffer/config.py`, new `src/coffer/reconciliation_runner.py`, focused runner/subprocess tests, active plan 0006, and this handoff.
+- Unified control schema: `src/coffer/schema.py`, repository/quota/runner validation, Alembic revision `0003` and unified metadata, focused migration tests, explicit fixture bootstraps, `poc/quota-sql/`, ADR 0010, schema/architecture/runbook updates, active plan 0007, and this handoff.
 
 ## Verification
 
@@ -209,6 +218,8 @@ Publish the completed operator-runnable `coffer-reconcile` milestone atomically,
 - Plan 0005 final regression passed: 114 tests on each of Python 3.11, 3.12, and 3.13; lock, compile, Alembic head, Bash/ShellCheck, Gunicorn, five Compose models, all PoC Make dry-runs, 42 Markdown files and 19 local links, diff checks, and Gitleaks over 180 project-owned files. The final Distribution rerun passed and removed all runtime/state residue.
 - Plan 0006 focused verification passed: 14 runner tests and 67 combined runner/token/reconciliation tests cover strict config/schema startup, independent oslo.config instances, secret-free parser/config exit 78, installed one-shot exact-404 reconciliation, fixed aggregate summary, temporary-failure exits, cursor and scan-snapshot continuation, serial execution, bounded jitter/backoff reset, monotonic wait, active-page signal stop, and handler restoration.
 - Plan 0006 final verification command corrections are recorded in the plan: a wrong Gunicorn module, zsh list-expansion mistakes, and use of zsh's special `path` variable were corrected without changing repository or lab state. The substantive missing-config traceback/exit-1 failure was fixed and regression tested.
+- Plan 0007 focused verification passed: 10 SQLite migration tests, 56 migration/API/token/quota tests, and the full 134-test Python 3.13 suite. PostgreSQL 17.10 and MariaDB 11.4.12 adopted, retained, and re-adopted exact legacy repository metadata while existing quota/claim checks and zero-residue cleanup passed.
+- Plan 0007 final verification passed after tightening MySQL Boolean reflection: 10 SQLite migration tests reject four drift classes; 134 tests pass per Python version; both shared-SQL engines and isolated Distribution reconciliation pass again; Podman and all labeled runtime/credential/state residue are absent.
 
 ## Blockers and Risks
 
@@ -234,8 +245,8 @@ Publish the completed operator-runnable `coffer-reconcile` milestone atomically,
 
 ## Exact Next Action
 
-Verify the personal GitHub account, stage only the plan 0006 file set, inspect the cached diff, commit once, and push `main` atomically. Then create the next execution plan for existing-data and unified control-schema migration discovery.
+Verify the personal GitHub account, stage only the plan 0007 file set, inspect the cached diff, commit once, and push `main` atomically. Then scope a separate read-only OCI content inventory/import execution plan.
 
 ## After This Work Package
 
-Existing-data production migration/import, integrated authenticated reconciliation, production scheduler/Galera and restart-correct observability policy, separate-host/load-balancer HA, native Referrers, and destructive GC remain distinct future work packages.
+Existing OCI content inventory/import, integrated authenticated reconciliation, production scheduler/Galera and restart-correct observability policy, separate-host/load-balancer HA, native Referrers, and destructive GC remain distinct future work packages.

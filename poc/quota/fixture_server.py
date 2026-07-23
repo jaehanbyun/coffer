@@ -69,7 +69,7 @@ class FixtureAuthenticator:
 
 
 database = os.environ["COFFER_QUOTA_DATABASE"]
-repositories = RepositoryStore(database)
+repositories = RepositoryStore(database, bootstrap_schema=True)
 for project_id, names in (
     (os.environ["COFFER_QUOTA_PROJECT_A"], PROJECT_A_REPOSITORIES),
     (os.environ["COFFER_QUOTA_PROJECT_B"], PROJECT_B_REPOSITORIES),

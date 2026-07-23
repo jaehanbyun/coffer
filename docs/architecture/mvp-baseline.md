@@ -84,7 +84,7 @@ Owns `/v2/` blob, upload, canonical manifest, tag, supported artifact, and delet
 
 ### Control database
 
-Stores resource identity, stable project mapping, repository policy, signing-key metadata, logical quota reservations/usage observations, monotonic reconciliation versions, expiring worker claims, operation records, and audit references. Alembic revisions are the quota-schema authority; normal application startup validates the expected revision and never creates production quota tables implicitly. The database does not become a permanent registry credential store. Blob content and the canonical manifest payload remain in object storage.
+Stores resource identity, stable project mapping, repository policy, signing-key metadata, logical quota reservations/usage observations, monotonic reconciliation versions, expiring worker claims, operation records, and audit references. One Alembic revision chain owns repository and quota tables; normal API, token, admission, and reconciliation startup validates the exact revision and never creates production tables implicitly. Revision `0003` can strictly adopt the exact legacy repository table without rewriting rows, but it does not inventory OCI payloads. The database does not become a permanent registry credential store. Blob content and the canonical manifest payload remain in object storage.
 
 ### Object storage
 
@@ -150,6 +150,7 @@ sequenceDiagram
 
 - At least two stateless control/auth replicas and two Distribution replicas with identical backend configuration and HTTP secret behind the regional TLS load balancer; use shared Redis when configured.
 - Shared HA SQL and object storage are external dependencies with independent backup and recovery procedures.
+- Run the online Alembic migration as a separate owner-controlled job before application rollout. An exact legacy repository table can be adopted; drift, offline conditional migration, and application-side auto-upgrade fail closed. Production still requires backup/restore and OCI inventory rehearsal.
 - Run the dedicated one-shot or periodic reconciliation process using the verified version-plus-token claim API. Local cadence, jitter, graceful shutdown, cursor continuation, and lease-budget semantics are implemented; production promotion still requires packaging/rollout, authenticated service identity, database-time/clock, deadlock retry, Galera, forced-replica failure, and restart-correct metric aggregation policy.
 - Signing keys are versioned with overlapping public trust during rotation; private keys and S3/Redis/HTTP secrets belong in a Barbican/Vault/HSM-backed secret path, not ordinary configuration files.
 - Health endpoints distinguish process readiness from Keystone, SQL, and object-storage dependency health.
@@ -197,7 +198,7 @@ sequenceDiagram
 
 1. Standard Docker credential storage requires a credential helper and finite application credentials; future federated/MFA users need a separate helper/exchange design.
 2. Distribution's stop-the-world GC requires a maintenance window; always-online GC is not an MVP claim.
-3. Project quota admission, Alembic schema, PostgreSQL/MariaDB row locks, multi-worker claims/fencing, process abandonment, exact-digest reconciliation, and the runnable one-shot/periodic process have bounded local evidence. Production still needs existing-data rollout/backup procedures, authenticated TLS reconciliation in the integrated RGW deployment, packaging/clock/deadlock/Galera and metric-aggregation policy, replica-level failure tests, and non-bypassable ingress.
+3. Unified repository/quota Alembic schema, legacy repository-row adoption, project quota admission, PostgreSQL/MariaDB row locks, multi-worker claims/fencing, process abandonment, exact-digest reconciliation, and the runnable one-shot/periodic process have bounded local evidence. Production still needs OCI content inventory/import, rollout/backup procedures, authenticated TLS reconciliation in the integrated RGW deployment, packaging/clock/deadlock/Galera and metric-aggregation policy, replica-level failure tests, and non-bypassable ingress.
 4. Repository aliases and rename semantics can conflict with immutable security namespaces.
 5. The chosen Distribution and Ceph combination must pass encrypted move semantics, including positive-size and zero-byte blobs. Tentacle 20.2.2 requires forced multipart copy for positive-size objects and still rejects the zero-byte path.
 6. OpenStack community governance may favor an adjacent-project or external-service path before a new official service.

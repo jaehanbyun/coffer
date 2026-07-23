@@ -20,6 +20,8 @@ from sqlalchemy import (
     text,
 )
 
+from coffer.schema import SchemaNotReady, require_current_schema
+
 
 metadata = MetaData()
 repositories = Table(
@@ -35,6 +37,10 @@ repositories = Table(
 
 
 class RepositoryAlreadyExists(Exception):
+    pass
+
+
+class RepositorySchemaNotReady(SchemaNotReady):
     pass
 
 
@@ -71,10 +77,19 @@ class Repository:
 
 
 class RepositoryStore:
-    def __init__(self, connection: str) -> None:
+    def __init__(self, connection: str, *, bootstrap_schema: bool = False) -> None:
         self._transaction = enginefacade.transaction_context()
         self._transaction.configure(connection=connection)
-        metadata.create_all(self._transaction.writer.get_engine())
+        engine = self._transaction.writer.get_engine()
+        if bootstrap_schema:
+            metadata.create_all(engine)
+        else:
+            require_current_schema(
+                engine,
+                expected_tables=metadata.tables,
+                component="repository",
+                error_type=RepositorySchemaNotReady,
+            )
 
     @staticmethod
     def _context() -> oslo_context.RequestContext:

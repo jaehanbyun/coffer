@@ -72,7 +72,7 @@ class FakeUpstream:
 
 def fixture(tmp_path: Path, *, quota_limit: int | None, upstream: FakeUpstream):
     database = f"sqlite:///{tmp_path / 'quota.sqlite'}"
-    repositories = RepositoryStore(database)
+    repositories = RepositoryStore(database, bootstrap_schema=True)
     repositories.create(PROJECT, "demo")
     quotas = QuotaStore(database, bootstrap_schema=True)
     if quota_limit is not None:
