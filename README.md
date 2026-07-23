@@ -55,6 +55,15 @@ make -C poc/quota-reconciliation verify
 
 These fixtures validate PostgreSQL/MariaDB migration, row-lock, multi-worker claim, abandoned-process lease recovery, and fencing semantics plus reconciliation against isolated unmodified Distribution. They do not provide production database credentials, existing-data rollout, authenticated TLS scheduling, Galera evidence, or production metric aggregation.
 
+Run one bounded reconciliation cycle from protected operator configuration with:
+
+```bash
+coffer-reconcile --config-file /operator/secret/coffer.conf \
+  --config-file /etc/coffer/coffer-reconcile.conf
+```
+
+The command also supports a serial `mode=periodic` loop with graceful signals, cursor continuation, bounded jitter, and capped dependency backoff. It rejects unsafe lease-versus-batch timing and non-loopback plaintext origins. The sample shape is [etc/coffer-reconcile.conf.sample](etc/coffer-reconcile.conf.sample); it intentionally contains no database connection or service credential.
+
 The WSGI factory also exposes process liveness at `/healthz` and database readiness at `/readyz`. Prometheus-compatible `/metrics` is disabled by default and can be enabled with `[observability] metrics_enabled=true`; it is process-local PoC evidence and requires an operator-protected endpoint plus a multi-worker aggregation design before production use.
 
 ## Development
@@ -101,3 +110,4 @@ Do not place Keystone, database, signing, or cache secrets in the repository. Th
 - [Completed Barbican KMS and quota PoC](docs/exec-plans/0003-barbican-kms-quota-poc.md)
 - [Completed shared-SQL quota and reconciliation plan](docs/exec-plans/0004-shared-sql-quota-reconciliation.md)
 - [Completed multi-worker reconciliation plan](docs/exec-plans/0005-multi-worker-reconciliation.md)
+- [Completed reconciliation runner plan](docs/exec-plans/0006-reconciliation-runner.md)

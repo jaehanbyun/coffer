@@ -1,0 +1,26 @@
+# Supply [database] connection through an owner-restricted deployment config.
+# Never copy a real database URL or service credential into this repository.
+
+[reconciliation]
+mode = once
+upstream_url = https://registry-internal.example
+# cafile = /etc/ssl/certs/operator-registry-ca.pem
+
+# Leave plaintext disabled outside the loopback-only disposable fixture.
+allow_insecure_http = false
+
+timeout_seconds = 10
+stale_after_seconds = 300
+batch_limit = 10
+max_pages_per_cycle = 100
+lease_seconds = 120
+
+# Used only when mode = periodic.
+interval_seconds = 60
+jitter_fraction = 0.1
+retry_initial_seconds = 5
+retry_max_seconds = 60
+
+# worker_id is diagnostic, not fencing authority. If omitted, each process
+# generates a bounded opaque ID; the database claim token remains authoritative.
+# worker_id = reconciler-region-one-a

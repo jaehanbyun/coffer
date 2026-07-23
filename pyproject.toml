@@ -27,6 +27,9 @@ dependencies = [
   "WebOb==1.8.10",
 ]
 
+[project.scripts]
+coffer-reconcile = "coffer.reconciliation_runner:main"
+
 [project.optional-dependencies]
 mariadb = [
   "PyMySQL==1.2.0",

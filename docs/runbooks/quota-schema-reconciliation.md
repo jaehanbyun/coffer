@@ -2,7 +2,7 @@
 
 - Status: verified development baseline; not a production deployment procedure
 - Related ADR: `docs/adrs/0009-add-private-edge-manifest-quota-admission.md`
-- Related plans: `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`
+- Related plans: `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`
 
 ## Purpose and Safety Boundary
 
@@ -63,6 +63,34 @@ For each candidate it:
 
 A process crash never releases quota. The committed claim remains until its lease expires, after which another process receives a new token. The old process cannot mutate state if it resumes late. The one-hour code maximum is a safety bound, not a recommended interval; production values must exceed the measured probe timeout while keeping crash recovery within the operator's reconciliation objective.
 
+## Runnable Process Contract
+
+The installed `coffer-reconcile` command is a separate native synchronous process. It does not run inside Gunicorn, use Eventlet, elect a leader, or overlap local jobs. Scale-out consists of independent processes using the same migrated quota/control database; plan 0005's claim token remains the distributed ownership authority.
+
+Supply the normal owner-restricted Coffer database configuration plus a `[reconciliation]` group. The checked-in non-secret shape is `etc/coffer-reconcile.conf.sample`. A minimal one-shot invocation is:
+
+```bash
+coffer-reconcile --config-file /operator/secret/coffer.conf \
+  --config-file /etc/coffer/coffer-reconcile.conf
+```
+
+`mode=once` runs one bounded cycle and exits. It is suitable for an operator-owned timer or CronJob once that deployment path is separately reviewed. `mode=periodic` runs immediately, then waits an interruptible jittered interval after each cycle. SIGTERM and SIGINT set a stop event, finish only the active synchronous page, preserve its cursor/snapshot if work remains, and prevent another run. Runs never overlap within one process.
+
+A cycle follows the returned deterministic cursor for at most `max_pages_per_cycle`; if that bound is reached, periodic mode retains the cursor for its next cycle. This prevents permanently indeterminate oldest rows from starving later reservations while preserving an explicit work bound. One-shot schedulers should run frequently enough to continue any bounded remainder; a later invocation can still progress because active indeterminate claims are excluded until lease expiry.
+
+The process rejects startup unless:
+
+- `upstream_url` is one credential-free HTTP(S) origin with no path, query, fragment, or URL credentials;
+- HTTPS uses the system trust store or the configured public `cafile`;
+- plaintext HTTP is explicitly enabled and targets only loopback, which is a disposable fixture boundary;
+- the database has the exact expected Alembic quota revision before the repository store is constructed;
+- `lease_seconds >= batch_limit * timeout_seconds + 10`, covering the sequential page probe budget plus mutation grace;
+- initial dependency retry is no greater than the configured cap.
+
+Completed present, absent, indeterminate, and stale outcomes exit 0 and log only fixed aggregate counts. Invalid configuration/schema exits 78. An unexpected one-shot dependency/runtime failure exits 75 with a neutral result class and no exception text. Periodic mode instead applies symmetric bounded jitter, capped exponential failure backoff, and reset to the healthy interval after the next success. Fencing still rejects late results if real work exceeds the validated lease.
+
+No service-auth secret, bearer token, client private key, or database URL belongs on the command line or in the sample file. This package does not solve authenticated service-to-service probe credential delivery; production integration must choose an owner-approved private TLS/network identity or in-memory credential path separately.
+
 ## Disposable Verification
 
 With a working Podman machine, verify database behavior and the Distribution-backed state machine independently:
@@ -81,7 +109,8 @@ Both harnesses remove their labeled containers, networks, volumes, generated pas
 - A data-preserving upgrade/import rehearsal from the actual pre-quota state, including backup restore and rollback ownership.
 - Database TLS, least-privilege migration and runtime roles, connection-pool sizing, timeout, deadlock retry, and Galera behavior where applicable.
 - A private authenticated TLS probe path in the integrated Distribution/RGW topology; no tenant may bypass manifest admission.
-- Production scheduler cadence, jitter, graceful shutdown, lease sizing, deadlock retry, database-time/clock policy, and Galera evidence; the current PostgreSQL/MariaDB process-exit proof is bounded development evidence.
+- Production database-time/clock, deadlock retry, Galera, connection-pool, and real load/timeout evidence; the current cadence, lease validation, and PostgreSQL/MariaDB process-exit proofs are bounded development evidence.
+- Packaging and lifecycle evidence for the chosen operator surface (systemd timer/service, Kubernetes CronJob/Deployment, Kolla, or Helm), including rollout, concurrent replica, and forced-termination behavior.
 - Protected, restart-correct multi-process/fleet aggregation and alerts for the implemented fixed `present`, `absent`, `indeterminate`, `stale_version`, and `stale_claim` outcomes, plus lag and dependency availability without project or digest labels.
 - Existing registry inventory before enabling authoritative admission, plus integrated deletion/reference evidence against RGW.
 

@@ -231,15 +231,22 @@ class QuotaReconciler:
         *,
         now: datetime | None = None,
         after: ReconciliationCursor | None = None,
+        scan_started_at: datetime | None = None,
     ) -> ReconciliationRun:
         observed_at = now or datetime.now(UTC)
         if observed_at.tzinfo is None or observed_at.utcoffset() is None:
             raise ValueError("reconciliation time must be timezone-aware")
+        scan_boundary = scan_started_at or observed_at
+        if (
+            scan_boundary.tzinfo is None
+            or scan_boundary.utcoffset() is None
+        ):
+            raise ValueError("reconciliation scan time must be timezone-aware")
         page = self._quotas.claim_reconciliation_candidates(
             worker_id=self._worker_id,
             claimed_at=observed_at,
             lease_for=self._lease_for,
-            stale_before=observed_at - self._stale_after,
+            stale_before=scan_boundary - self._stale_after,
             limit=self._batch_limit,
             after=after,
         )

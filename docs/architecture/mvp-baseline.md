@@ -76,7 +76,7 @@ Handles only bounded manifest/index PUT requests at a non-bypassable private edg
 
 ### Coffer quota reconciler
 
-Claims bounded deterministic ledger pages in shared SQL and repairs stale admission or deletion state by resolving the immutable repository authority and probing the exact manifest digest through Distribution's private service endpoint after the claim transaction closes. A matching HTTP 200 is presence, exact 404 is absence, and every authentication, dependency, transport, or digest-header ambiguity retains the charge. Reservation version plus an expiring opaque fencing token prevents stale or reassigned workers from applying results; successful mutation consumes the claim transactionally.
+Runs through the separate native `coffer-reconcile` process, claims bounded deterministic ledger pages in shared SQL, and repairs stale admission or deletion state by resolving immutable repository authority and probing the exact manifest digest after the claim transaction closes. A matching HTTP 200 is presence, exact 404 is absence, and every authentication, dependency, transport, or digest-header ambiguity retains the charge. Reservation version plus an expiring opaque fencing token prevents stale or reassigned workers from applying results; successful mutation consumes the claim transactionally. Each process runs serial bounded cursor cycles with graceful signals, jittered cadence, and capped dependency backoff.
 
 ### Upstream OCI Distribution data plane
 
@@ -150,7 +150,7 @@ sequenceDiagram
 
 - At least two stateless control/auth replicas and two Distribution replicas with identical backend configuration and HTTP secret behind the regional TLS load balancer; use shared Redis when configured.
 - Shared HA SQL and object storage are external dependencies with independent backup and recovery procedures.
-- Run quota reconciliation through a bounded scheduler using the verified version-plus-token claim API. Production promotion still requires cadence, jitter, graceful shutdown, lease sizing, database-time/clock, deadlock retry, Galera, and restart-correct metric aggregation policy.
+- Run the dedicated one-shot or periodic reconciliation process using the verified version-plus-token claim API. Local cadence, jitter, graceful shutdown, cursor continuation, and lease-budget semantics are implemented; production promotion still requires packaging/rollout, authenticated service identity, database-time/clock, deadlock retry, Galera, forced-replica failure, and restart-correct metric aggregation policy.
 - Signing keys are versioned with overlapping public trust during rotation; private keys and S3/Redis/HTTP secrets belong in a Barbican/Vault/HSM-backed secret path, not ordinary configuration files.
 - Health endpoints distinguish process readiness from Keystone, SQL, and object-storage dependency health.
 - Structured audit events include actor, project, repository, action, result, request ID, and digest where available; they exclude tokens and secrets.
@@ -197,7 +197,7 @@ sequenceDiagram
 
 1. Standard Docker credential storage requires a credential helper and finite application credentials; future federated/MFA users need a separate helper/exchange design.
 2. Distribution's stop-the-world GC requires a maintenance window; always-online GC is not an MVP claim.
-3. Project quota admission, Alembic schema, PostgreSQL/MariaDB row locks, multi-worker claims/fencing, process abandonment, and exact-digest reconciliation have bounded local evidence. Production still needs existing-data rollout/backup procedures, authenticated TLS reconciliation in the integrated RGW deployment, scheduler/clock/deadlock/Galera and metric-aggregation policy, replica-level failure tests, and non-bypassable ingress.
+3. Project quota admission, Alembic schema, PostgreSQL/MariaDB row locks, multi-worker claims/fencing, process abandonment, exact-digest reconciliation, and the runnable one-shot/periodic process have bounded local evidence. Production still needs existing-data rollout/backup procedures, authenticated TLS reconciliation in the integrated RGW deployment, packaging/clock/deadlock/Galera and metric-aggregation policy, replica-level failure tests, and non-bypassable ingress.
 4. Repository aliases and rename semantics can conflict with immutable security namespaces.
 5. The chosen Distribution and Ceph combination must pass encrypted move semantics, including positive-size and zero-byte blobs. Tentacle 20.2.2 requires forced multipart copy for positive-size objects and still rejects the zero-byte path.
 6. OpenStack community governance may favor an adjacent-project or external-service path before a new official service.

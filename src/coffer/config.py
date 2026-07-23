@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from copy import deepcopy
 
 from keystonemiddleware import auth_token
 from oslo_config import cfg
@@ -34,18 +35,44 @@ OBSERVABILITY_GROUP = cfg.OptGroup("observability")
 OBSERVABILITY_OPTS = [
     cfg.BoolOpt("metrics_enabled", default=False),
 ]
+RECONCILIATION_GROUP = cfg.OptGroup("reconciliation")
+RECONCILIATION_OPTS = [
+    cfg.StrOpt("mode", default="once", choices=("once", "periodic")),
+    cfg.URIOpt("upstream_url"),
+    cfg.StrOpt("cafile"),
+    cfg.BoolOpt("allow_insecure_http", default=False),
+    cfg.FloatOpt("timeout_seconds", default=10.0, min=0.1, max=60.0),
+    cfg.StrOpt("worker_id"),
+    cfg.IntOpt("stale_after_seconds", default=300, min=0, max=86400),
+    cfg.IntOpt("lease_seconds", default=120, min=1, max=3600),
+    cfg.IntOpt("batch_limit", default=10, min=1, max=1000),
+    cfg.IntOpt("max_pages_per_cycle", default=100, min=1, max=1000),
+    cfg.FloatOpt("interval_seconds", default=60.0, min=1.0, max=3600.0),
+    cfg.FloatOpt("jitter_fraction", default=0.1, min=0.0, max=0.5),
+    cfg.FloatOpt("retry_initial_seconds", default=5.0, min=0.1, max=3600.0),
+    cfg.FloatOpt("retry_max_seconds", default=60.0, min=0.1, max=3600.0),
+]
 
 
 def new_config() -> cfg.ConfigOpts:
     conf = cfg.ConfigOpts()
-    conf.register_group(API_GROUP)
-    conf.register_opts(API_OPTS, group=API_GROUP)
-    conf.register_group(KEYSTONE_GROUP)
-    conf.register_opts(KEYSTONE_OPTS, group=KEYSTONE_GROUP)
-    conf.register_group(TOKEN_GROUP)
-    conf.register_opts(TOKEN_OPTS, group=TOKEN_GROUP)
-    conf.register_group(OBSERVABILITY_GROUP)
-    conf.register_opts(OBSERVABILITY_OPTS, group=OBSERVABILITY_GROUP)
+    api_group = deepcopy(API_GROUP)
+    conf.register_group(api_group)
+    conf.register_opts(deepcopy(API_OPTS), group=api_group)
+    keystone_group = deepcopy(KEYSTONE_GROUP)
+    conf.register_group(keystone_group)
+    conf.register_opts(deepcopy(KEYSTONE_OPTS), group=keystone_group)
+    token_group = deepcopy(TOKEN_GROUP)
+    conf.register_group(token_group)
+    conf.register_opts(deepcopy(TOKEN_OPTS), group=token_group)
+    observability_group = deepcopy(OBSERVABILITY_GROUP)
+    conf.register_group(observability_group)
+    conf.register_opts(deepcopy(OBSERVABILITY_OPTS), group=observability_group)
+    reconciliation_group = deepcopy(RECONCILIATION_GROUP)
+    conf.register_group(reconciliation_group)
+    conf.register_opts(
+        deepcopy(RECONCILIATION_OPTS), group=reconciliation_group
+    )
     conf.register_opts(db_options.database_opts, group="database")
     oslo_log.register_options(conf)
     for group, options in policy_opts.list_opts():

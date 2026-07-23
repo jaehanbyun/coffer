@@ -141,3 +141,4 @@ If later production validation rejects this boundary, the honest alternatives ar
 - `docs/exec-plans/0002-thin-vertical-poc.md`
 - `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`
 - `docs/exec-plans/0005-multi-worker-reconciliation.md`
+- `docs/exec-plans/0006-reconciliation-runner.md`

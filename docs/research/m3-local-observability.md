@@ -83,6 +83,8 @@ Plan 0005 adds only the fixed `coffer_quota_reconciliation_outcomes_total{result
 
 Scheduling correctness does not depend on these process-local counters. PostgreSQL 17.10 and MariaDB 11.4.12 independently proved database-backed expiring claims, spawned-process abandonment, lease recovery, and old-token fencing. The metrics describe the local process's outcomes only; the existing restart/multiprocess aggregation limitation still applies.
 
+The separate `coffer-reconcile` runner creates the same fixed collector in each process and logs only aggregate scanned/present/absent/indeterminate/stale counts. Its one-shot exit and periodic retry behavior do not expose a new HTTP endpoint. A production deployment must still select a protected restart-correct aggregation path; process-local metrics must not be summed without defined lifecycle semantics.
+
 ## Real Single-Process Evidence — 2026-07-22
 
 The real integration harness now composes these exact resources with the production application-credential authenticator and token authorizer. Before and after an intentional broker restart, `/healthz` reported the process alive, `/readyz` completed a real SQLite `SELECT 1`, and `/metrics` contained build, readiness, token-decision, and duration samples.

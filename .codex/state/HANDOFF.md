@@ -1,14 +1,14 @@
 # Coffer Handoff
 
 - Updated: 2026-07-23
-- Status: plan 0005 completed, fully verified, and published as an atomic `main` milestone
-- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`
+- Status: plan 0006 completed and verified; ready for atomic publication
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: none
 
 ## Current Objective
 
-Activate the next bounded work package for an operator-runnable reconciliation scheduler and timing/retry contract. Plan 0005 closes the shared-SQL multi-worker claim/fencing and fixed-cardinality outcome slice; production deployment, existing-data rollout, separate-host ingress/HA, credentials, destructive operations, Galera policy, and restart-correct metric aggregation remain outside authorization or unproven.
+Publish the completed operator-runnable `coffer-reconcile` milestone atomically, then scope the existing-data and unified control-schema migration gate as the next safe work package. Production deployment, credentials, Galera policy, and restart-correct metric aggregation remain outside authorization or unproven.
 
 ## Completed
 
@@ -79,6 +79,10 @@ Activate the next bounded work package for an operator-runnable reconciliation s
 - Activated plan 0005 and added Alembic revision `0002_reconciliation_claims`, a separate expiring claim table, bounded shared-SQL claim/release APIs, reservation-version plus opaque-token fencing, and fixed-cardinality reconciliation outcomes. Thirty-six focused migration/quota/reconciliation/observability tests pass.
 - Proved probe I/O occurs after the short claim transaction: a replacement worker can reclaim during a simulated slow probe, while the original late result is rejected as `stale_claim`. Indeterminate observations retain both quota charge and claim until lease expiry.
 - Extended the PostgreSQL/MariaDB harness with three-candidate contention and an actual spawned claimant process that exits with status 17 after its claim commits. PostgreSQL divides the first call 2+1; MariaDB safely returns 0+2 under range-lock contention and a post-contention bounded retry claims the final item. Both engines recover the abandoned lease, reject the old token, end at zero usage, remove all fixture resources/secrets, and leave Podman stopped.
+- Activated plan 0006 and added the installed `coffer-reconcile` process with bounded oslo.config options, exact schema/origin startup checks, safe lease-versus-sequential-batch validation, fixed aggregate summaries, 0/75/78 exit classes, and no command-line secret input.
+- Added bounded cursor-preserving cycles, serial periodic execution, monotonic interruptible waits, symmetric jitter, capped/resettable failure backoff, and restored SIGTERM/SIGINT handlers. Fourteen runner tests pass, including config-instance isolation, secret-free missing-config exit 78, and an installed subprocess that exact-404 reconciles a real migrated SQLite reservation without logging its project, digest, or database path.
+- Documented the operator config, exit, cursor/snapshot, lease, signal, retry, credential, and remaining production-gate contract in the quota runbook, README, architecture, ADR 0009, observability notes, quota research, and real-lab runbook.
+- Completed plan 0006 regression: 128 tests pass on each of Python 3.11, 3.12, and 3.13; lock, compile, Alembic head, installed entry point, Gunicorn, Bash/ShellCheck, five Compose models, all Make dry-runs, 43 Markdown files, 21 local links, diff checks, private-key/JWT shapes, and Gitleaks over 184 project-owned files pass.
 
 ## Decisions and Reasons
 
@@ -97,6 +101,8 @@ Activate the next bounded work package for an operator-runnable reconciliation s
 - Alembic revisions are the sole quota-schema upgrade authority; normal startup validates the exact revision, while `create_all()` is explicit fixture-only behavior.
 - Ledger-driven reconciliation uses immutable repository authority, exact digest HEAD probes, conservative indeterminate outcomes, and monotonic reservation-version compare-and-set. A separate expiring shared-SQL claim plus opaque fencing token now divides workers and rejects a result after reassignment; successful mutation consumes the claim transactionally.
 - Reconciliation claims lock only selected reservation rows and release the transaction before network I/O. MariaDB may return an empty batch during range-lock contention, so schedulers perform a later bounded retry rather than interpreting an empty batch as durable backlog exhaustion.
+- `coffer-reconcile` runs as a separate native synchronous process rather than inside Gunicorn or an Eventlet/oslo.service loop. Each process is locally serial; independent processes scale only through the shared claim table.
+- A cycle drains bounded cursor pages and preserves an unfinished cursor across periodic runs. Its lease must cover `batch_limit * probe_timeout + 10 seconds`; fencing remains the correctness fallback if actual work still exceeds the lease.
 - M0 remains unauthenticated and defers generated signing material to the M2 token-contract test; this keeps the upstream data-plane spike separate from Coffer authentication behavior.
 - Host-side M0 clients use `127.0.0.1` because macOS AirPlay can own IPv6 `::1:5000` even when Docker publishes the registry only on IPv4 loopback.
 - Distribution v3.1.1 is a functional PoC-only pin: its current Linux ARM64 image is blocked from production promotion by the recorded Scout findings.
@@ -136,6 +142,7 @@ Activate the next bounded work package for an operator-runnable reconciliation s
 - Quota reconciliation baseline: reservation candidate/version behavior in `src/coffer/quota.py`, `src/coffer/quota_reconciliation.py`, `tests/test_quota_reconciliation.py`, `poc/quota-reconciliation/`, active plan 0004, and this handoff.
 - Quota operations and documentation: `docs/runbooks/quota-schema-reconciliation.md`, ADR 0009, architecture and quota research updates, README, completed plan 0004, and the Alembic logging regression in `migrations/env.py`/`tests/test_migrations.py`.
 - Multi-worker reconciliation: migration `0002`, claim metadata/store/reconciler/metrics, focused tests, shared-SQL process-failure evidence, Distribution fixture worker identity, active plan 0005, and this handoff.
+- Reconciliation runner: `pyproject.toml`, `uv.lock`, reconciliation options in `src/coffer/config.py`, new `src/coffer/reconciliation_runner.py`, focused runner/subprocess tests, active plan 0006, and this handoff.
 
 ## Verification
 
@@ -200,6 +207,8 @@ Activate the next bounded work package for an operator-runnable reconciliation s
 - The disposable Podman machine used for the final database and Distribution reruns is stopped.
 - Plan 0005 focused verification passed: 36 migration/quota/reconciliation/observability tests; PostgreSQL 17.10 and MariaDB 11.4.12 migration drift/downgrade/re-upgrade; disjoint claim batches; process exit 17; expiry/reclaim; stale-token fencing; zero usage and runtime/credential residue. Podman is stopped.
 - Plan 0005 final regression passed: 114 tests on each of Python 3.11, 3.12, and 3.13; lock, compile, Alembic head, Bash/ShellCheck, Gunicorn, five Compose models, all PoC Make dry-runs, 42 Markdown files and 19 local links, diff checks, and Gitleaks over 180 project-owned files. The final Distribution rerun passed and removed all runtime/state residue.
+- Plan 0006 focused verification passed: 14 runner tests and 67 combined runner/token/reconciliation tests cover strict config/schema startup, independent oslo.config instances, secret-free parser/config exit 78, installed one-shot exact-404 reconciliation, fixed aggregate summary, temporary-failure exits, cursor and scan-snapshot continuation, serial execution, bounded jitter/backoff reset, monotonic wait, active-page signal stop, and handler restoration.
+- Plan 0006 final verification command corrections are recorded in the plan: a wrong Gunicorn module, zsh list-expansion mistakes, and use of zsh's special `path` variable were corrected without changing repository or lab state. The substantive missing-config traceback/exit-1 failure was fixed and regression tested.
 
 ## Blockers and Risks
 
@@ -225,7 +234,7 @@ Activate the next bounded work package for an operator-runnable reconciliation s
 
 ## Exact Next Action
 
-Create `docs/exec-plans/0006-reconciliation-runner.md` from the execution-plan template and scope an operator-runnable one-shot/periodic scheduler with cadence, jitter, graceful shutdown, lease sizing, clock, and bounded retry semantics without production deployment or credentials.
+Verify the personal GitHub account, stage only the plan 0006 file set, inspect the cached diff, commit once, and push `main` atomically. Then create the next execution plan for existing-data and unified control-schema migration discovery.
 
 ## After This Work Package
 

@@ -3,7 +3,7 @@
 - Status: accepted for PoC validation
 - Date: 2026-07-22
 - Decision owners: Coffer maintainers
-- Related plans: `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`
+- Related plans: `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`
 - Research: `docs/research/m3-quota-enforcement-spike.md`
 
 ## Context
@@ -33,6 +33,7 @@ Distribution tenant write access must be private to the edge so manifest publica
 - Only HTTP 200 with exactly one matching `Docker-Content-Digest` proves presence. Exact 404 proves absence. Missing, mismatched, or duplicate digest headers, 401/403, every other status, and transport failures are indeterminate and leave the charge unchanged.
 - Every reservation has a monotonically increasing version. A separate shared-SQL row assigns one expiring reconciliation claim with an opaque token. Reconciliation applies an observation only when both the version and current unexpired token match; successful mutation consumes the claim transactionally. A delayed process cannot apply its result after expiry and reassignment.
 - Claim transactions lock only selected reservation rows and close before repository resolution or Distribution I/O. Indeterminate outcomes keep quota charged and retain the claim until expiry as bounded retry backoff. MariaDB may produce an empty safe batch during range-lock contention, so schedulers retry later rather than treating one empty page as durable backlog exhaustion.
+- The installed `coffer-reconcile` process provides one-shot and serial periodic modes. It drains bounded cursor pages, retains an unfinished cursor across periodic cycles, validates page-wide lease budget, stops through SIGTERM/SIGINT, jitters healthy cadence, and caps dependency backoff. It is a process contract, not a production deployment or credential-delivery decision.
 
 ## Consequences
 
@@ -67,6 +68,7 @@ Completed in the local PoC:
 7. Covered exact 200/404, 401/403/500/503, malformed success headers, and transport failure in focused tests. Only verified presence or absence changed ledger state.
 8. Added Alembic revision `0002` plus multi-worker claims and fixed-cardinality outcomes. PostgreSQL divided one three-item contention run 2+1. MariaDB safely returned 0+2 and a bounded post-contention retry acquired the final item.
 9. Spawned an independent claimant process that committed its claim and exited with status 17 on both database engines. Quota remained charged; another worker reclaimed after expiry; the abandoned token was fenced; the replacement completed; all disposable resources and generated secrets were removed.
+10. Installed `coffer-reconcile` and proved a real one-shot subprocess can load the migrated database/control authority, exact-404 an absent manifest, release quota, and emit an identifier-free aggregate. Deterministic tests cover bounded cursor continuation, non-overlap, lease validation, signals, jitter, backoff reset, and stable exits.
 
 Production promotion still requires an operator-owned online rollout/import and backup procedure for existing data, TLS and service authentication on the private reconciliation path, production scheduler/lease/clock/deadlock and metric-aggregation policy, reconciliation in the integrated Distribution/RGW deployment, multi-replica non-bypassable ingress, load/failure testing, Galera evidence, and the remaining client matrix such as containerd/nerdctl and ORAS. The disposable PostgreSQL/MariaDB and filesystem-backed Distribution fixtures prove bounded database and state-machine semantics; they are not a production deployment recommendation.
 
