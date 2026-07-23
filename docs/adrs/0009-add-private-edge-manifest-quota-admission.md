@@ -3,7 +3,7 @@
 - Status: accepted for PoC validation
 - Date: 2026-07-22
 - Decision owners: Coffer maintainers
-- Related plans: `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`
+- Related plans: `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`
 - Research: `docs/research/m3-quota-enforcement-spike.md`
 
 ## Context
@@ -31,7 +31,8 @@ Distribution tenant write access must be private to the edge so manifest publica
 - Reconciliation reads bounded, deterministic `(updated_at, reservation_id)` pages from the durable ledger. It includes stale `pending` and `release_pending` work and periodically revisits `committed` manifests so a lost deletion notification is eventually repaired.
 - Repository paths are rebuilt from immutable project and repository records in Coffer's control authority. The worker probes only the exact canonical digest with `HEAD /v2/<repository>/manifests/<digest>` over a private Distribution service path.
 - Only HTTP 200 with exactly one matching `Docker-Content-Digest` proves presence. Exact 404 proves absence. Missing, mismatched, or duplicate digest headers, 401/403, every other status, and transport failures are indeterminate and leave the charge unchanged.
-- Every reservation has a monotonically increasing version. Reconciliation applies an observation only when that version still matches, preventing a delayed or reordered probe from overwriting newer state. This compare-and-set guard is not a distributed work claim or lease.
+- Every reservation has a monotonically increasing version. A separate shared-SQL row assigns one expiring reconciliation claim with an opaque token. Reconciliation applies an observation only when both the version and current unexpired token match; successful mutation consumes the claim transactionally. A delayed process cannot apply its result after expiry and reassignment.
+- Claim transactions lock only selected reservation rows and close before repository resolution or Distribution I/O. Indeterminate outcomes keep quota charged and retain the claim until expiry as bounded retry backoff. MariaDB may produce an empty safe batch during range-lock contention, so schedulers retry later rather than treating one empty page as durable backlog exhaustion.
 
 ## Consequences
 
@@ -39,6 +40,7 @@ Distribution tenant write access must be private to the edge so manifest publica
 - Coffer or its edge integration briefly handles bounded manifest payloads, changing the earlier assumption that no manifest body crosses a Coffer-owned admission seam. Canonical payload storage remains Distribution/RGW only.
 - Blob throughput remains outside Coffer; logical quota is enforced at publication rather than byte upload.
 - Pending reservations favor safety over availability after crashes and can temporarily underutilize quota until reconciliation.
+- A crashed reconciler leaves its committed claim and quota charge intact. Recovery waits for lease expiry; lease sizing therefore trades failover latency against the maximum legitimate probe duration.
 - Existing registry data requires a write-stopped import before the quota ledger is authoritative.
 - All Coffer and Distribution replicas need a non-bypassable network topology and overlapping JWT trust.
 - Physical staging may exceed a project's logical limit before publication; this is explicit and bounded only by service-wide storage safeguards.
@@ -63,8 +65,9 @@ Completed in the local PoC:
 5. Applied the Alembic baseline from empty PostgreSQL 17.10 and MariaDB 11.4.12 databases, repeated the upgrade, compared the schema to the model, used two independent connections, proved one-winner row-lock behavior and retry/commit/release transitions, and completed a bounded downgrade/re-upgrade.
 6. Exercised bounded reconciliation against an unmodified pinned Distribution v3.1.1 process. Exact presence committed a pending reservation, exact absence released unpublished and deleted manifests, stale observations lost their version race, and shared descriptor bytes remained charged until the last manifest reference disappeared.
 7. Covered exact 200/404, 401/403/500/503, malformed success headers, and transport failure in focused tests. Only verified presence or absence changed ledger state.
-8. Removed all disposable containers, volumes, networks, database passwords, SQLite state, credentials, JWTs, and private keys; retained logs contained no credential or JWT-shaped value.
+8. Added Alembic revision `0002` plus multi-worker claims and fixed-cardinality outcomes. PostgreSQL divided one three-item contention run 2+1. MariaDB safely returned 0+2 and a bounded post-contention retry acquired the final item.
+9. Spawned an independent claimant process that committed its claim and exited with status 17 on both database engines. Quota remained charged; another worker reclaimed after expiry; the abandoned token was fenced; the replacement completed; all disposable resources and generated secrets were removed.
 
-Production promotion still requires an operator-owned online rollout/import and backup procedure for existing data, TLS and service authentication on the private reconciliation path, multi-worker scheduling with an explicit claim/lease policy, reconciliation in the integrated Distribution/RGW deployment, multi-replica non-bypassable ingress, load/failure testing, and the remaining client matrix such as containerd/nerdctl and ORAS. The disposable PostgreSQL/MariaDB and filesystem-backed Distribution fixtures prove the database and state-machine semantics; they are not a production deployment recommendation.
+Production promotion still requires an operator-owned online rollout/import and backup procedure for existing data, TLS and service authentication on the private reconciliation path, production scheduler/lease/clock/deadlock and metric-aggregation policy, reconciliation in the integrated Distribution/RGW deployment, multi-replica non-bypassable ingress, load/failure testing, Galera evidence, and the remaining client matrix such as containerd/nerdctl and ORAS. The disposable PostgreSQL/MariaDB and filesystem-backed Distribution fixtures prove bounded database and state-machine semantics; they are not a production deployment recommendation.
 
 The user accepted this seam as the quota PoC implementation target on 2026-07-22. The bounded local validation passed, but the remaining production gates above prevent treating it as a final deployable architecture claim.

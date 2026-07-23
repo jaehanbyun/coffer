@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import hashlib
 import json
 import re
@@ -42,7 +42,8 @@ MAX_DESCRIPTOR_COUNT = 4096
 PENDING_STATES = ("pending", "release_pending")
 RECONCILIATION_STATES = ("pending", "release_pending", "committed")
 MAX_RECONCILIATION_BATCH = 1000
-CURRENT_QUOTA_SCHEMA_REVISION = "0001_quota_ledger"
+MAX_RECONCILIATION_LEASE_SECONDS = 3600
+CURRENT_QUOTA_SCHEMA_REVISION = "0002_reconciliation_claims"
 
 OCI_IMAGE_MANIFEST = "application/vnd.oci.image.manifest.v1+json"
 OCI_IMAGE_INDEX = "application/vnd.oci.image.index.v1+json"
@@ -125,6 +126,31 @@ Index(
     quota_reservations.c.project_id,
     quota_reservations.c.state,
 )
+quota_reconciliation_claims = Table(
+    "quota_reconciliation_claims",
+    quota_metadata,
+    Column(
+        "reservation_id",
+        String(36),
+        ForeignKey("quota_reservations.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("claim_token", String(36), nullable=False),
+    Column("worker_id", String(128), nullable=False),
+    Column("claimed_at", DateTime(timezone=True), nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint(
+        "expires_at > claimed_at", name="ck_quota_reconciliation_claim_window"
+    ),
+    UniqueConstraint(
+        "claim_token", name="uq_quota_reconciliation_claim_token"
+    ),
+)
+Index(
+    "ix_quota_reconciliation_claims_expires",
+    quota_reconciliation_claims.c.expires_at,
+    quota_reconciliation_claims.c.reservation_id,
+)
 quota_reservation_descriptors = Table(
     "quota_reservation_descriptors",
     quota_metadata,
@@ -185,6 +211,10 @@ class QuotaSchemaNotReady(Exception):
 
 
 class StaleReconciliationCandidate(Exception):
+    pass
+
+
+class StaleReconciliationClaim(Exception):
     pass
 
 
@@ -284,6 +314,52 @@ class ReconciliationCandidate:
 @dataclass(frozen=True, slots=True)
 class ReconciliationPage:
     candidates: tuple[ReconciliationCandidate, ...]
+    next_cursor: ReconciliationCursor | None
+
+
+@dataclass(frozen=True, slots=True)
+class ReconciliationClaim:
+    reservation_id: str
+    project_id: str
+    repository_id: str
+    manifest_digest: str
+    state: str
+    version: int
+    updated_at: datetime
+    claim_token: str
+    worker_id: str
+    claimed_at: datetime
+    expires_at: datetime
+
+    @classmethod
+    def from_row(
+        cls,
+        row: object,
+        *,
+        claim_token: str,
+        worker_id: str,
+        claimed_at: datetime,
+        expires_at: datetime,
+    ) -> ReconciliationClaim:
+        candidate = ReconciliationCandidate.from_row(row)
+        return cls(
+            reservation_id=candidate.reservation_id,
+            project_id=candidate.project_id,
+            repository_id=candidate.repository_id,
+            manifest_digest=candidate.manifest_digest,
+            state=candidate.state,
+            version=candidate.version,
+            updated_at=candidate.updated_at,
+            claim_token=claim_token,
+            worker_id=worker_id,
+            claimed_at=claimed_at,
+            expires_at=expires_at,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ReconciliationClaimPage:
+    claims: tuple[ReconciliationClaim, ...]
     next_cursor: ReconciliationCursor | None
 
 
@@ -559,6 +635,135 @@ class QuotaStore:
             )
         return ReconciliationPage(candidates=candidates, next_cursor=next_cursor)
 
+    def claim_reconciliation_candidates(
+        self,
+        *,
+        worker_id: str,
+        claimed_at: datetime,
+        lease_for: timedelta,
+        stale_before: datetime,
+        limit: int,
+        after: ReconciliationCursor | None = None,
+    ) -> ReconciliationClaimPage:
+        if (
+            not worker_id
+            or worker_id.strip() != worker_id
+            or len(worker_id) > 128
+        ):
+            raise ValueError(
+                "reconciliation worker_id must contain 1 to 128 characters"
+            )
+        if claimed_at.tzinfo is None or claimed_at.utcoffset() is None:
+            raise ValueError("claimed_at must be timezone-aware")
+        if stale_before.tzinfo is None or stale_before.utcoffset() is None:
+            raise ValueError("stale_before must be timezone-aware")
+        lease_seconds = lease_for.total_seconds()
+        if not 0 < lease_seconds <= MAX_RECONCILIATION_LEASE_SECONDS:
+            raise ValueError(
+                "reconciliation lease must be greater than zero and at most "
+                f"{MAX_RECONCILIATION_LEASE_SECONDS} seconds"
+            )
+        if (
+            isinstance(limit, bool)
+            or not isinstance(limit, int)
+            or not 1 <= limit <= MAX_RECONCILIATION_BATCH
+        ):
+            raise ValueError(
+                f"reconciliation limit must be between 1 and {MAX_RECONCILIATION_BATCH}"
+            )
+        if after is not None and (
+            after.updated_at.tzinfo is None
+            or after.updated_at.utcoffset() is None
+            or not after.reservation_id
+        ):
+            raise ValueError("reconciliation cursor is invalid")
+
+        statement = select(quota_reservations).select_from(
+            quota_reservations.outerjoin(
+                quota_reconciliation_claims,
+                quota_reconciliation_claims.c.reservation_id
+                == quota_reservations.c.id,
+            )
+        ).where(
+            quota_reservations.c.state.in_(RECONCILIATION_STATES),
+            quota_reservations.c.updated_at <= stale_before,
+            or_(
+                quota_reconciliation_claims.c.reservation_id.is_(None),
+                quota_reconciliation_claims.c.expires_at <= claimed_at,
+            ),
+        )
+        if after is not None:
+            statement = statement.where(
+                or_(
+                    quota_reservations.c.updated_at > after.updated_at,
+                    and_(
+                        quota_reservations.c.updated_at == after.updated_at,
+                        quota_reservations.c.id > after.reservation_id,
+                    ),
+                )
+            )
+        statement = (
+            statement.order_by(
+                quota_reservations.c.updated_at, quota_reservations.c.id
+            )
+            .limit(limit)
+            .with_for_update(skip_locked=True, of=quota_reservations)
+        )
+        try:
+            expires_at = claimed_at + lease_for
+        except OverflowError as exc:
+            raise ValueError("reconciliation lease expiry is out of range") from exc
+        claims: list[ReconciliationClaim] = []
+        with self._writer() as conn:
+            rows = tuple(conn.execute(statement))
+            for row in rows:
+                conn.execute(
+                    delete(quota_reconciliation_claims).where(
+                        quota_reconciliation_claims.c.reservation_id == row.id,
+                        quota_reconciliation_claims.c.expires_at <= claimed_at,
+                    )
+                )
+                claim_token = str(uuid.uuid4())
+                conn.execute(
+                    insert(quota_reconciliation_claims).values(
+                        reservation_id=row.id,
+                        claim_token=claim_token,
+                        worker_id=worker_id,
+                        claimed_at=claimed_at,
+                        expires_at=expires_at,
+                    )
+                )
+                claims.append(
+                    ReconciliationClaim.from_row(
+                        row,
+                        claim_token=claim_token,
+                        worker_id=worker_id,
+                        claimed_at=claimed_at,
+                        expires_at=expires_at,
+                    )
+                )
+        next_cursor = None
+        if len(claims) == limit:
+            final = claims[-1]
+            next_cursor = ReconciliationCursor(
+                updated_at=final.updated_at,
+                reservation_id=final.reservation_id,
+            )
+        return ReconciliationClaimPage(
+            claims=tuple(claims), next_cursor=next_cursor
+        )
+
+    def release_reconciliation_claim(self, claim_token: str) -> bool:
+        if not claim_token or len(claim_token) > 36:
+            raise ValueError("reconciliation claim token is invalid")
+        with self._writer() as conn:
+            result = conn.execute(
+                delete(quota_reconciliation_claims).where(
+                    quota_reconciliation_claims.c.claim_token == claim_token
+                )
+            )
+            return result.rowcount == 1
+
     @staticmethod
     def _reservation_descriptors(conn: object, reservation_id: str) -> list[Descriptor]:
         rows = conn.execute(  # type: ignore[attr-defined]
@@ -592,18 +797,19 @@ class QuotaStore:
             if delta > MAX_LOGICAL_BYTES:
                 raise QuotaExceeded(
                     "manifest logical usage exceeds the SQL integer bound"
-                )
+            )
             seen.update(item.digest for item in descriptors)
             reserved += delta
-            conn.execute(  # type: ignore[attr-defined]
-                update(quota_reservations)
-                .where(quota_reservations.c.id == row.id)
-                .values(
-                    delta_bytes=delta,
-                    version=quota_reservations.c.version + 1,
-                    updated_at=datetime.now(UTC),
+            if row.delta_bytes != delta:
+                conn.execute(  # type: ignore[attr-defined]
+                    update(quota_reservations)
+                    .where(quota_reservations.c.id == row.id)
+                    .values(
+                        delta_bytes=delta,
+                        version=quota_reservations.c.version + 1,
+                        updated_at=datetime.now(UTC),
+                    )
                 )
-            )
         if used > MAX_LOGICAL_BYTES or reserved > MAX_LOGICAL_BYTES:
             raise QuotaExceeded("project logical usage exceeds the SQL integer bound")
         conn.execute(  # type: ignore[attr-defined]
@@ -764,6 +970,56 @@ class QuotaStore:
         if expected_version is not None and row.version != expected_version:  # type: ignore[attr-defined]
             raise StaleReconciliationCandidate(str(row.id))  # type: ignore[attr-defined]
 
+    @staticmethod
+    def _check_reconciliation_claim(
+        conn: object,
+        reservation_id: str,
+        expected_claim_token: str | None,
+        claim_checked_at: datetime | None,
+    ) -> None:
+        if expected_claim_token is None:
+            if claim_checked_at is not None:
+                raise ValueError(
+                    "claim_checked_at requires an expected reconciliation claim token"
+                )
+            return
+        if not expected_claim_token or len(expected_claim_token) > 36:
+            raise ValueError("reconciliation claim token is invalid")
+        checked_at = claim_checked_at or datetime.now(UTC)
+        if checked_at.tzinfo is None or checked_at.utcoffset() is None:
+            raise ValueError("claim_checked_at must be timezone-aware")
+        claim = conn.execute(  # type: ignore[attr-defined]
+            select(quota_reconciliation_claims)
+            .where(
+                quota_reconciliation_claims.c.reservation_id == reservation_id
+            )
+            .with_for_update()
+        ).first()
+        if claim is None or claim.claim_token != expected_claim_token:
+            raise StaleReconciliationClaim(reservation_id)
+        expires_at = claim.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        if expires_at <= checked_at:
+            raise StaleReconciliationClaim(reservation_id)
+
+    @staticmethod
+    def _consume_reconciliation_claim(
+        conn: object,
+        reservation_id: str,
+        expected_claim_token: str | None,
+    ) -> None:
+        if expected_claim_token is None:
+            return
+        result = conn.execute(  # type: ignore[attr-defined]
+            delete(quota_reconciliation_claims).where(
+                quota_reconciliation_claims.c.reservation_id == reservation_id,
+                quota_reconciliation_claims.c.claim_token == expected_claim_token,
+            )
+        )
+        if result.rowcount != 1:
+            raise StaleReconciliationClaim(reservation_id)
+
     def _commit_locked(self, conn: object, row: object) -> Reservation:
         if row.state == "committed":  # type: ignore[attr-defined]
             return Reservation.from_row(row)
@@ -876,15 +1132,34 @@ class QuotaStore:
             return Reservation.from_row(result)
 
     def reconcile_present(
-        self, reservation_id: str, *, expected_version: int | None = None
+        self,
+        reservation_id: str,
+        *,
+        expected_version: int | None = None,
+        expected_claim_token: str | None = None,
+        claim_checked_at: datetime | None = None,
     ) -> Reservation:
         with self._writer() as conn:
             row = self._get_locked(conn, reservation_id)
+            self._check_reconciliation_claim(
+                conn,
+                reservation_id,
+                expected_claim_token,
+                claim_checked_at,
+            )
             self._check_reconciliation_version(row, expected_version)
             if row.state == "released":
-                return Reservation.from_row(row)
+                result = Reservation.from_row(row)
+                self._consume_reconciliation_claim(
+                    conn, reservation_id, expected_claim_token
+                )
+                return result
             if row.state == "pending":
-                return self._commit_locked(conn, row)
+                result = self._commit_locked(conn, row)
+                self._consume_reconciliation_claim(
+                    conn, reservation_id, expected_claim_token
+                )
+                return result
             now = datetime.now(UTC)
             if row.state == "committed":
                 conn.execute(
@@ -924,7 +1199,11 @@ class QuotaStore:
                     )
                 ).one()
                 if next_state == "pending":
-                    return self._commit_locked(conn, current)
+                    result = self._commit_locked(conn, current)
+                    self._consume_reconciliation_claim(
+                        conn, reservation_id, expected_claim_token
+                    )
+                    return result
                 conn.execute(
                     update(quota_manifests)
                     .where(quota_manifests.c.reservation_id == reservation_id)
@@ -938,16 +1217,35 @@ class QuotaStore:
                     quota_reservations.c.id == reservation_id
                 )
             ).one()
-            return Reservation.from_row(result)
+            reconciled = Reservation.from_row(result)
+            self._consume_reconciliation_claim(
+                conn, reservation_id, expected_claim_token
+            )
+            return reconciled
 
     def reconcile_absent(
-        self, reservation_id: str, *, expected_version: int | None = None
+        self,
+        reservation_id: str,
+        *,
+        expected_version: int | None = None,
+        expected_claim_token: str | None = None,
+        claim_checked_at: datetime | None = None,
     ) -> Reservation:
         with self._writer() as conn:
             row = self._get_locked(conn, reservation_id)
+            self._check_reconciliation_claim(
+                conn,
+                reservation_id,
+                expected_claim_token,
+                claim_checked_at,
+            )
             self._check_reconciliation_version(row, expected_version)
             if row.state == "released":
-                return Reservation.from_row(row)
+                result = Reservation.from_row(row)
+                self._consume_reconciliation_claim(
+                    conn, reservation_id, expected_claim_token
+                )
+                return result
             if row.state not in {"pending", "release_pending", "committed"}:
                 raise ValueError("reservation cannot be released")
             committed_manifest = conn.execute(
@@ -1002,7 +1300,11 @@ class QuotaStore:
                     quota_reservations.c.id == reservation_id
                 )
             ).one()
-            return Reservation.from_row(result)
+            reconciled = Reservation.from_row(result)
+            self._consume_reconciliation_claim(
+                conn, reservation_id, expected_claim_token
+            )
+            return reconciled
 
     def manifest_graph(self, project_id: str, digest: str) -> tuple[Descriptor, ...] | None:
         with self._reader() as conn:

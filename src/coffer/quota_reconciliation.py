@@ -12,10 +12,12 @@ from urllib.parse import urlsplit
 from coffer.db import RepositoryStore
 from coffer.quota import (
     MAX_RECONCILIATION_BATCH,
+    MAX_RECONCILIATION_LEASE_SECONDS,
     SHA256_DIGEST,
     QuotaStore,
     ReconciliationCursor,
     StaleReconciliationCandidate,
+    StaleReconciliationClaim,
 )
 from coffer.tokens import REPOSITORY_NAME
 
@@ -62,6 +64,10 @@ class ManifestProbe(Protocol):
 
 class RepositoryResolver(Protocol):
     def resolve(self, *, project_id: str, repository_id: str) -> str | None: ...
+
+
+class ReconciliationMetrics(Protocol):
+    def observe_reconciliation(self, result: str) -> None: ...
 
 
 class RepositoryStoreResolver:
@@ -174,11 +180,31 @@ class QuotaReconciler:
         repositories: RepositoryResolver,
         probe: ManifestProbe,
         *,
+        worker_id: str,
         stale_after: timedelta = timedelta(minutes=5),
+        lease_for: timedelta = timedelta(minutes=1),
         batch_limit: int = 100,
+        metrics: ReconciliationMetrics | None = None,
     ) -> None:
+        if (
+            not worker_id
+            or worker_id.strip() != worker_id
+            or len(worker_id) > 128
+        ):
+            raise ValueError(
+                "reconciliation worker_id must contain 1 to 128 characters"
+            )
         if stale_after.total_seconds() < 0:
             raise ValueError("reconciliation stale_after must not be negative")
+        if not (
+            0
+            < lease_for.total_seconds()
+            <= MAX_RECONCILIATION_LEASE_SECONDS
+        ):
+            raise ValueError(
+                "reconciliation lease must be greater than zero and at most "
+                f"{MAX_RECONCILIATION_LEASE_SECONDS} seconds"
+            )
         if (
             isinstance(batch_limit, bool)
             or not isinstance(batch_limit, int)
@@ -190,8 +216,15 @@ class QuotaReconciler:
         self._quotas = quotas
         self._repositories = repositories
         self._probe = probe
+        self._worker_id = worker_id
         self._stale_after = stale_after
+        self._lease_for = lease_for
         self._batch_limit = batch_limit
+        self._metrics = metrics
+
+    def _observe(self, result: str) -> None:
+        if self._metrics is not None:
+            self._metrics.observe_reconciliation(result)
 
     def run_once(
         self,
@@ -202,7 +235,10 @@ class QuotaReconciler:
         observed_at = now or datetime.now(UTC)
         if observed_at.tzinfo is None or observed_at.utcoffset() is None:
             raise ValueError("reconciliation time must be timezone-aware")
-        page = self._quotas.list_reconciliation_candidates(
+        page = self._quotas.claim_reconciliation_candidates(
+            worker_id=self._worker_id,
+            claimed_at=observed_at,
+            lease_for=self._lease_for,
             stale_before=observed_at - self._stale_after,
             limit=self._batch_limit,
             after=after,
@@ -211,13 +247,14 @@ class QuotaReconciler:
         absent = 0
         indeterminate = 0
         stale = 0
-        for candidate in page.candidates:
+        for candidate in page.claims:
             repository = self._repositories.resolve(
                 project_id=candidate.project_id,
                 repository_id=candidate.repository_id,
             )
             if repository is None:
                 indeterminate += 1
+                self._observe("indeterminate")
                 continue
             observation = self._probe.probe(
                 repository=repository, digest=candidate.manifest_digest
@@ -227,20 +264,30 @@ class QuotaReconciler:
                     self._quotas.reconcile_present(
                         candidate.reservation_id,
                         expected_version=candidate.version,
+                        expected_claim_token=candidate.claim_token,
                     )
                     present += 1
+                    self._observe("present")
                 elif observation.presence == ManifestPresence.ABSENT:
                     self._quotas.reconcile_absent(
                         candidate.reservation_id,
                         expected_version=candidate.version,
+                        expected_claim_token=candidate.claim_token,
                     )
                     absent += 1
+                    self._observe("absent")
                 else:
                     indeterminate += 1
+                    self._observe("indeterminate")
             except StaleReconciliationCandidate:
+                self._quotas.release_reconciliation_claim(candidate.claim_token)
                 stale += 1
+                self._observe("stale_version")
+            except StaleReconciliationClaim:
+                stale += 1
+                self._observe("stale_claim")
         return ReconciliationRun(
-            scanned=len(page.candidates),
+            scanned=len(page.claims),
             present=present,
             absent=absent,
             indeterminate=indeterminate,

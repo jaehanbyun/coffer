@@ -1,14 +1,14 @@
 # Coffer Handoff
 
 - Updated: 2026-07-23
-- Status: shared-SQL quota migration and reconciliation work package completed and published as an atomic `main` milestone
-- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`
+- Status: plan 0005 completed, fully verified, and published as an atomic `main` milestone
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: none
 
 ## Current Objective
 
-Activate the next bounded work package for multi-worker reconciliation scheduling and fixed-cardinality observability. Preserve plan 0004's published schema/reconciliation baseline; production deployment, existing-data rollout, separate-host ingress/HA, credentials, and destructive operations remain outside authorization.
+Activate the next bounded work package for an operator-runnable reconciliation scheduler and timing/retry contract. Plan 0005 closes the shared-SQL multi-worker claim/fencing and fixed-cardinality outcome slice; production deployment, existing-data rollout, separate-host ingress/HA, credentials, destructive operations, Galera policy, and restart-correct metric aggregation remain outside authorization or unproven.
 
 ## Completed
 
@@ -76,6 +76,9 @@ Activate the next bounded work package for multi-worker reconciliation schedulin
 - Completed plan 0004's reconciliation implementation and Distribution fixture: monotonic reservation versions reject reordered probe results; bounded deterministic cursor pages cover pending, release-pending, and periodic committed candidates; exact matching 200 commits/refreshes, exact 404 releases, and every auth/dependency/header/transport ambiguity leaves quota charged. Focused tests and pinned unmodified Distribution proved lost/duplicate/reordered handling, shared-descriptor deletion refund, final zero usage, and complete cleanup.
 - Completed plan 0004's documentation and final regression: ADR 0009, architecture, research, README, real-lab runbook, and the new quota schema/reconciliation operator boundary now record Alembic and exact-probe authority plus the remaining lease/ingress gates. Python 3.11–3.13 each pass 108 tests; static/runtime/documentation/secret checks and both disposable integration harnesses pass with zero residue.
 - Corrected an order-dependent logging regression discovered by the full matrix: Alembic's `fileConfig()` disabled existing Coffer loggers. The environment now sets `disable_existing_loggers=False`, and a focused test proves migration cannot silence application audit logs.
+- Activated plan 0005 and added Alembic revision `0002_reconciliation_claims`, a separate expiring claim table, bounded shared-SQL claim/release APIs, reservation-version plus opaque-token fencing, and fixed-cardinality reconciliation outcomes. Thirty-six focused migration/quota/reconciliation/observability tests pass.
+- Proved probe I/O occurs after the short claim transaction: a replacement worker can reclaim during a simulated slow probe, while the original late result is rejected as `stale_claim`. Indeterminate observations retain both quota charge and claim until lease expiry.
+- Extended the PostgreSQL/MariaDB harness with three-candidate contention and an actual spawned claimant process that exits with status 17 after its claim commits. PostgreSQL divides the first call 2+1; MariaDB safely returns 0+2 under range-lock contention and a post-contention bounded retry claims the final item. Both engines recover the abandoned lease, reject the old token, end at zero usage, remove all fixture resources/secrets, and leave Podman stopped.
 
 ## Decisions and Reasons
 
@@ -92,7 +95,8 @@ Activate the next bounded work package for multi-worker reconciliation schedulin
 - Tentacle 20.2.2 rejects encrypted-source ordinary `CopyObject`, so the Distribution S3 driver uses `multipartcopythresholdsize: 0` for positive-size payloads in this PoC. Zero-byte encrypted moves still fail closed and block production promotion until a released Ceph fix/backport or another proven backend/release closes the gap.
 - ADR 0009 is accepted for PoC validation: only bounded manifest PUTs cross the admission seam, blob bodies stay streamed to unmodified Distribution, shared SQL is the logical quota authority, and physical staging remains a separate service-wide concern.
 - Alembic revisions are the sole quota-schema upgrade authority; normal startup validates the exact revision, while `create_all()` is explicit fixture-only behavior.
-- Ledger-driven reconciliation uses immutable repository authority, exact digest HEAD probes, conservative indeterminate outcomes, and monotonic reservation-version compare-and-set. The version guard prevents stale result application but does not replace a production multi-worker claim/lease.
+- Ledger-driven reconciliation uses immutable repository authority, exact digest HEAD probes, conservative indeterminate outcomes, and monotonic reservation-version compare-and-set. A separate expiring shared-SQL claim plus opaque fencing token now divides workers and rejects a result after reassignment; successful mutation consumes the claim transactionally.
+- Reconciliation claims lock only selected reservation rows and release the transaction before network I/O. MariaDB may return an empty batch during range-lock contention, so schedulers perform a later bounded retry rather than interpreting an empty batch as durable backlog exhaustion.
 - M0 remains unauthenticated and defers generated signing material to the M2 token-contract test; this keeps the upstream data-plane spike separate from Coffer authentication behavior.
 - Host-side M0 clients use `127.0.0.1` because macOS AirPlay can own IPv6 `::1:5000` even when Docker publishes the registry only on IPv4 loopback.
 - Distribution v3.1.1 is a functional PoC-only pin: its current Linux ARM64 image is blocked from production promotion by the recorded Scout findings.
@@ -131,6 +135,7 @@ Activate the next bounded work package for multi-worker reconciliation schedulin
 - Shared-SQL migration baseline: `alembic.ini`, `migrations/`, quota schema enforcement in `src/coffer/quota.py`, `tests/test_migrations.py`, PostgreSQL/MariaDB package extras, `poc/quota-sql/`, active plan 0004, and this handoff.
 - Quota reconciliation baseline: reservation candidate/version behavior in `src/coffer/quota.py`, `src/coffer/quota_reconciliation.py`, `tests/test_quota_reconciliation.py`, `poc/quota-reconciliation/`, active plan 0004, and this handoff.
 - Quota operations and documentation: `docs/runbooks/quota-schema-reconciliation.md`, ADR 0009, architecture and quota research updates, README, completed plan 0004, and the Alembic logging regression in `migrations/env.py`/`tests/test_migrations.py`.
+- Multi-worker reconciliation: migration `0002`, claim metadata/store/reconciler/metrics, focused tests, shared-SQL process-failure evidence, Distribution fixture worker identity, active plan 0005, and this handoff.
 
 ## Verification
 
@@ -193,13 +198,15 @@ Activate the next bounded work package for multi-worker reconciliation schedulin
 - Plan 0004 final regression passed: 108 tests on each of Python 3.11, 3.12, and 3.13; lock and compilation; Alembic head; all PoC Bash/ShellCheck; Gunicorn; five Compose models; every PoC Make target dry run; 45 Markdown files and 18 local links; three rendered and visually inspected Mermaid diagrams; diff, project-owned Gitleaks, private-key, and JWT-shaped scans.
 - The final PostgreSQL/MariaDB and Distribution reruns passed after documentation and logging corrections. Labeled containers, volumes, networks, generated database passwords, and reconciliation SQLite state all ended at zero.
 - The disposable Podman machine used for the final database and Distribution reruns is stopped.
+- Plan 0005 focused verification passed: 36 migration/quota/reconciliation/observability tests; PostgreSQL 17.10 and MariaDB 11.4.12 migration drift/downgrade/re-upgrade; disjoint claim batches; process exit 17; expiry/reclaim; stale-token fencing; zero usage and runtime/credential residue. Podman is stopped.
+- Plan 0005 final regression passed: 114 tests on each of Python 3.11, 3.12, and 3.13; lock, compile, Alembic head, Bash/ShellCheck, Gunicorn, five Compose models, all PoC Make dry-runs, 42 Markdown files and 19 local links, diff checks, and Gitleaks over 180 project-owned files. The final Distribution rerun passed and removed all runtime/state residue.
 
 ## Blockers and Risks
 
 - Project hooks must be reviewed and trusted in Codex before they run.
 - Local memories are experimental and must never replace checked-in project state.
 - Coffer's product scope and architecture baseline are accepted for the PoC; empirical PoC failures may amend them through new ADR evidence.
-- The real identity, storage, integrated token path, repeated clean run, GC dry-run, same-VM Distribution shared state, Barbican SSE-KMS, bounded quota admission, shared-SQL schema, and isolated exact-digest reconciliation are complete. Production promotion still requires existing-data rollout/backups, authenticated TLS reconciliation in the integrated RGW topology, multi-worker claims/leases, and separate-host/load-balancer HA.
+- The real identity, storage, integrated token path, repeated clean run, GC dry-run, same-VM Distribution shared state, Barbican SSE-KMS, bounded quota admission, shared-SQL schema, exact-digest reconciliation, and database-backed multi-worker claims are complete. Production promotion still requires existing-data rollout/backups, authenticated TLS reconciliation in the integrated RGW topology, production scheduling/metric aggregation, and separate-host/load-balancer HA.
 - `POOL_NO_REDUNDANCY` is intentionally retained as an honest warning for the one-OSD functional lab. No durability, HA, performance, or physical-failure-domain conclusion may be drawn from it.
 - Native OCI 1.1 Referrers remain an empirical gate. SSE-KMS and logical-versus-physical quota behavior now have bounded PoC evidence; destructive reclamation remains a separately approved maintenance test.
 - Ceph Tentacle 20.2.2 cannot finalize an encrypted zero-byte Distribution blob through ordinary `CopyObject`. The positive-size multipart-copy workaround is verified, but production SSE-KMS promotion requires a released Ceph fix/backport or a separately proven release/backend that closes the zero-byte path.
@@ -213,12 +220,13 @@ Activate the next bounded work package for multi-worker reconciliation schedulin
 - The static two-key fixture does not prove per-replica trust rollout, signer transition, old-key retirement, rollback, or Distribution key reload without restart.
 - Broker decision logs correlate request/JTI/Keystone audit IDs and reductions with explicit Distribution 200/401 outcomes, and single-process bounded metrics are verified. Multi-worker and multi-replica aggregation remains open M3 work.
 - Local bounded Prometheus metrics now exist, but process-local counters cannot be considered correct under the reference two-worker Gunicorn model until aggregation/restart semantics are selected and tested.
+- MariaDB 11.4.12 can return an empty safe claim batch to one caller while another transaction range-locks part of the backlog. The verified bounded retry recovers the remaining work, but production scheduler cadence, jitter, deadlock retry, and Galera behavior remain gates.
 - Multipass 1.16.3 was not installed. Its checksum matched Homebrew and its Canonical Developer ID signature was valid, but Gatekeeper rejected it as unnotarized. No bypass was attempted; preinstalled Lima 2.1.4 is the selected VM provider.
 
 ## Exact Next Action
 
-Create `docs/exec-plans/0005-multi-worker-reconciliation.md` from the execution-plan template, scope SQL-backed claims/leases plus bounded metrics and process-failure evidence, and activate it in this handoff.
+Create `docs/exec-plans/0006-reconciliation-runner.md` from the execution-plan template and scope an operator-runnable one-shot/periodic scheduler with cadence, jitter, graceful shutdown, lease sizing, clock, and bounded retry semantics without production deployment or credentials.
 
 ## After This Work Package
 
-Existing-data production migration/import, integrated authenticated reconciliation, multi-worker scheduling and observability, separate-host/load-balancer HA, native Referrers, and destructive GC remain distinct future work packages.
+Existing-data production migration/import, integrated authenticated reconciliation, production scheduler/Galera and restart-correct observability policy, separate-host/load-balancer HA, native Referrers, and destructive GC remain distinct future work packages.

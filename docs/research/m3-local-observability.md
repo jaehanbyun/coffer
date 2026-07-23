@@ -29,7 +29,8 @@ Exposed metric families are:
 - `coffer_http_request_duration_seconds{component,route,method}`;
 - `coffer_token_decisions_total{result}`;
 - `coffer_token_decision_duration_seconds`;
-- `coffer_readiness_checks_total{result}`.
+- `coffer_readiness_checks_total{result}`;
+- `coffer_quota_reconciliation_outcomes_total{result}`.
 
 Cardinality is bounded:
 
@@ -38,6 +39,7 @@ Cardinality is bounded:
 - HTTP methods use a fixed standard set and collapse everything else to `OTHER`;
 - status is the finite HTTP status code;
 - token and readiness results are fixed code paths;
+- reconciliation result is one of `present`, `absent`, `indeterminate`, `stale_version`, or `stale_claim`;
 - project IDs, user IDs, repository names, credential IDs, request IDs, JTI values, audit IDs, URLs, and exception strings never become labels.
 
 The detailed request ID, JTI, Keystone audit IDs, normalized requested repository/actions, reduced grants, and result remain structured log fields. Logs provide trace-level correlation; metrics provide aggregate health without unbounded tenant labels.
@@ -73,7 +75,13 @@ The local suite proves:
 - issued and invalid token decisions increment fixed result classes without including the Basic secret;
 - `/healthz`, `/readyz`, `/metrics`, and `/auth/token` bypass tenant `auth_token` middleware while `/v1` remains protected.
 
-The complete local suite currently passes 69 tests. Gunicorn configuration validation and the M2 black-box fixture remain required after this addition.
+The current repository suite passes 114 tests on each supported Python version. Gunicorn configuration and the disposable integration fixtures are verified separately in the completed execution evidence.
+
+## Multi-Worker Reconciliation Evidence — 2026-07-23
+
+Plan 0005 adds only the fixed `coffer_quota_reconciliation_outcomes_total{result}` family. Worker ID, project, repository, manifest digest, reservation ID, claim token, request ID, and dependency response never become metric labels. The focused verifier rejects an unknown result class before the Prometheus client can create a new series.
+
+Scheduling correctness does not depend on these process-local counters. PostgreSQL 17.10 and MariaDB 11.4.12 independently proved database-backed expiring claims, spawned-process abandonment, lease recovery, and old-token fencing. The metrics describe the local process's outcomes only; the existing restart/multiprocess aggregation limitation still applies.
 
 ## Real Single-Process Evidence — 2026-07-22
 
@@ -89,7 +97,7 @@ The verifier rejected either metrics snapshot if it contained a real project ID,
 - Distribution push/pull outcome metrics beyond log-level request-ID correlation;
 - multiprocess and multi-replica aggregation;
 - rate, latency, and error observation under representative load;
-- bounded soft-quota reservation/reconciliation metrics;
+- bounded soft-quota admission/state/lag metrics and restart-correct reconciliation aggregation;
 - GC and storage-maintenance metrics;
 - operator alert thresholds and retention policy.
 

@@ -179,6 +179,7 @@ def main() -> None:
         quotas,
         RepositoryStoreResolver(repositories),
         HTTPDistributionManifestProbe(args.registry_origin, timeout_seconds=2),
+        worker_id="fixture-worker",
         stale_after=timedelta(0),
         batch_limit=10,
     )
@@ -190,7 +191,7 @@ def main() -> None:
     assert quotas.get_reservation(reservations["present"].id).state == "committed"
     assert quotas.get_reservation(reservations["absent"].id).state == "released"
     assert quotas.usage(PROJECT_ID).used_bytes == expected_usage
-    assert sum(run.stale for run in runs) >= 1
+    assert sum(run.stale for run in runs) == 0
     assert sum(run.indeterminate for run in runs) == 0
 
     client.delete_manifest(canonical["present"], manifest_digest)
@@ -204,12 +205,13 @@ def main() -> None:
         json.dumps(
             {
                 "absent_pending_released": True,
-                "cas_stale_observation_detected": True,
+                "claim_fencing_enabled": True,
                 "committed_delete_refunded": True,
                 "exact_present_committed": True,
                 "final_reserved_bytes": usage.reserved_bytes,
                 "final_used_bytes": usage.used_bytes,
                 "shared_descriptor_preserved_until_last_reference": True,
+                "unchanged_reservation_versions_stable": True,
             },
             sort_keys=True,
         )

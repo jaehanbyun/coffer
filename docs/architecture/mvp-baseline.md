@@ -76,7 +76,7 @@ Handles only bounded manifest/index PUT requests at a non-bypassable private edg
 
 ### Coffer quota reconciler
 
-Scans bounded deterministic ledger pages and repairs stale admission or deletion state by resolving the immutable repository authority and probing the exact manifest digest through Distribution's private service endpoint. A matching HTTP 200 is presence, exact 404 is absence, and every authentication, dependency, transport, or digest-header ambiguity retains the charge. Reservation-version compare-and-set prevents stale probe results from changing newer state; a production multi-worker scheduler still needs an explicit claim/lease policy.
+Claims bounded deterministic ledger pages in shared SQL and repairs stale admission or deletion state by resolving the immutable repository authority and probing the exact manifest digest through Distribution's private service endpoint after the claim transaction closes. A matching HTTP 200 is presence, exact 404 is absence, and every authentication, dependency, transport, or digest-header ambiguity retains the charge. Reservation version plus an expiring opaque fencing token prevents stale or reassigned workers from applying results; successful mutation consumes the claim transactionally.
 
 ### Upstream OCI Distribution data plane
 
@@ -84,7 +84,7 @@ Owns `/v2/` blob, upload, canonical manifest, tag, supported artifact, and delet
 
 ### Control database
 
-Stores resource identity, stable project mapping, repository policy, signing-key metadata, logical quota reservations/usage observations, monotonic reconciliation versions, operation records, and audit references. Alembic revisions are the quota-schema authority; normal application startup validates the expected revision and never creates production quota tables implicitly. The database does not become a permanent registry credential store. Blob content and the canonical manifest payload remain in object storage.
+Stores resource identity, stable project mapping, repository policy, signing-key metadata, logical quota reservations/usage observations, monotonic reconciliation versions, expiring worker claims, operation records, and audit references. Alembic revisions are the quota-schema authority; normal application startup validates the expected revision and never creates production quota tables implicitly. The database does not become a permanent registry credential store. Blob content and the canonical manifest payload remain in object storage.
 
 ### Object storage
 
@@ -143,13 +143,14 @@ sequenceDiagram
 - Registry push/delete notifications can provide advisory wake-up hints; their per-instance queues are in-memory and unordered, so they are never authorization, quota, or reconciliation authority.
 - Coffer charges logical unique digests per project even when physical blobs deduplicate globally. Reservation/admission plus bounded ledger-driven reconciliation provides a measured bounded soft quota; byte-perfect physical enforcement is not an MVP claim.
 - Reconciliation periodically revisits committed rows as well as stale pending work. Only an exact digest HEAD returning one matching `Docker-Content-Digest` or exact 404 may change state; all other outcomes retain the charge.
+- Shared-SQL claims divide bounded work without holding a lock through the network probe. Indeterminate outcomes retain the lease as retry backoff; expiry permits reassignment, and an old fencing token cannot mutate or remove its successor.
 - Manifest deletion unlinks content; physical blob reclamation uses the upstream mark-and-sweep collector only during a coordinated read-only or stopped-registry window, beginning with dry run.
 
 ## HA and Operations Baseline
 
 - At least two stateless control/auth replicas and two Distribution replicas with identical backend configuration and HTTP secret behind the regional TLS load balancer; use shared Redis when configured.
 - Shared HA SQL and object storage are external dependencies with independent backup and recovery procedures.
-- Run quota reconciliation through a bounded scheduler. The current version compare-and-set protects against stale results, but production promotion requires a tested multi-worker claim/lease and retry policy rather than relying on duplicate scans.
+- Run quota reconciliation through a bounded scheduler using the verified version-plus-token claim API. Production promotion still requires cadence, jitter, graceful shutdown, lease sizing, database-time/clock, deadlock retry, Galera, and restart-correct metric aggregation policy.
 - Signing keys are versioned with overlapping public trust during rotation; private keys and S3/Redis/HTTP secrets belong in a Barbican/Vault/HSM-backed secret path, not ordinary configuration files.
 - Health endpoints distinguish process readiness from Keystone, SQL, and object-storage dependency health.
 - Structured audit events include actor, project, repository, action, result, request ID, and digest where available; they exclude tokens and secrets.
@@ -176,7 +177,7 @@ sequenceDiagram
 | OCI data plane | Upstream CNCF Distribution v3.1.1 or newer supported release, pinned by PoC | Small protocol-focused component; v3.1.1 includes a material 2026 security fix and must still pass conformance/RGW gates |
 | Control/auth services | Python with OpenStack `oslo.*`, `keystoneauth1`, and `keystonemiddleware` libraries | Fits OpenStack operator and contributor ecosystems |
 | HTTP framework | Falcon 4.3.1 WSGI behind Gunicorn `gthread` workers | Accepted by ADR 0007 after Python 3.11–3.13 and process-model validation |
-| Persistence | SQLAlchemy/Alembic through `oslo.db`; MariaDB/Galera as the operator baseline, PostgreSQL supported by the PoC schema | Aligns with common OpenStack control-plane deployments; the initial revision and row-lock behavior pass both disposable engines |
+| Persistence | SQLAlchemy/Alembic through `oslo.db`; MariaDB/Galera as the operator baseline, PostgreSQL supported by the PoC schema | Aligns with common OpenStack control-plane deployments; revisions `0001`/`0002`, row locks, claims, and abandoned-process recovery pass both disposable engines |
 | Policy | `oslo.policy`-compatible rules | Familiar deployer overrides and role enforcement |
 | Blob storage | One private regional Ceph RGW S3 bucket through the upstream registry driver | Reuses common OpenStack storage deployments without a custom driver; per-project buckets would require separate registry fleets/routing |
 | Edge | Operator-provided TLS load balancer/reverse proxy | Keeps network topology and certificate ownership deployer-controlled |
@@ -196,7 +197,7 @@ sequenceDiagram
 
 1. Standard Docker credential storage requires a credential helper and finite application credentials; future federated/MFA users need a separate helper/exchange design.
 2. Distribution's stop-the-world GC requires a maintenance window; always-online GC is not an MVP claim.
-3. Project quota admission, Alembic schema, PostgreSQL/MariaDB row locks, and exact-digest reconciliation have bounded local evidence. Production still needs existing-data rollout/backup procedures, authenticated TLS reconciliation in the integrated RGW deployment, multi-worker claim/lease behavior, replica-level failure tests, and non-bypassable ingress.
+3. Project quota admission, Alembic schema, PostgreSQL/MariaDB row locks, multi-worker claims/fencing, process abandonment, and exact-digest reconciliation have bounded local evidence. Production still needs existing-data rollout/backup procedures, authenticated TLS reconciliation in the integrated RGW deployment, scheduler/clock/deadlock/Galera and metric-aggregation policy, replica-level failure tests, and non-bypassable ingress.
 4. Repository aliases and rename semantics can conflict with immutable security namespaces.
 5. The chosen Distribution and Ceph combination must pass encrypted move semantics, including positive-size and zero-byte blobs. Tentacle 20.2.2 requires forced multipart copy for positive-size objects and still rejects the zero-byte path.
 6. OpenStack community governance may favor an adjacent-project or external-service path before a new official service.

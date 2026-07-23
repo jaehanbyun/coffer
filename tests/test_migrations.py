@@ -55,6 +55,7 @@ def test_alembic_upgrade_is_repeatable_and_downgrade_is_bounded(
         "project_quotas",
         "quota_descriptors",
         "quota_manifests",
+        "quota_reconciliation_claims",
         "quota_reservation_descriptors",
         "quota_reservations",
     }
@@ -64,6 +65,26 @@ def test_alembic_upgrade_is_repeatable_and_downgrade_is_bounded(
         "ix_quota_reservations_project_state",
         "ix_quota_reservations_reconcile",
     }
+    assert {
+        index["name"]
+        for index in schema.get_indexes("quota_reconciliation_claims")
+    } == {"ix_quota_reconciliation_claims_expires"}
+    assert {
+        constraint["name"]
+        for constraint in schema.get_unique_constraints(
+            "quota_reconciliation_claims"
+        )
+    } == {"uq_quota_reconciliation_claim_token"}
+    assert {
+        constraint["name"]
+        for constraint in schema.get_check_constraints(
+            "quota_reconciliation_claims"
+        )
+    } == {"ck_quota_reconciliation_claim_window"}
+    claim_foreign_keys = schema.get_foreign_keys("quota_reconciliation_claims")
+    assert len(claim_foreign_keys) == 1
+    assert claim_foreign_keys[0]["referred_table"] == "quota_reservations"
+    assert claim_foreign_keys[0]["options"] == {"ondelete": "CASCADE"}
 
     command.downgrade(config, "base")
     assert set(inspect(create_engine(database_url)).get_table_names()) == {

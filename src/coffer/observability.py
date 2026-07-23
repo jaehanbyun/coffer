@@ -11,6 +11,9 @@ from prometheus_client.exposition import CONTENT_TYPE_LATEST, generate_latest
 BOUNDED_HTTP_METHODS = frozenset(
     {"DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"}
 )
+RECONCILIATION_RESULTS = frozenset(
+    {"absent", "indeterminate", "present", "stale_claim", "stale_version"}
+)
 
 
 class ReadinessStore(Protocol):
@@ -60,6 +63,12 @@ class CofferMetrics:
             ["result"],
             registry=self.registry,
         )
+        self._reconciliation = Counter(
+            "coffer_quota_reconciliation_outcomes_total",
+            "Quota reconciliation candidates by bounded result class.",
+            ["result"],
+            registry=self.registry,
+        )
 
     def observe_http(
         self,
@@ -90,6 +99,11 @@ class CofferMetrics:
 
     def observe_readiness(self, result: str) -> None:
         self._readiness.labels(result=result).inc()
+
+    def observe_reconciliation(self, result: str) -> None:
+        if result not in RECONCILIATION_RESULTS:
+            raise ValueError("quota reconciliation metric result is not bounded")
+        self._reconciliation.labels(result=result).inc()
 
     def render(self) -> bytes:
         return generate_latest(self.registry)

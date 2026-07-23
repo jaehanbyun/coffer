@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import warnings
+
 import falcon
 from falcon import testing
-import warnings
+import pytest
 
 from coffer.db import RepositoryStore
 from coffer.observability import (
@@ -121,3 +123,31 @@ def test_http_metrics_collapse_unknown_methods() -> None:
     assert "UNBOUNDED-ONE" not in rendered
     assert "UNBOUNDED-TWO" not in rendered
     assert 'method="OTHER"' in rendered
+
+
+def test_reconciliation_metrics_accept_only_fixed_result_classes() -> None:
+    metrics = CofferMetrics()
+    for result in (
+        "absent",
+        "indeterminate",
+        "present",
+        "stale_claim",
+        "stale_version",
+    ):
+        metrics.observe_reconciliation(result)
+
+    rendered = metrics.render().decode()
+    assert rendered.count("coffer_quota_reconciliation_outcomes_total{") == 5
+    assert 'result="present"' in rendered
+    assert 'result="stale_claim"' in rendered
+    for forbidden in (
+        "worker-a",
+        "project-a",
+        "repository-a",
+        "sha256:",
+        "claim-token",
+    ):
+        assert forbidden not in rendered
+
+    with pytest.raises(ValueError, match="not bounded"):
+        metrics.observe_reconciliation("project-a")

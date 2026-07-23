@@ -2,7 +2,7 @@
 
 - Status: verified development baseline; not a production deployment procedure
 - Related ADR: `docs/adrs/0009-add-private-edge-manifest-quota-admission.md`
-- Related plan: `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`
+- Related plans: `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`
 
 ## Purpose and Safety Boundary
 
@@ -17,7 +17,7 @@ Before a production rollout, operators must separately provide a tested backup a
 | Quota schema | Checked-in Alembic revisions under `migrations/` | Coffer startup rejects missing, unversioned, or unexpected schema |
 | Repository identity | Coffer control database | Missing or invalid authority makes the probe indeterminate |
 | Manifest presence | Exact private Distribution digest endpoint | Only one matching digest header on 200 proves presence; exact 404 proves absence |
-| Reservation mutation | Shared SQL transaction and reservation version | A stale version loses compare-and-set and cannot apply its observation |
+| Work ownership and mutation | Expiring shared-SQL claim, opaque fencing token, and reservation version | Expired/reassigned claims and stale versions cannot apply observations |
 | Notification | Advisory wake-up hint | Lost, duplicate, or reordered events cannot authorize a refund |
 | Physical reclamation | Coordinated Distribution GC procedure | Reconciliation changes logical accounting only and never deletes blobs |
 
@@ -47,18 +47,21 @@ The checked-in baseline is an empty-database revision. Do not stamp or upgrade a
 
 ## Reconciliation Contract
 
-The reconciler reads a bounded page ordered by `(updated_at, reservation_id)`. A scheduler should pass the returned cursor until the page is exhausted, then begin a later periodic scan. The worker performs no network request while holding a SQL row lock.
+Each process has a stable diagnostic worker ID and requests a bounded claim page ordered by `(updated_at, reservation_id)`. In one short writer transaction, the database excludes active claims, locks only selected reservation rows with skip-locked semantics where supported, removes a selected expired claim, and creates a unique opaque fencing token plus expiry. The transaction closes before repository resolution or any network request.
+
+A scheduler may pass the returned cursor while draining one scan, but it must begin later scans from the start and tolerate a temporarily empty page under contention. MariaDB 11.4.12 can return an empty batch to one simultaneous caller while another transaction range-locks part of the candidate range; a later bounded retry after the short transaction completes recovered the remaining work in the disposable proof. An empty contended batch is not durable proof that the backlog is exhausted.
 
 For each candidate it:
 
-1. Resolves the stored project and repository IDs through the Coffer control authority into `p/<project-id>/<repository>`.
-2. Sends `HEAD /v2/<canonical-repository>/manifests/<sha256-digest>` to one credential-free configured HTTP(S) origin. Production must use a private TLS service path and an approved in-memory service-auth header or equivalent network identity.
-3. Commits or refreshes state only for HTTP 200 with exactly one matching `Docker-Content-Digest` header.
-4. Releases charged state only for exact HTTP 404.
-5. Leaves state and timestamps unchanged for 401, 403, every 5xx or other status, missing/mismatched/duplicate digest headers, missing repository authority, timeout, or transport failure.
-6. Applies an actionable observation only if the reservation version still matches the scanned candidate.
+1. Claims the candidate with an expiry, worker ID, and random token; the worker ID is diagnostic only and the token is the fencing authority.
+2. Resolves the stored project and repository IDs through the Coffer control authority into `p/<project-id>/<repository>`.
+3. Sends `HEAD /v2/<canonical-repository>/manifests/<sha256-digest>` to one credential-free configured HTTP(S) origin. Production must use a private TLS service path and an approved in-memory service-auth header or equivalent network identity.
+4. Commits or refreshes state only for HTTP 200 with exactly one matching `Docker-Content-Digest` header.
+5. Releases charged state only for exact HTTP 404.
+6. Leaves quota state unchanged for 401, 403, every 5xx or other status, missing/mismatched/duplicate digest headers, missing repository authority, timeout, or transport failure. The claim remains until expiry and supplies bounded retry backoff.
+7. Applies an actionable observation only if both the reservation version and current unexpired claim token match. Successful mutation consumes that claim in the same transaction. A version conflict releases only the matching old claim; an expired or reassigned token cannot remove its successor.
 
-The current compare-and-set behavior prevents an old result from overwriting newer state, but it is not a distributed lease. Until a claim/lease and retry policy is implemented and tested, run at most one scheduled reconciliation worker per database. Duplicate execution is conservative and idempotent but can waste probe capacity and does not provide fair work distribution.
+A process crash never releases quota. The committed claim remains until its lease expires, after which another process receives a new token. The old process cannot mutate state if it resumes late. The one-hour code maximum is a safety bound, not a recommended interval; production values must exceed the measured probe timeout while keeping crash recovery within the operator's reconciliation objective.
 
 ## Disposable Verification
 
@@ -69,7 +72,7 @@ make -C poc/quota-sql verify
 make -C poc/quota-reconciliation verify
 ```
 
-The shared-SQL harness creates owner-only random passwords under ignored `work/`, applies and repeats the migration on PostgreSQL and MariaDB, checks model drift and constraints, opens independent connections, races two admissions, exercises retry/commit/release, and performs a disposable downgrade/re-upgrade. The reconciliation harness publishes and removes exact OCI digests in an ephemeral unmodified Distribution, proves stale-result rejection and last-reference refunds, and ends at zero logical usage.
+The shared-SQL harness creates owner-only random passwords under ignored `work/`, applies and repeats the migration on PostgreSQL and MariaDB, checks model drift and constraints, opens independent connections, races two admissions, and performs a disposable downgrade/re-upgrade. It also divides three reconciliation candidates across database workers, verifies MariaDB's bounded contention retry, spawns a separate process that commits a claim and exits with status 17, proves quota remains charged, reclaims after expiry, rejects the old token, and ends at zero logical usage. The reconciliation harness publishes and removes exact OCI digests in an ephemeral unmodified Distribution, proves stale-result rejection and last-reference refunds, and ends at zero logical usage.
 
 Both harnesses remove their labeled containers, networks, volumes, generated passwords, and SQLite state even after failure. They use loopback or isolated fixture paths and must not be pointed at a production database or registry.
 
@@ -78,8 +81,8 @@ Both harnesses remove their labeled containers, networks, volumes, generated pas
 - A data-preserving upgrade/import rehearsal from the actual pre-quota state, including backup restore and rollback ownership.
 - Database TLS, least-privilege migration and runtime roles, connection-pool sizing, timeout, deadlock retry, and Galera behavior where applicable.
 - A private authenticated TLS probe path in the integrated Distribution/RGW topology; no tenant may bypass manifest admission.
-- A bounded multi-worker claim/lease, retry, shutdown, and cursor scheduling design with process-kill and replica-failure evidence.
-- Operational metrics and alerts for scanned, present, absent, indeterminate, stale-version, lag, and dependency failure outcomes without project or digest labels.
+- Production scheduler cadence, jitter, graceful shutdown, lease sizing, deadlock retry, database-time/clock policy, and Galera evidence; the current PostgreSQL/MariaDB process-exit proof is bounded development evidence.
+- Protected, restart-correct multi-process/fleet aggregation and alerts for the implemented fixed `present`, `absent`, `indeterminate`, `stale_version`, and `stale_claim` outcomes, plus lag and dependency availability without project or digest labels.
 - Existing registry inventory before enabling authoritative admission, plus integrated deletion/reference evidence against RGW.
 
 Until every relevant gate passes, this implementation is a verified PoC baseline and must not be represented as a production-ready quota service.

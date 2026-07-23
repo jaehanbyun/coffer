@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import hashlib
 import json
+import multiprocessing
+from multiprocessing.connection import Connection
+import os
 from pathlib import Path
 import threading
 
@@ -19,6 +22,9 @@ from coffer.quota import (
     QuotaExceeded,
     QuotaSchemaNotReady,
     QuotaStore,
+    ReconciliationClaimPage,
+    Reservation,
+    StaleReconciliationClaim,
     project_quotas,
 )
 
@@ -29,6 +35,14 @@ REPOSITORY_IDS = (
     "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
 )
+CLAIM_PROJECT_ID = "44444444-4444-4444-8444-444444444444"
+CLAIM_REPOSITORY_IDS = (
+    "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+)
+ABANDONED_PROJECT_ID = "55555555-5555-4555-8555-555555555555"
+ABANDONED_REPOSITORY_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff"
 
 
 def digest(value: str) -> str:
@@ -74,6 +88,32 @@ def backend_connection_ids(stores: tuple[QuotaStore, QuotaStore]) -> tuple[int, 
     )
     with stores[0]._engine.connect() as first, stores[1]._engine.connect() as second:
         return first.execute(statement).scalar_one(), second.execute(statement).scalar_one()
+
+
+def claim_then_exit(
+    database_connection: str,
+    claimed_at: datetime,
+    send_connection: Connection,
+) -> None:
+    store = QuotaStore(database_connection)
+    try:
+        page = store.claim_reconciliation_candidates(
+            worker_id="abandoned-process",
+            claimed_at=claimed_at,
+            lease_for=timedelta(minutes=1),
+            stale_before=claimed_at,
+            limit=1,
+        )
+        if len(page.claims) != 1:
+            raise AssertionError("the disposable process did not acquire one claim")
+        claim = page.claims[0]
+        send_connection.send(
+            (claim.reservation_id, claim.claim_token, claim.version)
+        )
+    finally:
+        store._engine.dispose()
+        send_connection.close()
+    os._exit(17)
 
 
 def exercise_concurrency(
@@ -165,6 +205,152 @@ def exercise_concurrency(
     }
 
 
+def exercise_reconciliation_claims(
+    database_connection: str,
+    stores: tuple[QuotaStore, QuotaStore],
+) -> dict[str, object]:
+    stores[0].set_limit(CLAIM_PROJECT_ID, 1000)
+    reservations: list[Reservation] = []
+    for index, repository_id in enumerate(CLAIM_REPOSITORY_IDS):
+        manifest = Descriptor(digest(f"claim-manifest-{index}"), 10)
+        reservations.append(
+            stores[0].reserve(
+                project_id=CLAIM_PROJECT_ID,
+                repository_id=repository_id,
+                manifest_digest=manifest.digest,
+                request_id=f"claim-request-{index}",
+                descriptors=(manifest,),
+            )
+        )
+    claimed_at = datetime.now(UTC)
+    barrier = threading.Barrier(2)
+
+    def acquire(index: int) -> ReconciliationClaimPage:
+        barrier.wait(timeout=10)
+        return stores[index].claim_reconciliation_candidates(
+            worker_id=f"database-worker-{index}",
+            claimed_at=claimed_at,
+            lease_for=timedelta(minutes=1),
+            stale_before=claimed_at,
+            limit=2,
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        pages = tuple(executor.map(acquire, range(2)))
+    claims = list(pages[0].claims + pages[1].claims)
+    first_ids = {claim.reservation_id for claim in pages[0].claims}
+    second_ids = {claim.reservation_id for claim in pages[1].claims}
+    assert not first_ids & second_ids
+    expected_ids = {reservation.id for reservation in reservations}
+    covered_ids = first_ids | second_ids
+    contention_retry_required = covered_ids != expected_ids
+    if contention_retry_required:
+        retry_index = min(range(2), key=lambda index: len(pages[index].claims))
+        retry = stores[retry_index].claim_reconciliation_candidates(
+            worker_id=f"database-worker-{retry_index}-retry",
+            claimed_at=claimed_at,
+            lease_for=timedelta(minutes=1),
+            stale_before=claimed_at,
+            limit=2,
+        )
+        retry_ids = {claim.reservation_id for claim in retry.claims}
+        assert not covered_ids & retry_ids
+        claims.extend(retry.claims)
+        covered_ids |= retry_ids
+    assert covered_ids == expected_ids
+    assert len({claim.claim_token for claim in claims}) == len(reservations)
+    assert not stores[0].claim_reconciliation_candidates(
+        worker_id="blocked-worker",
+        claimed_at=claimed_at,
+        lease_for=timedelta(minutes=1),
+        stale_before=claimed_at,
+        limit=3,
+    ).claims
+    for claim in claims:
+        assert stores[0].release_reconciliation_claim(claim.claim_token)
+        assert stores[0].reconcile_absent(claim.reservation_id).state == "released"
+    assert stores[0].usage(CLAIM_PROJECT_ID).reserved_bytes == 0
+
+    stores[0].set_limit(ABANDONED_PROJECT_ID, 1000)
+    abandoned_manifest = Descriptor(digest("abandoned-manifest"), 10)
+    abandoned = stores[0].reserve(
+        project_id=ABANDONED_PROJECT_ID,
+        repository_id=ABANDONED_REPOSITORY_ID,
+        manifest_digest=abandoned_manifest.digest,
+        request_id="abandoned-request",
+        descriptors=(abandoned_manifest,),
+    )
+    process_claimed_at = datetime.now(UTC)
+    context = multiprocessing.get_context("spawn")
+    receive_connection, send_connection = context.Pipe(duplex=False)
+    process = context.Process(
+        target=claim_then_exit,
+        args=(database_connection, process_claimed_at, send_connection),
+    )
+    process.start()
+    send_connection.close()
+    if not receive_connection.poll(20):
+        process.terminate()
+        process.join(timeout=10)
+        raise AssertionError("the disposable claimant process did not respond")
+    reservation_id, abandoned_token, abandoned_version = receive_connection.recv()
+    receive_connection.close()
+    process.join(timeout=10)
+    if process.is_alive():
+        process.terminate()
+        process.join(timeout=10)
+        raise AssertionError("the disposable claimant process did not exit")
+    assert process.exitcode == 17
+    assert reservation_id == abandoned.id
+    assert stores[0].get_reservation(abandoned.id).state == "pending"
+    assert stores[0].usage(ABANDONED_PROJECT_ID).reserved_bytes == 10
+    assert not stores[1].claim_reconciliation_candidates(
+        worker_id="recovery-worker",
+        claimed_at=process_claimed_at + timedelta(seconds=30),
+        lease_for=timedelta(minutes=1),
+        stale_before=process_claimed_at + timedelta(seconds=30),
+        limit=1,
+    ).claims
+
+    recovered_at = process_claimed_at + timedelta(seconds=61)
+    recovered = stores[1].claim_reconciliation_candidates(
+        worker_id="recovery-worker",
+        claimed_at=recovered_at,
+        lease_for=timedelta(minutes=1),
+        stale_before=recovered_at,
+        limit=1,
+    ).claims
+    assert len(recovered) == 1
+    assert recovered[0].reservation_id == abandoned.id
+    assert recovered[0].claim_token != abandoned_token
+    try:
+        stores[0].reconcile_present(
+            abandoned.id,
+            expected_version=abandoned_version,
+            expected_claim_token=abandoned_token,
+            claim_checked_at=recovered_at,
+        )
+    except StaleReconciliationClaim:
+        pass
+    else:
+        raise AssertionError("the abandoned claim token was accepted")
+    released = stores[1].reconcile_absent(
+        abandoned.id,
+        expected_version=recovered[0].version,
+        expected_claim_token=recovered[0].claim_token,
+        claim_checked_at=recovered_at,
+    )
+    assert released.state == "released"
+    assert stores[0].usage(ABANDONED_PROJECT_ID).reserved_bytes == 0
+    return {
+        "abandoned_process_exit": process.exitcode,
+        "claim_batches_disjoint": True,
+        "contention_retry_required": contention_retry_required,
+        "expired_claim_recovered": True,
+        "stale_token_fenced": True,
+    }
+
+
 def assert_database_constraint(url: URL) -> None:
     engine = create_engine(url)
     try:
@@ -222,6 +408,7 @@ def main() -> None:
         "project_quotas",
         "quota_descriptors",
         "quota_manifests",
+        "quota_reconciliation_claims",
         "quota_reservation_descriptors",
         "quota_reservations",
     }.issubset(schema.get_table_names())
@@ -231,8 +418,15 @@ def main() -> None:
     }.issubset(
         index["name"] for index in schema.get_indexes("quota_reservations")
     )
+    assert {"ix_quota_reconciliation_claims_expires"}.issubset(
+        index["name"]
+        for index in schema.get_indexes("quota_reconciliation_claims")
+    )
     assert_database_constraint(url)
     concurrency = exercise_concurrency(args.engine, stores)
+    claims = exercise_reconciliation_claims(
+        url.render_as_string(hide_password=False), stores
+    )
 
     version_statement = (
         text("SHOW server_version")
@@ -262,6 +456,7 @@ def main() -> None:
                 "backend_connections_distinct": True,
                 "concurrency": concurrency,
                 "engine": args.engine,
+                "reconciliation_claims": claims,
                 "migration_downgrade_reupgrade": True,
                 "migration_repeat_upgrade": True,
                 "server_version": str(version),
