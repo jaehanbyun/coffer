@@ -1,14 +1,14 @@
 # Coffer Handoff
 
 - Updated: 2026-07-23
-- Status: plan 0007 completed and verified; ready for atomic publication
-- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`
+- Status: plan 0008 complete and ready for atomic publication; no next plan activated yet
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
-- Active execution plan: none
+- Active execution plan: none until the published baseline is verified
 
 ## Current Objective
 
-Publish completed plan 0007 atomically, then scope read-only OCI content inventory/import discovery without enabling quota or mutating object storage. Production deployment, credentials, Galera policy, and restart-correct metric aggregation remain outside authorization or unproven.
+Publish the completed read-only existing-content inventory baseline, then bound the next disposable inventory-to-ledger import design without enabling admission or accessing production systems. Production deployment, credentials, Galera policy, import authorization, and restart-correct metric aggregation remain outside authorization or unproven.
 
 ## Completed
 
@@ -90,6 +90,13 @@ Publish completed plan 0007 atomically, then scope read-only OCI content invento
 - Verified PostgreSQL 17.10 and MariaDB 11.4.12 preserve one exact legacy repository row through adoption, non-destructive downgrade, and re-adoption while all prior quota concurrency, process-abandonment, recovery, fencing, drift, and cleanup checks still pass. Podman is stopped.
 - Added accepted-for-PoC ADR 0010 and updated README, architecture, schema/reconciliation runbook, ADR 0009, and the real-lab runbook. The boundary explicitly does not inventory OCI content or authorize production migration.
 - Completed plan 0007 final regression: 134 tests pass on each of Python 3.11, 3.12, and 3.13; lock, compile, Alembic head, installed entry point, migrated-schema Gunicorn, Bash/ShellCheck, five Compose models, all Make dry-runs, 45 Markdown files, 25 local links, diff checks, private-key/JWT shapes, and Gitleaks over 188 project-owned files pass.
+- Published plan 0007 as commit `6d36ed7` to `jaehanbyun/coffer` `main`; local and remote heads match.
+- Activated plan 0008 as a read-only completeness and cutover-discovery package. Ledger imports, quota enablement, object mutation, credentials, and production access remain explicitly excluded.
+- Established the plan 0008 completeness boundary from primary v3.1.1 sources: standard catalog/tags/known-reference APIs and best-effort in-memory notifications cannot reconstruct digest-only history, while the GC path uses repository and manifest revision enumerators independently of tags.
+- Added `coffer-inventory-verify`, strict storage-evidence and control-authority schemas, bounded page/hash/two-scan validation, exact canonical repository authority, manifest/index graph validation, and deterministic output stripped of repository names, tags, payloads, URLs, credentials, tokens, and timestamps. Seventeen focused tests pass.
+- Added a pinned Go 1.25.1 helper compiled against Distribution v3.1.1 and a stopped-registry filesystem fixture. The tags API exposed one tagged manifest while storage enumeration exposed it plus one digest-only untagged index; both scans matched, four descriptors resolved, registry/control hashes were unchanged, both digests survived restart, and all resources/state were removed. Podman is stopped.
+- Added proposed ADR 0011, the existing-content inventory research/runbook, and architecture/README/quota-boundary updates. The filesystem helper is PoC evidence only; production RGW support, credentials, packaging, import, backup, cutover, and rollback remain unimplemented and unauthorized.
+- Completed plan 0008 final regression: 151 tests per Python 3.11/3.12/3.13; Go test/vet; the final pinned fixture with explicit snapshot-drift rejection; lock/compile/Alembic/CLI; 58 Bash/ShellCheck files; six Compose models; ten Make dry-runs; 50 Markdown files and 29 local links; 99 external links; 204 project-owned Gitleaks files; key/JWT, whitespace, and diff checks. Podman is stopped and no fixture state remains.
 
 ## Decisions and Reasons
 
@@ -107,6 +114,7 @@ Publish completed plan 0007 atomically, then scope read-only OCI content invento
 - ADR 0009 is accepted for PoC validation: only bounded manifest PUTs cross the admission seam, blob bodies stay streamed to unmodified Distribution, shared SQL is the logical quota authority, and physical staging remains a separate service-wide concern.
 - One Alembic chain is the sole repository/quota control-schema upgrade authority; normal startup validates the exact revision and required tables, while `create_all()` is explicit unit/disposable fixture-only behavior.
 - Revision `0003_repository_metadata` runs online and strictly creates or adopts the exact legacy repository table. Drift and offline conditional migration fail closed; downgrade retains repository identity because table provenance cannot be inferred safely. OCI payload inventory remains separate.
+- Proposed ADR 0011 uses the exact qualified Distribution release's exported repository/manifest storage enumerators under write exclusion and two equal scans. HTTP tags, notifications, GC stdout, and direct backend-key parsing are not inventory authority; the resulting artifact still cannot authorize or perform a ledger import.
 - Ledger-driven reconciliation uses immutable repository authority, exact digest HEAD probes, conservative indeterminate outcomes, and monotonic reservation-version compare-and-set. A separate expiring shared-SQL claim plus opaque fencing token now divides workers and rejects a result after reassignment; successful mutation consumes the claim transactionally.
 - Reconciliation claims lock only selected reservation rows and release the transaction before network I/O. MariaDB may return an empty batch during range-lock contention, so schedulers perform a later bounded retry rather than interpreting an empty batch as durable backlog exhaustion.
 - `coffer-reconcile` runs as a separate native synchronous process rather than inside Gunicorn or an Eventlet/oslo.service loop. Each process is locally serial; independent processes scale only through the shared claim table.
@@ -152,6 +160,7 @@ Publish completed plan 0007 atomically, then scope read-only OCI content invento
 - Multi-worker reconciliation: migration `0002`, claim metadata/store/reconciler/metrics, focused tests, shared-SQL process-failure evidence, Distribution fixture worker identity, active plan 0005, and this handoff.
 - Reconciliation runner: `pyproject.toml`, `uv.lock`, reconciliation options in `src/coffer/config.py`, new `src/coffer/reconciliation_runner.py`, focused runner/subprocess tests, active plan 0006, and this handoff.
 - Unified control schema: `src/coffer/schema.py`, repository/quota/runner validation, Alembic revision `0003` and unified metadata, focused migration tests, explicit fixture bootstraps, `poc/quota-sql/`, ADR 0010, schema/architecture/runbook updates, active plan 0007, and this handoff.
+- Existing-content inventory: `src/coffer/inventory.py`, `tests/test_inventory.py`, installed CLI metadata, `poc/inventory/`, `docs/research/m3-existing-content-inventory.md`, proposed ADR 0011, `docs/runbooks/existing-content-inventory.md`, architecture/README/quota-runbook/ADR 0009 updates, completed plan 0008, and this handoff.
 
 ## Verification
 
@@ -220,6 +229,8 @@ Publish completed plan 0007 atomically, then scope read-only OCI content invento
 - Plan 0006 final verification command corrections are recorded in the plan: a wrong Gunicorn module, zsh list-expansion mistakes, and use of zsh's special `path` variable were corrected without changing repository or lab state. The substantive missing-config traceback/exit-1 failure was fixed and regression tested.
 - Plan 0007 focused verification passed: 10 SQLite migration tests, 56 migration/API/token/quota tests, and the full 134-test Python 3.13 suite. PostgreSQL 17.10 and MariaDB 11.4.12 adopted, retained, and re-adopted exact legacy repository metadata while existing quota/claim checks and zero-residue cleanup passed.
 - Plan 0007 final verification passed after tightening MySQL Boolean reflection: 10 SQLite migration tests reject four drift classes; 134 tests pass per Python version; both shared-SQL engines and isolated Distribution reconciliation pass again; Podman and all labeled runtime/credential/state residue are absent.
+- Plan 0008 focused verification passed: 17 inventory tests cover bounded pages and summaries, start/end drift including tag state, empty-repository/exact authority, unsupported/digest/size/aggregate-bound failures, descriptor conflicts, nested-index children, unknown-field secret exclusion, deterministic output, and atomic exclusive mode-0600 output creation.
+- `make -C poc/inventory verify` passed against pinned unmodified Distribution v3.1.1: API tags=1, storage manifests=2 including one digest-only untagged index, snapshot scans equal, four descriptors, registry/control hashes unchanged, both digests readable after restart, zero labeled/runtime/state residue, and Podman stopped.
 
 ## Blockers and Risks
 
@@ -245,8 +256,8 @@ Publish completed plan 0007 atomically, then scope read-only OCI content invento
 
 ## Exact Next Action
 
-Verify the personal GitHub account, stage only the plan 0007 file set, inspect the cached diff, commit once, and push `main` atomically. Then scope a separate read-only OCI content inventory/import execution plan.
+Commit and atomically push completed plan 0008, verify `main` equals `origin/main`, then activate a new execution plan for a disposable, transactional inventory-to-ledger import contract. Do not access production, handle credentials, or enable quota admission.
 
 ## After This Work Package
 
-Existing OCI content inventory/import, integrated authenticated reconciliation, production scheduler/Galera and restart-correct observability policy, separate-host/load-balancer HA, native Referrers, and destructive GC remain distinct future work packages.
+Existing OCI ledger import/cutover, integrated authenticated reconciliation, production scheduler/Galera and restart-correct observability policy, separate-host/load-balancer HA, native Referrers, and destructive GC remain distinct future work packages.

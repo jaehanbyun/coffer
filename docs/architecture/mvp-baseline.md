@@ -1,7 +1,7 @@
 # Coffer MVP Architecture Baseline
 
 - Status: accepted PoC baseline; production promotion gates remain
-- Updated: 2026-07-22
+- Updated: 2026-07-23
 - Architecture style: OpenStack-native control plane composed with an upstream OCI Distribution data plane
 
 ## Architecture Drivers
@@ -78,6 +78,10 @@ Handles only bounded manifest/index PUT requests at a non-bypassable private edg
 
 Runs through the separate native `coffer-reconcile` process, claims bounded deterministic ledger pages in shared SQL, and repairs stale admission or deletion state by resolving immutable repository authority and probing the exact manifest digest after the claim transaction closes. A matching HTTP 200 is presence, exact 404 is absence, and every authentication, dependency, transport, or digest-header ambiguity retains the charge. Reservation version plus an expiring opaque fencing token prevents stale or reassigned workers from applying results; successful mutation consumes the claim transactionally. Each process runs serial bounded cursor cycles with graceful signals, jittered cadence, and capped dependency backoff.
 
+### Coffer existing-content inventory verifier
+
+Validates secret-free evidence from two write-stopped scans performed through the exact pinned Distribution repository/manifest storage enumerators. It fails closed on page, snapshot, authority, digest, media, size, duplicate, and nested-index inconsistencies, then emits deterministic immutable project/repository/content facts without opening Distribution, object storage, or SQL. The current filesystem helper is disposable PoC evidence only; ledger import, RGW configuration/credentials, production maintenance, and admission cutover remain separate approval gates under proposed ADR 0011.
+
 ### Upstream OCI Distribution data plane
 
 Owns `/v2/` blob, upload, canonical manifest, tag, supported artifact, and deletion protocol behavior. Coffer configures its token trust, storage driver, health, and metrics; manifest publication passes the narrow quota edge, but the protocol implementation remains unmodified. Native OCI 1.1 Referrers support must be proven for the pinned release.
@@ -150,7 +154,7 @@ sequenceDiagram
 
 - At least two stateless control/auth replicas and two Distribution replicas with identical backend configuration and HTTP secret behind the regional TLS load balancer; use shared Redis when configured.
 - Shared HA SQL and object storage are external dependencies with independent backup and recovery procedures.
-- Run the online Alembic migration as a separate owner-controlled job before application rollout. An exact legacy repository table can be adopted; drift, offline conditional migration, and application-side auto-upgrade fail closed. Production still requires backup/restore and OCI inventory rehearsal.
+- Run the online Alembic migration as a separate owner-controlled job before application rollout. An exact legacy repository table can be adopted; drift, offline conditional migration, and application-side auto-upgrade fail closed. A local write-stopped filesystem inventory rehearsal now covers tagged and digest-only revisions without mutation, but production still requires backup/restore, exact RGW/helper qualification, transactional import, comparison, and cutover ownership.
 - Run the dedicated one-shot or periodic reconciliation process using the verified version-plus-token claim API. Local cadence, jitter, graceful shutdown, cursor continuation, and lease-budget semantics are implemented; production promotion still requires packaging/rollout, authenticated service identity, database-time/clock, deadlock retry, Galera, forced-replica failure, and restart-correct metric aggregation policy.
 - Signing keys are versioned with overlapping public trust during rotation; private keys and S3/Redis/HTTP secrets belong in a Barbican/Vault/HSM-backed secret path, not ordinary configuration files.
 - Health endpoints distinguish process readiness from Keystone, SQL, and object-storage dependency health.
@@ -198,7 +202,7 @@ sequenceDiagram
 
 1. Standard Docker credential storage requires a credential helper and finite application credentials; future federated/MFA users need a separate helper/exchange design.
 2. Distribution's stop-the-world GC requires a maintenance window; always-online GC is not an MVP claim.
-3. Unified repository/quota Alembic schema, legacy repository-row adoption, project quota admission, PostgreSQL/MariaDB row locks, multi-worker claims/fencing, process abandonment, exact-digest reconciliation, and the runnable one-shot/periodic process have bounded local evidence. Production still needs OCI content inventory/import, rollout/backup procedures, authenticated TLS reconciliation in the integrated RGW deployment, packaging/clock/deadlock/Galera and metric-aggregation policy, replica-level failure tests, and non-bypassable ingress.
+3. Unified repository/quota Alembic schema, legacy repository-row adoption, project quota admission, PostgreSQL/MariaDB row locks, multi-worker claims/fencing, process abandonment, exact-digest reconciliation, the runnable one-shot/periodic process, and a non-mutating tagged/digest-only filesystem inventory have bounded local evidence. Production still needs exact-release RGW inventory qualification, transactional import and post-import comparison, rollout/backup procedures, authenticated TLS reconciliation in the integrated RGW deployment, packaging/clock/deadlock/Galera and metric-aggregation policy, replica-level failure tests, and non-bypassable ingress.
 4. Repository aliases and rename semantics can conflict with immutable security namespaces.
 5. The chosen Distribution and Ceph combination must pass encrypted move semantics, including positive-size and zero-byte blobs. Tentacle 20.2.2 requires forced multipart copy for positive-size objects and still rejects the zero-byte path.
 6. OpenStack community governance may favor an adjacent-project or external-service path before a new official service.
@@ -221,5 +225,7 @@ sequenceDiagram
 - `docs/adrs/0002-keystone-application-credential-token-broker.md` records the identity translation and initial role model.
 - `docs/adrs/0003-rgw-s3-single-region-storage.md` records storage, quota, GC, encryption, and HA boundaries.
 - `docs/adrs/0009-add-private-edge-manifest-quota-admission.md` records the accepted-for-PoC manifest admission seam and the remaining production gates.
+- `docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md` proposes the exact-version read-only cutover evidence seam; `docs/research/m3-existing-content-inventory.md` records its primary-source completeness boundary.
 - `docs/runbooks/quota-schema-reconciliation.md` records the migration and reconciliation operator boundary and repeatable local verification.
+- `docs/runbooks/existing-content-inventory.md` records the inventory refusal conditions, disposable verification, and separate production import gates.
 - `docs/research/openstack-registry-landscape.md` records the current OpenStack service gap, active OpenStack-Helm deployment chart, consumer projects, and historical false friends.

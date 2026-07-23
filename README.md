@@ -28,7 +28,7 @@ The service type is a project proposal and is not currently registered in the Op
 
 ## Current Implementation
 
-M0 proves the unmodified OCI Distribution data path against local S3-compatible storage. M1 contains the first Coffer-owned seam: a Keystone-middleware-wrapped repository API with project UUID ownership, reader/member policy, and explicit fixture persistence. Local M2 adds a separately composed application-credential token realm, explicit repository and `oslo.policy` authorization, short-lived RS256 Distribution JWTs, and overlapping-JWKS verification. M3 adds an Alembic-owned shared-SQL control schema, a private manifest-admission seam with logical quota accounting, bounded exact-digest reconciliation, expiring multi-worker claims, and fencing tokens, and validates the real Keystone, Ceph RGW, and Barbican SSE-KMS path in disposable labs.
+M0 proves the unmodified OCI Distribution data path against local S3-compatible storage. M1 contains the first Coffer-owned seam: a Keystone-middleware-wrapped repository API with project UUID ownership, reader/member policy, and explicit fixture persistence. Local M2 adds a separately composed application-credential token realm, explicit repository and `oslo.policy` authorization, short-lived RS256 Distribution JWTs, and overlapping-JWKS verification. M3 adds an Alembic-owned shared-SQL control schema, a private manifest-admission seam with logical quota accounting, bounded exact-digest reconciliation, expiring multi-worker claims and fencing tokens, and a deterministic read-only inventory verifier for pre-ledger content. Disposable labs validate the real Keystone, Ceph RGW, and Barbican SSE-KMS path plus tagged and digest-only Distribution storage enumeration.
 
 The API currently supports:
 
@@ -46,14 +46,16 @@ make -C poc/m2 verify
 
 The fixture uses synthetic identity, plaintext loopback HTTP, and MinIO. It cannot satisfy the real Keystone, TLS, Ceph RGW, or production release gates.
 
-Run the disposable quota database and exact-digest reconciliation proofs with a working Podman machine:
+Run the disposable quota database, exact-digest reconciliation, and read-only
+existing-content inventory proofs with a working Podman machine:
 
 ```bash
 make -C poc/quota-sql verify
 make -C poc/quota-reconciliation verify
+make -C poc/inventory verify
 ```
 
-These fixtures validate PostgreSQL/MariaDB migration, legacy repository-row adoption and retention, row locks, multi-worker claims, abandoned-process lease recovery, and fencing semantics plus reconciliation against isolated unmodified Distribution. They do not inventory existing OCI content or provide production database credentials, rollout/backup authorization, authenticated TLS scheduling, Galera evidence, or production metric aggregation.
+These fixtures validate PostgreSQL/MariaDB migration, legacy repository-row adoption and retention, row locks, multi-worker claims, abandoned-process lease recovery, fencing semantics, reconciliation against isolated unmodified Distribution, and a stopped-registry two-scan inventory containing tagged and digest-only revisions. The inventory helper is filesystem-only PoC evidence; none of these fixtures provides production database/RGW credentials, rollout/backup/import authorization, authenticated TLS scheduling, Galera evidence, or production metric aggregation.
 
 Before starting a normal Coffer process, an operator-owned migration job must run `uv run alembic upgrade head` with its database URL delivered through protected configuration. Revision `0003_repository_metadata` creates a fresh repository table or strictly adopts the exact legacy PoC table online; drift and offline SQL generation fail closed. See [ADR 0010](docs/adrs/0010-adopt-repository-metadata-into-alembic.md) and the [control schema runbook](docs/runbooks/quota-schema-reconciliation.md). This migration does not import manifests or make quota authoritative for pre-existing Distribution/RGW content.
 
@@ -105,9 +107,12 @@ Do not place Keystone, database, signing, or cache secrets in the repository. Th
 - [M3 local observability baseline](docs/research/m3-local-observability.md)
 - [M3 RGW/Barbican KMS capability and executed evidence](docs/research/m3-rgw-kms-capability.md)
 - [M3 bounded quota design and validation](docs/research/m3-quota-enforcement-spike.md)
+- [M3 existing-content inventory boundary](docs/research/m3-existing-content-inventory.md)
 - [ADR 0010: Alembic repository metadata adoption](docs/adrs/0010-adopt-repository-metadata-into-alembic.md)
+- [Proposed ADR 0011: pinned Distribution storage inventory](docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md)
 - [Real Keystone and Ceph RGW PoC runbook](docs/runbooks/real-keystone-rgw-poc.md)
 - [Quota schema and reconciliation operator boundary](docs/runbooks/quota-schema-reconciliation.md)
+- [Existing-content inventory operator boundary](docs/runbooks/existing-content-inventory.md)
 - [Disposable Mac DevStack identity lab](poc/devstack/README.md)
 - [Completed discovery plan](docs/exec-plans/0001-product-discovery.md)
 - [Superseded thin vertical PoC](docs/exec-plans/0002-thin-vertical-poc.md)
@@ -116,3 +121,4 @@ Do not place Keystone, database, signing, or cache secrets in the repository. Th
 - [Completed multi-worker reconciliation plan](docs/exec-plans/0005-multi-worker-reconciliation.md)
 - [Completed reconciliation runner plan](docs/exec-plans/0006-reconciliation-runner.md)
 - [Completed unified control-schema plan](docs/exec-plans/0007-unified-control-schema.md)
+- [Completed existing-content inventory plan](docs/exec-plans/0008-existing-content-inventory.md)

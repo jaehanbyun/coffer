@@ -1,7 +1,7 @@
 # Control Schema and Quota Reconciliation Operator Boundary
 
 - Status: verified development baseline; not a production deployment procedure
-- Related ADRs: `docs/adrs/0009-add-private-edge-manifest-quota-admission.md`, `docs/adrs/0010-adopt-repository-metadata-into-alembic.md`
+- Related ADRs: `docs/adrs/0009-add-private-edge-manifest-quota-admission.md`, `docs/adrs/0010-adopt-repository-metadata-into-alembic.md`, proposed `docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md`
 - Related plans: `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`
 
 ## Purpose and Safety Boundary
@@ -47,7 +47,7 @@ The current head is `0003_repository_metadata`. A fresh database receives reposi
 
 The conditional create-or-adopt decision cannot be made safely by offline `--sql` generation, so that path is rejected. Downgrade across revision `0003` deliberately retains repository rows; normal processes still reject the downgraded revision until re-upgrade validates and adopts them again. This is disposable recovery evidence, not a production rollback prescription.
 
-Repository-row adoption does not inspect Distribution/RGW or populate quota descriptors, manifests, references, or reservations. A registry containing pre-existing OCI content still requires a separately reviewed write-stopped inventory/import, restorable backup, maintenance window, and quota cutover plan before admission can become authoritative.
+Repository-row adoption does not inspect Distribution/RGW or populate quota descriptors, manifests, references, or reservations. The read-only verifier in `docs/runbooks/existing-content-inventory.md` now proves a deterministic tagged/digest-only filesystem inventory boundary, but a registry containing pre-existing production content still requires an exact RGW/helper qualification, separately reviewed transactional import, restorable backup, maintenance window, comparison, and quota cutover plan before admission can become authoritative.
 
 ## Reconciliation Contract
 
@@ -116,6 +116,6 @@ Both harnesses remove their labeled containers, networks, volumes, generated pas
 - Production database-time/clock, deadlock retry, Galera, connection-pool, and real load/timeout evidence; the current cadence, lease validation, and PostgreSQL/MariaDB process-exit proofs are bounded development evidence.
 - Packaging and lifecycle evidence for the chosen operator surface (systemd timer/service, Kubernetes CronJob/Deployment, Kolla, or Helm), including rollout, concurrent replica, and forced-termination behavior.
 - Protected, restart-correct multi-process/fleet aggregation and alerts for the implemented fixed `present`, `absent`, `indeterminate`, `stale_version`, and `stale_claim` outcomes, plus lag and dependency availability without project or digest labels.
-- Existing registry inventory before enabling authoritative admission, plus integrated deletion/reference evidence against RGW.
+- Exact-release existing registry inventory against a disposable RGW copy, transactional ledger import and post-import comparison before enabling authoritative admission, plus integrated deletion/reference evidence against RGW.
 
 Until every relevant gate passes, this implementation is a verified PoC baseline and must not be represented as a production-ready quota service.

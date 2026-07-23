@@ -1,0 +1,56 @@
+name: coffer-inventory
+
+services:
+  registry:
+    image: docker.io/library/registry:3.1.1@sha256:1be55279f18a2fe1a74edf2664cac61c1bea305b7b4642dab412e7affdcb3e33
+    environment:
+      OTEL_TRACES_EXPORTER: none
+    ports:
+      - "127.0.0.1:${COFFER_INVENTORY_PORT:-55004}:5000"
+    volumes:
+      - ./registry-config.yml:/etc/distribution/config.yml:ro
+      - registry_data:/var/lib/registry
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:5000/v2/"]
+      interval: 1s
+      timeout: 3s
+      retries: 60
+    labels:
+      org.openstack.coffer.poc: inventory
+    networks:
+      - registry
+    restart: "no"
+
+  enumerator:
+    image: docker.io/library/golang:1.25.1@sha256:d7098379b7da665ab25b99795465ec320b1ca9d4addb9f77409c4827dc904211
+    working_dir: /workspace/poc/inventory
+    command: ["go", "run", ".", "--root", "/var/lib/registry", "--page-size", "1"]
+    environment:
+      CGO_ENABLED: "0"
+      GOTOOLCHAIN: local
+    volumes:
+      - ../..:/workspace:ro
+      - registry_data:/var/lib/registry:ro
+      - go_module_cache:/go/pkg/mod
+      - go_build_cache:/root/.cache/go-build
+    labels:
+      org.openstack.coffer.poc: inventory
+    networks:
+      - registry
+    restart: "no"
+
+volumes:
+  registry_data:
+    labels:
+      org.openstack.coffer.poc: inventory
+  go_module_cache:
+    labels:
+      org.openstack.coffer.poc: inventory
+  go_build_cache:
+    labels:
+      org.openstack.coffer.poc: inventory
+
+networks:
+  registry:
+    labels:
+      org.openstack.coffer.poc: inventory
