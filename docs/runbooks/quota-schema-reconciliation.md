@@ -2,7 +2,7 @@
 
 - Status: verified development baseline; not a production deployment procedure
 - Related ADRs: `docs/adrs/0009-add-private-edge-manifest-quota-admission.md`, `docs/adrs/0010-adopt-repository-metadata-into-alembic.md`, proposed `docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md`, proposed `docs/adrs/0012-import-existing-content-into-empty-quota-ledger.md`
-- Related plans: `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0009-transactional-inventory-import.md`
+- Related plans: `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`
 
 ## Purpose and Safety Boundary
 
@@ -47,9 +47,9 @@ The current head is `0004_inventory_import`. A fresh database receives repositor
 
 The conditional create-or-adopt decision cannot be made safely by offline `--sql` generation, so that path is rejected. Downgrade across revision `0003` deliberately retains repository rows; normal processes still reject the downgraded revision until re-upgrade validates and adopts them again. This is disposable recovery evidence, not a production rollback prescription.
 
-Repository-row adoption and marker migration do not inspect Distribution/RGW or populate quota descriptors, manifests, references, or reservations. The read-only verifier in `docs/runbooks/existing-content-inventory.md` proves a deterministic tagged/digest-only filesystem inventory boundary, and proposed ADR 0012 proves a disposable one-transaction import into empty SQLite/PostgreSQL/MariaDB ledgers. Production still requires exact RGW/helper qualification, a restorable backup, approved maintenance/import/rollback owners, representative-scale transaction evidence, authenticated post-import comparison, and admission cutover before quota can become authoritative.
+Repository-row adoption and marker migration do not inspect Distribution/RGW or populate quota descriptors, manifests, references, or reservations. The read-only verifier in `docs/runbooks/existing-content-inventory.md` proves a deterministic tagged/digest-only filesystem inventory boundary, and proposed ADR 0012 proves a disposable one-transaction import plus exact read-only ledger comparison on SQLite/PostgreSQL/MariaDB. Production still requires exact RGW/helper qualification, a restorable backup, approved maintenance/import/rollback owners, representative-scale transaction evidence, writer exclusion, authenticated live Distribution comparison, and admission cutover before quota can become authoritative.
 
-## Existing-Content Baseline Import Contract
+## Existing-Content Baseline Import and Comparison Contract
 
 `coffer-import-inventory` accepts only a canonical `coffer.inventory/v1` file and
 its independently supplied SHA-256. It reads the database URL from
@@ -77,15 +77,27 @@ umask 077
 coffer-import-inventory \
   --inventory /operator/evidence/coffer.inventory.json \
   --expected-sha256 "$INVENTORY_SHA256"
+coffer-verify-inventory-import \
+  --inventory /operator/evidence/coffer.inventory.json \
+  --expected-sha256 "$INVENTORY_SHA256"
 unset INVENTORY_SHA256
 unset COFFER_DATABASE_URL
 ```
 
-This checked-in command has disposable semantics only. A production invocation
-still requires the sequence and approvals in
-`docs/runbooks/existing-content-inventory.md`; successful exit does not prove
-writer exclusion, backup restorability, post-import comparison, or permission
-to enable admission.
+The comparator reparses the artifact, derives the import's deterministic facts,
+and compares the singleton marker, repository authority, every quota counter and
+import timestamp, reservation/edge/manifest/descriptor row, and zero claims in
+one read-only repeatable snapshot. Unrelated empty control repositories and
+zero-usage quota configuration are allowed; missing, extra, released, pending,
+reassigned, or counter-drifted ledger state returns one fixed refusal. Successful
+output says `verified`, never `ready` or `cutover-approved`, and contains only
+aggregate counts plus the artifact digest.
+
+These checked-in commands have disposable semantics only. A production
+invocation still requires the sequence and approvals in
+`docs/runbooks/existing-content-inventory.md`; successful exits do not prove
+writer exclusion, backup restorability, authenticated live Distribution
+availability, rollback readiness, or permission to enable admission.
 
 ## Reconciliation Contract
 
@@ -142,7 +154,7 @@ make -C poc/quota-sql verify
 make -C poc/quota-reconciliation verify
 ```
 
-The shared-SQL harness creates owner-only random passwords under ignored `work/`, creates one exact legacy repository row, applies and repeats the migration on PostgreSQL and MariaDB, checks row preservation, model drift, and constraints, opens independent connections, races two admissions, and performs a non-destructive downgrade/re-upgrade with repository re-adoption. It also divides three reconciliation candidates across database workers, verifies MariaDB's bounded contention retry, spawns a separate process that commits a claim and exits with status 17, proves quota remains charged, reclaims after expiry, rejects the old token, and ends at zero logical usage. After re-upgrade it forces the second inventory reservation to fail and proves full rollback, then races two exact importers, rejects a different baseline, and records over-limit usage without raising the limit. The reconciliation harness publishes and removes exact OCI digests in an ephemeral unmodified Distribution, proves stale-result rejection and last-reference refunds, and ends at zero logical usage.
+The shared-SQL harness creates owner-only random passwords under ignored `work/`, creates one exact legacy repository row, applies and repeats the migration on PostgreSQL and MariaDB, checks row preservation, model drift, and constraints, opens independent connections, races two admissions, and performs a non-destructive downgrade/re-upgrade with repository re-adoption. It also divides three reconciliation candidates across database workers, verifies MariaDB's bounded contention retry, spawns a separate process that commits a claim and exits with status 17, proves quota remains charged, reclaims after expiry, rejects the old token, and ends at zero logical usage. After re-upgrade it forces the second inventory reservation to fail and proves full rollback, then races two exact importers, rejects a different baseline, and records over-limit usage without raising the limit. It accepts the complete imported ledger through each engine's read-only repeatable transaction, rejects a released-manifest mutation, restores the row, and verifies again. The reconciliation harness publishes and removes exact OCI digests in an ephemeral unmodified Distribution, proves stale-result rejection and last-reference refunds, and ends at zero logical usage.
 
 Both harnesses remove their labeled containers, networks, volumes, generated passwords, and SQLite state even after failure. They use loopback or isolated fixture paths and must not be pointed at a production database or registry.
 
@@ -154,6 +166,10 @@ Both harnesses remove their labeled containers, networks, volumes, generated pas
 - Production database-time/clock, deadlock retry, Galera, connection-pool, and real load/timeout evidence; the current cadence, lease validation, and PostgreSQL/MariaDB process-exit proofs are bounded development evidence.
 - Packaging and lifecycle evidence for the chosen operator surface (systemd timer/service, Kubernetes CronJob/Deployment, Kolla, or Helm), including rollout, concurrent replica, and forced-termination behavior.
 - Protected, restart-correct multi-process/fleet aggregation and alerts for the implemented fixed `present`, `absent`, `indeterminate`, `stale_version`, and `stale_claim` outcomes, plus lag and dependency availability without project or digest labels.
-- Exact-release existing registry inventory against a disposable RGW copy, transactional ledger import and post-import comparison before enabling authoritative admission, plus integrated deletion/reference evidence against RGW.
+- Exact-release existing registry inventory against a disposable RGW copy,
+  representative transactional import and exact SQL comparison, writer
+  exclusion plus authenticated live Distribution comparison before enabling
+  authoritative admission, and integrated deletion/reference evidence against
+  RGW.
 
 Until every relevant gate passes, this implementation is a verified PoC baseline and must not be represented as a production-ready quota service.

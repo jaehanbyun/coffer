@@ -129,6 +129,40 @@ class InventoryImportResult:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class InventoryDescriptorFact:
+    digest: str
+    size: int
+    reference_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryReservationFact:
+    reservation_id: str
+    project_id: str
+    repository_id: str
+    manifest_digest: str
+    descriptors: tuple[Descriptor, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryProjectLedgerFact:
+    project_id: str
+    logical_bytes: int
+    descriptors: tuple[InventoryDescriptorFact, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryLedgerFacts:
+    request_id: str
+    reservations: tuple[InventoryReservationFact, ...]
+    projects: tuple[InventoryProjectLedgerFact, ...]
+
+    @property
+    def reservation_descriptor_count(self) -> int:
+        return sum(len(item.descriptors) for item in self.reservations)
+
+
 def _fail(message: str) -> InvalidInventoryArtifact:
     return InvalidInventoryArtifact(message)
 
@@ -477,7 +511,7 @@ def load_inventory_artifact(path: Path, *, expected_digest: str) -> InventoryArt
     return parse_inventory_artifact(value, artifact_digest=actual)
 
 
-_IMPORT_SCOPE = "baseline"
+INVENTORY_IMPORT_SCOPE = "baseline"
 _MAX_TRANSACTION_ATTEMPTS = 3
 _RESERVATION_NAMESPACE = uuid.uuid5(
     uuid.NAMESPACE_URL,
@@ -502,6 +536,66 @@ def _reservation_id(
                 )
             ),
         )
+    )
+
+
+def build_inventory_ledger_facts(
+    artifact: InventoryArtifact,
+) -> InventoryLedgerFacts:
+    reference_counts: dict[str, Counter[str]] = {
+        project.project_id: Counter() for project in artifact.projects
+    }
+    reservations: list[InventoryReservationFact] = []
+    for repository in artifact.repositories:
+        for manifest in repository.manifests:
+            graph = {
+                descriptor.digest: Descriptor(descriptor.digest, descriptor.size)
+                for descriptor in manifest.references
+            }
+            own = Descriptor(manifest.digest, manifest.size)
+            existing = graph.get(own.digest)
+            if existing is not None and existing != own:
+                raise InvalidInventoryArtifact(
+                    "manifest self descriptor conflicts with its references"
+                )
+            graph[own.digest] = own
+            reference_counts[repository.project_id].update(graph.keys())
+            reservations.append(
+                InventoryReservationFact(
+                    reservation_id=_reservation_id(
+                        artifact,
+                        repository,
+                        manifest,
+                    ),
+                    project_id=repository.project_id,
+                    repository_id=repository.repository_id,
+                    manifest_digest=manifest.digest,
+                    descriptors=tuple(
+                        descriptor for _, descriptor in sorted(graph.items())
+                    ),
+                )
+            )
+    projects = tuple(
+        InventoryProjectLedgerFact(
+            project_id=project.project_id,
+            logical_bytes=project.logical_bytes,
+            descriptors=tuple(
+                InventoryDescriptorFact(
+                    digest=descriptor.digest,
+                    size=descriptor.size,
+                    reference_count=reference_counts[project.project_id][
+                        descriptor.digest
+                    ],
+                )
+                for descriptor in project.descriptors
+            ),
+        )
+        for project in artifact.projects
+    )
+    return InventoryLedgerFacts(
+        request_id=f"inventory:{artifact.digest.removeprefix('sha256:')}",
+        reservations=tuple(reservations),
+        projects=projects,
     )
 
 
@@ -631,7 +725,7 @@ def _import_inventory_once(
     with store._writer() as connection:
         marker = connection.execute(
             select(quota_inventory_imports)
-            .where(quota_inventory_imports.c.scope == _IMPORT_SCOPE)
+            .where(quota_inventory_imports.c.scope == INVENTORY_IMPORT_SCOPE)
             .with_for_update()
         ).first()
         if marker is not None:
@@ -641,7 +735,7 @@ def _import_inventory_once(
 
         connection.execute(
             insert(quota_inventory_imports).values(
-                scope=_IMPORT_SCOPE,
+                scope=INVENTORY_IMPORT_SCOPE,
                 inventory_digest=artifact.digest,
                 project_count=artifact.summary.project_count,
                 repository_count=artifact.summary.repository_count,
@@ -652,63 +746,46 @@ def _import_inventory_once(
         )
         quota_limits = _require_authority(connection, artifact)
 
-        reference_counts: dict[str, Counter[str]] = {
-            project.project_id: Counter() for project in artifact.projects
-        }
-        request_id = f"inventory:{artifact.digest.removeprefix('sha256:')}"
-        for repository in artifact.repositories:
-            for manifest in repository.manifests:
-                graph = {
-                    descriptor.digest: Descriptor(descriptor.digest, descriptor.size)
-                    for descriptor in manifest.references
-                }
-                own = Descriptor(manifest.digest, manifest.size)
-                existing = graph.get(own.digest)
-                if existing is not None and existing != own:
-                    raise InvalidInventoryArtifact(
-                        "manifest self descriptor conflicts with its references"
-                    )
-                graph[own.digest] = own
-                reference_counts[repository.project_id].update(graph.keys())
-                reservation_id = _reservation_id(artifact, repository, manifest)
-                connection.execute(
-                    insert(quota_reservations).values(
-                        id=reservation_id,
-                        project_id=repository.project_id,
-                        repository_id=repository.repository_id,
-                        manifest_digest=manifest.digest,
-                        request_id=request_id,
-                        state="committed",
-                        version=1,
-                        delta_bytes=0,
-                        created_at=imported_at,
-                        updated_at=imported_at,
-                    )
+        facts = build_inventory_ledger_facts(artifact)
+        for reservation in facts.reservations:
+            connection.execute(
+                insert(quota_reservations).values(
+                    id=reservation.reservation_id,
+                    project_id=reservation.project_id,
+                    repository_id=reservation.repository_id,
+                    manifest_digest=reservation.manifest_digest,
+                    request_id=facts.request_id,
+                    state="committed",
+                    version=1,
+                    delta_bytes=0,
+                    created_at=imported_at,
+                    updated_at=imported_at,
                 )
-                if graph:
-                    connection.execute(
-                        insert(quota_reservation_descriptors),
-                        [
-                            {
-                                "reservation_id": reservation_id,
-                                "digest": descriptor.digest,
-                                "size": descriptor.size,
-                            }
-                            for _, descriptor in sorted(graph.items())
-                        ],
-                    )
+            )
+            if reservation.descriptors:
                 connection.execute(
-                    insert(quota_manifests).values(
-                        project_id=repository.project_id,
-                        repository_id=repository.repository_id,
-                        digest=manifest.digest,
-                        reservation_id=reservation_id,
-                        state="committed",
-                        updated_at=imported_at,
-                    )
+                    insert(quota_reservation_descriptors),
+                    [
+                        {
+                            "reservation_id": reservation.reservation_id,
+                            "digest": descriptor.digest,
+                            "size": descriptor.size,
+                        }
+                        for descriptor in reservation.descriptors
+                    ],
                 )
+            connection.execute(
+                insert(quota_manifests).values(
+                    project_id=reservation.project_id,
+                    repository_id=reservation.repository_id,
+                    digest=reservation.manifest_digest,
+                    reservation_id=reservation.reservation_id,
+                    state="committed",
+                    updated_at=imported_at,
+                )
+            )
 
-        for project in artifact.projects:
+        for project in facts.projects:
             if project.descriptors:
                 connection.execute(
                     insert(quota_descriptors),
@@ -717,9 +794,7 @@ def _import_inventory_once(
                             "project_id": project.project_id,
                             "digest": descriptor.digest,
                             "size": descriptor.size,
-                            "reference_count": reference_counts[
-                                project.project_id
-                            ][descriptor.digest],
+                            "reference_count": descriptor.reference_count,
                         }
                         for descriptor in project.descriptors
                     ],
@@ -792,7 +867,7 @@ def _result_after_transaction_error(
         with store._reader() as connection:
             marker = connection.execute(
                 select(quota_inventory_imports).where(
-                    quota_inventory_imports.c.scope == _IMPORT_SCOPE
+                    quota_inventory_imports.c.scope == INVENTORY_IMPORT_SCOPE
                 )
             ).first()
             if marker is None:

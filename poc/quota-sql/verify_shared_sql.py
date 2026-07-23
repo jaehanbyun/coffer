@@ -14,7 +14,7 @@ import threading
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, func, inspect, insert, select, text
+from sqlalchemy import create_engine, func, inspect, insert, select, text, update
 from sqlalchemy.engine import URL
 from sqlalchemy.exc import DBAPIError
 
@@ -52,6 +52,10 @@ from coffer.quota_import import (
     InventoryImportFailed,
     import_inventory,
     parse_inventory_artifact,
+)
+from coffer.quota_import_verification import (
+    InventoryVerificationFailed,
+    verify_inventory_import,
 )
 
 
@@ -576,6 +580,30 @@ def exercise_inventory_import(
         assert table_count(connection, quota_manifests) == 2
         assert table_count(connection, quota_descriptors) == 4
 
+    verification = verify_inventory_import(stores[0], artifact)
+    assert verification.status == "verified"
+    assert verification.reservation_descriptor_count == 5
+    assert verification.over_limit_project_count == 1
+    with stores[0]._engine.begin() as connection:
+        connection.execute(
+            update(quota_manifests)
+            .where(quota_manifests.c.digest == failing_digest)
+            .values(state="released")
+        )
+    try:
+        verify_inventory_import(stores[1], artifact)
+    except InventoryVerificationFailed:
+        pass
+    else:
+        raise AssertionError("post-import manifest drift passed verification")
+    with stores[0]._engine.begin() as connection:
+        connection.execute(
+            update(quota_manifests)
+            .where(quota_manifests.c.digest == failing_digest)
+            .values(state="committed")
+        )
+    assert verify_inventory_import(stores[1], artifact).status == "verified"
+
     different = replace(artifact, digest=f"sha256:{'9' * 64}")
     try:
         import_inventory(stores[1], different)
@@ -586,6 +614,8 @@ def exercise_inventory_import(
     return {
         "atomic_failure_rollback": True,
         "different_baseline_rejected": True,
+        "drifted_ledger_rejected": True,
+        "exact_ledger_verified": True,
         "exact_replay_noop": True,
         "one_writer": True,
         "over_limit_usage_recorded": True,

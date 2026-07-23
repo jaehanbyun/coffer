@@ -45,6 +45,13 @@ deadlock 1213; the importer now uses a three-attempt whole-transaction retry
 limited to known MySQL/PostgreSQL deadlock, lock-timeout, and serialization
 codes.
 
+The harness next runs `coffer-verify-inventory-import` semantics in one read-only
+repeatable snapshot. Both engines accept the exact marker, authority, counters,
+timestamps, reservations, edges, manifests, descriptors, and zero-claim state;
+reject a released-manifest mutation with the fixed mismatch class; and accept the
+restored ledger. The result is bounded SQL equality evidence, not writer
+exclusion, authenticated live Distribution comparison, or cutover approval.
+
 Cleanup proves that no labeled container, volume, network, or generated
 credential remains.
 

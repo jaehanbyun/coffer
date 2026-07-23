@@ -1,14 +1,14 @@
 # Coffer Handoff
 
 - Updated: 2026-07-23
-- Status: plan 0009 complete and ready for atomic publication; no production cutover is authorized
-- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`
+- Status: plan 0010 complete and ready for atomic publication; no production cutover is authorized
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: none until the next bounded work package is activated after publication
 
 ## Current Objective
 
-Publish the completed disposable transactional inventory-import baseline atomically, then activate the next bounded read-only/disposable work package. Production deployment, credentials, maintenance authorization, backup/rollback, Galera policy, admission cutover, and restart-correct metric aggregation remain outside authorization or unproven.
+Publish the completed read-only post-import ledger-comparison baseline atomically, then activate the next bounded safe/disposable work package. Production deployment, live Distribution/RGW comparison, credentials, maintenance authorization, backup/rollback, Galera policy, admission cutover, and restart-correct metric aggregation remain outside authorization or unproven.
 
 ## Completed
 
@@ -105,6 +105,8 @@ Publish the completed disposable transactional inventory-import baseline atomica
 - Added proposed ADR 0012 and completed the production refusal/cutover boundary across README, architecture, ADRs 0009–0011, inventory/quota runbooks, and the shared-SQL guide. The importer is verified PoC evidence only and does not authorize production data access, maintenance, SQL writes, or admission enablement.
 - Completed plan 0009 regression: 174 tests pass on each Python 3.11.14, 3.12.2, and 3.13.14; lock, compile, Alembic head, installed CLIs, Go, 58 Bash/ShellCheck files, six Compose models, 54 Make dry-runs, 54 Markdown files, 32 local links, 99 external links, diff, and secret-safety checks pass. The successful shared-SQL run removed every disposable resource and generated credential.
 - The final inventory-fixture rerun was not repeated because Podman 5.6.0/libkrun began exiting immediately after reporting successful boot. Two non-destructive retries reproduced it; the machine is stopped and no VM/data was recreated. Plan 0008's live inventory fixture and plan 0009's successful PostgreSQL/MariaDB run remain the relevant completed evidence.
+- Published plan 0009 as commit `5e9b02e` to `jaehanbyun/coffer` `main`; local and remote heads match and the worktree was clean.
+- Activated plan 0010 to compare the immutable marker and complete imported ledger against the same canonical artifact from one read-only repeatable SQL snapshot. The result is bounded equality evidence, not cutover readiness or authorization.
 
 ## Decisions and Reasons
 
@@ -243,7 +245,10 @@ Publish the completed disposable transactional inventory-import baseline atomica
 - `make -C poc/inventory verify` passed against pinned unmodified Distribution v3.1.1: API tags=1, storage manifests=2 including one digest-only untagged index, snapshot scans equal, four descriptors, registry/control hashes unchanged, both digests readable after restart, zero labeled/runtime/state residue, and Podman stopped.
 - Plan 0009 import verification passed on SQLite, PostgreSQL 17.10, and MariaDB 11.4.12: forced second-row failure leaves no marker or ledger state; concurrent exact import converges to one writer and one no-op; a different baseline fails; exact graph counts are 2 reservations, 5 edges, 2 manifests, and 4 descriptors; used/reserved bytes are 220/0 at limit 10; all disposable resources and credentials are removed.
 - Plan 0009 final regression passed with 174 tests per Python 3.11/3.12/3.13, only expected WebOb warnings on 3.11/3.12, Alembic head `0004_inventory_import`, three installed CLI helps, lock/compile, Go format/test/vet, 58 Bash/ShellCheck files, six Docker Compose models, 54 Make dry-runs, 54 Markdown files, 32 local links, 99 external links, and diff checks.
-- The first Python 3.11/3.12 commands lacked installed console scripts in disposable ignored environments; editable installation of the current checkout and explicit venv `PATH` corrected the command and all 174 tests passed. The final live fixture retry was blocked by the local Podman 5.6.0/libkrun machine exiting immediately after reported boot; no destructive repair was attempted.
+- The first Python 3.11/3.12 commands lacked installed console scripts in disposable ignored environments; editable installation of the current checkout and explicit venv `PATH` corrected the command and all 174 tests passed. The final live fixture retry initially appeared blocked because the local Podman 5.6.0/libkrun machine exited after startup. Plan 0010 proved this was the noninteractive command lifecycle terminating the VM child, not VM corruption; a persistent PTY required no recreation or data reset.
+- Plan 0010 focused verification passes 38 import/comparison tests covering exact state, marker false positives, all ledger classes including timestamp drift, extra claims/rows, allowed empty authority, absence of DML, one snapshot across a concurrent commit, fixed secret-safe CLI output, and environment-only database configuration. The concurrency test exposed sqlite3's deferred `BEGIN`; the comparator now explicitly fixes the SQLite read-only snapshot before its first SELECT.
+- Plan 0010 shared-SQL verification passed on PostgreSQL 17.10 and MariaDB 11.4.12: each accepted exact imported state, rejected a released-manifest mutation, accepted the restored ledger, retained all prior import/concurrency/reconciliation/adoption checks, and ended with zero runtime and credential residue. The Podman machine is stopped.
+- Plan 0010 final regression passed with 189 tests on each Python 3.11.14, 3.12.2, and 3.13.14; lock, compile, Alembic head, four installed CLIs, Go, 58 Bash/ShellCheck files, six Compose models, 54 Make dry-runs, 54 Markdown files, 33 local links, 99 external links, private-key/JWT scans, and diff checks all pass. The final shared-SQL rerun ended with zero residue and Podman `Running:false`.
 
 ## Blockers and Risks
 
@@ -266,12 +271,14 @@ Publish the completed disposable transactional inventory-import baseline atomica
 - Local bounded Prometheus metrics now exist, but process-local counters cannot be considered correct under the reference two-worker Gunicorn model until aggregation/restart semantics are selected and tested.
 - MariaDB 11.4.12 can return an empty safe claim batch to one caller while another transaction range-locks part of the backlog. The verified bounded retry recovers the remaining work, but production scheduler cadence, jitter, deadlock retry, and Galera behavior remain gates.
 - Multipass 1.16.3 was not installed. Its checksum matched Homebrew and its Canonical Developer ID signature was valid, but Gatekeeper rejected it as unnotarized. No bypass was attempted; preinstalled Lima 2.1.4 is the selected VM provider.
-- The local Podman 5.6.0/libkrun machine currently exits immediately after reporting a successful start. Static Compose validation passes through Docker Compose, and the last live plan 0008 inventory and plan 0009 shared-SQL runs passed with zero residue; VM recreation or data reset was not authorized or attempted.
+- Podman 5.6.0/libkrun must stay attached to a persistent PTY in this app for disposable live harnesses; completing the noninteractive cell terminates its VM child. Plan 0010 passed both shared-SQL engines this way with zero residue, so VM recreation or data reset is neither needed nor authorized.
 
 ## Exact Next Action
 
-Stage only the plan 0009 file set, run staged secret and cached-diff checks, commit once as `feat: add transactional inventory import`, verify the active GitHub account is `jaehanbyun`, and atomically push only if remote `main` is still `65bdace`.
+Stage only the plan 0010 file set, run staged Gitleaks and cached-diff checks,
+commit once as `feat: verify imported quota ledger`, verify the GitHub account,
+and atomically push from the published remote head `5e9b02e`.
 
 ## After This Work Package
 
-Authenticated post-import comparison/admission-cutover design, production scheduler/Galera and restart-correct observability policy, separate-host/load-balancer HA, native Referrers, and destructive GC remain distinct future work packages. The next safe package should design and test the comparison/cutover contract only against disposable evidence; it must not access production or enable admission.
+Authenticated live Distribution comparison/admission-cutover design, production scheduler/Galera and restart-correct observability policy, separate-host/load-balancer HA, native Referrers, and destructive GC remain distinct future work packages. Plan 0010 tests only database equality against disposable evidence; it must not access production or enable admission.

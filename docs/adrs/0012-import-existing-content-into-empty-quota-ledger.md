@@ -3,7 +3,7 @@
 - Status: proposed
 - Date: 2026-07-23
 - Decision owners: Coffer maintainers
-- Related plan: `docs/exec-plans/0009-transactional-inventory-import.md`
+- Related plans: `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`
 - Related ADRs: `docs/adrs/0009-add-private-edge-manifest-quota-admission.md`, `docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md`
 - Related runbooks: `docs/runbooks/existing-content-inventory.md`, `docs/runbooks/quota-schema-reconciliation.md`
 
@@ -60,6 +60,19 @@ these rules:
    serialization/deadlock SQLSTATEs 40001/40P01. Between attempts, a committed
    matching marker converts the contender to an exact no-op. Other database or
    constraint failures return failure without a marker or partial ledger.
+9. `coffer-verify-inventory-import` reparses the same canonical artifact and
+   supplied SHA-256, derives the import facts through the importer's shared pure
+   fact builder, and compares the complete ledger in one read-only repeatable
+   database snapshot. It requires the singleton marker, exact repository
+   authority, quota counters/timestamps, reservations, descriptor edges,
+   manifests, project-unique descriptor reference counts, and zero claims. It
+   permits unrelated empty control repositories and zero-usage quota rows, but
+   rejects every unrelated ledger row or nonzero counter.
+10. Comparator success is named `verified`, never `ready` or
+    `cutover-approved`. Mismatch returns one fixed refusal without tenant,
+    repository, manifest, descriptor, database URL, credential, or SQL detail.
+    The database URL remains environment-only and comparison never repairs or
+    writes ledger state.
 
 This is a PoC import contract, not authorization to execute against a production
 database or declare quota authoritative.
@@ -79,8 +92,10 @@ database or declare quota authoritative.
   MariaDB, or Galera. Production promotion requires representative duration,
   lock, WAL/binlog, certification, timeout, backup, and rollback evidence.
 - The marker records import completion, not proof that Distribution stayed
-  stopped, the backup is restorable, or post-import comparison passed. Those
-  remain external operator gates.
+  stopped, the backup is restorable, or live Distribution content still equals
+  the artifact. The read-only comparator closes marker-versus-ledger equality at
+  one instant only; writer exclusion and live-content evidence remain external
+  operator gates.
 
 ## Alternatives Rejected for the PoC
 
@@ -111,6 +126,10 @@ prove:
   `already_imported`; a different digest is rejected;
 - used/reserved bytes become 220/0 with a configured limit of 10, and a novel
   descriptor is denied; and
+- the read-only comparator accepts the exact imported ledger, rejects marker,
+  authority, counter, timestamp, reservation, edge, manifest, descriptor,
+  claim, and extra-row drift with a fixed message, and accepts the restored
+  ledger on both pinned shared-SQL engines without issuing DML; and
 - all disposable containers, volumes, networks, database passwords, and state
   are removed after verification.
 
@@ -120,9 +139,10 @@ Before accepting this ADR for a production candidate, maintainers still need:
   representative production-scale data;
 - a restorable, consistency-defined backup of Distribution/RGW and Coffer SQL,
   plus explicit maintenance/import/rollback owners and approvals;
-- write exclusion across every ingress and replica, an admission-off proof, and
-  an authenticated comparison of the imported ledger to the signed inventory
-  before service restoration;
+- write exclusion across every ingress and replica, an admission-off proof, the
+  read-only exact ledger comparison, and an authenticated comparison of live
+  Distribution digest availability to the signed inventory before service
+  restoration;
 - measured transaction/chunking, timeout, lock, WAL/binlog, deadlock, Galera,
   crash, and capacity behavior at representative scale;
 - a reviewed rollback or forward-repair design that cannot lose the marker or

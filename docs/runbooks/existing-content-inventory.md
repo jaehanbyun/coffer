@@ -2,7 +2,7 @@
 
 - Status: verified read-only filesystem PoC; not a production import procedure
 - Related ADRs: `docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md`, `docs/adrs/0012-import-existing-content-into-empty-quota-ledger.md`
-- Related plans: `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`
+- Related plans: `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`
 
 ## Purpose
 
@@ -89,17 +89,20 @@ The following is a design checklist, not an executable production procedure:
    aggregate to expected repository/manifest ranges.
 7. If any refusal condition or observed change occurs, discard the candidate,
    keep admission disabled, restore normal service deliberately, and investigate.
-8. Perform the separately reviewed transactional ledger import and post-import
-   comparison. Enable quota admission only after exact comparison and rollback
-   readiness pass.
+8. Perform the separately reviewed transactional ledger import, then run the
+   read-only exact ledger comparator against the same signed artifact and digest.
+   Separately compare authenticated live Distribution digest availability.
+   Enable quota admission only after every comparison, writer-exclusion, and
+   rollback-readiness gate passes with explicit authorization.
 9. Remove transient authority/evidence material according to the approved
    retention policy and restore writers through a controlled rollout.
 
 The checked-in filesystem helper cannot perform steps 4–7 against production
-RGW. `coffer-import-inventory` implements the disposable SQL semantics for step
-8, but it cannot establish writer exclusion, backup/restore, production
-authorization, representative capacity, post-import comparison, rollback
-readiness, or permission to enable admission. Those remain explicit gates.
+RGW. `coffer-import-inventory` and `coffer-verify-inventory-import` implement the
+disposable SQL import/comparison semantics for step 8, but neither establishes
+writer exclusion, backup/restore, production authorization, representative
+capacity, authenticated live content availability, rollback readiness, or
+permission to enable admission. Those remain explicit gates.
 
 ## Disposable Verification
 
@@ -142,9 +145,11 @@ authority and a canonical in-memory artifact on PostgreSQL 17.10 and MariaDB
 11.4.12. It forces the second manifest row to fail and observes zero marker and
 ledger rows, then proves concurrent one-writer/exact-no-op convergence, a
 different-baseline refusal, exact 2/5/2/4 reservation-edge-manifest-descriptor
-shape, and honest 220-byte usage against a 10-byte limit. It never connects to
-Distribution/RGW or enables admission and removes all runtime state and random
-database passwords.
+shape, and honest 220-byte usage against a 10-byte limit. It then verifies the
+complete ledger in one read-only repeatable snapshot, rejects a released-manifest
+mutation, restores the row, and verifies the exact ledger again. It never
+connects to Distribution/RGW or enables admission and removes all runtime state
+and random database passwords.
 
 ## Separately Approved Next Work
 
@@ -153,10 +158,12 @@ database passwords.
 - Run read-only against a disposable RGW copy with a non-writing role.
 - Qualify transaction duration, locks, WAL/binlog, deadlock, crash, capacity,
   chunking, and Galera behavior with a representative disposable copy.
-- Implement and approve the authenticated post-import comparison, admission
-  switch, and rollback/forward-repair procedure without permitting re-baseline
+- Qualify the exact SQL comparator at representative scale, implement and
+  approve authenticated live Distribution comparison, and design the admission
+  switch plus rollback/forward-repair procedure without permitting re-baseline
   resurrection.
 - Add large-inventory memory/time bounds and evidence chunk storage/retention.
 
 Until those gates pass, `coffer.inventory/v1` is verified PoC evidence only and
-must not be represented as an imported or production-authoritative quota ledger.
+must not be represented as a production-imported or production-authoritative
+quota ledger.
