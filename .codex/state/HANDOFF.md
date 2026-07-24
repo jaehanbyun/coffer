@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; RGW HA endpoint and private S3 fixture healthy
+- Status: plan 0018 active; external RGW HA healthy and Kolla controllers prepared
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -250,6 +250,30 @@ signed Distribution v3.1.1 binary.
   source/venv commit, owner/modes, certificate, Ansible connectivity, zero
   containers/VIPs, and healthy external RGW before writing the Kolla lifecycle
   runner.
+- Preserved the controller preparation harness in local commit `1b4785f`.
+  Four resumable invocations then exposed and corrected, without starting
+  Kolla, the venv `PATH`, generated-password mode, dedicated-known-hosts, and
+  post-cleanup assertion contracts. Those corrections are preserved through
+  local commit `d7cd2f6`.
+- The final idempotent preparation passed. Controller-1 is the sole recipient
+  of the mode-0600 deployment private key and owns the exact Kolla source,
+  venv, root-only passwords, and verified 14-day external-VIP certificate.
+  Controllers 1 through 3 each have exactly one matching public-key marker
+  and all three Ansible pings return `pong`.
+- Independent read-only acceptance confirms the pinned
+  `cec5b77ddc0af37e9b9a8df92f7458ae014fb5dc` checkout, required generated
+  password fields without disclosing values, certificate chain/SAN, absent
+  transfer files, absent Docker/Kolla runtime, and absent internal/external
+  VIPs. Controller-2/3 have no private key, owner state, or `/etc/kolla`.
+- The independent external-storage audit still reports three-MON quorum,
+  three of three OSDs up/in, three RGWs, two ingress pairs, zero inactive or
+  unclean PGs, and `HEALTH_OK`.
+- Exact next action: implement and locally validate a phase-selectable
+  `poc/kolla-ha/run-kolla-lifecycle.sh` plus its controller-1 guest helper.
+  It must admit only `bootstrap`, `prechecks`, `pull`, `deploy`, and read-only
+  `status` actions, retain owner-only logs, bound each action, and recheck
+  external RGW health. Do not invoke `bootstrap-servers` until that harness is
+  committed and its refusal/allowlist contracts pass.
 
 ## Plan 0017 Completion
 
