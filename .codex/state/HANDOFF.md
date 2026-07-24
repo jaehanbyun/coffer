@@ -348,6 +348,18 @@ signed Distribution v3.1.1 binary.
   `poc/kolla-ha/run-kolla-lifecycle.sh pull
   jh.byun@100.123.168.66`. Do not deploy unless all three nodes have images,
   the root-only pull marker passes, and external RGW remains healthy.
+- The exact pull phase passed with `failed=0` and `unreachable=0` on all three
+  controllers. Each has 12 images and the sorted reference/digest set has the
+  same SHA-256
+  `2db835fbf628fe2b747ad44c27f9c8685d72547876fb7f8e0cbaa9228c6fee27`.
+- Independent status reports only `bootstrap,prechecks,pull` complete, Docker
+  active `3/3`, 12 images per node, and zero containers or VIPs. All three
+  markers/logs are root-only and the deploy marker is absent. External
+  Ceph/RGW remains fully healthy.
+- Exact next action: invoke only
+  `poc/kolla-ha/run-kolla-lifecycle.sh deploy
+  jh.byun@100.123.168.66`. On failure, do not create a deploy marker or start
+  Coffer; audit the exact Kolla partial state and recover the baseline first.
 
 ## Plan 0017 Completion
 
