@@ -114,7 +114,7 @@ promotion while ADR 0006 remains blocked.
       address plan, capacity budget, failure domains, and stop conditions.
 - [x] Add the secret-safe Stage 5 host-audit and exact provision/destroy
       harnesses, then prove dry-run and negative-target behavior locally.
-- [ ] Provision the isolated storage and controller guests, bootstrap external
+- [x] Provision the isolated storage and controller guests, bootstrap external
       Ceph/RGW HA and Kolla multinode, and record only aggregate health facts.
 - [ ] Build or resolve immutable functional pilot images through the
       independent bootstrap path and deploy the Coffer companion role with
@@ -934,6 +934,33 @@ promotion while ADR 0006 remains blocked.
   `deploy`. The rotated credential has already reconciled and does not need a
   second rotation.
 
+### 2026-07-24 — Three-controller Kolla HA baseline accepted
+
+- Completed: Preserved the owner-local probe correction in commit `ea7e388`
+  and reran only deploy. Controller-1 changed three tasks and controller-2/3
+  changed zero; all hosts finished with `failed=0` and `unreachable=0`.
+- Runtime evidence: Lifecycle status reports all four phases complete, Docker
+  active `3/3`, and 12 running/healthy containers per controller. All three
+  have the identical 12-name container set. Internal/external VIPs have one
+  owner each; the owner-local external check returns trusted TLS 200 and
+  denies untrusted TLS and plaintext.
+- Quorum evidence: Galera reports three members, `Primary`, `Synced`, ready,
+  and connected. RabbitMQ reports three running nodes and zero partitions.
+  A real Keystone admin token is issued through the internal VIP with
+  internal/public identity catalog interfaces.
+- Secret evidence: All four exact markers and five lifecycle/check logs are
+  `root:root:0600`. Raw, URL-encoded, and base64-encoded generated values plus
+  Basic/Bearer Authorization patterns are absent after the credential
+  rotation and guarded deploy.
+- Storage boundary: External Ceph/RGW still reports three-MON quorum, three
+  up/in OSDs, three RGWs, two ingress pairs, zero inactive/unclean PGs, and
+  `HEALTH_OK`.
+- Next exact action: Inspect the existing companion-role and Stage 4 image
+  contracts read-only, then add a mutation-free Stage 5 Coffer HA preflight.
+  It must resolve x86_64 functional image digests through the independent
+  bootstrap path and prove exact service groups, ports, RGW inputs, database
+  ownership, TLS recipients, and zero pre-existing Coffer state before deploy.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -953,8 +980,9 @@ promotion while ADR 0006 remains blocked.
 | Storage VM fault | exact storage-3 power loss, degraded reads, full recovery | passed; 5 outage reads and independent 3-node recovery |
 | Kolla controller preflight | pinned inventory/globals and three clean controller guests | passed mutation-free; external RGW remains healthy |
 | Kolla prepare harness | owner/recipient boundaries, pinned tooling, secrets, stop gate | passed live and independently audited; runtime/VIPs remain absent |
-| Kolla lifecycle harness | phase allowlist, ordering, timeouts, logs, markers, status, storage boundary | deploy services passed; log-secret gate failed, corrected guard and credential rotation pending |
-| Kolla/Galera/Coffer baseline | multinode deploy and health acceptance | pending |
+| Kolla lifecycle harness | phase allowlist, ordering, timeouts, logs, markers, status, storage boundary | passed after no-log guard, credential rotation, and owner-local VIP probe |
+| Kolla/Galera baseline | multinode deploy, quorums, identity, TLS, and secret acceptance | passed; 36 healthy containers, Galera/RabbitMQ three-node quorums |
+| Coffer HA baseline | companion deploy and replicated service acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | pending |
 | OCI and isolation | two-project clients through sole external edge | pending |
 | Fault and recovery matrix | allowlisted per-replica failures and restore checks | pending |
@@ -991,13 +1019,11 @@ promotion while ADR 0006 remains blocked.
   inventory and clean-state preflight pass without mutation. Controller
   preparation and its independent recipient/secret/tooling/no-runtime audit
   pass; Kolla bootstrap has not run and both Kolla VIPs remain absent.
-- Exact next action: Preserve the lifecycle log guard, rotate only the exposed
-  disposable monitoring password, then rerun and independently accept only
-  the lifecycle runner's `deploy` phase.
+- Exact next action: Implement and pass the mutation-free Stage 5 Coffer HA
+  deployment preflight.
 - First file or command:
-  `git commit` for the log guard, followed by the bounded owner-only password
-  rotation and `poc/kolla-ha/run-kolla-lifecycle.sh deploy
-  jh.byun@100.123.168.66`.
+  Read `poc/kolla-ansible-role/` and the completed Stage 4 image/deploy
+  contracts, then create `poc/kolla-ha/preflight-coffer-ha.sh`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

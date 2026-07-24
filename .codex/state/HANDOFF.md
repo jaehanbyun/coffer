@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; external RGW HA healthy and Kolla controllers prepared
+- Status: plan 0018 active; external RGW and Kolla control-plane HA baselines healthy
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -413,6 +413,27 @@ signed Distribution v3.1.1 binary.
 - Exact next action: commit the VIP-owner probe correction locally and rerun
   only `deploy`. No further credential rotation is needed because the guarded
   reconciliation and new-log scan already passed.
+- Preserved the probe correction in local commit `ea7e388` and reran only
+  `deploy`. It converged with controller-1 changing three tasks and
+  controller-2/3 changing zero, with `failed=0` and `unreachable=0`.
+- Final lifecycle status reports `bootstrap,prechecks,pull,deploy` complete,
+  Docker active `3/3`, 12 running/healthy containers per controller, the same
+  12-name container set on each host, and exactly one owner for each VIP.
+  The current owner-local external probe returns trusted TLS 200 and denies
+  untrusted TLS and plaintext.
+- Independent acceptance confirms four exact root-only markers, all lifecycle
+  logs root-only and free of raw/URL/base64 generated credentials or
+  Authorization tokens, Galera at three members `Primary`/`Synced`, RabbitMQ
+  at three running nodes with zero partitions, and a working Keystone admin
+  token with internal/public identity endpoints.
+- External Ceph/RGW remains at three-MON quorum, three up/in OSDs, three RGWs,
+  two ingress pairs, zero inactive/unclean PGs, and `HEALTH_OK`.
+- Exact next action: inspect the existing companion-role and Stage 4 immutable
+  image contracts read-only, then implement a mutation-free Stage 5 Coffer HA
+  preflight. It must resolve x86_64 functional image digests through the
+  independent bootstrap path, exact service inventory/ports, external RGW
+  inputs, Galera database ownership, TLS recipients, and zero existing Coffer
+  state before any companion deploy.
 
 ## Plan 0017 Completion
 
