@@ -104,7 +104,7 @@ discover_external_owner() {
     external_owner_address=""
     external_owner_hostname=""
     for index in "${!addresses[@]}"; do
-        if sudo -u ubuntu ssh \
+        if sudo -u ubuntu ssh -n \
             "${ssh_options[@]}" "ubuntu@${addresses[${index}]}" \
             "ip -4 -o address show dev ens5 |
                 grep -Fq '192.168.254.10/32'"; then
@@ -401,17 +401,17 @@ stage_owner_client() {
     }
 
     discover_external_owner
-    sudo -u ubuntu ssh \
+    sudo -u ubuntu ssh -n \
         "${ssh_options[@]}" "ubuntu@${external_owner_address}" \
         sudo install -d -o root -g root -m 0700 "${client_root}"
     stream_owner_file "${client_root}/client.json" \
         <"${temporary_root}/client.json"
     stream_owner_file "${client_root}/ca.crt" <"${kolla_ca}"
-    sudo -u ubuntu ssh \
+    sudo -u ubuntu ssh -n \
         "${ssh_options[@]}" "ubuntu@${external_owner_address}" \
         sudo chown root:root \
         "${client_root}/client.json" "${client_root}/ca.crt"
-    sudo -u ubuntu ssh \
+    sudo -u ubuntu ssh -n \
         "${ssh_options[@]}" "ubuntu@${external_owner_address}" \
         sudo chmod 0600 \
         "${client_root}/client.json" "${client_root}/ca.crt"
