@@ -1267,6 +1267,32 @@ promotion while ADR 0006 remains blocked.
   independently audit recipient, temporary-residue, runtime, database, and
   catalog boundaries.
 
+### 2026-07-24 — Companion preparation accepted idempotently
+
+- Completed: Preserved the marker-first gate correction in commit `3182f90`.
+  A repeated complete `prepare` passed the integrated `ready` gate and
+  returned `idempotent=yes` without invoking the image-phase absence contract.
+- Idempotency evidence: A server-side metadata snapshot covering the three
+  companion markers, inventory, globals, input directories, and every public
+  and secret input was identical before and after the repeat. No credential
+  content or content-derived digest was emitted.
+- Independent acceptance: `status` validates the four exact groups, all
+  owner/mode contracts, signing/JWKS and backend/RGW certificates,
+  primary-only RGW credentials, identical images, the accepted sentinel, 36
+  healthy Kolla containers, and no Coffer runtime, database, catalog, or
+  fixed temporary transfer path. Controller-2/3 retain no private deployment
+  key, owner state, or custom input tree.
+- Verification: Bash syntax, ShellCheck, Python compilation, YAML parsing,
+  refusal and forbidden-mutation scans, Gitleaks, two rollback rehearsals,
+  paired `ready` gates, complete-repeat metadata comparison, and independent
+  complete status pass.
+- Next exact action: Add a bounded companion lifecycle wrapper admitting only
+  `status`, `prechecks`, and `deploy`. It must run the pinned
+  `ansible/kolla-ansible-coffer` entry point from controller-1 with exact
+  inventory/globals, root-only no-log logs and markers, timeouts, independent
+  pre/post acceptance, and no action invocation before the harness is
+  committed.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1292,6 +1318,7 @@ promotion while ADR 0006 remains blocked.
 | Kolla production profile preparation | exact certificate/globals mutation, rollback, idempotency, no runtime reload | passed; source prepared and runtime unchanged |
 | Kolla production profile reconfigure | internal/external TLS, single frontend, catalog, quorums, logs, absent Coffer | passed idempotently; 36 healthy containers |
 | Coffer image build/distribution | pins, owner/resume boundary, direct transfer, identical IDs, idempotency | passed; two exact images on three controllers, runtime absent |
+| Coffer companion preparation | inventory, inputs, direct RGW transfer, rollback, idempotency, absent runtime | passed; complete marker and integrated ready gate accepted |
 | Coffer HA baseline | companion deploy and replicated service acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | passed for daemon and storage-VM loss |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -1334,14 +1361,18 @@ promotion while ADR 0006 remains blocked.
   external certificate identities, ProxySQL TLS recipients, four production
   globals, internal HTTPS, the sole external port 443 frontend, catalog URLs,
   three-member Galera/RabbitMQ quorums, seven protected logs, and zero Coffer
-  state all pass. The companion preparation harness is locally validated and
-  its mutation-free live status confirms that no companion state exists yet.
-- Exact next action: Commit the companion preparation harness locally, then
-  run `poc/kolla-ha/prepare-coffer-companion.sh prepare
-  jh.byun@100.123.168.66` exactly once.
-- First file or command: `git add` the four companion harness files plus this
-  plan, `poc/kolla-ha/README.md`, and `.codex/state/HANDOFF.md`; inspect the
-  staged diff, then create one local atomic commit.
+  state all pass. The companion inputs are now complete: four exact
+  three-host groups, production globals, controller-1-only secret/public
+  inputs, verified backend/RGW TLS, and durable owner/input/completion markers
+  pass both integrated ready and repeated metadata-idempotency checks. Coffer
+  runtime, database, catalog, and HAProxy routes remain absent.
+- Exact next action: Implement and statically validate a guarded
+  `poc/kolla-ha/run-coffer-companion-lifecycle.sh` plus controller-1 helper
+  admitting only `status`, `prechecks`, and `deploy`. Do not run `prechecks`
+  until that harness and its no-log/timeout/ordering contracts are committed.
+- First file or command: Inspect `poc/kolla-aio/guest-run-stage4.sh` and the
+  current `ansible/kolla-ansible-coffer` argument contract, then add the Stage
+  5 wrapper without changing companion-role source.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

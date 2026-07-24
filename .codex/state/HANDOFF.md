@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; functional x86_64 pilot images distributed
+- Status: plan 0018 active; companion inputs prepared and accepted
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -609,6 +609,20 @@ signed Distribution v3.1.1 binary.
   key generation, or lower-phase absence check.
 - Exact next action: validate and locally commit this idempotent gate-order
   correction, then repeat `prepare` with a before/after metadata comparison.
+- Preserved the marker-first correction in local commit `3182f90`. The
+  repeated complete `prepare` now passes `idempotent=yes`; server-side
+  metadata for all markers, inventory, globals, directories, and input files
+  is unchanged.
+- Independent `status` accepts state `complete`, exact inventory and
+  production profile, owner/modes and certificate identities, primary-only
+  storage credentials, the 4-MiB sentinel, identical image IDs, 36 healthy
+  Kolla containers, and no runtime/database/catalog or fixed transfer
+  residue. Controller-2/3 retain no private deployment/input state.
+- Exact next action: implement and statically validate a guarded Stage 5
+  companion lifecycle wrapper for only `status`, `prechecks`, and `deploy`.
+  It must use the pinned controller-1 source/venv, root-only no-log phase
+  logs and markers, exact inventory/globals inputs, independent ready gates,
+  and a hard stop before invoking `prechecks` until committed.
 
 ## Plan 0017 Completion
 
