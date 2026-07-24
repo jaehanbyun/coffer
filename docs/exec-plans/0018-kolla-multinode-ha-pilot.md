@@ -1673,10 +1673,10 @@ promotion while ADR 0006 remains blocked.
   add an exact real-Galera concurrent/deadlock probe that restores all rows
   and quota values before enabling separate-host reconciler workers.
 
-### 2026-07-25 — Tenant credential renewal harness validated
+### 2026-07-25 — Tenant credential renewal accepted
 
-- Completed locally: Added an exact, two-phase application-credential renewal
-  path for the accepted tenant fixture. It preserves both Keystone project
+- Completed: Added and committed an exact, two-phase application-credential
+  renewal path for the accepted tenant fixture. It preserves both Keystone project
   and user IDs, creates and authenticates two fresh twelve-hour credentials,
   atomically stages their owner-only state with the two retiring IDs, deletes
   only those retiring credentials, and atomically finalizes the state.
@@ -1690,14 +1690,22 @@ promotion while ADR 0006 remains blocked.
   live mutation-free `renew-preflight` confirms two projects, two users, two
   credentials expiring at `2026-07-25T05:20:30`, the accepted external owner,
   and zero transfer/client residue.
-- Safety: No project, user, role, credential, repository, quota, object,
-  runtime, or secret state changed during preflight.
-- Next exact action: Commit the validated renewal harness locally, then invoke
-  only `poc/kolla-ha/run-coffer-tenant-fixture.sh renew
-  jh.byun@100.123.168.66`. Prove the project IDs and accepted digest/isolation
-  are unchanged, exactly two renewed credentials remain, state/marker
-  recipients stay owner-only, replay is metadata-idempotent, and no transfer
-  or client residue exists before returning to Galera concurrency.
+- Live evidence: The mutation-free preflight changed no state. The committed
+  `renew` action then authenticated both replacements before the original
+  credentials were retired. The final state has exactly two renewed
+  credentials expiring at `2026-07-25T07:33:26`; project and user IDs,
+  repository/quota state, and retained manifest/blob digests are unchanged,
+  while project B remains denied with 401.
+- Secret and residue gates: The renewed secrets pass all-nine-container log
+  scans. The identity state and prepared/renewed markers remain mode 0600 only
+  on controller-1; controller-2/3, all `/run` transfers, and client state are
+  absent.
+- Idempotency: Repeated `renew` performed no credential operation, returned
+  `idempotent=yes`, and retained identical inode, size, timestamp, ownership,
+  and mode across all three fixture files.
+- Next exact action: Return to the deployed quota transaction retry surface
+  and add the bounded real-Galera concurrent/deadlock probe with exact row and
+  2-GiB quota restoration before separate-host reconciler workers.
 
 ## Verification
 
@@ -1731,6 +1739,7 @@ promotion while ADR 0006 remains blocked.
 | Coffer replica faults | controller-3 API, edge, and Distribution stop/probe/restore | passed; 9/9 authenticated outage probes, complete recovery, idempotent replay |
 | Kolla HAProxy fault | active-owner stop, paired VIP movement, tenant probes, restore | passed; VIP moved controller-3 to controller-2, 3/3 bounded probes, idempotent replay |
 | Galera member fault | controller-3 pause, size-2 writes, exact unpause/rejoin | passed; 3/3 quota write/read/restore probes, size-3 recovery, idempotent replay |
+| Tenant credential renewal | two-phase finite replacement, data continuity, residue, replay | passed; 2 credentials, digest/isolation retained, owner-only metadata stable |
 | Fault and recovery matrix | Galera concurrency/retry and reconciler faults plus restore checks | pending |
 | Upgrade, key rotation, rollback | bounded rolling rehearsals | pending |
 | Cleanup and repository regression | exact remote/local residue and focused checks | pending |
