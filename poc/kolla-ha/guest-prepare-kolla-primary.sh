@@ -135,7 +135,9 @@ install_kolla() {
             "${venv}/bin/python3" -m pip install \
             --disable-pip-version-check --no-cache-dir \
             docker "${source_root}"
-        sudo -u ubuntu env LC_ALL=C.UTF-8 LANG=C.UTF-8 \
+        sudo -u ubuntu env \
+            PATH="${venv}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+            LC_ALL=C.UTF-8 LANG=C.UTF-8 \
             "${venv}/bin/kolla-ansible" install-deps
         printf '%s\n' "${commit}" >"${install_marker}"
         chown ubuntu:ubuntu "${install_marker}"
