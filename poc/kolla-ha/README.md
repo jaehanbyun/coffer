@@ -96,3 +96,18 @@ The OSD phase never selects all available devices. It admits only `/dev/vdb`
 on the three hard-coded storage hostnames, supports an exact partial resume,
 and exits only when one OSD per host is `up` and `in`, cluster health is OK,
 replica defaults remain size 3/minimum 2, and RGW is still absent.
+
+Deploy RGW and its redundant VIP only after the OSD gate:
+
+```text
+poc/kolla-ha/bootstrap-ceph-rgw.sh <ssh-target>
+```
+
+This phase deploys one TLS RGW backend per storage host on port `9443`, two
+HAProxy/Keepalived ingress pairs on storage-1/2, and the reserved
+`192.168.253.30:8443` VIP. The backend uses cephadm-signed certificates. The
+frontend uses a short-lived lab CA and server key generated owner-only on the
+primary; only the public CA is exported under ignored `work/kolla-ha/`.
+Acceptance requires verified backend/frontend TLS, exactly one VIP owner,
+healthy replicated pools, and zero S3 users. User/bucket provisioning and
+failure testing are later phases.

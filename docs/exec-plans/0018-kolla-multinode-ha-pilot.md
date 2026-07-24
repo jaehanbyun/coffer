@@ -449,6 +449,35 @@ promotion while ADR 0006 remains blocked.
   daemon per storage host, two ingress daemons, the reserved
   `192.168.253.30` VIP, verified TLS, and no S3 identity creation yet.
 
+### 2026-07-24 — RGW HA service harness validated
+
+- Completed: Added a dedicated RGW/ingress phase. It first requires healthy
+  3-MON/2-MGR/3-OSD state, then places one RGW on each storage host over
+  backend port 9443 and two HAProxy/Keepalived pairs on storage-1/2 with
+  frontend VIP `192.168.253.30:8443`.
+- TLS boundary: RGW backends use Ceph's generated service certificate and are
+  independently checked with the public cephadm root CA. The ingress frontend
+  uses a 14-day lab CA and leaf generated owner-only on storage-1, with only
+  the public CA exported to ignored `work/kolla-ha/`. The leaf SAN is the
+  stable lab DNS name plus the VIP. Untrusted TLS and plaintext on the TLS port
+  must fail.
+- Secret boundary: No private key enters the repository or command arguments.
+  The ingress CA/server keys stay mode 0600 under `/etc/ceph` on storage-1;
+  HAProxy receives only its required leaf key through the Ceph service spec.
+  S3 user and bucket creation are excluded and final user count must remain
+  zero.
+- Exit gate: Three running RGWs, two running HAProxy, two running keepalived,
+  exactly one live VIP owner, verified backend/frontend TLS, all PGs active
+  and clean, pool size/minimum 3/2, zero S3 users, and `HEALTH_OK`.
+- Evidence: Bash syntax, ShellCheck, missing/option-shaped target refusal,
+  secret/destructive-command scans, Gitleaks, and diff checks pass. The exact
+  RGW spec dry-run passes. Live preflight reports zero RGW/ingress daemons,
+  zero users/VIP owners, and ports 9443/8443/1967 free on all three hosts.
+- Safety: Neither RGW nor ingress apply has run.
+- Next exact action: Commit the RGW HA harness locally and invoke
+  `poc/kolla-ha/bootstrap-ceph-rgw.sh bb00` once. On failure, retain aggregate
+  service/VIP/TLS/health evidence and do not create an S3 identity.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -490,11 +519,11 @@ promotion while ADR 0006 remains blocked.
 ## Handoff
 
 - Current state: Active; the Ceph control plane and exact three-host replicated
-  OSD baseline are healthy. No RGW or ingress service exists.
-- Exact next action: Implement and locally validate a distinct RGW/ingress
-  phase for three RGWs, two ingress replicas, the reserved storage VIP, and
-  verified TLS. Do not create S3 users or buckets in the same action.
-- First file or command: `poc/kolla-ha/bootstrap-ceph-rgw.sh`.
+  OSD baseline are healthy, and the RGW HA harness is locally validated. No
+  RGW or ingress service exists yet.
+- Exact next action: Commit and invoke the RGW HA harness once, then stop for
+  aggregate daemon/VIP/backend/frontend TLS/pool/health/user verification.
+- First file or command: `git diff --check`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

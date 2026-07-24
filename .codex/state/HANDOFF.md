@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; Ceph 3-OSD baseline healthy, RGW/ingress phase is next
+- Status: plan 0018 active; RGW HA harness validated, invocation is next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -122,6 +122,16 @@ signed Distribution v3.1.1 binary.
 - Exact next action: implement and validate a separate three-RGW/two-ingress
   phase using storage VIP `192.168.253.30`, verified TLS, and no S3 identity
   creation.
+- Added and locally validated that phase. It places RGW TLS backends on
+  storage-1/2/3 at 9443 and HAProxy/Keepalived on storage-1/2 behind
+  `192.168.253.30:8443`. The frontend uses an owner-only short-lived lab key;
+  only its public CA is exported under ignored `work/`.
+- The exact RGW spec dry-run passes. Current preflight finds zero RGW/ingress
+  daemons, users, or VIP owners, and all three reserved ports free on all
+  storage hosts. No RGW/ingress apply or S3 identity operation has run.
+- Exact next action: commit and invoke the RGW HA harness once, then verify
+  three RGWs, two ingress pairs, one VIP owner, TLS, healthy 3/2 pools, and
+  zero S3 users.
 
 ## Plan 0017 Completion
 
