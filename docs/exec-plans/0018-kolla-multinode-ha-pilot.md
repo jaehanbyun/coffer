@@ -2225,6 +2225,35 @@ promotion while ADR 0006 remains blocked.
   metadata identity plus all final companion, tenant, and key status gates
   before accepting key rotation.
 
+### 2026-07-25 — Overlapping signing-key rotation accepted
+
+- Completed: Preserved the post-completion probe correction in `7533307`.
+  The idempotent replay executed no Kolla phase, passed exactly three tenant
+  path probes, and completed the full companion, tenant, storage, and
+  new-signer/new-only-JWKS status gates.
+- Cryptographic evidence: Before retirement, a time-valid old-key token and a
+  fresh API-issued new-key token each returned registry 200 and edge 400 on
+  all three replicas. Retirement occurred after the original API-issued old
+  token's recorded 300-second lifetime. Afterwards, a fresh new-key token
+  returned 200/400 and a still-time-valid old-key token returned 401/401 on
+  all replicas.
+- Availability and hygiene: All serial phases had zero failed/unreachable
+  Ansible hosts. Transient tenant 503s recovered within the admitted bounded
+  attempts, and every other continuous probe passed. Final state has nine
+  healthy containers, three new-key signers, six new-only verifiers, no token
+  file, no temporary globals overlay, root-only phase logs/markers, and a
+  healthy external RGW boundary.
+- Replay: The completion marker retained the same inode, size, modification
+  time, owner, group, and mode across the successful replay. The command
+  exited zero with `probes=3`, `serial=1`, and `idempotent=yes`.
+- Scope: This accepts forward overlapping rotation and old-key retirement.
+  The separately guarded reverse key action remains available but is not
+  required for the image compatibility rollback gate.
+- Next exact action: Run mutation-free rolling-update status and inspect the
+  rollback overlay against the now-persistent new signing key. Then invoke
+  only `run-coffer-rolling-update.sh rollback`, preserving tenant service and
+  new-key trust while restoring the original compatible Coffer image.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2260,7 +2289,7 @@ promotion while ADR 0006 remains blocked.
 | Galera member fault | controller-3 pause, size-2 writes, exact unpause/rejoin | passed; 3/3 quota write/read/restore probes, size-3 recovery, idempotent replay |
 | Tenant credential renewal | two-phase finite replacement, data continuity, residue, replay | passed; 2 credentials, digest/isolation retained, owner-only metadata stable |
 | Fault and recovery matrix | Galera concurrency/retry and reconciler faults plus restore checks | passed; periodic maintenance identity remains a production decision |
-| Upgrade, key rotation, rollback | bounded rolling rehearsals | upgrade passed; key overlap and rollback pending |
+| Upgrade, key rotation, rollback | bounded rolling rehearsals | upgrade and forward key rotation passed; compatible image rollback pending |
 | Cleanup and repository regression | exact remote/local residue and focused checks | pending |
 
 ## Failures, Blockers, and Risks
