@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0018 active; forward signing-key rotation accepted
+- Status: plan 0018 active; compatible rolling rollback accepted
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -38,6 +38,11 @@ accepted. The serial Coffer upgrade and overlapping signing-key rotation are
 also accepted: old/new tokens passed every replica during overlap, old trust
 was retired after the recorded lifetime, new-only trust is healthy, token
 residue is absent, and replay preserved completion-marker metadata.
+The compatible image rollback is accepted after correcting handler-level
+all-replica restarts: three limited update phases and three limited rollback
+phases preserved 59 first-attempt tenant probes, restored the original image
+with the new key intact, passed every final gate, and replay preserved
+rollback-marker metadata.
 
 ## Plan 0018 Activation
 
@@ -1764,15 +1769,14 @@ residue is absent, and replay preserved completion-marker metadata.
 
 ## Exact Next Action
 
-Validate and commit the limited image-only skip-tag correction. The first
-per-controller attempt failed before mutation because HAProxy rendering needs
-facts for non-limited hosts. Live state remains three original compatible
-API/edge pairs with new signer/new-only JWKS, no final/rehearsal marker, and
-no temporary overlay. Rerun only public guarded `rollback`; each of the six
-separately limited Coffer role phases must skip unchanged load-balancer and
-observability plays, wait for its host's desired image/health, retain zero
-fully failed tenant probe windows, and finalize only after complete
-service/tenant/storage gates.
+Run the complete non-destructive pre-cleanup regression and live aggregate
+status matrix, then inspect the exact Stage 5 cleanup actions and their
+dependency order. The accepted live boundary is three original-image
+API/edge pairs with new signer/new-only JWKS, no temporary overlays, an
+idempotent rollback marker, healthy tenant/Galera/HAProxy/Ceph/RGW state, and
+all six guests running with autostart disabled. Do not remove resources until
+the teardown sequence proves exact allowlists, credential/bucket cleanup,
+shared-host exclusions, and post-destroy residue checks.
 
 ## After This Work Package
 

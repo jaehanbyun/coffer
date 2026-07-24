@@ -18,38 +18,38 @@ promotion while ADR 0006 remains blocked.
 
 ## Done Criteria
 
-- [ ] A fresh read-only `bb00` inventory resolves aggregate CPU, memory,
+- [x] A fresh read-only `bb00` inventory resolves aggregate CPU, memory,
       storage, domain, network, address, port, and retained-service state.
       The selected topology has an explicit resource budget and safety margin,
       and no existing domain, Harbor, host HAProxy, network, storage object, or
       retained RGW service is mutated.
-- [ ] A fail-closed provision/deploy/verify/destroy harness creates only
+- [x] A fail-closed provision/deploy/verify/destroy harness creates only
       allowlisted, autostart-disabled Stage 5 domains and dedicated volumes,
       addresses, TLS material, identities, buckets, and client state. Kolla's
       bootstrap registry remains independent from the tenant Coffer registry.
-- [ ] At least three Kolla controller nodes provide Galera quorum and
+- [x] At least three Kolla controller nodes provide Galera quorum and
       HAProxy/VIP service. At least two healthy replicas each of Coffer API,
       edge, and Distribution are reachable only through the intended internal
       or external HAProxy routes; direct tenant access to API or Distribution
       fails.
-- [ ] The storage dependency is a separately provisioned disposable Ceph/RGW
+- [x] The storage dependency is a separately provisioned disposable Ceph/RGW
       HA topology with a stable verified-TLS endpoint and redundant data path.
       Using the retained one-node `coffer-rgw-poc` can support an intermediate
       functional check but cannot satisfy this criterion.
-- [ ] Deterministic OCI push, pull, resumable upload, repository isolation,
+- [x] Deterministic OCI push, pull, resumable upload, repository isolation,
       quota admission, catalog, health, and digest persistence pass while
       removing one API, edge, Distribution, HAProxy, and RGW replica at a time.
       Requests continue through surviving backends without exposing a bypass
       or silently weakening authorization.
-- [ ] Galera-backed repository and quota writes survive one database-member
+- [x] Galera-backed repository and quota writes survive one database-member
       loss, concurrent admission, deadlock or certification retry, and member
       recovery. Reconciliation workers prove disjoint claims, abandoned-claim
       recovery, and stale-fencing-token rejection across separate hosts.
-- [ ] JWT signing keys rotate with an overlap window: existing bounded tokens
+- [x] JWT signing keys rotate with an overlap window: existing bounded tokens
       remain valid while both public keys are advertised, newly issued tokens
       use the new key, and the old key is removed only after its maximum token
       lifetime. Private-key recipients and logs remain correct.
-- [ ] A rolling Coffer image/configuration update preserves service and
+- [x] A rolling Coffer image/configuration update preserves service and
       accepted digests, repeat migration remains safe, and a compatible image
       rollback is rehearsed. An incompatible-schema path stops and exercises
       the documented maintenance/restore decision instead of invoking a blind
@@ -121,7 +121,7 @@ promotion while ADR 0006 remains blocked.
       production-shaped TLS and private backends.
 - [x] Run baseline catalog, two-project OCI, resumable upload, quota,
       non-bypass, digest, replica distribution, and secret/log acceptance.
-- [ ] Run allowlisted replica, Galera, RGW, reconciler fencing, signing-key
+- [x] Run allowlisted replica, Galera, RGW, reconciler fencing, signing-key
       overlap, rolling-upgrade, compatible rollback, and recovery rehearsals.
 - [ ] Remove exact pilot resources, verify shared-host and credential residue,
       run final regressions, and close the plan and handoff.
@@ -2354,6 +2354,34 @@ promotion while ADR 0006 remains blocked.
   rerun only public `rollback` from the unchanged original-image/unaccepted
   boundary.
 
+### 2026-07-25 — Compatible rolling rollback accepted
+
+- Completed: Per-controller limiting produced six ordered Coffer-only phases:
+  controller-1/2/3 each converged to the update image and then each converged
+  to the original compatible image. Every host reached healthy API/edge state
+  on its desired pinned image before the next host was admitted. All limited
+  Ansible recaps had zero failed or unreachable hosts.
+- Availability: Fifty-nine continuous tenant probes passed on their first
+  attempt across the full update-then-rollback cycle. The earlier
+  all-replica 503 windows did not recur. Only after that zero-failure result
+  did the outer observer invoke `rollback-finalize`.
+- Final state: All three API/edge pairs are healthy on the original compatible
+  image; Distribution remains unchanged. The new signing key and new-only
+  JWKS survive rollback on all replicas. Tenant digest, quota, project
+  isolation, client/log hygiene, eighteen HAProxy sockets, Galera, and the
+  external Ceph/RGW HA boundary all pass. The temporary overlay is absent.
+- Replay: A second public rollback performed no Kolla phase, passed three
+  tenant probes and every final gate, and retained the exact rollback-marker
+  inode, size, modification time, owner, group, and mode. It exited zero with
+  `probes=3`, `during=1`, and idempotent rehearsal/finalization.
+- Scope: This accepts compatible image rollback. It does not claim blind
+  incompatible-schema downgrade; the documented maintenance/restore boundary
+  remains.
+- Next exact action: Preserve this accepted milestone, run the complete
+  pre-cleanup repository and live aggregate regression, then audit every
+  exact identity, bucket, container, guest, volume, network, key/log, and
+  temporary-state cleanup action before destructive teardown.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2389,7 +2417,7 @@ promotion while ADR 0006 remains blocked.
 | Galera member fault | controller-3 pause, size-2 writes, exact unpause/rejoin | passed; 3/3 quota write/read/restore probes, size-3 recovery, idempotent replay |
 | Tenant credential renewal | two-phase finite replacement, data continuity, residue, replay | passed; 2 credentials, digest/isolation retained, owner-only metadata stable |
 | Fault and recovery matrix | Galera concurrency/retry and reconciler faults plus restore checks | passed; periodic maintenance identity remains a production decision |
-| Upgrade, key rotation, rollback | bounded rolling rehearsals | upgrade and forward key rotation passed; compatible image rollback pending |
+| Upgrade, key rotation, rollback | bounded rolling rehearsals | passed; forward rotation and zero-failure compatible rollback accepted |
 | Cleanup and repository regression | exact remote/local residue and focused checks | pending |
 
 ## Failures, Blockers, and Risks
