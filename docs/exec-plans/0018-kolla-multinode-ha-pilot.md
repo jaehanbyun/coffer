@@ -431,6 +431,24 @@ promotion while ADR 0006 remains blocked.
   device inventory and sole expected `TOO_FEW_OSDS` health warning, then
   invoke `poc/kolla-ha/bootstrap-ceph-osds.sh bb00` once.
 
+### 2026-07-24 — Three-host replicated OSD baseline complete
+
+- Completed: Preserved the exact OSD harness in local commit `831b66b` and
+  invoked it once. It created OSD 0, 1, and 2 sequentially on storage-1, -2,
+  and -3, waiting for each managed daemon before touching the next host.
+- Evidence: Independent aggregate verification reports exactly three OSDs,
+  all running, `up`, and `in`; the metadata mapping is one OSD per exact host;
+  the replicated CRUSH rule chooses the `host` failure domain; every pool is
+  size 3/minimum 2; the single current PG is active and clean; cluster health
+  is `HEALTH_OK`; and RGW count remains zero.
+- Device evidence: Each host has exactly one `/dev/vdb` LVM PV and one running
+  OSD container. No other data-device path was admitted.
+- Idempotency: A second full harness invocation made no OSD addition and
+  returned the same three-host, three-up/in, healthy, zero-RGW result.
+- Next exact action: Add and validate a separate RGW/ingress phase with one RGW
+  daemon per storage host, two ingress daemons, the reserved
+  `192.168.253.30` VIP, verified TLS, and no S3 identity creation yet.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -443,6 +461,7 @@ promotion while ADR 0006 remains blocked.
 | Provision/destroy target safety | local allowlist, rollback, and negative-target tests | passed |
 | Storage preparation | pinned inputs, hostname map, chrony, empty OSD devices | passed |
 | Ceph control plane | exact hosts, 3-MON quorum, 2 MGRs, key recipients, zero OSD/RGW | passed; only expected `TOO_FEW_OSDS` remains |
+| Ceph replicated OSDs | exact devices, 3 up/in OSDs, host CRUSH domain, size/min 3/2, idempotency | passed; `HEALTH_OK` |
 | Kolla/Galera/Coffer baseline | multinode deploy and health acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | pending |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -470,11 +489,12 @@ promotion while ADR 0006 remains blocked.
 
 ## Handoff
 
-- Current state: Active; three MONs and two MGRs are running with quorum, all
-  OSD devices remain empty, and the exact-device OSD harness is validated.
-- Exact next action: Commit and invoke the OSD-only harness once, then stop for
-  aggregate three-OSD, failure-domain, health, and zero-RGW verification.
-- First file or command: `git diff --check`.
+- Current state: Active; the Ceph control plane and exact three-host replicated
+  OSD baseline are healthy. No RGW or ingress service exists.
+- Exact next action: Implement and locally validate a distinct RGW/ingress
+  phase for three RGWs, two ingress replicas, the reserved storage VIP, and
+  verified TLS. Do not create S3 users or buckets in the same action.
+- First file or command: `poc/kolla-ha/bootstrap-ceph-rgw.sh`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

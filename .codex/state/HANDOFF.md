@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; exact OSD-only harness validated, invocation is next
+- Status: plan 0018 active; Ceph 3-OSD baseline healthy, RGW/ingress phase is next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -113,6 +113,15 @@ signed Distribution v3.1.1 binary.
 - Exact next action: commit the OSD harness locally, recheck the three live
   device candidates and sole expected zero-OSD warning, then invoke
   `poc/kolla-ha/bootstrap-ceph-osds.sh bb00` once.
+- Preserved the harness in local commit `831b66b` and invoked it. OSD 0/1/2
+  map one-to-one to storage-1/2/3; all are managed, running, `up`, and `in`;
+  CRUSH uses the host failure domain; every pool is size/minimum 3/2; cluster
+  health is OK; and RGW remains absent.
+- Each `/dev/vdb` is now exactly one LVM PV with one OSD container. A second
+  complete invocation added nothing and returned the same healthy result.
+- Exact next action: implement and validate a separate three-RGW/two-ingress
+  phase using storage VIP `192.168.253.30`, verified TLS, and no S3 identity
+  creation.
 
 ## Plan 0017 Completion
 
