@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; Kolla production profile reconfigure accepted
+- Status: plan 0018 active; functional x86_64 pilot images distributed
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -523,6 +523,32 @@ signed Distribution v3.1.1 binary.
 - Exact next action: commit this isolated dependency correction locally, then
   resume only `poc/kolla-ha/build-distribute-coffer-images.sh build
   jh.byun@100.123.168.66`.
+- Preserved that correction in local commit `ea6995e` and resumed the same
+  phase. Controller-1 built both pinned Kolla-compatible x86_64 images and
+  streamed them directly to controller-2/3 without a registry or retained
+  archive.
+- All three controllers have identical Coffer image ID
+  `sha256:336140d2d9b552b8635a3a742c5ca30a95173ccfb4459a46e2430b8ef0b007d4`
+  and Distribution-wrapper image ID
+  `sha256:d9c108f8879de50aef9b6641d56a5e3459bf2ced122f6c21431efe708b0b3e67`.
+  Architecture is Linux amd64 and users are exactly `coffer` and `registry`.
+- A repeated complete build invocation was marker-only and retained
+  image ID/creation snapshot SHA-256
+  `1bb91f677fb9e3d15dabb76c5abcea9a65110fa1b2fe617e0dfef8545575b762`.
+  Owner/completion markers and build logs are root-only mode 0600 and pass
+  credential URL, Authorization, and private-key pattern scans.
+- All 36 Kolla containers remain healthy; Coffer runtime/config/listeners
+  remain absent; external RGW remains healthy. Docker emitted one non-fatal
+  base-manifest signature-validation warning, so no signature/provenance claim
+  is made and ADR 0006 remains blocked.
+- The now-reachable `ready` control check exposed string identity comparison
+  for `openstack_cacert`. The value-comparison correction passes the real
+  profile and the negative gate now stops at the expected missing
+  `/etc/kolla/coffer-globals.yml`.
+- Exact next action: implement and statically validate
+  `poc/kolla-ha/prepare-coffer-companion.sh` with exact three-host groups,
+  owner-only inputs/backend TLS, direct storage-1 RGW secret transfer, and a
+  hard stop before database/catalog/HAProxy/runtime mutation.
 
 ## Plan 0017 Completion
 
@@ -1108,12 +1134,13 @@ signed Distribution v3.1.1 binary.
 
 ## Exact Next Action
 
-Commit the isolated Python Docker SDK correction locally, then resume only
-`poc/kolla-ha/build-distribute-coffer-images.sh build
-jh.byun@100.123.168.66`. Retain the same owner marker and exact source/v1
-partial state. Do not prepare companion inventory or inputs until all three
-controllers have identical accepted image IDs and the completion marker
-passes.
+Implement and locally validate
+`poc/kolla-ha/prepare-coffer-companion.sh` and its bounded guest helpers.
+Start from `poc/kolla-aio/guest-prepare-coffer.sh`,
+`poc/kolla-aio/coffer-globals.yml`, and the companion role defaults. Require
+exact three-host groups, owner-only secrets/backend TLS, direct storage-1 to
+controller-1 RGW input transfer, and rollback. Stop before database, Keystone,
+HAProxy, or Coffer container mutation.
 
 ## After This Work Package
 

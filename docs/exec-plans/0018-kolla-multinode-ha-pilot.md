@@ -1133,6 +1133,47 @@ promotion while ADR 0006 remains blocked.
   `poc/kolla-ha/build-distribute-coffer-images.sh build
   jh.byun@100.123.168.66`.
 
+### 2026-07-24 — Functional x86_64 pilot images distributed
+
+- Completed: Preserved the isolated Docker SDK correction in local commit
+  `ea6995e` and resumed the same owned image phase. Controller-1 built the two
+  Kolla-compatible x86_64 images from the pinned published source, validated
+  their non-root entry points, and streamed them directly to controller-2/3.
+- Immutable equality: All three controllers report Coffer image ID
+  `sha256:336140d2d9b552b8635a3a742c5ca30a95173ccfb4459a46e2430b8ef0b007d4`
+  and Distribution-wrapper image ID
+  `sha256:d9c108f8879de50aef9b6641d56a5e3459bf2ced122f6c21431efe708b0b3e67`.
+  Both report Linux `amd64` and the exact `coffer`/`registry` users.
+- Idempotency: A second complete `build` invocation returned from the accepted
+  marker without rebuilding or transferring. The three-host image
+  ID/creation snapshot retained SHA-256
+  `1bb91f677fb9e3d15dabb76c5abcea9a65110fa1b2fe617e0dfef8545575b762`.
+- Security and runtime boundary: The owner/completion markers and every image
+  build log are root-owned mode 0600. Credential URL, Authorization, and
+  private-key patterns are absent. No image archive was retained outside the
+  Docker stores; no image was published. All 36 Kolla containers remain
+  healthy, Coffer runtime/config/listeners remain absent, and external RGW is
+  healthy.
+- Production limitation: Docker emitted a non-fatal local base-manifest
+  signature-validation warning while continuing the build. The functional
+  image result does not provide a signature/provenance promotion claim, and
+  the signed Distribution v3.1.1 security gate remains blocked by ADR 0006.
+- Preflight correction: The now-reachable control portion of `ready` exposed
+  Python identity comparison against the string-valued `openstack_cacert`.
+  Replacing it with value comparison passes the actual Kolla profile and makes
+  the read-only gate stop at the expected first missing companion input,
+  `/etc/kolla/coffer-globals.yml`.
+- Verification: Exact image inspections on all three hosts, source/Kolla
+  commit and clean-tree checks, marker/log modes, credential-pattern scan,
+  unchanged runtime/listener checks, repeated build snapshot, expected
+  negative `ready`, Python compilation, and external RGW boundary pass.
+- Next exact action: Implement and locally validate
+  `poc/kolla-ha/prepare-coffer-companion.sh`. It must render exact three-host
+  Coffer groups, create owner-only controller inputs and backend TLS, transfer
+  the existing RGW credential/CA directly from storage-1 without exposing
+  them locally, and stop before database, Keystone, HAProxy, or Coffer
+  container mutation.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1157,7 +1198,7 @@ promotion while ADR 0006 remains blocked.
 | Coffer HA pre-deploy boundary | clean/ready controller, DB, catalog, TLS, image, and RGW recipient gates | clean passed live; ready fails closed before preparation |
 | Kolla production profile preparation | exact certificate/globals mutation, rollback, idempotency, no runtime reload | passed; source prepared and runtime unchanged |
 | Kolla production profile reconfigure | internal/external TLS, single frontend, catalog, quorums, logs, absent Coffer | passed idempotently; 36 healthy containers |
-| Coffer image build/distribution harness | pins, owner/resume boundary, direct transfer, identical-ID gate | passed mutation-free; build not yet invoked |
+| Coffer image build/distribution | pins, owner/resume boundary, direct transfer, identical IDs, idempotency | passed; two exact images on three controllers, runtime absent |
 | Coffer HA baseline | companion deploy and replicated service acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | passed for daemon and storage-VM loss |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -1201,13 +1242,14 @@ promotion while ADR 0006 remains blocked.
   globals, internal HTTPS, the sole external port 443 frontend, catalog URLs,
   three-member Galera/RabbitMQ quorums, seven protected logs, and zero Coffer
   state all pass.
-- Exact next action: Commit the isolated Docker SDK correction, then resume
-  only the image `build` action through `jh.byun@100.123.168.66`. Do not begin
-  companion preparation unless all three controllers return identical image
-  IDs and the root-only completion marker passes.
-- First file or command: Run
-  `poc/kolla-ha/build-distribute-coffer-images.sh build
-  jh.byun@100.123.168.66`.
+- Exact next action: Implement and statically validate
+  `poc/kolla-ha/prepare-coffer-companion.sh` and its bounded guest helpers.
+  Do not run it until exact inventory, secret recipient, storage-to-controller
+  transfer, TLS identity, rollback, and no-runtime/database/catalog contracts
+  pass.
+- First file or command: Inspect `poc/kolla-aio/guest-prepare-coffer.sh`,
+  `poc/kolla-aio/coffer-globals.yml`, and the companion role input defaults
+  before adding the Stage 5 preparation harness.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

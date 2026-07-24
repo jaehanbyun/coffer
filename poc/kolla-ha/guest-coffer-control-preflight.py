@@ -298,7 +298,7 @@ def validate_ready(
         "openstack_cacert": "/etc/ssl/certs/ca-certificates.crt",
     }
     for name, value in required_globals.items():
-        if globals_document.get(name) is not value:
+        if globals_document.get(name) != value:
             raise RuntimeError(f"required Kolla production setting missing: {name}")
     if str(
         globals_document.get(
