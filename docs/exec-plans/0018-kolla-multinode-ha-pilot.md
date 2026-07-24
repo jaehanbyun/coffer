@@ -909,6 +909,31 @@ promotion while ADR 0006 remains blocked.
 - Next exact action: Commit the rotation helper, invoke it exactly once, and
   immediately rerun only `deploy` through the guarded lifecycle harness.
 
+### 2026-07-24 — Credential rotation reconciled; VIP-owner probe corrected
+
+- Rotation: Preserved the bounded helper in local commit `9d4be4a` and invoked
+  it once. The target value changed without output or backup, the password file
+  remained root-only, the deploy marker stayed absent, and RGW passed both
+  boundary audits.
+- Reconciliation: The guarded deploy applied the new credential and completed
+  with `failed=0` and `unreachable=0`. All 36 containers were
+  running/healthy; deploy and deploy-check logs passed the new raw,
+  URL/base64-derived, and Authorization credential scan.
+- Acceptance failure: Keepalived moved both VIPs from controller-1 to
+  controller-2. Because nonowner external NICs are intentionally unnumbered,
+  controller-1 has no route to the external VIP. A trusted probe from that
+  wrong node failed and left the deploy marker absent; control-plane services
+  and external RGW stayed healthy.
+- Correction: External acceptance now identifies the sole owner from the
+  exact snapshots, passes only the public CA in memory to that host, and runs
+  trusted TLS plus untrusted and plaintext denial probes locally on the owner.
+  A live read-only preflight passes on controller-2.
+- Evidence: Bash syntax, ShellCheck, Gitleaks, owner-local TLS/denial probes,
+  absent deploy marker, and diff checks pass.
+- Next exact action: Commit the VIP-owner probe correction and rerun only
+  `deploy`. The rotated credential has already reconciled and does not need a
+  second rotation.
+
 ## Verification
 
 | Check | Command or method | Result |

@@ -195,6 +195,7 @@ collect_status() {
     status_images_min=-1
     status_internal_vips=0
     status_external_vips=0
+    status_external_owner_index=-1
 
     for index in "${!management_addresses[@]}"; do
         snapshot="$(controller_snapshot "${index}")"
@@ -216,6 +217,9 @@ collect_status() {
             $(field_value "${snapshot}" internal_vip)))"
         status_external_vips="$((status_external_vips +
             $(field_value "${snapshot}" external_vip)))"
+        if test "$(field_value "${snapshot}" external_vip)" -eq 1; then
+            status_external_owner_index="${index}"
+        fi
     done
 }
 
@@ -292,6 +296,56 @@ if re.search(
 ):
     raise SystemExit("authorization credential found in lifecycle log")
 PY
+}
+
+probe_external_keystone() {
+    local ca_base64
+    local owner_address
+    local owner_hostname
+
+    test "${status_external_vips}" -eq 1
+    test "${status_external_owner_index}" -ge 0
+    owner_address="${management_addresses[${status_external_owner_index}]}"
+    owner_hostname="${hostnames[${status_external_owner_index}]}"
+    ca_base64="$(
+        base64 --wrap=0 "${config_root}/certificates-stage5/ca/root.crt"
+    )"
+    sudo -u ubuntu ssh "${ssh_options[@]}" \
+        "ubuntu@${owner_address}" \
+        sudo env LC_ALL=C.UTF-8 LANG=C.UTF-8 \
+        CA_CERT_BASE64="${ca_base64}" \
+        python3 - <<'PY'
+import base64
+import os
+import ssl
+import urllib.error
+import urllib.request
+
+url = "https://192.168.254.10:5000/v3/"
+context = ssl.create_default_context(
+    cadata=base64.b64decode(os.environ["CA_CERT_BASE64"]).decode()
+)
+with urllib.request.urlopen(url, context=context, timeout=10) as response:
+    if response.status != 200:
+        raise SystemExit("trusted external Keystone probe failed")
+try:
+    urllib.request.urlopen(url, timeout=10)
+except urllib.error.URLError:
+    pass
+else:
+    raise SystemExit("untrusted external Keystone unexpectedly succeeded")
+try:
+    urllib.request.urlopen(
+        "http://192.168.254.10:5000/v3/",
+        timeout=10,
+    )
+except (ConnectionError, OSError, urllib.error.URLError):
+    pass
+else:
+    raise SystemExit("plaintext external Keystone unexpectedly succeeded")
+PY
+    printf 'external_vip_probe owner=%s tls=200 untrusted=denied plaintext=denied\n' \
+        "${owner_hostname}"
 }
 
 run_kolla() {
@@ -439,13 +493,7 @@ case "${action}" in
                 --connect-timeout 3 --max-time 10 \
                 http://192.168.252.10:5000/v3/
         )" = 200
-        test "$(
-            curl --silent --show-error --output /dev/null \
-                --write-out '%{http_code}' \
-                --connect-timeout 3 --max-time 10 \
-                --cacert "${config_root}/certificates-stage5/ca/root.crt" \
-                https://192.168.254.10:5000/v3/
-        )" = 200
+        probe_external_keystone
         ;;
 esac
 

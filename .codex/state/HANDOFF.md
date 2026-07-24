@@ -393,6 +393,26 @@ signed Distribution v3.1.1 binary.
   run; the running services still use the old credential consistently.
 - Exact next action: commit the bounded rotation helper locally, invoke it
   once through `jh.byun@100.123.168.66`, and immediately rerun only `deploy`.
+- Preserved the rotation helper in local commit `9d4be4a` and ran it once.
+  The target password changed without output or backup, the file remained
+  root-only, the deploy marker stayed absent, and RGW passed both boundary
+  audits.
+- The guarded deploy reconciled the rotated credential and again completed
+  Kolla/Ansible with `failed=0` and `unreachable=0`. All 36 containers were
+  running/healthy and the new deploy/deploy-check logs passed the credential
+  scan.
+- Final acceptance then exposed a network-probe assumption: both VIPs moved
+  from controller-1 to controller-2, and the external NIC is intentionally
+  unnumbered on nonowners. Controller-1 therefore has no route to the external
+  VIP. The single trusted probe failed from the wrong node and correctly left
+  the deploy marker absent; services and RGW remained healthy.
+- Changed external acceptance to identify the sole VIP owner, pass only the
+  public CA in memory to that host, and run trusted TLS plus untrusted/plaintext
+  denial probes there. A live owner-local read-only preflight passes on
+  controller-2. Bash syntax, ShellCheck, Gitleaks, and diff checks pass.
+- Exact next action: commit the VIP-owner probe correction locally and rerun
+  only `deploy`. No further credential rotation is needed because the guarded
+  reconciliation and new-log scan already passed.
 
 ## Plan 0017 Completion
 
