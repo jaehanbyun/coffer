@@ -553,6 +553,40 @@ promotion while ADR 0006 remains blocked.
   sentinel access after failover, and restore the pair. Do not power off a
   storage VM until daemon-level recovery is complete.
 
+### 2026-07-24 — Daemon-level RGW fault harness validated
+
+- Completed: Added a read-only sentinel helper and a paired local/guest fault
+  harness. Live Ceph inventory resolves exactly one allowlisted daemon name per
+  expected host and type; no random suffix is accepted without matching its
+  exact service, type, and hostname.
+- Fault boundary: The first phase may stop only the RGW on storage-3. The
+  second may stop only the Keepalived and HAProxy daemons on the current VIP
+  owner among storage-1/2. MON, MGR, OSD, VM, network, and unrelated host
+  service commands are absent. Five read-only sentinel downloads are required
+  under each fault.
+- Recovery boundary: The wrapper sets its mutation marker before the first
+  stop. Any later error invokes an exact `restore-all` action through the EXIT
+  trap. Normal restoration starts all three expected RGWs and both HAProxy
+  pairs before both Keepalived daemons, then requires clean PGs and
+  `HEALTH_OK`.
+- Evidence: Bash syntax, ShellCheck, Python compilation, target/action
+  refusals, forbidden-command scans, Gitleaks, and diff checks pass. A live
+  preflight resolves the current randomized daemon names, reports 3/2/2
+  running daemons and `HEALTH_OK`, reads the expected sentinel digest, and
+  removes both temporary helpers.
+- Failure corrected before mutation: The initial live preflight copied local
+  basenames while expecting distinct remote names, so execution failed before
+  daemon inventory. The wrapper now specifies each destination path and the
+  two stray temporary files were removed. A traced rerun and the final clean
+  preflight passed.
+- Safety: No daemon stop/start action has been invoked by this harness.
+- Next exact action: Commit the validated daemon-fault harness locally, rerun
+  its healthy preflight implicitly, then invoke
+  `poc/kolla-ha/test-ceph-rgw-failover.sh
+  jh.byun@100.123.168.66` once. Independently verify full service, VIP, PG,
+  health, sentinel, and temporary-file restoration before considering a whole
+  storage-VM fault.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -568,6 +602,7 @@ promotion while ADR 0006 remains blocked.
 | Ceph replicated OSDs | exact devices, 3 up/in OSDs, host CRUSH domain, size/min 3/2, idempotency | passed; `HEALTH_OK` |
 | RGW HA endpoint | 3 RGWs, 2 ingress pairs, one VIP owner, backend/frontend TLS, idempotency | passed; 5 pools/129 clean PGs, zero users |
 | S3 fixture | owner-only identities, denials, persistent sentinel, idempotency | passed twice; digest retained, no secondary residue |
+| RGW daemon-fault harness | exact names, read-only sentinel, EXIT restoration, live preflight | passed locally and live; fault invocation pending |
 | Kolla/Galera/Coffer baseline | multinode deploy and health acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | pending |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -598,10 +633,13 @@ promotion while ADR 0006 remains blocked.
 - Current state: Active; the Ceph control plane and exact three-host replicated
   OSD baseline plus three-RGW/two-ingress TLS endpoint are healthy. The two
   owner-limited S3 identities and buckets are provisioned; the deterministic
-  private sentinel passed two identical round trips.
-- Exact next action: Add and locally validate an exact daemon-level RGW and
-  ingress failover harness with restore assertions before any VM-level fault.
-- First file or command: `poc/kolla-ha/test-ceph-rgw-failover.sh`.
+  private sentinel passed two identical round trips. The exact daemon-level
+  fault harness passed live preflight without stopping a service.
+- Exact next action: Commit and invoke the daemon-level RGW and active-ingress
+  failure matrix, then independently verify complete recovery.
+- First file or command: `git commit` for the exact fault harness checkpoint,
+  followed by `poc/kolla-ha/test-ceph-rgw-failover.sh
+  jh.byun@100.123.168.66`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

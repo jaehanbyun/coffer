@@ -159,6 +159,21 @@ signed Distribution v3.1.1 binary.
   ingress failover harness. Test one exact RGW replica and then the active
   ingress pair with sentinel verification and full restore gates; defer whole
   storage-VM failure until this smaller fault phase closes.
+- Added the exact daemon-level RGW/ingress fault harness and a read-only
+  sentinel helper. It admits only storage-3's RGW and the current VIP owner's
+  Ceph-managed Keepalived/HAProxy pair, requires five reads under each fault,
+  and has an EXIT trap that restores every expected RGW and ingress daemon.
+- Bash syntax, ShellCheck, Python compilation, refusal tests,
+  forbidden-command scans, Gitleaks, and diff checks pass. The first live
+  preflight exposed only a remote basename mismatch before daemon inventory;
+  the corrected explicit destinations pass live 3/2/2 inventory,
+  `HEALTH_OK`, expected sentinel digest, and helper cleanup. No stop action has
+  run.
+- Exact next action: commit and invoke
+  `poc/kolla-ha/test-ceph-rgw-failover.sh
+  jh.byun@100.123.168.66`, then independently verify restored daemons, exactly
+  one VIP owner, clean PGs, health, sentinel digest, and no temporary helpers
+  before any whole-VM fault.
 
 ## Plan 0017 Completion
 

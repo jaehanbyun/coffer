@@ -127,3 +127,18 @@ proves anonymous, cross-owner, and extra-bucket denial, then retains one
 deterministic 4-MiB private object for replica-loss testing. Repeated execution
 must verify the existing key identities and object digest rather than rotate or
 overwrite them.
+
+After the fixture passes, exercise the bounded daemon-level failure baseline:
+
+```text
+poc/kolla-ha/test-ceph-rgw-failover.sh <ssh-target>
+```
+
+The harness first stops only the RGW replica on storage-3, performs five
+read-only sentinel round trips through the VIP, and restores the replica. It
+then stops the exact Keepalived and HAProxy daemons on the current VIP owner,
+requires the VIP to move to the surviving ingress host, performs five more
+read-only round trips, and restores both ingress pairs. An exit trap attempts
+full exact-service restoration on every failure. This phase does not stop an
+OSD, MON, MGR, VM, network, or host service outside the Ceph-managed RGW and
+ingress allowlists.
