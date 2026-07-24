@@ -313,6 +313,32 @@ promotion while ADR 0006 remains blocked.
   RGW creation. Validate the exact host and service allowlists locally before
   invoking it.
 
+### 2026-07-24 — MON/MGR-only Ceph bootstrap harness validated
+
+- Completed: Preserved storage preparation in local commit `56f6af2`. Added a
+  four-part control-plane harness: pinned primary bootstrap, marker-bounded
+  cephadm public-key authorization on the two secondary nodes, exact host
+  adoption, and explicit three-MON/two-MGR placement and readiness.
+- Safety contract: The bootstrap pins Ceph 20.2.2 and its image digest, uses
+  storage-1 and `192.168.253.31` only as the initial monitor, sets default
+  replica size 3/minimum 2, and requires zero OSDs before and after this phase.
+  The secondary authorization script accepts only storage-2/3 and only one
+  valid public key. Host adoption permits only the three declared hostnames and
+  ends by proving RGW count zero.
+- Evidence: Bash syntax, ShellCheck, missing/option-shaped target refusal, and
+  a static negative scan for OSD create/zap/wipe/RGW commands pass. Read-only
+  Tentacle CLI inspection confirms the selected bootstrap, placement, dry-run,
+  format, host-label, and daemon-type options.
+- Safety: The new bootstrap harness has not been invoked. The three OSD devices
+  remain empty and no Ceph configuration or container exists.
+- Changed files: Added `bootstrap-ceph-control.sh`,
+  `guest-bootstrap-ceph-primary.sh`, `guest-authorize-cephadm.sh`, and
+  `guest-adopt-ceph-hosts.sh`; updated this plan and `HANDOFF.md`.
+- Next exact action: Commit the MON/MGR-only harness locally, rerun the storage
+  empty-device assertions, then invoke `bootstrap-ceph-control.sh bb00` once.
+  If it fails, inspect aggregate cluster/host/daemon state and do not proceed
+  to OSD work.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -351,11 +377,11 @@ promotion while ADR 0006 remains blocked.
 
 ## Handoff
 
-- Current state: Active; all six autostart-disabled guests are running and
-  readiness-verified on three dedicated autostart-disabled networks.
-- Exact next action: Implement and locally validate MON/MGR-only cephadm
-  bootstrap and host adoption; do not initialize OSDs in the same action.
-- First file or command: `poc/kolla-ha/bootstrap-ceph-control.sh`.
+- Current state: Active; all six guests are ready, the three storage nodes are
+  prepared with empty OSD devices, and the MON/MGR-only harness is validated.
+- Exact next action: Commit and invoke the MON/MGR-only bootstrap once, then
+  stop for aggregate quorum/daemon/zero-OSD verification.
+- First file or command: `git diff --check`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an
