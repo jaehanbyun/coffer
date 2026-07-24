@@ -312,6 +312,24 @@ runtime/config/listeners, and a healthy external Ceph/RGW boundary. Companion
 inventory, owner-only inputs, database, catalog, and role execution remain
 later phases.
 
+For a bounded Stage 5 application update, build a separate Coffer tag while
+the accepted runtime stays on the original image:
+
+```text
+poc/kolla-ha/build-distribute-coffer-update.sh preflight <ssh-target>
+poc/kolla-ha/build-distribute-coffer-update.sh status <ssh-target>
+poc/kolla-ha/build-distribute-coffer-update.sh build <ssh-target>
+```
+
+This path archives only pinned local commit
+`a6f476e65f89048860309dc277406c96fd7fa0e7`, verifies the complete archive and
+installed quota-module digests, and builds
+`localhost/coffer:stage5-quota-retry` without publishing it. The identical
+image is streamed directly to controller-2/3. Acceptance requires every
+running API/edge/registry container to retain its original image ID and health;
+the original `localhost/coffer:stage5` image remains the rollback input. This
+phase creates no container and performs no Kolla action.
+
 Prepare the companion inventory and owner-controlled inputs only after the
 image phase is accepted:
 

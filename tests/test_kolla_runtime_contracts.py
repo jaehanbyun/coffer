@@ -142,6 +142,39 @@ def test_multinode_tenant_fixture_is_finite_and_exactly_bounded() -> None:
     assert "--remove-all-storage" not in guest
 
 
+def test_multinode_update_image_is_pinned_and_keeps_runtime_unchanged() -> None:
+    outer = (
+        ROOT / "poc" / "kolla-ha" / "build-distribute-coffer-update.sh"
+    ).read_text(encoding="utf-8")
+    guest = (
+        ROOT
+        / "poc"
+        / "kolla-ha"
+        / "guest-build-distribute-coffer-update.sh"
+    ).read_text(encoding="utf-8")
+
+    assert "{preflight|status|build}" in outer
+    assert "{preflight|status|build}" in guest
+    assert "a6f476e65f89048860309dc277406c96fd7fa0e7" in outer
+    assert "a6f476e65f89048860309dc277406c96fd7fa0e7" in guest
+    assert "7fcaeba415837c624b7618adeaf23be2be5eaa6269b4702be4795aa640c5684f" in outer
+    assert "7fcaeba415837c624b7618adeaf23be2be5eaa6269b4702be4795aa640c5684f" in guest
+    assert "localhost/coffer:stage5-quota-retry" in guest
+    assert 'current_image="localhost/coffer:stage5"' not in guest
+    assert "runtime=unchanged" in guest
+    assert "require_runtime_unchanged" in guest
+    assert "installed quota source digest changed" in guest
+    assert "quota.MAX_TRANSACTION_ATTEMPTS != 3" in guest
+    assert "docker save" in guest
+    assert "sudo docker load" in guest
+    assert "docker stop" not in guest
+    assert "docker restart" not in guest
+    assert "docker image rm" not in guest
+    assert "kolla-ansible" not in guest
+    assert "rm -rf --" in guest
+    assert '"${update_root}"/source.*' in guest
+
+
 def test_multinode_tenant_acceptance_is_owner_local_and_fail_closed() -> None:
     outer = (
         ROOT / "poc" / "kolla-ha" / "run-coffer-tenant-acceptance.sh"

@@ -1727,10 +1727,23 @@ promotion while ADR 0006 remains blocked.
   environment.
 - Boundary: This is not yet live Galera evidence. The running Stage 5
   containers still use the retained `localhost/coffer:stage5` image.
-- Next exact action: Commit the product retry surface locally, then add a
-  source-archive-pinned update-image harness. Build and distribute one new
-  Coffer tag identically to all controllers while retaining the current image
-  as the exact rollback input and changing no running container.
+- Added next-phase harness: Preserved the product change in `a6f476e` and
+  pinned its deterministic Git archive plus both installed quota-module
+  digests. The harness can build only
+  `localhost/coffer:stage5-quota-retry`, streams it directly to controller-2/3,
+  and retains the original image/tag as the exact rollback input.
+- Verification: Bash syntax, ShellCheck, eleven focused runtime-contract
+  tests, diff checks, and scoped secret scans pass. The live mutation-free
+  preflight proves the update tag and state root absent, all six API/edge
+  containers on the recorded current image ID, all three registries on their
+  recorded image ID, and all nine containers healthy.
+- Safety: Preflight made no image, file, container, configuration, database,
+  identity, or runtime change. The build phase has not run.
+- Next exact action: Commit the update-image harness locally, then invoke its
+  exact `build` action. Require the same new image ID and embedded retry-source
+  hashes on all controllers, unchanged current runtime IDs/health, retained
+  rollback image, owner-only evidence, and metadata-idempotent replay before
+  rolling deployment.
 
 ## Verification
 

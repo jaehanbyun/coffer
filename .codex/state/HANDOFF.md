@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0018 active; quota retry surface implemented locally
+- Status: plan 0018 active; update-image preflight passed
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -912,11 +912,23 @@ marker-idempotent replay passed.
   SQLSTATE recognition. The complete suite passes 246 tests when the installed
   console-entry-point directory is placed on `PATH`; `uv lock --check`,
   compile, diff, and scoped Gitleaks pass.
-- Exact next action: preserve this product retry surface in a local commit,
-  then add a source-archive-pinned Stage 5 update-image harness. It must build
-  a new Coffer tag without replacing `localhost/coffer:stage5`, distribute the
-  identical image to all controllers, leave runtime unchanged, and provide an
-  exact rollback input before any rolling deployment or Galera probe.
+- Preserved the product retry surface in `a6f476e`. Added a separate update
+  image harness pinned to that exact local commit, its deterministic Git
+  archive, both installed quota-module digests, the existing Kolla commit,
+  and the immutable Ubuntu base digest. It can build only
+  `localhost/coffer:stage5-quota-retry` and directly distribute it to the
+  three controllers; the original image/tag is never removed or retagged.
+- Bash syntax, ShellCheck, eleven focused runtime-contract tests, diff checks,
+  and scoped secret scans pass. Live mutation-free preflight confirms all six
+  API/edge containers still use the recorded current image ID, all three
+  registries use their recorded image ID, all nine containers are healthy,
+  and the update tag/state root is absent on every controller.
+- Exact next action: commit the validated update-image harness locally, then
+  invoke only `poc/kolla-ha/build-distribute-coffer-update.sh build
+  jh.byun@100.123.168.66`. Validate one identical new image ID on all three
+  controllers, installed retry source hashes and attempt bound, unchanged
+  runtime image IDs/health, retained old image, owner-only evidence, and
+  metadata-idempotent replay before any rolling deployment.
 
 ## Plan 0017 Completion
 
@@ -1502,10 +1514,9 @@ marker-idempotent replay passed.
 
 ## Exact Next Action
 
-Commit the implemented `QuotaStore` transaction retry surface. Then add a
-source-archive-pinned Stage 5 update-image harness that creates and distributes
-one new Coffer image tag while retaining the exact current image for rollback
-and making no runtime change.
+Commit the validated source-archive-pinned update-image harness. Then build
+and directly distribute the new Coffer tag while retaining the exact current
+runtime and rollback image unchanged.
 
 ## After This Work Package
 
