@@ -3,12 +3,15 @@
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-WORK="${ROOT}/work/kolla-runtime"
+WORK="${COFFER_RUNTIME_WORK:-${ROOT}/work/kolla-runtime}"
 EVIDENCE="${WORK}/evidence"
-SCOUT_EVIDENCE="work/kolla-runtime/evidence"
-BASE_IMAGE="localhost/coffer-stage2-base:2026.1"
-COFFER_IMAGE="localhost/coffer-stage2:2026.1"
-REGISTRY_IMAGE="localhost/coffer-stage2-registry:3.1.1"
+SCOUT_EVIDENCE="${EVIDENCE#"${ROOT}/"}"
+BASE_IMAGE="${COFFER_RUNTIME_BASE_IMAGE:-localhost/coffer-stage2-base:2026.1}"
+COFFER_IMAGE="${COFFER_RUNTIME_COFFER_IMAGE:-localhost/coffer-stage2:2026.1}"
+REGISTRY_IMAGE="${COFFER_RUNTIME_REGISTRY_IMAGE:-localhost/coffer-stage2-registry:3.1.1}"
+BUILD_IMAGES="${COFFER_RUNTIME_BUILD_IMAGES:-true}"
+REMOVE_IMAGES="${COFFER_RUNTIME_REMOVE_IMAGES:-true}"
+MANAGE_MACHINE="${COFFER_RUNTIME_MANAGE_MACHINE:-true}"
 NETWORK="coffer-stage2-network"
 DATABASE_VOLUME="coffer-stage2-database"
 REGISTRY_VOLUME="coffer-stage2-registry-data"
@@ -30,6 +33,16 @@ phase="initialization"
 
 if [[ ! "${WAIT_ATTEMPTS}" =~ ^[1-9][0-9]*$ ]] || ((WAIT_ATTEMPTS > 60)); then
     echo "COFFER_STAGE2_WAIT_ATTEMPTS must be an integer from 1 through 60" >&2
+    exit 1
+fi
+for boolean_value in "${BUILD_IMAGES}" "${REMOVE_IMAGES}" "${MANAGE_MACHINE}"; do
+    if [[ "${boolean_value}" != "true" && "${boolean_value}" != "false" ]]; then
+        echo "runtime boolean inputs must be true or false" >&2
+        exit 1
+    fi
+done
+if [[ "${SCOUT_EVIDENCE}" == "${EVIDENCE}" ]]; then
+    echo "COFFER_RUNTIME_WORK must remain under the repository root" >&2
     exit 1
 fi
 
@@ -72,9 +85,11 @@ remove_exact_runtime() {
     podman volume rm --force "${DATABASE_VOLUME}" >/dev/null 2>&1 || true
     podman volume rm --force "${REGISTRY_VOLUME}" >/dev/null 2>&1 || true
     podman network rm --force "${NETWORK}" >/dev/null 2>&1 || true
-    podman image rm --force "${COFFER_IMAGE}" >/dev/null 2>&1 || true
-    podman image rm --force "${REGISTRY_IMAGE}" >/dev/null 2>&1 || true
-    podman image rm --force "${BASE_IMAGE}" >/dev/null 2>&1 || true
+    if [[ "${REMOVE_IMAGES}" == "true" ]]; then
+        podman image rm --force "${COFFER_IMAGE}" >/dev/null 2>&1 || true
+        podman image rm --force "${REGISTRY_IMAGE}" >/dev/null 2>&1 || true
+        podman image rm --force "${BASE_IMAGE}" >/dev/null 2>&1 || true
+    fi
 }
 
 remove_generated_directory() {
@@ -192,7 +207,7 @@ rm -f -- "${EVIDENCE}/edge-diagnostic.txt" \
     "${EVIDENCE}/failure-summary.txt"
 
 machine_state="$(podman machine inspect --format '{{.State}}')"
-if [[ "${machine_state}" != "running" ]]; then
+if [[ "${machine_state}" != "running" && "${MANAGE_MACHINE}" == "true" ]]; then
     podman machine start
     machine_started_here=true
 fi
@@ -210,42 +225,44 @@ for raw_port in sys.argv[1:]:
         probe.bind(("127.0.0.1", port))
 PY
 
-context="$(mktemp -d "${WORK}/tmp.context.XXXXXX")"
+if [[ "${BUILD_IMAGES}" == "true" ]]; then
+    context="$(mktemp -d "${WORK}/tmp.context.XXXXXX")"
+    cp "${ROOT}/pyproject.toml" "${ROOT}/README.md" "${context}/"
+    mkdir -p "${context}/src"
+    cp -R "${ROOT}/src/coffer" "${context}/src/coffer"
+
+    podman build --layers --pull=always \
+        --file "${ROOT}/poc/kolla-runtime/Containerfile.base" \
+        --tag "${BASE_IMAGE}" "${context}"
+    podman build --layers --pull=never \
+        --file "${ROOT}/poc/kolla-runtime/Containerfile.coffer" \
+        --tag "${COFFER_IMAGE}" "${context}"
+
+    runtime_arch="$(podman info --format '{{.Host.Arch}}')"
+    case "${runtime_arch}" in
+        arm64 | aarch64)
+            distribution_arch="arm64"
+            distribution_sha="8167316d2b4a57e10d44f8c8a3c75fea5f3ec1c71872760bb903e5e8e52e9ad6"
+            ;;
+        amd64 | x86_64)
+            distribution_arch="amd64"
+            distribution_sha="6f330a3ba9ea1d23a6ee189f449d792595240585bb2f159123d76ac594f70dd8"
+            ;;
+        *)
+            echo "unsupported local architecture: ${runtime_arch}" >&2
+            exit 1
+            ;;
+    esac
+
+    podman build --layers --pull=never \
+        --build-arg "DISTRIBUTION_ARCH=${distribution_arch}" \
+        --build-arg "DISTRIBUTION_SHA256=${distribution_sha}" \
+        --file "${ROOT}/poc/kolla-runtime/Containerfile.registry" \
+        --tag "${REGISTRY_IMAGE}" "${context}"
+fi
+
 fixture_parent="$(mktemp -d "${WORK}/tmp.fixture-parent.XXXXXX")"
 fixture="${fixture_parent}/fixture"
-
-cp "${ROOT}/pyproject.toml" "${ROOT}/README.md" "${context}/"
-mkdir -p "${context}/src"
-cp -R "${ROOT}/src/coffer" "${context}/src/coffer"
-
-podman build --layers --pull=always \
-    --file "${ROOT}/poc/kolla-runtime/Containerfile.base" \
-    --tag "${BASE_IMAGE}" "${context}"
-podman build --layers --pull=never \
-    --file "${ROOT}/poc/kolla-runtime/Containerfile.coffer" \
-    --tag "${COFFER_IMAGE}" "${context}"
-
-runtime_arch="$(podman info --format '{{.Host.Arch}}')"
-case "${runtime_arch}" in
-    arm64 | aarch64)
-        distribution_arch="arm64"
-        distribution_sha="8167316d2b4a57e10d44f8c8a3c75fea5f3ec1c71872760bb903e5e8e52e9ad6"
-        ;;
-    amd64 | x86_64)
-        distribution_arch="amd64"
-        distribution_sha="6f330a3ba9ea1d23a6ee189f449d792595240585bb2f159123d76ac594f70dd8"
-        ;;
-    *)
-        echo "unsupported local architecture: ${runtime_arch}" >&2
-        exit 1
-        ;;
-esac
-
-podman build --layers --pull=never \
-    --build-arg "DISTRIBUTION_ARCH=${distribution_arch}" \
-    --build-arg "DISTRIBUTION_SHA256=${distribution_sha}" \
-    --file "${ROOT}/poc/kolla-runtime/Containerfile.registry" \
-    --tag "${REGISTRY_IMAGE}" "${context}"
 
 podman run --rm --entrypoint registry "${REGISTRY_IMAGE}" --version \
     | grep -F '3.1.1' >/dev/null
@@ -503,11 +520,17 @@ if podman network exists "${NETWORK}"; then
     echo "network residue remains: ${NETWORK}" >&2
     exit 1
 fi
-if podman image exists "${COFFER_IMAGE}" \
-    || podman image exists "${REGISTRY_IMAGE}" \
-    || podman image exists "${BASE_IMAGE}"; then
-    echo "image residue remains" >&2
-    exit 1
+if [[ "${REMOVE_IMAGES}" == "true" ]]; then
+    if podman image exists "${COFFER_IMAGE}" \
+        || podman image exists "${REGISTRY_IMAGE}" \
+        || podman image exists "${BASE_IMAGE}"; then
+        echo "image residue remains" >&2
+        exit 1
+    fi
+else
+    podman image exists "${COFFER_IMAGE}"
+    podman image exists "${REGISTRY_IMAGE}"
+    podman image exists "${BASE_IMAGE}"
 fi
 
 echo "Kolla runtime Stage 2 verification passed"

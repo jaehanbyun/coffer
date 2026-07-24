@@ -3,8 +3,10 @@
 - Status: proposed
 - Date: 2026-07-21
 - Decision owners: Coffer maintainers
-- Related plan: `docs/exec-plans/0002-thin-vertical-poc.md`
-- Evidence: `docs/research/m0-upstream-compatibility.md`
+- Related plans: `docs/exec-plans/0002-thin-vertical-poc.md`,
+  `docs/exec-plans/0017-production-image-remediation.md`
+- Evidence: `docs/research/m0-upstream-compatibility.md`,
+  `poc/production-images/`
 
 ## Context
 
@@ -27,6 +29,48 @@ A production candidate must satisfy all of these gates:
 
 M1 and M2 development may continue against the loopback v3.1.1 fixture because those milestones validate Coffer control and auth contracts rather than approve a production image.
 
+## 2026-07-24 Qualification Result
+
+Plan 0017 rebuilt both product artifacts on the digest-pinned Ubuntu Noble
+platform image through exact Kolla `stable/2026.1` commit
+`686c6d13dc1c31092b22c6c481e16a7329e935ea`. The build verifies the signed
+Distribution v3.1.1 release tar and its provenance subject, creates SPDX
+package inventories, requires dedicated non-root users, runs two vulnerability
+scanners plus a secret scan, and exercises the full local runtime contract
+before deciding promotion.
+
+The ARM64 Coffer image passes Docker Scout and Trivy at zero Critical and zero
+High, reports zero detected secrets, and passes the API, edge, token,
+repository, quota admission, OCI push/pull, restart-persistence,
+reconciliation, and repeat-bootstrap contracts. Its locked application venv
+remains intact while unused system `pip`, `setuptools`, `wheel`, and venv
+build packages are removed from the final image.
+
+The equally minimized registry wrapper remains blocked:
+
+| Evidence | Coffer | Distribution wrapper |
+|---|---:|---:|
+| Docker Scout | 0 Critical / 0 High | 8 Critical / 10 High |
+| Trivy 0.72.0 | 0 Critical / 0 High | 0 Critical / 22 High |
+| Trivy secret scan | 0 | 0 |
+| SPDX package inventory | 331 | 363 |
+
+The residual registry findings belong to the signed upstream Go 1.25.9
+release binary, including `golang.org/x/crypto` v0.49.0,
+`golang.org/x/net` v0.52.0, and gRPC v1.80.0. `govulncheck` v1.6.0 reports
+three source-reachable call paths and 37 vulnerable release-binary symbol
+groups. Replacing the surrounding base cannot remediate them, and rebuilding
+v3.1.1 with different dependencies would no longer be the signed upstream
+release artifact.
+
+The resulting `qualification.json` therefore sets `production_candidate` to
+false. This is the intended fail-closed outcome: Coffer-owned and base-image
+findings were remediated without suppressions, while the upstream release
+dependency remains visible. The next eligible action is to rerun the same
+harness against a newer signed, supported Distribution release and repeat the
+protocol gates. A private fork or unreleased dependency rebuild still requires
+a new ADR.
+
 ## Rejected Alternatives
 
 - **Declare v3.1.1 production-ready because push/pull works:** rejects security and protocol evidence.
@@ -40,3 +84,6 @@ M1 and M2 development may continue against the loopback v3.1.1 fixture because t
 - The PoC can continue without pretending that its fixture is deployable.
 - Native Referrers and malformed-reference handling become explicit acceptance evidence rather than late surprises.
 - If no upstream release satisfies the gates, maintainers must return with evidence for a new ADR rather than silently introduce a fork.
+- The reproducible ARM64 qualification is positive image-construction
+  evidence, not x86_64, multi-distribution, RGW/SSE-KMS, HA, backup, upgrade,
+  or production deployment approval.

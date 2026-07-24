@@ -1,18 +1,22 @@
 # Kolla Deployment Topology
 
-- Status: accepted Stage 1 contract; Stage 2 runtime/images and Stage 3
-  operator-local role lifecycle verified; no full Kolla AIO deployment
+- Status: accepted Stage 1 contract; Stages 2 through 4 verified; production
+  image qualification remains blocked on the signed Distribution release
 - Updated: 2026-07-24
 - Decision: `docs/adrs/0014-fix-kolla-deployment-topology.md`
 - Execution plans: `docs/exec-plans/0013-kolla-deployment-topology.md`,
   `docs/exec-plans/0014-kolla-runtime-images.md`,
-  `docs/exec-plans/0015-kolla-ansible-operator-role.md`
+  `docs/exec-plans/0015-kolla-ansible-operator-role.md`,
+  `docs/exec-plans/0016-kolla-aio-end-to-end.md`,
+  `docs/exec-plans/0017-production-image-remediation.md`
 
 This document is the operator-facing topology baseline for packaging Coffer
 with Kolla and deploying it through an operator-local Kolla-Ansible role. It
 fixes boundaries and ordering. Stage 2 fixes and locally verifies the
 runtime/image contents. Stage 3 implements and exercises the operator-local
-role without claiming the Stage 4 AIO tenant path.
+role. Stage 4 proves the complete disposable AIO tenant path. Plan 0017
+provides the reproducible image qualification baseline without claiming
+production promotion.
 
 ## Request Topology
 
@@ -208,12 +212,15 @@ Coffer cannot pull the images required to start itself.
 | 6 | Production promotion | Distribution/Ceph/KMS, identity, backup/cutover, observability, load, and GC gates close |
 | 7 | Upstream path | Kolla and Kolla-Ansible changes have integrated CI and an agreed governance destination |
 
-Stages 1 through 3 are complete. Stage 2 proves the final templates render and
-the equivalent pinned-helper ARM64 contract images function, but does not
-prove an official Kolla 2026.1 base build. Stage 3 proves the companion role's
-bounded lifecycle locally and on isolated Linux, but not the full Kolla AIO or
-tenant OCI path. Current Critical/High image findings keep the production gate
-closed.
+Stages 1 through 4 are complete. Plan 0017 additionally proves that the final
+templates build reproducibly on the digest-pinned Ubuntu Noble ARM64 platform
+through exact Kolla 2026.1 sources. The candidate artifacts pass the full local
+runtime contract; the Coffer image reports zero Critical/High under Docker
+Scout and Trivy. Production remains closed because the signed Distribution
+v3.1.1 release binary retains 8 Critical/10 High under Scout, 22 High under
+Trivy, three source-reachable vulnerabilities, and 37 vulnerable binary symbol
+groups. This image evidence does not replace Stage 5 HA or the other Stage 6
+promotion gates.
 
 Every later stage starts with a fresh execution plan and one exact next action.
 Completing one stage does not authorize deployment, credentials, destructive

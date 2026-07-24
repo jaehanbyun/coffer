@@ -12,6 +12,7 @@ class RuntimeConfigurationError(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class WSGIServerSettings:
+    process_name: str
     host: str
     port: int
     workers: int
@@ -23,7 +24,12 @@ class WSGIServerSettings:
     tls_keyfile: str | None
 
     @classmethod
-    def from_options(cls, options: Any) -> WSGIServerSettings:
+    def from_options(
+        cls,
+        options: Any,
+        *,
+        process_name: str,
+    ) -> WSGIServerSettings:
         host = options.bind_host
         if (
             not host
@@ -38,7 +44,14 @@ class WSGIServerSettings:
             raise RuntimeConfigurationError(
                 "TLS certificate and key must be configured together"
             )
+        if (
+            not process_name
+            or process_name.strip() != process_name
+            or any(character.isspace() for character in process_name)
+        ):
+            raise RuntimeConfigurationError("process_name is invalid")
         return cls(
+            process_name=process_name,
             host=host,
             port=options.bind_port,
             workers=options.workers,
@@ -57,6 +70,7 @@ class WSGIServerSettings:
 
     def gunicorn_options(self) -> dict[str, object]:
         options: dict[str, object] = {
+            "proc_name": self.process_name,
             "bind": self.bind,
             "workers": self.workers,
             "worker_class": "gthread",

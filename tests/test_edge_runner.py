@@ -51,6 +51,7 @@ def test_edge_uses_product_port_and_separate_origins() -> None:
     assert exit_code == EXIT_OK
     settings: EdgeSettings = captured[0][0]
     assert captured[0][1].bind == "127.0.0.1:8788"
+    assert captured[0][1].process_name == "coffer-edge"
     assert settings.api_origin.port == 8787
     assert settings.registry_origin.port == 8789
     assert settings.server.threads == 8

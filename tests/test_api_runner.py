@@ -30,6 +30,7 @@ def test_api_uses_the_product_port_and_fixed_gunicorn_contract() -> None:
         (
             application,
             WSGIServerSettings(
+                process_name="coffer-api",
                 host="127.0.0.1",
                 port=8787,
                 workers=2,
@@ -43,6 +44,7 @@ def test_api_uses_the_product_port_and_fixed_gunicorn_contract() -> None:
         )
     ]
     assert captured[0][1].gunicorn_options() == {
+        "proc_name": "coffer-api",
         "bind": "127.0.0.1:8787",
         "workers": 2,
         "worker_class": "gthread",

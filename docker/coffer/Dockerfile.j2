@@ -1,4 +1,4 @@
-FROM {{ namespace }}/{{ image_prefix }}openstack-base:{{ tag }}
+FROM {{ namespace }}/{{ image_prefix }}base:{{ tag }}
 
 {% block labels %}
 LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}" \
@@ -14,11 +14,24 @@ LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build
 
 ADD coffer-archive /coffer-source
 
-RUN ln -s /coffer-source/* /coffer \
-    && {{ macros.install_pip(['/coffer[mariadb,postgresql]'], constraints=false) }} \
+RUN {{ macros.install_packages(['python3-venv'], chain=true) }} \
+    && python3 -m venv /var/lib/kolla/venv \
+    && ln -s /coffer-source/* /coffer \
+    && /var/lib/kolla/venv/bin/python3 -m pip --no-cache-dir install --upgrade \
+        --constraint /coffer/requirements/production-constraints.txt \
+        /coffer[mariadb,postgresql] \
+    && /var/lib/kolla/venv/bin/python3 -m pip check \
+    && apt-get -y purge --auto-remove \
+        python3-pip python3-pip-whl python3-setuptools \
+        python3-setuptools-whl python3-venv python3-wheel python3.12-venv \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && chown -R root:root /var/lib/kolla/venv \
     && mkdir -p /etc/coffer /var/log/kolla/coffer \
     && chown -R coffer:coffer /etc/coffer /var/log/kolla/coffer \
     && chmod 0750 /etc/coffer /var/log/kolla/coffer
+
+ENV PATH /var/lib/kolla/venv/bin:$PATH
 
 {% block coffer_footer %}{% endblock %}
 {% block footer %}{% endblock %}

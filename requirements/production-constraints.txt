@@ -1,0 +1,200 @@
+alembic==1.18.5
+    # via
+    #   coffer
+    #   oslo-db
+certifi==2026.6.17
+    # via requests
+cffi==2.1.0 ; platform_python_implementation != 'PyPy'
+    # via cryptography
+charset-normalizer==3.4.9
+    # via requests
+cryptography==49.0.0
+    # via coffer
+debtcollector==3.1.0
+    # via
+    #   oslo-db
+    #   oslo-log
+    #   python-keystoneclient
+decorator==5.3.1
+    # via dogpile-cache
+dogpile-cache==1.5.0
+    # via oslo-cache
+falcon==4.3.1
+    # via coffer
+greenlet==3.5.3
+    # via sqlalchemy
+gunicorn==26.0.0
+    # via coffer
+idna==3.18
+    # via requests
+iso8601==2.1.0
+    # via
+    #   keystoneauth1
+    #   oslo-utils
+keystoneauth1==5.15.0
+    # via
+    #   coffer
+    #   keystonemiddleware
+    #   python-keystoneclient
+keystonemiddleware==13.0.0
+    # via coffer
+legacy-cgi==2.6.4 ; python_full_version >= '3.13'
+    # via webob
+mako==1.3.12
+    # via alembic
+markupsafe==3.0.3
+    # via mako
+msgpack==1.2.1
+    # via oslo-serialization
+netaddr==1.3.0
+    # via
+    #   oslo-config
+    #   oslo-utils
+os-service-types==1.8.2
+    # via keystoneauth1
+oslo-cache==4.3.0
+    # via
+    #   coffer
+    #   keystonemiddleware
+oslo-config==10.5.0
+    # via
+    #   coffer
+    #   keystonemiddleware
+    #   oslo-cache
+    #   oslo-db
+    #   oslo-log
+    #   oslo-policy
+    #   pycadf
+    #   python-keystoneclient
+oslo-context==6.5.0
+    # via
+    #   coffer
+    #   keystonemiddleware
+    #   oslo-log
+    #   oslo-policy
+oslo-db==18.1.0
+    # via coffer
+oslo-i18n==6.9.0
+    # via
+    #   keystonemiddleware
+    #   oslo-cache
+    #   oslo-config
+    #   oslo-db
+    #   oslo-log
+    #   oslo-policy
+    #   oslo-utils
+    #   python-keystoneclient
+oslo-log==8.3.0
+    # via
+    #   coffer
+    #   keystonemiddleware
+    #   oslo-cache
+oslo-policy==6.0.0
+    # via coffer
+oslo-serialization==5.11.0
+    # via
+    #   keystonemiddleware
+    #   oslo-log
+    #   oslo-policy
+    #   pycadf
+    #   python-keystoneclient
+oslo-utils==10.1.1
+    # via
+    #   keystonemiddleware
+    #   oslo-cache
+    #   oslo-db
+    #   oslo-log
+    #   oslo-policy
+    #   oslo-serialization
+    #   python-keystoneclient
+packaging==26.2
+    # via
+    #   gunicorn
+    #   oslo-utils
+    #   python-keystoneclient
+pbr==7.0.3
+    # via
+    #   keystonemiddleware
+    #   os-service-types
+    #   oslo-context
+    #   oslo-i18n
+    #   oslo-log
+    #   oslo-utils
+    #   python-keystoneclient
+prometheus-client==0.25.0
+    # via coffer
+psutil==7.2.2
+    # via oslo-utils
+psycopg==3.3.4
+    # via coffer
+psycopg-binary==3.3.4 ; implementation_name != 'pypy'
+    # via psycopg
+pycadf==4.1.0
+    # via keystonemiddleware
+pycparser==3.0 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
+    # via cffi
+pyjwt==2.13.0
+    # via
+    #   coffer
+    #   keystonemiddleware
+pymysql==1.2.0
+    # via coffer
+pyparsing==3.3.2
+    # via oslo-utils
+python-dateutil==2.9.0.post0
+    # via oslo-log
+python-keystoneclient==5.8.0
+    # via keystonemiddleware
+pyyaml==6.0.3
+    # via
+    #   oslo-config
+    #   oslo-policy
+    #   oslo-utils
+requests==2.34.2
+    # via
+    #   keystoneauth1
+    #   keystonemiddleware
+    #   oslo-config
+    #   oslo-policy
+    #   python-keystoneclient
+rfc3986==2.0.0
+    # via oslo-config
+setuptools==83.0.0
+    # via pbr
+six==1.17.0
+    # via python-dateutil
+sqlalchemy==2.0.51
+    # via
+    #   alembic
+    #   coffer
+    #   oslo-db
+stevedore==5.9.0
+    # via
+    #   dogpile-cache
+    #   keystoneauth1
+    #   oslo-config
+    #   oslo-db
+    #   oslo-policy
+    #   python-keystoneclient
+testresources==2.1.2
+    # via oslo-db
+testscenarios==0.6.2
+    # via oslo-db
+typing-extensions==4.16.0
+    # via
+    #   alembic
+    #   keystoneauth1
+    #   os-service-types
+    #   oslo-context
+    #   psycopg
+    #   sqlalchemy
+tzdata==2026.3 ; sys_platform == 'win32'
+    # via psycopg
+urllib3==2.7.0
+    # via requests
+webob==1.8.10
+    # via
+    #   coffer
+    #   keystonemiddleware
+wrapt==2.2.2
+    # via debtcollector

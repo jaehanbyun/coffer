@@ -1,17 +1,118 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0015 complete; no active execution plan
-- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`
+- Status: plan 0017 completed locally; no active execution plan
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: none
 
 ## Current Objective
 
-Plan 0015 is complete. The Coffer-owned companion Kolla-Ansible role and
-bounded lifecycle evidence are closed; Stage 4 tenant OCI behavior, full AIO,
-production identities, publication, and upstream work remain out of scope
-until separately authorized.
+Plan 0017 is complete with a reproducible fail-closed production-image
+qualification baseline. Coffer-owned and wrapper-base Critical/High findings
+are remediated; the signed Distribution v3.1.1 release binary is the explicit
+upstream blocker. The recommended successor is a release-refresh work package
+after a newer signed supported Distribution release exists, followed by the
+unchanged image qualification and protocol gates. Publication, production
+deployment, multinode/HA, and upstream changes remain unauthorized.
+
+## Plan 0017 Completion
+
+- Recovered the completed Stage 4 worktree and preserved its unpublished
+  deployment fixes, execution plan, and reproducible AIO harness.
+- Official upstream discovery still identifies signed Distribution v3.1.1 as
+  the latest stable release. Kolla 2026.1 documents supported Ubuntu, Debian,
+  Rocky, and CentOS image bases; the executable qualification is bounded to
+  digest-pinned Ubuntu Noble ARM64.
+- Added `poc/production-images/` with exact Kolla commit, Ubuntu platform,
+  signed Distribution release/provenance, Trivy, Podman client, and
+  `govulncheck` pins. Its source snapshot and generated 64-package production
+  constraint set fail closed on repository or `uv.lock` drift.
+- Coffer now builds directly on Kolla `base` into a root-owned application
+  venv rather than inheriting `openstack-base`. `cryptography` is upgraded
+  from 43.0.3 to 49.0.0. Temporary system pip/setuptools/wheel/venv tools are
+  removed after `pip check`; the registry wrapper removes the same unused
+  system packaging tools.
+- The ARM64 images run as dedicated `coffer` and `registry` users and pass the
+  complete Stage 2 runtime contract: installed commands, config/permissions,
+  repeat Alembic bootstrap, API/token/JWKS, quota edge, OCI push/pull,
+  restart digest preservation, reconciliation, logs, secret checks, and exact
+  runtime cleanup.
+- Final evidence reports Coffer at 0 Critical/0 High in both Docker Scout and
+  Trivy, zero detected secrets, and 331 SPDX packages. The minimized registry
+  wrapper reports 8 Critical/10 High in Scout, 0 Critical/22 High in Trivy,
+  zero detected secrets, and 363 SPDX packages.
+- `govulncheck` v1.6.0 finds three reachable source call paths in signed
+  Distribution v3.1.1 and 37 vulnerable symbol groups in its Go 1.25.9 release
+  binary. The remaining `x/crypto` 0.49.0, `x/net` 0.52.0, gRPC 1.80.0, and
+  Go standard-library findings cannot be closed by a wrapper rebuild.
+- `qualification.json` sets `production_candidate=false` with exact blockers.
+  ADR 0006 remains fail-closed; no private fork, waiver, image/evidence
+  publication, commit, or push was made.
+- The final harness is host-portable across the intended macOS/Linux control
+  paths: it resolves `go` from `PATH` and selects `sha256sum` or `shasum`
+  without a Homebrew-only executable path.
+- Final repository regression and residue verification passed as recorded in
+  plan 0017. Exact candidate images, containers, networks, and volumes are
+  absent; retained evidence is ignored under
+  `work/production-image-remediation/`.
+- Exact next action: none. When a newer signed supported Distribution release
+  exists, start with `poc/production-images/pins.env` and rerun the unchanged
+  qualification plus native Referrers and malformed-reference protocol gates.
+
+## Plan 0016 Completion
+
+- The exact autostart-disabled `coffer-kolla-aio-stage4` VM ran with 8 vCPUs,
+  32 GiB RAM, an isolated 180 GiB root overlay, and two dedicated interfaces.
+  It and its exact volumes were destroyed after acceptance; existing
+  shared-host domains and services remain untouched.
+- Ubuntu Noble was SHA-256 pinned and Kolla-Ansible 2026.1 was pinned to
+  `cec5b77ddc0af37e9b9a8df92f7458ae014fb5dc`.
+- Kolla `bootstrap-servers`, `prechecks --use-test-images`, `pull`, and
+  `deploy` passed. The final deploy recap was `ok=404`, `changed=259`,
+  `failed=0`, `unreachable=0`; the VIP Keystone endpoint returned HTTP 200 and
+  all healthchecked containers were healthy.
+- The AIO used Kolla's explicitly acknowledged test-only Quay images. This is
+  functional Stage 4 evidence, not production image qualification.
+- Coffer and the unmodified Distribution were built from published commit
+  `dc145ff04bedff189ab751ba80791727b743a97e` through the independent bootstrap
+  path. Companion precheck/deploy/reconfigure passed; API, edge, and registry
+  are healthy.
+- The exact disposable RGW identity and bucket `coffer-kolla-aio-stage4` passed
+  an authenticated private sentinel round trip. The external TLS VIP returns
+  the expected OCI `401` and Coffer Bearer challenge; API and registry HAProxy
+  frontends remain internal-only.
+- The disposable backend CA generator now emits critical CA constraints and
+  signing key usage. This corrected Python 3.13 edge verification while
+  retaining verified HAProxy and Distribution trust. Owner-only secret inputs
+  remain only in the guests.
+- The functional image scans still report unresolved Critical/High findings;
+  Stage 4 does not clear production promotion.
+- Kolla post-deploy and the proposed catalog contract passed. Two finite
+  project identities proved Docker push/pull for project A and non-disclosing
+  denial of project B control lookup, pull, push, tags, cross-mount,
+  overwrite, and delete. The accepted digest was
+  `sha256:7a3ebe5bfd1a4a19797d20b0c0bb39d44393e9a03fd852c0865b0f540d868df0`.
+- API, edge, Distribution, and HAProxy restart preserved that digest and
+  Alembic revision `0004_inventory_import`. Two consecutive companion
+  reconfigures reported only the intentional one-shot bootstrap change;
+  post-reconfigure behavior and secret/JWT log scans passed.
+- Trivy 0.72.0 reports Coffer at 6 Critical/34 High and the registry wrapper
+  at 6 Critical/54 High. These functional images remain production-blocked.
+- Both finite Keystone fixtures and the exact Stage 4 RGW bucket/identity were
+  removed. The final host audit found zero Stage 4 domains or volumes, all 18
+  original domains intact, and `coffer-rgw-poc` still running with autostart
+  disabled. Local temporary and known-host residue is absent.
+- Final regression passed: 52 companion-role contract checks; 232 Python tests
+  on each of Python 3.11, 3.12, and 3.13; lock, compile, eight installed CLIs,
+  Go format/test/vet, six Compose models, 58 Make dry-runs, Coffer-scoped
+  production-profile Ansible lint, 38 YAML and 12 Jinja parses, 66
+  Bash/ShellCheck files, 65 Markdown files, 44 local links, project-owned
+  Gitleaks over 311 files, explicit secret/address/residue scans, and diff
+  checks.
+- Stage 4 is a completed local work package and has not been committed or
+  pushed. The user-authorized atomic publication included only completed
+  Stages 1 through 3.
 
 ## Completed
 
@@ -458,15 +559,22 @@ until separately authorized.
   `pyproject.toml`, README, architecture, plan 0015, and this handoff. The
   inherited uncommitted Stage 1/2 work remains preserved; no commit or push
   was requested or performed.
+- Stage 4 deployed the pinned Kolla 2026.1 AIO and Coffer companion role,
+  proved the proposed catalog contract, two-project Docker isolation,
+  edge-only ingress, restart persistence, repeat-safe schema and reconfigure
+  behavior, and removed every exact disposable identity, bucket, container,
+  domain, volume, temporary file, and known-host entry. It added the
+  `poc/kolla-aio/` harness, completed plan 0016, strengthened the runtime role
+  contracts, and passed the final regression/security/documentation matrix.
 
 ## Blockers and Risks
 
 - Project hooks must be reviewed and trusted in Codex before they run.
 - Local memories are experimental and must never replace checked-in project state.
-- Stages 1 and 2 provide topology plus local runtime/image-contract evidence,
-  while completed Stage 3 adds executable operator-local role/lifecycle and
-  isolated Linux evidence. None of these constitutes a full Kolla AIO tenant
-  OCI acceptance test or production deployment.
+- Completed Stage 4 now constitutes a functional single-node Kolla AIO tenant
+  OCI acceptance test. It does not constitute a multinode/HA or production
+  deployment and does not qualify the test-only or vulnerability-blocked
+  images for promotion.
 - `bb00` is a shared virtualization host with occupied host 80/443 and unrelated
   HAProxy/Harbor/VM workloads. Direct installation and implicit reuse are
   excluded; later Kolla work requires a separately named isolated VM and
@@ -492,12 +600,13 @@ until separately authorized.
 
 ## Exact Next Action
 
-None in Stage 3. If the user authorizes Stage 4, create a new execution plan
-for a full Kolla AIO deployment and two-project tenant OCI acceptance path
-before provisioning any new validation target.
+Implement `poc/production-images/` with immutable Kolla, Ubuntu, Distribution,
+provenance, and scanner pins, then run its candidate build/security/runtime
+qualification and verify that unresolved upstream binary findings fail closed.
 
 ## After This Work Package
 
-Plan 0015 covers only the operator-local Kolla-Ansible role and its bounded
-lifecycle evidence. Full AIO tenant OCI behavior, multinode/HA, production
-promotion, and upstream work remain later independent packages.
+Plan 0017 may accept a production-candidate image only if every ADR 0006 gate
+passes. Otherwise it must close with a reproducible blocked baseline and exact
+upstream dependencies. Multinode/HA and upstream integration remain later
+independent packages.

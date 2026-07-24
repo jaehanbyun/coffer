@@ -30,7 +30,10 @@ def run_with_config(
     server_runner: Callable[[Any, WSGIServerSettings], None] = run_wsgi,
 ) -> int:
     try:
-        settings = WSGIServerSettings.from_options(conf.api)
+        settings = WSGIServerSettings.from_options(
+            conf.api,
+            process_name="coffer-api",
+        )
         application = application_factory(conf)
     except (RuntimeConfigurationError, SchemaNotReady, OSError, ValueError):
         LOG.error("api startup failed result=invalid_configuration")

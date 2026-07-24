@@ -111,7 +111,10 @@ class EdgeSettings:
             allow_insecure_http=options.allow_insecure_http,
         )
         return cls(
-            server=WSGIServerSettings.from_options(options),
+            server=WSGIServerSettings.from_options(
+                options,
+                process_name="coffer-edge",
+            ),
             api_origin=api_origin,
             registry_origin=registry_origin,
             jwks_file=options.jwks_file,

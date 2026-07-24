@@ -75,7 +75,10 @@ def validate_component(conf: cfg.ConfigOpts, component: str) -> None:
         return
 
     if component == "api":
-        settings = WSGIServerSettings.from_options(conf.api)
+        settings = WSGIServerSettings.from_options(
+            conf.api,
+            process_name="coffer-api",
+        )
         _validate_server_tls(settings)
         if not conf.token.enabled:
             raise ConfigValidationError("API token service must be enabled")
