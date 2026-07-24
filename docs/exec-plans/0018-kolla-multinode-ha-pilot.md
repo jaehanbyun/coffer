@@ -368,8 +368,17 @@ promotion while ADR 0006 remains blocked.
   now receives `/dev/null` explicitly. The public-key read also has closed
   stdin. This preserves the script stream and makes the partially completed
   state safe to resume idempotently.
-- Next exact action: Validate and commit the stdin correction, then rerun the
-  control bootstrap to adopt storage-2/3 and reach three MONs/two MGRs.
+- Intermediate result: The stdin-corrected resume registered both secondary
+  hosts and applied all bounded labels, but the immediate MON placement
+  dry-run raced the orchestrator host cache and rejected storage-3 as an
+  unknown host. No MON/MGR placement change was applied. Subsequent aggregate
+  inspection found all three registered hosts healthy, one MON, one MGR, zero
+  OSDs, zero RGW services, and all three OSD devices still empty.
+- Third correction: Added a bounded pre-placement poll that requires all three
+  exact hostnames to appear with an empty orchestrator status before any
+  service dry-run or apply.
+- Next exact action: Validate and commit the host-readiness gate, then
+  idempotently rerun the control bootstrap to reach three MONs/two MGRs.
 
 ## Verification
 
@@ -410,12 +419,11 @@ promotion while ADR 0006 remains blocked.
 ## Handoff
 
 - Current state: Active; storage-1 has the initial MON/MGR, storage-2/3 have
-  only the cephadm public-key marker, and all OSD devices remain empty. The
-  streamed-stdin correction awaits validation and idempotent resume.
-- Exact next action: Validate and commit explicit `/dev/null` input for every
-  streamed `cephadm shell`, then rerun the control bootstrap once.
-- First file or command: `shellcheck poc/kolla-ha/bootstrap-ceph-control.sh
-  poc/kolla-ha/guest-bootstrap-ceph-primary.sh
+  been registered and labeled, and all OSD devices remain empty. The exact-host
+  readiness gate awaits validation and idempotent resume.
+- Exact next action: Validate and commit the bounded orchestrator host
+  readiness gate, then rerun the control bootstrap once.
+- First file or command: `shellcheck
   poc/kolla-ha/guest-adopt-ceph-hosts.sh`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production

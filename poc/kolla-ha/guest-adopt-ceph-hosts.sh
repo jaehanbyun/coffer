@@ -38,6 +38,27 @@ for index in "${!hostnames[@]}"; do
     fi
 done
 
+for _ in $(seq 1 180); do
+    host_document="$(
+        cephadm shell -- ceph orch host ls --format json </dev/null
+    )"
+    ready_hosts="$(
+        printf '%s' "${host_document}" |
+            jq '[.[] | select(
+                (
+                    .hostname == "coffer-rgw-ha-stage5-storage-1" or
+                    .hostname == "coffer-rgw-ha-stage5-storage-2" or
+                    .hostname == "coffer-rgw-ha-stage5-storage-3"
+                ) and .status == ""
+            )] | length'
+    )"
+    if test "${ready_hosts}" -eq 3; then
+        break
+    fi
+    sleep 2
+done
+test "${ready_hosts:-0}" -eq 3
+
 for storage_hostname in "${hostnames[@]}"; do
     for label in mon mgr rgw osd; do
         cephadm shell -- ceph orch host label add \

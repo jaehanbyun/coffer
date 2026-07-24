@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; initial MON/MGR exists, host-adoption stdin fix awaits retry
+- Status: plan 0018 active; three Ceph hosts registered, readiness-gated MON/MGR placement awaits retry
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -86,8 +86,14 @@ signed Distribution v3.1.1 binary.
 - Added explicit `/dev/null` input to every streamed `cephadm shell` call and
   the standalone public-key read so the partial cluster can resume
   idempotently.
-- Exact next action: validate and commit the stdin correction, then rerun the
-  control bootstrap to reach three MONs and two MGRs without creating OSD/RGW.
+- The corrected resume registered and labeled storage-2/3, then failed safely
+  when the immediate placement dry-run raced the orchestrator cache and called
+  storage-3 unknown. Later inspection found all three exact hosts healthy, one
+  MON, one MGR, zero OSDs/RGW services, and three empty OSD devices.
+- Added a bounded pre-placement gate requiring all three exact hosts to have
+  empty orchestrator status before dry-run or apply.
+- Exact next action: validate and commit the readiness gate, then rerun the
+  control bootstrap to reach three MONs/two MGRs without creating OSD/RGW.
 
 ## Plan 0017 Completion
 
