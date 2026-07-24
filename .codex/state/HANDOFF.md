@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; Kolla production profile prepared, reconfigure pending
+- Status: plan 0018 active; Kolla production profile reconfigure accepted
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -461,9 +461,35 @@ signed Distribution v3.1.1 binary.
   Independent audit found exact root-only source PEMs and marker, valid
   identities, no rendered internal HAProxy PEM yet, no CA serial, no temporary
   directory, no backup, and fully healthy external RGW.
-- Exact next action: extend the guarded Kolla lifecycle with one exact
-  production-profile `reconfigure` phase and owner-local internal/external TLS,
-  443/5000, catalog, quorum, credential-log, and absent-Coffer acceptance.
+- Preserved the guarded production-profile phase in local commit `dac7bf5`.
+  Its first run stopped before a completion marker on the missing ProxySQL TLS
+  recipient contract; `a367f30` added the exact CA/certificate/key inputs.
+  The second run stopped at Keystone registration because the toolbox lacked
+  internal CA trust; `2b29f2a` added only Kolla's documented Ubuntu CA bundle
+  path.
+- The next service run completed but correctly withheld the marker because
+  the expected catalog strings included `/v3` and explicit `:443`, while
+  Kolla's canonical URLs omit both. Commit `c37c014` corrected only those
+  expectations.
+- The final idempotent `reconfigure` passed with controller-1 changing three
+  tasks and controller-2/3 changing zero, all at `failed=0` and
+  `unreachable=0`. All 36 Kolla containers are running/healthy; Galera has
+  three `Primary`/`Synced`/ready/connected members and RabbitMQ has three
+  running nodes with zero partitions.
+- Trusted internal HTTPS and the external single frontend on port 443 return
+  200; untrusted TLS, plaintext, and external port 5000 are denied. The DNS
+  identity validates, and Keystone advertises
+  `https://192.168.252.10:5000` internally and
+  `https://192.168.254.10` publicly.
+- Five exact lifecycle markers and seven logs are `root:root:0600`; all logs
+  reject raw, URL/base64-derived generated credentials and Authorization
+  tokens. Coffer runtime, images, listeners, configuration, database, and
+  catalog remain absent. External Ceph/RGW remains fully healthy.
+- Exact next action: implement and statically validate
+  `poc/kolla-ha/build-distribute-coffer-images.sh` from published commit
+  `4f1ff7ddfd89d21f17ab7cbb531c335e85d94542`. Build on controller-1,
+  transfer directly to controller-2/3, require identical image IDs, and stop
+  before companion inventory, input, database, catalog, or role mutation.
 
 ## Plan 0017 Completion
 
@@ -1049,15 +1075,17 @@ signed Distribution v3.1.1 binary.
 
 ## Exact Next Action
 
-Extend `poc/kolla-ha/run-kolla-lifecycle.sh` and its guest runner with one
-exact `reconfigure` action after the accepted deploy and prepared-profile
-markers. Keep no-log/credential scanning and add owner-local internal HTTPS,
-external port 443, external port 5000 denial, catalog, quorum, and
-absent-Coffer acceptance before writing a new root-only completion marker.
+Implement `poc/kolla-ha/build-distribute-coffer-images.sh` and its bounded
+controller-1 helper. Check out exact published commit
+`4f1ff7ddfd89d21f17ab7cbb531c335e85d94542`, build only
+`localhost/coffer:stage5` and `localhost/coffer-registry:stage5` for x86_64,
+load exact archives directly on controller-2/3, and require identical image
+IDs on all three hosts. Stop before companion inventory, owner-only inputs,
+database, catalog, or role mutation.
 
 ## After This Work Package
 
-Reconfigure only the Kolla control plane through the guarded lifecycle path,
-prove internal and external trusted TLS plus denials, then build and distribute
-the functional x86_64 pilot images through the independent bootstrap path.
-The signed Distribution v3.1.1 input remains production-blocked.
+After the images are identical, prepare the pinned source, exact three-host
+companion inventory, backend TLS recipients, and owner-only RGW/Kolla inputs.
+Then pass the mutation-free `ready` preflight before companion deploy. The
+signed Distribution v3.1.1 input remains production-blocked.

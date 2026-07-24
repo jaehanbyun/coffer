@@ -1035,6 +1035,51 @@ promotion while ADR 0006 remains blocked.
   the updated Keystone catalog plus Galera/RabbitMQ quorums, and leave Coffer
   state absent.
 
+### 2026-07-24 — Kolla production profile reconfigure accepted
+
+- Completed: Preserved the guarded phase in local commit `dac7bf5` and ran
+  the exact `reconfigure` lifecycle to convergence. The final idempotent run
+  changed three tasks on controller-1 and zero on controller-2/3, with
+  `failed=0` and `unreachable=0` everywhere. All 36 Kolla containers are
+  running and healthy; Coffer containers, images, listeners, configuration,
+  database objects, and catalog objects remain absent.
+- TLS and routing evidence: Trusted internal HTTPS at
+  `192.168.252.10:5000` and the single external frontend at
+  `192.168.254.10:443` return 200. Untrusted TLS, plaintext, and the retired
+  external port 5000 are denied. The external certificate validates both the
+  VIP IP and `registry.coffer.stage5`.
+- Catalog and quorum evidence: Keystone advertises the canonical internal URL
+  `https://192.168.252.10:5000` and public URL
+  `https://192.168.254.10`. Galera has three
+  `Primary`/`Synced`/ready/connected members; RabbitMQ has exactly three
+  running nodes and zero partitions.
+- Secret and storage evidence: The `bootstrap`, `prechecks`, `pull`, `deploy`,
+  and `reconfigure` markers plus seven lifecycle/check logs are
+  `root:root:0600`. Every log passes raw, URL-encoded, and base64-encoded
+  generated-password checks plus Basic/Bearer Authorization checks. External
+  Ceph/RGW remains fully healthy.
+- Failure correction 1: The first run stopped at the missing ProxySQL TLS
+  certificate contract. Commit `a367f30` upgraded the prepared profile to
+  owner-correct CA/certificate/key recipients.
+- Failure correction 2: The next run reached Keystone registration but the
+  toolbox lacked the internal CA trust path. Commit `2b29f2a` set only
+  Kolla's documented Ubuntu CA bundle path.
+- Acceptance correction: The successful service run exposed that Kolla emits
+  catalog URLs without `/v3` and omits the default external `:443`. Commit
+  `c37c014` corrected only those expected canonical URLs; the final rerun
+  passed idempotently.
+- Verification: Guarded failure markers, rollback-safe profile upgrades,
+  Bash/ShellCheck, Gitleaks, log credential scans, Kolla check, owner-local
+  TLS/denial probes, catalog, Galera/RabbitMQ, absent-Coffer, 36-container,
+  and external RGW gates pass.
+- Next exact action: Implement and locally validate
+  `poc/kolla-ha/build-distribute-coffer-images.sh`. It must check out published
+  commit `4f1ff7ddfd89d21f17ab7cbb531c335e85d94542` on controller-1, build the
+  two x86_64 functional pilot images there, transfer them directly to
+  controller-2/3, and require identical image IDs on all three controllers.
+  Stop before companion inventory, owner-only input, database, catalog, or
+  role mutation.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1058,6 +1103,7 @@ promotion while ADR 0006 remains blocked.
 | Kolla/Galera baseline | multinode deploy, quorums, identity, TLS, and secret acceptance | passed; 36 healthy containers, Galera/RabbitMQ three-node quorums |
 | Coffer HA pre-deploy boundary | clean/ready controller, DB, catalog, TLS, image, and RGW recipient gates | clean passed live; ready fails closed before preparation |
 | Kolla production profile preparation | exact certificate/globals mutation, rollback, idempotency, no runtime reload | passed; source prepared and runtime unchanged |
+| Kolla production profile reconfigure | internal/external TLS, single frontend, catalog, quorums, logs, absent Coffer | passed idempotently; 36 healthy containers |
 | Coffer HA baseline | companion deploy and replicated service acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | passed for daemon and storage-VM loss |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -1096,17 +1142,20 @@ promotion while ADR 0006 remains blocked.
   quorums, 36 healthy containers, and one owner for each Kolla VIP. The
   mutation-free Coffer `clean` boundary passes across controller runtime,
   Galera, Keystone, companion inputs, and the external RGW fixture. The Kolla
-  production source profile is now prepared and idempotently audited: internal
-  and external certificates have exact identities, three globals changed,
-  runtime stayed byte-for-byte at the same container snapshot, and no
-  reconfigure has run.
-- Exact next action: Add and statically validate the exact `reconfigure`
-  action to `poc/kolla-ha/run-kolla-lifecycle.sh` and its guest runner. Do not
-  invoke it until internal/external owner-local TLS, catalog, port-denial,
-  quorum, log-secret, failure, and marker contracts pass.
-- First file or command: Update
-  `poc/kolla-ha/guest-run-kolla-lifecycle.sh` to admit the new phase after the
-  accepted deploy marker and prepared-profile marker.
+  production profile and its guarded reconfigure are accepted: internal and
+  external certificate identities, ProxySQL TLS recipients, four production
+  globals, internal HTTPS, the sole external port 443 frontend, catalog URLs,
+  three-member Galera/RabbitMQ quorums, seven protected logs, and zero Coffer
+  state all pass.
+- Exact next action: Add and statically validate
+  `poc/kolla-ha/build-distribute-coffer-images.sh`. Build only the two
+  functional x86_64 pilot images from published commit
+  `4f1ff7ddfd89d21f17ab7cbb531c335e85d94542` on controller-1 and load the
+  exact archives on controller-2/3.
+- First file or command: Inspect `poc/production-images/` and the Stage 4
+  build path, then create `poc/kolla-ha/build-distribute-coffer-images.sh`
+  without changing companion inventory, owner-only input, database, catalog,
+  or role state.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

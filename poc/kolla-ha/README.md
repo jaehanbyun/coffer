@@ -202,6 +202,7 @@ poc/kolla-ha/run-kolla-lifecycle.sh bootstrap <ssh-target>
 poc/kolla-ha/run-kolla-lifecycle.sh prechecks <ssh-target>
 poc/kolla-ha/run-kolla-lifecycle.sh pull <ssh-target>
 poc/kolla-ha/run-kolla-lifecycle.sh deploy <ssh-target>
+poc/kolla-ha/run-kolla-lifecycle.sh reconfigure <ssh-target>
 ```
 
 Only `prechecks` receives Kolla's `--use-test-images` exception. Every
@@ -262,8 +263,10 @@ poc/kolla-ha/prepare-kolla-production-profile.sh prepare <ssh-target>
 The first `prepare` requires the complete Coffer `clean` preflight. It retains
 the existing Stage 5 CA, generates a short-lived internal VIP certificate and
 replaces only the source external certificate with IP
-`192.168.254.10` plus DNS `registry.coffer.stage5`, then changes exactly three
-globals: internal TLS, the single external frontend, and public port `443`.
+`192.168.254.10` plus DNS `registry.coffer.stage5`, prepares the ProxySQL
+CA/certificate/key recipients, then changes four allowlisted globals:
+internal TLS, the single external frontend, public port `443`, and the
+container CA bundle path.
 The existing globals and external PEM are held only in a root temporary
 directory during the atomic action. Any failure restores those two files and
 removes only the newly created internal PEM and completion marker.
@@ -274,3 +277,13 @@ to remain absent, and leaves no temporary key, serial, or backup. A repeated
 `prepare` validates the marker, certificate identities, globals, and unchanged
 runtime without rotating certificates. Kolla reconfiguration is a separate
 guarded lifecycle phase.
+
+The exact `reconfigure` phase requires the accepted deploy and prepared-profile
+markers. It retains the same no-log and generated-credential scan, then proves
+all 36 Kolla containers healthy, three-member Galera and RabbitMQ quorums,
+exactly one owner for each VIP, trusted internal HTTPS, the sole external
+frontend on port `443`, denial of plaintext, untrusted TLS, and the retired
+external port `5000`, the canonical Keystone internal/public catalog URLs,
+DNS certificate identity, and zero Coffer state. Its root-only completion
+marker is written only after the independent external Ceph/RGW health audit
+also passes.
