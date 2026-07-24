@@ -31,6 +31,7 @@ from coffer.quota import (
     MAX_DESCRIPTOR_COUNT,
     MAX_LOGICAL_BYTES,
     MAX_MANIFEST_BYTES,
+    MAX_TRANSACTION_ATTEMPTS,
     SHA256_DIGEST,
     QuotaSchemaNotReady,
     QuotaStore,
@@ -41,6 +42,7 @@ from coffer.quota import (
     quota_reconciliation_claims,
     quota_reservation_descriptors,
     quota_reservations,
+    _retryable_transaction_error,
 )
 from coffer.tokens import PROJECT_ID
 
@@ -512,7 +514,6 @@ def load_inventory_artifact(path: Path, *, expected_digest: str) -> InventoryArt
 
 
 INVENTORY_IMPORT_SCOPE = "baseline"
-_MAX_TRANSACTION_ATTEMPTS = 3
 _RESERVATION_NAMESPACE = uuid.uuid5(
     uuid.NAMESPACE_URL,
     "https://github.com/jaehanbyun/coffer/quota-inventory",
@@ -834,7 +835,7 @@ def import_inventory(
     if timestamp.tzinfo is None or timestamp.utcoffset() is None:
         raise ValueError("imported_at must be timezone-aware")
     timestamp = timestamp.astimezone(UTC)
-    for attempt in range(_MAX_TRANSACTION_ATTEMPTS):
+    for attempt in range(MAX_TRANSACTION_ATTEMPTS):
         try:
             return _import_inventory_once(store, artifact, imported_at=timestamp)
         except IntegrityError as exc:
@@ -850,7 +851,7 @@ def import_inventory(
                 return marker_result
             if (
                 _retryable_transaction_error(exc)
-                and attempt + 1 < _MAX_TRANSACTION_ATTEMPTS
+                and attempt + 1 < MAX_TRANSACTION_ATTEMPTS
             ):
                 continue
             raise InventoryImportFailed(
@@ -880,17 +881,6 @@ def _result_after_transaction_error(
             )
     except SQLAlchemyError:
         return None
-
-
-def _retryable_transaction_error(exc: SQLAlchemyError) -> bool:
-    original = getattr(exc, "orig", None)
-    arguments = getattr(original, "args", ())
-    mysql_code = arguments[0] if arguments else None
-    sqlstate = getattr(original, "sqlstate", None) or getattr(
-        original, "pgcode", None
-    )
-    return mysql_code in {1205, 1213} or sqlstate in {"40001", "40P01"}
-
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(

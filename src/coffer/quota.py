@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from functools import wraps
 import hashlib
 import json
+import logging
 import re
+from typing import Concatenate, ParamSpec, TypeVar
 import uuid
 
 from sqlalchemy import (
@@ -29,6 +32,7 @@ from sqlalchemy import (
     create_engine,
 )
 from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.pool import StaticPool
 
 from coffer.schema import SchemaNotReady, require_current_schema
@@ -50,6 +54,11 @@ DOCKER_MANIFEST_LIST = (
 )
 IMAGE_MEDIA_TYPES = frozenset({OCI_IMAGE_MANIFEST, DOCKER_IMAGE_MANIFEST})
 INDEX_MEDIA_TYPES = frozenset({OCI_IMAGE_INDEX, DOCKER_MANIFEST_LIST})
+MAX_TRANSACTION_ATTEMPTS = 3
+
+LOG = logging.getLogger(__name__)
+P = ParamSpec("P")
+R = TypeVar("R")
 
 quota_metadata = MetaData()
 project_quotas = Table(
@@ -242,6 +251,42 @@ class StaleReconciliationCandidate(Exception):
 
 class StaleReconciliationClaim(Exception):
     pass
+
+
+def _retryable_transaction_error(exc: SQLAlchemyError) -> bool:
+    original = getattr(exc, "orig", None)
+    arguments = getattr(original, "args", ())
+    mysql_code = arguments[0] if arguments else None
+    sqlstate = getattr(original, "sqlstate", None) or getattr(
+        original, "pgcode", None
+    )
+    return mysql_code in {1205, 1213} or sqlstate in {"40001", "40P01"}
+
+
+def _retryable_quota_write(
+    method: Callable[Concatenate["QuotaStore", P], R],
+) -> Callable[Concatenate["QuotaStore", P], R]:
+    @wraps(method)
+    def wrapped(store: "QuotaStore", *args: P.args, **kwargs: P.kwargs) -> R:
+        for attempt in range(MAX_TRANSACTION_ATTEMPTS):
+            try:
+                return method(store, *args, **kwargs)
+            except SQLAlchemyError as exc:
+                if (
+                    not _retryable_transaction_error(exc)
+                    or attempt + 1 >= MAX_TRANSACTION_ATTEMPTS
+                ):
+                    raise
+                LOG.warning(
+                    "retrying quota write after database transaction conflict",
+                    extra={
+                        "quota_operation": method.__name__,
+                        "quota_retry_attempt": attempt + 2,
+                    },
+                )
+        raise AssertionError("bounded quota write attempts were exhausted")
+
+    return wrapped
 
 
 @dataclass(frozen=True, slots=True)
@@ -520,6 +565,7 @@ class QuotaStore:
         with self._engine.connect() as connection:
             yield connection
 
+    @_retryable_quota_write
     def set_limit(self, project_id: str, limit_bytes: int) -> QuotaUsage:
         if (
             isinstance(limit_bytes, bool)
@@ -638,6 +684,7 @@ class QuotaStore:
             )
         return ReconciliationPage(candidates=candidates, next_cursor=next_cursor)
 
+    @_retryable_quota_write
     def claim_reconciliation_candidates(
         self,
         *,
@@ -756,6 +803,7 @@ class QuotaStore:
             claims=tuple(claims), next_cursor=next_cursor
         )
 
+    @_retryable_quota_write
     def release_reconciliation_claim(self, claim_token: str) -> bool:
         if not claim_token or len(claim_token) > 36:
             raise ValueError("reconciliation claim token is invalid")
@@ -826,6 +874,7 @@ class QuotaStore:
         )
         return used, reserved
 
+    @_retryable_quota_write
     def reserve(
         self,
         *,
@@ -1108,10 +1157,12 @@ class QuotaStore:
         ).one()
         return Reservation.from_row(committed)
 
+    @_retryable_quota_write
     def commit(self, reservation_id: str) -> Reservation:
         with self._writer() as conn:
             return self._commit_locked(conn, self._get_locked(conn, reservation_id))
 
+    @_retryable_quota_write
     def mark_release_pending(self, reservation_id: str) -> Reservation:
         with self._writer() as conn:
             row = self._get_locked(conn, reservation_id)
@@ -1134,6 +1185,7 @@ class QuotaStore:
             ).one()
             return Reservation.from_row(result)
 
+    @_retryable_quota_write
     def reconcile_present(
         self,
         reservation_id: str,
@@ -1226,6 +1278,7 @@ class QuotaStore:
             )
             return reconciled
 
+    @_retryable_quota_write
     def reconcile_absent(
         self,
         reservation_id: str,

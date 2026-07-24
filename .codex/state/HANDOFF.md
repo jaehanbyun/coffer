@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0018 active; tenant credential renewal accepted, Galera concurrency next
+- Status: plan 0018 active; quota retry surface implemented locally
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -901,6 +901,22 @@ marker-idempotent replay passed.
 - Exact next action: return to the real deployed quota transaction retry
   surface and add a bounded concurrent/deadlock Galera probe with exact row
   and 2-GiB quota restoration before separate reconciler workers.
+- Implemented a common three-attempt transaction-conflict classifier for
+  MySQL 1205/1213 and SQLSTATE 40001/40P01. The inventory importer reuses it,
+  and all eight explicit `QuotaStore` write boundaries now rerun their whole
+  rolled-back transaction only for those codes. Unclassified database and
+  constraint failures are not retried.
+- Retry warnings contain only the fixed operation name and bounded attempt
+  number. Focused tests prove success on the third attempt, no retry for an
+  unclassified outage, exhaustion after exactly three attempts, and supported
+  SQLSTATE recognition. The complete suite passes 246 tests when the installed
+  console-entry-point directory is placed on `PATH`; `uv lock --check`,
+  compile, diff, and scoped Gitleaks pass.
+- Exact next action: preserve this product retry surface in a local commit,
+  then add a source-archive-pinned Stage 5 update-image harness. It must build
+  a new Coffer tag without replacing `localhost/coffer:stage5`, distribute the
+  identical image to all controllers, leave runtime unchanged, and provide an
+  exact rollback input before any rolling deployment or Galera probe.
 
 ## Plan 0017 Completion
 
@@ -1486,12 +1502,10 @@ marker-idempotent replay passed.
 
 ## Exact Next Action
 
-Inspect `src/coffer/quota.py` and the accepted shared-SQL deadlock tests to
-identify the production retry surface. Then add and locally validate a
-bounded real-Galera concurrency probe that creates only exact temporary rows,
-forces or observes one deadlock/serialization retry through the deployed
-application code, restores all rows and the 2-GiB tenant quota, and leaves the
-three-node Primary/Synced topology healthy before reconciler tests.
+Commit the implemented `QuotaStore` transaction retry surface. Then add a
+source-archive-pinned Stage 5 update-image harness that creates and distributes
+one new Coffer image tag while retaining the exact current image for rollback
+and making no runtime change.
 
 ## After This Work Package
 

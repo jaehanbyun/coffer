@@ -1707,6 +1707,31 @@ promotion while ADR 0006 remains blocked.
   and add the bounded real-Galera concurrent/deadlock probe with exact row and
   2-GiB quota restoration before separate-host reconciler workers.
 
+### 2026-07-25 — Quota transaction retry surface implemented locally
+
+- Completed locally: Centralized the existing known-conflict classifier and
+  applied a three-attempt whole-transaction retry to all eight explicit
+  `QuotaStore` write operations. Only MySQL lock-timeout/deadlock 1205/1213
+  and SQLSTATE serialization/deadlock 40001/40P01 are admitted. The inventory
+  importer reuses the same classifier and bound.
+- Safety and observability: The transaction context rolls back and closes
+  before the decorator retries the entire operation. Duplicate constraints,
+  connection outages, and unknown failures pass through without retry. Retry
+  logs contain only a fixed operation name and bounded attempt number, never
+  exception text or tenant identifiers.
+- Verification: Focused retry tests prove third-attempt success, exact
+  three-attempt exhaustion, no retry for an unclassified database outage, and
+  supported SQLSTATE recognition. All 246 repository tests pass with the
+  installed entry-point directory on `PATH`; compile, `uv lock --check`, diff,
+  and scoped Gitleaks pass. Ruff remains unavailable from the locked project
+  environment.
+- Boundary: This is not yet live Galera evidence. The running Stage 5
+  containers still use the retained `localhost/coffer:stage5` image.
+- Next exact action: Commit the product retry surface locally, then add a
+  source-archive-pinned update-image harness. Build and distribute one new
+  Coffer tag identically to all controllers while retaining the current image
+  as the exact rollback input and changing no running container.
+
 ## Verification
 
 | Check | Command or method | Result |

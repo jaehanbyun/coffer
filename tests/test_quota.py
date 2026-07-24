@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 import hashlib
 import json
+import logging
 from pathlib import Path
 import threading
 
 import pytest
+from sqlalchemy.exc import OperationalError
 
 from coffer.quota import (
     Descriptor,
@@ -16,6 +19,7 @@ from coffer.quota import (
     OCI_IMAGE_INDEX,
     QuotaExceeded,
     QuotaStore,
+    _retryable_transaction_error,
     parse_manifest,
 )
 
@@ -292,3 +296,105 @@ def test_concurrent_admission_never_exceeds_limit(tmp_path: Path) -> None:
     usage = setup.usage(PROJECT_A)
     assert usage.used_bytes <= usage.limit_bytes
     assert usage.reserved_bytes == 0
+
+
+def test_quota_writes_retry_only_known_transaction_conflicts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    store = QuotaStore(
+        f"sqlite:///{tmp_path / 'quota.sqlite'}", bootstrap_schema=True
+    )
+    original_writer = store._writer
+    attempts = 0
+
+    @contextmanager
+    def conflicting_writer():
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            raise OperationalError(
+                "quota write",
+                {},
+                RuntimeError(1213, "deadlock"),
+            )
+        with original_writer() as connection:
+            yield connection
+
+    monkeypatch.setattr(store, "_writer", conflicting_writer)
+    with caplog.at_level(logging.WARNING, logger="coffer.quota"):
+        usage = store.set_limit(PROJECT_A, 1024)
+
+    assert attempts == 3
+    assert usage.limit_bytes == 1024
+    records = [
+        record
+        for record in caplog.records
+        if record.message
+        == "retrying quota write after database transaction conflict"
+    ]
+    assert len(records) == 2
+    assert [record.quota_retry_attempt for record in records] == [2, 3]
+    assert all(record.quota_operation == "set_limit" for record in records)
+
+
+def test_quota_writes_do_not_retry_unclassified_database_failures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = QuotaStore(
+        f"sqlite:///{tmp_path / 'quota.sqlite'}", bootstrap_schema=True
+    )
+    attempts = 0
+
+    @contextmanager
+    def unavailable_writer():
+        nonlocal attempts
+        attempts += 1
+        raise OperationalError(
+            "quota write",
+            {},
+            RuntimeError(2006, "server unavailable"),
+        )
+        yield
+
+    monkeypatch.setattr(store, "_writer", unavailable_writer)
+    with pytest.raises(OperationalError):
+        store.set_limit(PROJECT_A, 1024)
+    assert attempts == 1
+
+
+def test_quota_write_transaction_retry_is_bounded(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = QuotaStore(
+        f"sqlite:///{tmp_path / 'quota.sqlite'}", bootstrap_schema=True
+    )
+    attempts = 0
+
+    @contextmanager
+    def conflicting_writer():
+        nonlocal attempts
+        attempts += 1
+        raise OperationalError(
+            "quota write",
+            {},
+            RuntimeError(1213, "deadlock"),
+        )
+        yield
+
+    monkeypatch.setattr(store, "_writer", conflicting_writer)
+    with pytest.raises(OperationalError):
+        store.set_limit(PROJECT_A, 1024)
+    assert attempts == 3
+
+
+def test_retryable_transaction_classifier_covers_supported_sqlstates() -> None:
+    class SerializationFailure(RuntimeError):
+        sqlstate = "40001"
+
+    assert _retryable_transaction_error(
+        OperationalError("quota write", {}, SerializationFailure())
+    )
