@@ -1080,6 +1080,43 @@ promotion while ADR 0006 remains blocked.
   Stop before companion inventory, owner-only input, database, catalog, or
   role mutation.
 
+### 2026-07-24 — Coffer image build/distribution harness validated
+
+- Completed: Added separate `status` and `build` actions with a controller-1
+  guest helper. The build action requires the accepted Kolla reconfigure and
+  production-profile markers, exact twelve-container runtime on every
+  controller, and zero Coffer runtime/config/listeners before establishing its
+  own root-only owner marker.
+- Immutable inputs: The harness pins published Coffer commit
+  `4f1ff7ddfd89d21f17ab7cbb531c335e85d94542`, Kolla image commit
+  `686c6d13dc1c31092b22c6c481e16a7329e935ea`, Ubuntu 24.04 x86_64 base
+  digest, and the repository's checksum-pinned Distribution v3.1.1 template.
+- Bootstrap and recipient boundary: Controller-1 is the sole builder. It
+  validates the non-root process entry points, streams both Docker archives
+  directly through the existing deployment key to controller-2/3, and never
+  logs in, pushes, publishes, or uses the tenant registry. No archive is
+  retained on the Mac or secondary controllers.
+- Resume and acceptance boundary: A failed build or transfer retains an
+  owner-only log and partial owned state without a completion marker. Final
+  acceptance requires exact source state and identical Coffer/Distribution
+  image IDs on all three controllers while all 36 Kolla containers and the
+  external RGW remain healthy. Companion inventory, owner-only inputs,
+  database, catalog, and role execution are explicitly absent.
+- Failure corrections: The first live status exposed the actual deployment
+  known-hosts mode as 0644 rather than 0600. The second normalized Docker's
+  blank output for a missing image. Both failed before creating an owner
+  marker, source checkout, build directory, or image.
+- Verification: Bash syntax, ShellCheck, missing/unknown/option-shaped target
+  refusals, exact pin/tag/marker and no-publication scans, Gitleaks, diff
+  checks, and the final mutation-free live `status` pass. It reports zero
+  Coffer images/runtime, 36 healthy Kolla containers, accepted reconfigure,
+  and healthy external RGW.
+- Next exact action: Commit the validated image harness locally, then invoke
+  only `poc/kolla-ha/build-distribute-coffer-images.sh build
+  jh.byun@100.123.168.66`. On failure, retain the root-only log, verify the
+  completion marker is absent, audit exact partial image/source state, and
+  resume only this phase.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1104,6 +1141,7 @@ promotion while ADR 0006 remains blocked.
 | Coffer HA pre-deploy boundary | clean/ready controller, DB, catalog, TLS, image, and RGW recipient gates | clean passed live; ready fails closed before preparation |
 | Kolla production profile preparation | exact certificate/globals mutation, rollback, idempotency, no runtime reload | passed; source prepared and runtime unchanged |
 | Kolla production profile reconfigure | internal/external TLS, single frontend, catalog, quorums, logs, absent Coffer | passed idempotently; 36 healthy containers |
+| Coffer image build/distribution harness | pins, owner/resume boundary, direct transfer, identical-ID gate | passed mutation-free; build not yet invoked |
 | Coffer HA baseline | companion deploy and replicated service acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | passed for daemon and storage-VM loss |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -1147,15 +1185,13 @@ promotion while ADR 0006 remains blocked.
   globals, internal HTTPS, the sole external port 443 frontend, catalog URLs,
   three-member Galera/RabbitMQ quorums, seven protected logs, and zero Coffer
   state all pass.
-- Exact next action: Add and statically validate
-  `poc/kolla-ha/build-distribute-coffer-images.sh`. Build only the two
-  functional x86_64 pilot images from published commit
-  `4f1ff7ddfd89d21f17ab7cbb531c335e85d94542` on controller-1 and load the
-  exact archives on controller-2/3.
-- First file or command: Inspect `poc/production-images/` and the Stage 4
-  build path, then create `poc/kolla-ha/build-distribute-coffer-images.sh`
-  without changing companion inventory, owner-only input, database, catalog,
-  or role state.
+- Exact next action: Commit the validated image harness, then invoke only its
+  `build` action through `jh.byun@100.123.168.66`. Do not begin companion
+  preparation unless all three controllers return identical image IDs and
+  the root-only completion marker passes.
+- First file or command: Run
+  `poc/kolla-ha/build-distribute-coffer-images.sh build
+  jh.byun@100.123.168.66`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

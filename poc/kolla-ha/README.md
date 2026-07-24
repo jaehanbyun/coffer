@@ -287,3 +287,27 @@ external port `5000`, the canonical Keystone internal/public catalog URLs,
 DNS certificate identity, and zero Coffer state. Its root-only completion
 marker is written only after the independent external Ceph/RGW health audit
 also passes.
+
+Build and distribute the two functional x86_64 pilot images only after that
+reconfigure is accepted:
+
+```text
+poc/kolla-ha/build-distribute-coffer-images.sh status <ssh-target>
+poc/kolla-ha/build-distribute-coffer-images.sh build <ssh-target>
+```
+
+The builder checks out published Coffer commit
+`4f1ff7ddfd89d21f17ab7cbb531c335e85d94542` and pinned Kolla image commit
+`686c6d13dc1c31092b22c6c481e16a7329e935ea` on controller-1. It builds only
+`localhost/coffer:stage5` and `localhost/coffer-registry:stage5` for x86_64,
+validates their non-root process entry points, and streams Docker archives
+directly through the existing controller deployment key to controller-2/3.
+No bootstrap or tenant registry is used and no image is published.
+
+The phase has a separate owner marker and root-only build log. A failed build
+or transfer retains resumable owned state but cannot create the completion
+marker. Acceptance requires the same two image IDs on all three controllers,
+the exact source commit, 36 unchanged healthy Kolla containers, zero Coffer
+runtime/config/listeners, and a healthy external Ceph/RGW boundary. Companion
+inventory, owner-only inputs, database, catalog, and role execution remain
+later phases.
