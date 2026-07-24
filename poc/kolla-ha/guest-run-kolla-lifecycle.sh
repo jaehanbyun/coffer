@@ -675,9 +675,9 @@ if len(identity_services) != 1:
 endpoints: dict[str, set[str]] = {}
 for endpoint in identity_services[0].get("endpoints", []):
     endpoints.setdefault(endpoint["interface"], set()).add(endpoint["url"])
-if endpoints.get("internal") != {"https://192.168.252.10:5000/v3"}:
+if endpoints.get("internal") != {"https://192.168.252.10:5000"}:
     raise SystemExit("internal identity catalog URL mismatch")
-if endpoints.get("public") != {"https://192.168.254.10:443/v3"}:
+if endpoints.get("public") != {"https://192.168.254.10"}:
     raise SystemExit("public identity catalog URL mismatch")
 
 
