@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; Ceph has 3 MON/2 MGR, stale stray-health cache gates OSD creation
+- Status: plan 0018 active; Ceph control plane healthy, exact OSD-only phase is next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -97,12 +97,14 @@ signed Distribution v3.1.1 binary.
   defaults 3/2, zero OSDs, and zero RGW services. The admin keyring remains
   primary-only and all three `/dev/vdb` devices are empty.
 - A bounded MGR failover promoted storage-2 while two MGRs stayed running.
-  The health map nevertheless retains stale stray-host/daemon warnings for
-  the bootstrap MON/MGR despite `orch ps`, service specs, and cephadm logs
-  identifying them as managed. OSD creation is fail-closed on this mismatch.
-- Exact next action: refresh and inspect the cephadm daemon cache after its
-  convergence window. Proceed to OSD-only work only after the warning clears
-  or a reproducible Tentacle cache defect is isolated without suppression.
+  Tentacle source inspection then identified the 30-minute default stray-check
+  interval as the apparent inconsistency: a bounded temporary 30-second
+  interval forced reevaluation, cleared both stale warnings, and was removed
+  to restore the effective 1800-second default. Only `TOO_FEW_OSDS` remains;
+  no health warning was disabled.
+- Exact next action: implement and validate an exact `/dev/vdb` OSD-only
+  harness for the three storage hosts. Prove one `up`/`in` OSD per host and
+  keep RGW absent.
 
 ## Plan 0017 Completion
 

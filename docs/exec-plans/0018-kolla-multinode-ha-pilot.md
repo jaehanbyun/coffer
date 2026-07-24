@@ -394,17 +394,16 @@ promotion while ADR 0006 remains blocked.
   `mon_target_pg_per_osd=50`.
 - HA check: A bounded failover promoted the ready storage-2 MGR while both MGR
   daemons remained running.
-- Residual health state: `TOO_FEW_OSDS` is expected before the next phase.
-  The health map also retains stale `CEPHADM_STRAY_HOST` and
-  `CEPHADM_STRAY_DAEMON` entries for the bootstrap MON/MGR even though
-  `ceph orch ps`, the explicit mon/mgr specs, and cephadm reconfiguration logs
-  all show them managed. An MGR failover did not immediately clear the cached
-  warnings, so OSD mutation remains gated on resolving or conclusively
-  characterizing this inconsistency.
-- Next exact action: Refresh and inspect the cephadm daemon cache after its
-  bounded convergence window. Proceed to an exact three-device OSD-only
-  harness only when the stray warnings clear or a reproducible Tentacle
-  health-cache defect is isolated without disabling the warnings.
+- Health resolution: `TOO_FEW_OSDS` is the sole expected warning before the
+  next phase. Tentacle's source fixes stray evaluation to a 30-minute default
+  interval, so warnings created before the service specs remained stale even
+  after `orch ps --refresh` and MGR failover. A bounded temporary 30-second
+  interval forced a fresh evaluation; both stray warnings cleared, and the
+  option was removed to restore the effective 1800-second default. No warning
+  was disabled or muted.
+- Next exact action: Add an OSD-only harness that admits exactly `/dev/vdb` on
+  the three allowlisted storage hosts, proves one `up`/`in` OSD per host and
+  size/min-size 3/2, and leaves RGW absent.
 
 ## Verification
 
@@ -417,7 +416,7 @@ promotion while ADR 0006 remains blocked.
 | Guest provisioning and readiness | exact status, autostart, cloud-init, NIC, disk, and resource checks | passed |
 | Provision/destroy target safety | local allowlist, rollback, and negative-target tests | passed |
 | Storage preparation | pinned inputs, hostname map, chrony, empty OSD devices | passed |
-| Ceph control plane | exact hosts, 3-MON quorum, 2 MGRs, key recipients, zero OSD/RGW | passed; stale stray-health cache under investigation |
+| Ceph control plane | exact hosts, 3-MON quorum, 2 MGRs, key recipients, zero OSD/RGW | passed; only expected `TOO_FEW_OSDS` remains |
 | Kolla/Galera/Coffer baseline | multinode deploy and health acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | pending |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -445,14 +444,11 @@ promotion while ADR 0006 remains blocked.
 
 ## Handoff
 
-- Current state: Active; three MONs and two MGRs are running with quorum and
-  all OSD devices remain empty. A stale cephadm stray-health inconsistency is
-  the only control-plane gate before OSD creation.
-- Exact next action: Re-run `ceph orch ps --refresh` after the bounded cache
-  window and inspect aggregate health plus managed-daemon evidence. Do not
-  suppress the warnings or initialize OSDs while the inconsistency is unknown.
-- First file or command: `ssh ... 'sudo cephadm shell -- ceph orch ps
-  --refresh --format json'`.
+- Current state: Active; three MONs and two MGRs are running with quorum, all
+  OSD devices remain empty, and only the expected zero-OSD warning remains.
+- Exact next action: Implement and locally validate an exact-device,
+  resumable OSD-only harness. Do not deploy RGW in the same action.
+- First file or command: `poc/kolla-ha/bootstrap-ceph-osds.sh`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an
