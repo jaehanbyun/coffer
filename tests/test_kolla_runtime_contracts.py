@@ -400,6 +400,9 @@ def test_multinode_key_rotation_overlaps_and_retires_every_replica() -> None:
     assert "wait_runtime_state" in guest
     assert "resume=adopted" in guest
     assert "refusing an unknown unmarked overlap state" in guest
+    assert "discover_external_owner" in guest
+    assert "owner_kolla_ca" in guest
+    assert "--retry-all-errors" in guest
     assert "kolla_serial=1" in guest
     assert '\"${entrypoint}\" upgrade' in guest
     assert "coffer-stage5-key-rotation-globals.yml" in guest

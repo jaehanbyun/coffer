@@ -2124,6 +2124,28 @@ promotion while ADR 0006 remains blocked.
   Require the remaining signer, lifetime, retirement, residue, and final
   acceptance gates before compatible image rollback.
 
+### 2026-07-25 — Token client boundary corrected
+
+- Failure: Exact overlap adoption and all-node convergence passed, but the
+  controller-1 orchestration process could not connect directly to the
+  external VIP currently owned by controller-2. It failed before receiving or
+  storing a registry token; the independently placed tenant client on the VIP
+  owner continued to pass.
+- Evidence: Three bounded unauthenticated controller-1 attempts returned
+  connection refusal, while the same verified-TLS request executed on the
+  discovered controller-2 VIP owner returned the expected 401 challenge.
+  Only one owner-only Basic-auth curl config remained, with no response,
+  bearer, expiry, overlap marker, or later phase marker.
+- Correction: Token exchange now discovers the sole external VIP owner and
+  streams the owner-only curl configuration to a bounded remote curl over the
+  existing controller SSH trust. It writes no credential on the owner,
+  retries only the external request for at most 30 seconds, and removes every
+  exact label file on a failed exchange.
+- Next exact action: Validate and commit the owner-client correction, then
+  resume only key-rotation `run`. Require no token residue, complete overlap
+  and signer markers, full old-token lifetime, old-key retirement, and all
+  final tenant/service/storage gates.
+
 ## Verification
 
 | Check | Command or method | Result |

@@ -52,7 +52,7 @@ new_kid="stage5-20260725"
 update_image="localhost/coffer:stage5-quota-retry"
 registry_name="registry.coffer.stage5"
 registry_url="https://${registry_name}"
-kolla_ca="${config_root}/certificates-stage5/ca/root.crt"
+owner_kolla_ca="/etc/kolla/haproxy/ca-certificates/root.crt"
 backend_ca="${public_root}/backend-ca.crt"
 addresses=(
     192.168.252.11
@@ -462,6 +462,22 @@ wait_runtime_state() {
     return 1
 }
 
+discover_external_owner() {
+    local address
+    local owner_count=0
+
+    external_owner_address=""
+    for address in "${addresses[@]}"; do
+        if sudo -u ubuntu ssh -n "${ssh_options[@]}" "ubuntu@${address}" \
+            "ip -4 -o address show dev ens5 |
+                grep -Fq '192.168.254.10/32'"; then
+            external_owner_address="${address}"
+            owner_count="$((owner_count + 1))"
+        fi
+    done
+    test "${owner_count}" -eq 1
+}
+
 issue_token() {
     local label="$1"
     local expected_kid="$2"
@@ -474,7 +490,10 @@ issue_token() {
     local repository_name
     local repository
     local token
+    local rc
 
+    rm -f -- "${basic}" "${response}" "${bearer}" \
+        "${token_root}/${label}.expires"
     credential_id="$(jq -er '.project_a.application_credential_id' "${identity_state}")"
     secret="$(jq -er '.project_a.application_credential_secret' "${identity_state}")"
     project_id="$(jq -er '.project_a.project_id' "${identity_state}")"
@@ -482,15 +501,29 @@ issue_token() {
     repository="p/${project_id}/${repository_name}"
     printf 'user = "%s:%s"\n' "${credential_id}" "${secret}" >"${basic}"
     chmod 0600 "${basic}"
-    curl --disable --fail --silent --show-error \
-        --config "${basic}" \
-        --cacert "${kolla_ca}" \
+    discover_external_owner
+    set +e
+    # Redirects intentionally belong to the root harness; only SSH uses ubuntu.
+    # shellcheck disable=SC2024
+    sudo -u ubuntu ssh "${ssh_options[@]}" \
+        "ubuntu@${external_owner_address}" \
+        curl --disable --fail --silent --show-error \
+        --retry 5 --retry-all-errors --retry-delay 2 --retry-max-time 30 \
+        --config - \
+        --cacert "${owner_kolla_ca}" \
         --resolve "${registry_name}:443:192.168.254.10" \
-        --output "${response}" \
         --get \
         --data-urlencode 'service=coffer-registry' \
         --data-urlencode "scope=repository:${repository}:pull,push" \
-        "${registry_url}/auth/token"
+        "${registry_url}/auth/token" \
+        <"${basic}" >"${response}"
+    rc="$?"
+    set -e
+    if test "${rc}" -ne 0; then
+        rm -f -- "${basic}" "${response}" "${bearer}" \
+            "${token_root}/${label}.expires"
+        return "${rc}"
+    fi
     chmod 0600 "${response}"
     token="$(jq -er '.token' "${response}")"
     printf 'header = "Authorization: Bearer %s"\n' "${token}" >"${bearer}"
