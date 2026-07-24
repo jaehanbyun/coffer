@@ -546,10 +546,12 @@ PY
 }
 
 make_synthetic_old_token() {
+    local label="$1"
+
     "${venv}/bin/python3" - \
         "${original_root}/signing-key.pem" \
         "${identity_state}" "${repository_state}" \
-        "${token_root}/synthetic-old.bearer.curl" "${current_kid}" <<'PY'
+        "${token_root}/${label}.bearer.curl" "${current_kid}" <<'PY'
 from datetime import UTC, datetime, timedelta
 import json
 from pathlib import Path
@@ -613,6 +615,8 @@ probe_token() {
                 --config "${bearer}" --cacert "${backend_ca}" \
                 --output /dev/null --write-out '%{http_code}' \
                 --head \
+                --header 'Accept: application/vnd.oci.image.manifest.v1+json' \
+                --header 'Accept: application/vnd.docker.distribution.manifest.v2+json' \
                 "https://${address}:8789/v2/${repository}/manifests/${manifest}"
         )"
         test "${status}" = "${expected_registry}"
@@ -629,6 +633,20 @@ probe_token() {
     done
     printf 'coffer_key_rotation_probe token=%s registry=%s/3 edge=%s/3\n' \
         "${label}" "${expected_registry}" "${expected_edge}"
+}
+
+probe_overlap_old_token() {
+    local expiry
+
+    expiry="$(cat "${token_root}/old.expires")"
+    if test "$(date +%s)" -lt "$((expiry - 2))"; then
+        probe_token old 200 400
+        printf 'coffer_key_rotation_overlap token=issued-old result=passed\n'
+    else
+        make_synthetic_old_token overlap-old
+        probe_token overlap-old 200 400
+        printf 'coffer_key_rotation_overlap token=synthetic-old result=passed issued_old=expired\n'
+    fi
 }
 
 remove_tokens() {
@@ -786,7 +804,7 @@ if test ! -e "${signer_marker}"; then
     fi
     update_persistent_kid "${new_kid}"
     issue_token new "${new_kid}"
-    probe_token old 200 400
+    probe_overlap_old_token
     probe_token new 200 400
     write_marker "${signer_marker}" \
         "signer=${new_kid} jwks=${current_kid},${new_kid}"
@@ -814,7 +832,7 @@ if test ! -e "${retired_marker}"; then
             ;;
     esac
     issue_token retired-new "${new_kid}"
-    make_synthetic_old_token
+    make_synthetic_old_token synthetic-old
     probe_token retired-new 200 400
     probe_token synthetic-old 401 401
     remove_tokens

@@ -1759,16 +1759,17 @@ marker-idempotent replay passed.
 
 ## Exact Next Action
 
-Validate and commit the exact unmarked signer/retirement phase-resume
-correction,
+Validate and commit the direct manifest media-type and expired-old-token
+resume correction,
 then invoke only
 `poc/kolla-ha/run-coffer-key-rotation.sh run
 jh.byun@100.123.168.66`. The audited live boundary is new signers with
 old+new verifier trust on all three replicas, a completed overlap marker but
-no signer marker, persistent globals still naming the old key, the four
-owner-only old-token files, and no temporary globals overlay. The resume must
-adopt only that exact state, update persistent configuration, prove retained
-old and fresh new tokens, finish full-lifetime retirement, new success/old
+no signer marker, persistent globals naming the new key, owner-only issued
+old/new token files, and no temporary globals overlay. The issued old token
+expired during correction; resume must retain its observed old kid and
+pre-expiry edge acceptance, use a fresh time-valid old-key overlap token for
+the corrected registry/edge matrix, then finish retirement, new success/old
 denial, residue cleanup, and complete service/log/RGW gates.
 
 ## After This Work Package

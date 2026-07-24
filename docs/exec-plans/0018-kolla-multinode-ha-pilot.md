@@ -2174,6 +2174,31 @@ promotion while ADR 0006 remains blocked.
   state, update the persistent key ID, prove the retained old token and a new
   token, wait out the old token, retire old trust, and clear all residue.
 
+### 2026-07-25 — Direct manifest probe corrected
+
+- Failure: Exact signer adoption and persistent key-ID update passed. The
+  issued old and new tokens both reached authenticated manifest validation on
+  all three edge replicas with the expected 400, but direct Distribution HEAD
+  returned 404 because the key-rotation probe omitted the OCI/Docker manifest
+  `Accept` headers already used by the accepted tenant probe.
+- Evidence: Both tokens returned the same 404/400 matrix on all three
+  registry/edge pairs; unknown-key behavior is 401, so this was not a signer
+  or trust failure. The retained actual old token was still unexpired during
+  that audit. The signer marker was not written, source/runtime remain exact
+  new-signer/overlap trust, persistent globals now name the new key, and the
+  temporary overlay is absent.
+- Correction: Direct registry HEAD now sends the accepted OCI and Docker
+  manifest media types. Because the actual old token expired while this
+  harness defect was corrected, the resume preserves its already observed
+  API-issued kid and pre-expiry edge acceptance, then uses a fresh
+  time-valid old-key token during overlap to complete registry 200/edge 400 on
+  every replica. Retirement still creates a separate time-valid old-key token
+  and requires 401/401 after old trust is removed.
+- Next exact action: Validate and commit the manifest-probe correction, then
+  resume only key-rotation `run`; require complete signer/retirement markers,
+  new-key 200/400, retired-old 401/401, zero token residue, and final service
+  gates.
+
 ## Verification
 
 | Check | Command or method | Result |

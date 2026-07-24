@@ -415,7 +415,9 @@ def test_multinode_key_rotation_overlaps_and_retires_every_replica() -> None:
     assert 'run_upgrade overlap "${current_kid}"' in guest
     assert 'run_upgrade signer "${new_kid}"' in guest
     assert 'run_upgrade retire "${new_kid}"' in guest
-    assert 'probe_token old 200 400' in guest
+    assert "probe_overlap_old_token" in guest
+    assert "application/vnd.oci.image.manifest.v1+json" in guest
+    assert "application/vnd.docker.distribution.manifest.v2+json" in guest
     assert 'probe_token new 200 400' in guest
     assert 'probe_token synthetic-old 401 401' in guest
     assert "while test \"$(date +%s)\" -le" in guest
