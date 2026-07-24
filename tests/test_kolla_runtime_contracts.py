@@ -225,6 +225,7 @@ def test_multinode_haproxy_fault_targets_only_the_active_vip_owner() -> None:
     assert "docker start haproxy" in script
     assert "data-status" in script
     assert "for attempt in 1 2 3" in script
+    assert "for convergence_attempt in 1 2 3" in script
     assert "trap restore_current EXIT" in script
     assert "docker stop --time 15 keepalived" not in script
     assert "docker start keepalived" not in script

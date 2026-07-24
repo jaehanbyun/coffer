@@ -315,6 +315,23 @@ restore_current() {
 }
 trap restore_current EXIT
 
+run_outage_probe() {
+    local ordinal="$1"
+    local convergence_attempt
+
+    for convergence_attempt in 1 2 3; do
+        if "${harness}/run-coffer-tenant-acceptance.sh" \
+            data-status "${ssh_target}"; then
+            printf 'kolla_haproxy_fault outage_probe=%s/3 convergence_attempt=%s result=passed\n' \
+                "${ordinal}" "${convergence_attempt}"
+            return 0
+        fi
+        sleep 2
+    done
+    echo "Kolla HAProxy survivor path did not converge" >&2
+    return 1
+}
+
 preflight() {
     local index
     local snapshot
@@ -362,10 +379,7 @@ printf 'kolla_haproxy_fault vip_moved from=%s to=%s result=passed\n' \
     "${current_hostname}" "$(field_value "${moved}" external_owner)"
 
 for attempt in 1 2 3; do
-    "${harness}/run-coffer-tenant-acceptance.sh" \
-        data-status "${ssh_target}"
-    printf 'kolla_haproxy_fault outage_probe=%s/3 result=passed\n' \
-        "${attempt}"
+    run_outage_probe "${attempt}"
 done
 
 ssh "${ssh_options[@]}" "ubuntu@${current_address}" \
