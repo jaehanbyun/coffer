@@ -248,8 +248,9 @@ def test_multinode_galera_fault_targets_only_controller_three_mariadb() -> None:
 
     assert "{preflight|run}" in outer
     assert "192.168.252.13" in outer
-    assert "docker stop --time 30 mariadb" in outer
-    assert "docker start mariadb" in outer
+    assert "docker pause mariadb" in outer
+    assert "docker unpause mariadb" in outer
+    assert "docker stop" not in outer
     assert "database-status" in outer
     assert "trap restore_target EXIT" in outer
     assert "wait_database_state degraded" in outer

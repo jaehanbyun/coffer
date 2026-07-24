@@ -64,6 +64,7 @@ test "$(hostname)" = "${expected_hostname}"
 test "$(systemctl is-active docker)" = active
 for container in mariadb proxysql; do
     test "$(docker inspect -f '{{.State.Running}}' "${container}")" = true
+    test "$(docker inspect -f '{{.State.Paused}}' "${container}")" = false
     test "$(docker inspect -f '{{.State.Health.Status}}' "${container}")" = healthy
     test "$(docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' "${container}")" = no
 done
@@ -113,10 +114,10 @@ wait_target_healthy() {
         state="$(
             ssh "${ssh_options[@]}" "ubuntu@${target_address}" \
                 sudo docker inspect \
-                -f '{{.State.Running}}:{{.State.Health.Status}}' \
+                -f '{{.State.Running}}:{{.State.Paused}}:{{.State.Health.Status}}' \
                 mariadb 2>/dev/null || true
         )"
-        if test "${state}" = true:healthy; then
+        if test "${state}" = true:false:healthy; then
             return 0
         fi
         sleep 2
@@ -199,7 +200,7 @@ restore_target() {
     trap - EXIT
     if test "${current_fault}" -eq 1; then
         ssh "${ssh_options[@]}" "ubuntu@${target_address}" \
-            sudo docker start mariadb >/dev/null 2>&1 || true
+            sudo docker unpause mariadb >/dev/null 2>&1 || true
         wait_target_healthy || true
         wait_database_state healthy 300 || true
     fi
@@ -235,18 +236,18 @@ fi
 
 current_fault=1
 ssh "${ssh_options[@]}" "ubuntu@${target_address}" \
-    sudo docker stop --time 30 mariadb >/dev/null
+    sudo docker pause mariadb >/dev/null
 test "$(
     ssh "${ssh_options[@]}" "ubuntu@${target_address}" \
-        sudo docker inspect -f '{{.State.Running}}' mariadb
-)" = false
+        sudo docker inspect -f '{{.State.Running}}:{{.State.Paused}}' mariadb
+)" = true:true
 wait_database_state degraded 90
 for attempt in 1 2 3; do
     run_database_probe "${attempt}"
 done
 
 ssh "${ssh_options[@]}" "ubuntu@${target_address}" \
-    sudo docker start mariadb >/dev/null
+    sudo docker unpause mariadb >/dev/null
 wait_target_healthy
 wait_database_state healthy 300
 current_fault=0
