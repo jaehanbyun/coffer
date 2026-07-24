@@ -23,10 +23,10 @@ state_root="/home/ubuntu/coffer-stage5"
 source_root="${state_root}/coffer-operator-source"
 source_commit="4f1ff7ddfd89d21f17ab7cbb531c335e85d94542"
 source_marker="${state_root}/coffer-operator-source.prepared"
-source_marker_value="coffer-stage5-operator-source-v1"
+source_marker_value="coffer-stage5-operator-source-v2"
 source_config_relative="ansible/roles/coffer/tasks/config.yml"
 source_template_relative="docker/config/coffer-bootstrap.json.j2"
-source_config_sha256="b4e0bf378ea88943f700df0adfca4bc3df44ac34369541bc8853ce769ebe3208"
+source_config_sha256="11645fe8a16919f0970b719d8a46c9e84c3a1e43b4522cc364f700204db9b4a5"
 source_template_sha256="96758f497c0b821e02091668cc3b2b215ac9addb7a5c2541f93c27af92ee2d04"
 venv="${state_root}/venv"
 entrypoint="${source_root}/ansible/kolla-ansible-coffer"
@@ -311,7 +311,12 @@ require_predeploy_boundary() {
 probe_service_endpoints() {
     local backend_ca="${input_root}/public/backend-ca.crt"
     local kolla_ca="${config_root}/certificates-stage5/ca/root.crt"
-    local headers
+    local ca_base64
+    local index
+    local owner_address=
+    local owner_count=0
+    local owner_hostname=
+    local owner_snapshot
     local status
 
     status="$(
@@ -350,23 +355,64 @@ probe_service_endpoints() {
             fi
         done
     done
-    headers="$(
-        curl --silent --show-error --dump-header - --output /dev/null \
-            --cacert "${kolla_ca}" \
-            --resolve registry.coffer.stage5:443:192.168.254.10 \
-            --connect-timeout 3 --max-time 10 \
-            https://registry.coffer.stage5/v2/
-    )"
-    grep -Eq '^HTTP/[0-9.]+ 401' <<<"${headers}"
-    grep -Eiq \
-        'www-authenticate: Bearer realm="https://registry[.]coffer[.]stage5/auth/token"' \
-        <<<"${headers}"
-    if timeout 4 bash -c '</dev/tcp/192.168.254.10/8789' \
-        >/dev/null 2>&1; then
-        echo "private registry port is reachable on the external VIP" >&2
-        return 20
-    fi
-    printf 'coffer_endpoint_probe api=200 edge=401 registry=401 backends=9/9 public=401 bypass=denied tls=verified\n'
+    for index in "${!addresses[@]}"; do
+        owner_snapshot="$(
+            sudo -u ubuntu ssh "${ssh_options[@]}" \
+                "ubuntu@${addresses[${index}]}" \
+                sudo ip -4 -o addr show
+        )"
+        if grep -q '192[.]168[.]254[.]10/' <<<"${owner_snapshot}"; then
+            owner_count="$((owner_count + 1))"
+            owner_address="${addresses[${index}]}"
+            owner_hostname="${hostnames[${index}]}"
+        fi
+    done
+    test "${owner_count}" -eq 1
+    ca_base64="$(base64 --wrap=0 "${kolla_ca}")"
+    sudo -u ubuntu ssh "${ssh_options[@]}" "ubuntu@${owner_address}" \
+        sudo env LC_ALL=C.UTF-8 LANG=C.UTF-8 \
+        CA_CERT_BASE64="${ca_base64}" python3 - <<'PY'
+import base64
+import http.client
+import os
+import socket
+import ssl
+
+
+context = ssl.create_default_context(
+    cadata=base64.b64decode(os.environ["CA_CERT_BASE64"]).decode()
+)
+with socket.create_connection(("192.168.254.10", 443), timeout=10) as raw:
+    with context.wrap_socket(
+        raw,
+        server_hostname="registry.coffer.stage5",
+    ) as secured:
+        secured.sendall(
+            b"GET /v2/ HTTP/1.1\r\n"
+            b"Host: registry.coffer.stage5\r\n"
+            b"Connection: close\r\n\r\n"
+        )
+        response = http.client.HTTPResponse(secured)
+        response.begin()
+        response.read()
+if response.status != 401:
+    raise SystemExit("public Coffer challenge status failed")
+challenge = response.getheader("WWW-Authenticate", "")
+if (
+    'realm="https://registry.coffer.stage5/auth/token"' not in challenge
+    or 'service="coffer-registry"' not in challenge
+):
+    raise SystemExit("public Coffer challenge contract failed")
+try:
+    private = socket.create_connection(("192.168.254.10", 8789), timeout=3)
+except OSError:
+    pass
+else:
+    private.close()
+    raise SystemExit("private registry port is reachable on the external VIP")
+PY
+    printf 'coffer_endpoint_probe api=200 edge=401 registry=401 backends=9/9 public=401 external_owner=%s bypass=denied tls=verified\n' \
+        "${owner_hostname}"
 }
 
 probe_database_and_catalog() {
@@ -550,7 +596,6 @@ classify_predeploy_or_partial_boundary() {
         test "${total_listeners}" -eq 18 &&
         test "${total_configs}" -eq 12; then
         probe_database_and_catalog deployed
-        probe_service_endpoints
         boundary_state=deploy-candidate
         return 0
     fi
@@ -690,9 +735,7 @@ case "${action}" in
             exit 0
         fi
         classify_predeploy_or_partial_boundary
-        if test "${boundary_state}" != deploy-candidate; then
-            run_companion deploy 7200
-        fi
+        run_companion deploy 7200
         run_companion_check
         require_deployed_boundary
         write_marker deploy

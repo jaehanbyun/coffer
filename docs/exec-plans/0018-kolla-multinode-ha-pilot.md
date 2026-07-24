@@ -1411,6 +1411,38 @@ promotion while ADR 0006 remains blocked.
   schema/catalog/TLS/bypass probes, then resume deploy only to create its
   marker after the same full gate passes.
 
+### 2026-07-24 — Edge upstream and external-owner probes corrected
+
+- Failure: After commit `16be9bb`, read-only status accepted nine healthy
+  containers, 18 listeners, twelve configs, migration head, one database/user,
+  and the exact service/user/endpoints. Endpoint acceptance then found API
+  200 and registry 401 on every backend, but edge returned 503 on every
+  backend and internal VIP; all three edge HAProxy members were down.
+- Edge root cause: `coffer_upstream_host` is the Kolla internal VIP. Its
+  frontend certificate chains to the Kolla CA, while edge's explicit
+  `backend-ca.crt` contained the separate CA used by Coffer process leaves.
+  The registry upstream TLS connection failed before an HTTP 401 could be
+  proxied.
+- Correction: Copy the Kolla root CA into edge and the disabled reconciler's
+  frontend-upstream CA path while retaining the Coffer backend CA for direct
+  process leaves. A focused test requires both exact Kolla-CA copies.
+- Probe correction: The external VIP owner is controller-2, while non-owners
+  have no external-subnet source address and route the VIP through the
+  management gateway. Acceptance now discovers exactly one owner, transfers
+  only the public CA in memory, and runs DNS TLS, 401 challenge/service, and
+  private-port TCP denial locally on that owner.
+- Operator upgrade: Version 2 remains a two-file overlay. It transactionally
+  validates and replaces v1, restoring the prior source/marker on any failure.
+  A structural deploy candidate is replayed idempotently so the changed edge
+  configs and handlers are applied before full acceptance.
+- Verification: Seven focused bootstrap/runtime tests, Bash syntax,
+  ShellCheck, three embedded Python blocks, diff checks, and the previously
+  accepted replica/schema/catalog evidence pass.
+- Next exact action: Commit these corrections, invoke only operator-source
+  `prepare` to upgrade v1 to v2, require lifecycle status
+  `deploy-candidate`, then replay only companion deploy and require the full
+  endpoint plus marker gate.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1486,11 +1518,12 @@ promotion while ADR 0006 remains blocked.
   recovered deploy has nine healthy service containers, twelve configs, 18
   backend/frontend listeners, and no deploy marker until the corrected
   acceptance completes.
-- Exact next action: Commit the 18-listener/healthy-candidate correction and
-  run read-only lifecycle status. If all schema/catalog/TLS/routing probes
-  pass, resume deploy only to rerun Kolla check and write the marker.
-- First file or command: Stage the guest lifecycle correction, this plan, and
-  HANDOFF; inspect and commit that atomic acceptance fix.
+- Exact next action: Commit the upstream-CA/operator-v2 and external-owner
+  probe corrections, upgrade only the operator source, confirm structural
+  `deploy-candidate`, then replay companion deploy for full acceptance.
+- First file or command: Stage the role/test, operator-source upgrade,
+  lifecycle probe/resume changes, this plan, and HANDOFF; inspect and commit
+  the atomic correction.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

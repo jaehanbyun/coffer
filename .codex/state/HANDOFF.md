@@ -706,6 +706,28 @@ signed Distribution v3.1.1 binary.
 - Exact next action: validate and locally commit this listener/candidate
   correction, run lifecycle status to exercise every remaining post-deploy
   probe, then resume deploy only to write the marker after the same gates pass.
+- Preserved the 18-listener candidate correction in local commit `16be9bb`.
+  Read-only status then passed all replica, migration, database, and catalog
+  gates but failed the endpoint phase: API and private Distribution returned
+  200/401, while all three edge replicas returned 503 and the controller-local
+  external VIP probe could not route to the VIP owner.
+- Edge root cause: the edge connects to the Kolla internal VIP frontend, whose
+  certificate is signed by the Kolla CA, but its explicit upstream CA file
+  contained the separate Coffer backend CA. The registry upstream TLS
+  connection therefore failed and HAProxy correctly held all three edge
+  backends down.
+- External-probe correction: non-owner controllers have no external-subnet
+  source address and route the VIP through the management gateway. Select the
+  unique external VIP owner and perform the DNS-name TLS, 401 challenge, and
+  private-port-denial probes locally there using only the public Kolla CA.
+- Operator-source v2 replaces only the already admitted `config.yml`, copying
+  the Kolla root CA to edge/reconciler upstream trust while retaining the
+  bootstrap CA fix. Its transactional v1-to-v2 upgrade validates the old
+  overlay, prepares the new one, and restores v1 on failure.
+- Exact next action: commit the upstream-CA/operator-v2 and owner-local probe
+  corrections, upgrade only the operator source, require structural
+  `deploy-candidate`, then replay the idempotent deploy so config handlers
+  restart edge and the full marker gate runs.
 
 ## Plan 0017 Completion
 
@@ -1291,10 +1313,10 @@ signed Distribution v3.1.1 binary.
 
 ## Exact Next Action
 
-Commit the exact 18-listener and healthy deploy-candidate correction, then run
-read-only lifecycle status through `jh.byun@100.123.168.66`. If all remaining
-schema/catalog/TLS/routing probes pass, resume deploy only to rerun Kolla check
-and write the marker without replaying the successful Ansible deploy.
+Commit the Kolla frontend-upstream CA, transactional operator-source v2, and
+owner-local external probe corrections. Upgrade only the operator source
+through `jh.byun@100.123.168.66`, require structural `deploy-candidate`, then
+replay the idempotent deploy to apply edge config and run the full marker gate.
 
 ## After This Work Package
 

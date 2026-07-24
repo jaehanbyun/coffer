@@ -51,3 +51,14 @@ def test_service_cert_copy_includes_one_shot_bootstrap() -> None:
     ).read_text(encoding="utf-8")
 
     assert 'project_services: "{{ coffer_processes }}"' in config_tasks
+
+
+def test_edge_and_reconciler_trust_the_kolla_frontend_ca() -> None:
+    config_tasks = (
+        ROOT / "ansible" / "roles" / "coffer" / "tasks" / "config.yml"
+    ).read_text(encoding="utf-8")
+
+    assert (
+        config_tasks.count('src: "{{ kolla_certificates_dir }}/ca/root.crt"')
+        == 2
+    )
