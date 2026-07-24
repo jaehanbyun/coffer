@@ -145,6 +145,7 @@ ADMIN_PASSWORD_PATH = Path(sys.argv[3])
 CLOUDS_PATH = Path("/var/lib/kolla/config_files/clouds.yaml")
 CA_PATH = "/etc/ssl/certs/ca-certificates.crt"
 ADMIN_CLOUD = "kolla-admin-internal"
+AUTH_URL = "https://192.168.252.10:5000/v3"
 PROJECT_NAMES = {
     "project_a": "coffer-stage5-project-a",
     "project_b": "coffer-stage5-project-b",
@@ -182,7 +183,7 @@ def admin_connection() -> Connection:
         raise RuntimeError("Keystone admin password is unavailable")
     return Connection(
         auth_type="v3password",
-        auth_url=auth["auth_url"],
+        auth_url=AUTH_URL,
         username=auth["username"],
         password=password,
         project_name=auth["project_name"],
@@ -201,7 +202,7 @@ def user_connection(
 ) -> Connection:
     return Connection(
         auth_type="v3password",
-        auth_url=cloud_auth()["auth_url"],
+        auth_url=AUTH_URL,
         username=username,
         password=password,
         user_domain_id=user_domain_id,
@@ -214,7 +215,7 @@ def user_connection(
 def application_credential_connection(identifier: str, secret: str) -> Connection:
     return Connection(
         auth_type="v3applicationcredential",
-        auth_url=cloud_auth()["auth_url"],
+        auth_url=AUTH_URL,
         application_credential_id=identifier,
         application_credential_secret=secret,
         verify=CA_PATH,

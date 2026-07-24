@@ -106,6 +106,8 @@ def test_multinode_tenant_fixture_is_finite_and_exactly_bounded() -> None:
     assert guest.count('"coffer-stage5-credential-') == 2
     assert "unrestricted=False" in guest
     assert "docker exec --user root -i kolla_toolbox" in guest
+    assert 'AUTH_URL = "https://192.168.252.10:5000/v3"' in guest
+    assert "auth_url=AUTH_URL" in guest
     assert '"/run/coffer-stage5-tenant-admin-password"' in guest
     assert 'rm -f -- "${toolbox_state}" "${admin_password}"' in guest
     assert "assign_project_role_to_user" in guest
