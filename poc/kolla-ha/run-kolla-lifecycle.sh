@@ -3,14 +3,14 @@
 set -Eeuo pipefail
 
 if [[ "$#" -ne 2 ]]; then
-    echo "usage: $0 {status|bootstrap|prechecks|pull|deploy} <ssh-target>" >&2
+    echo "usage: $0 {status|bootstrap|prechecks|pull|deploy|reconfigure} <ssh-target>" >&2
     exit 64
 fi
 
 action="$1"
 ssh_target="$2"
 case "${action}" in
-    status|bootstrap|prechecks|pull|deploy)
+    status|bootstrap|prechecks|pull|deploy|reconfigure)
         ;;
     *)
         echo "refusing an unknown Kolla lifecycle action" >&2
