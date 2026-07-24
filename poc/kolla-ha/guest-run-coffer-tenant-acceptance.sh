@@ -617,6 +617,12 @@ if test "${action}" = quota-denial; then
     )"
     printf 'coffer_tenant_owner checkpoint=quota-response status=%s\n' \
         "${quota_status}" >&2
+    if test "${quota_status}" != 429; then
+        jq -r '
+          .errors[]?
+          | "coffer_tenant_owner quota_error_code=\(.code) message=\(.message)"
+        ' "${client_root}/quota-response.json" >&2
+    fi
     test "${quota_status}" = 429
     jq -e '
       .errors == [{
