@@ -935,6 +935,8 @@ manifest_status="$(
         --output /dev/null \
         --write-out '%{http_code}' \
         --head \
+        --header 'Accept: application/vnd.oci.image.manifest.v1+json' \
+        --header 'Accept: application/vnd.docker.distribution.manifest.v2+json' \
         "${registry_url}/v2/${repository}/manifests/${expected_manifest}"
 )"
 blob_status="$(
@@ -953,6 +955,8 @@ project_b_status="$(
         --output /dev/null \
         --write-out '%{http_code}' \
         --head \
+        --header 'Accept: application/vnd.oci.image.manifest.v1+json' \
+        --header 'Accept: application/vnd.docker.distribution.manifest.v2+json' \
         "${registry_url}/v2/${repository}/manifests/${expected_manifest}"
 )"
 printf 'coffer_tenant_owner checkpoint=status manifest=%s blob=%s project_b=%s\n' \
