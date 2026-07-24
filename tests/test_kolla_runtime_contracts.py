@@ -116,5 +116,7 @@ def test_multinode_tenant_fixture_is_finite_and_exactly_bounded() -> None:
     assert "delete_application_credential" in guest
     assert "delete_user" in guest
     assert "delete_project" in guest
+    assert "dns=override-required" in guest
+    assert 'grep -F -- "${registry_name}" /etc/hosts' in guest
     assert "rm -rf" not in guest
     assert "--remove-all-storage" not in guest

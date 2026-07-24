@@ -509,6 +509,7 @@ verify_client_boundary() {
     local index
     local address
     local expected
+    local owner_client_state
 
     discover_external_owner
     for index in "${!addresses[@]}"; do
@@ -536,7 +537,8 @@ test -z "$(
 REMOTE
     done
 
-    sudo -u ubuntu ssh \
+    owner_client_state="$(
+        sudo -u ubuntu ssh \
         "${ssh_options[@]}" "ubuntu@${external_owner_address}" \
         sudo env LC_ALL=C LANG=C bash -s -- \
         "${external_owner_hostname}" "${registry_name}" <<'REMOTE'
@@ -549,13 +551,31 @@ test "$(hostname)" = "${expected_hostname}"
 for command_name in curl docker jq openssl getent sha256sum; do
     command -v "${command_name}" >/dev/null
 done
-docker info >/dev/null
-getent ahostsv4 "${registry_name}" |
-    awk '$1 == "192.168.254.10" {found=1} END {exit !found}'
+docker info >/dev/null 2>&1
+dns_state=override-required
+if resolved="$(getent ahostsv4 "${registry_name}" 2>/dev/null)"; then
+    awk '$1 != "192.168.254.10" {exit 1}' <<<"${resolved}"
+    test -n "${resolved}"
+    dns_state=valid
+else
+    test -z "$(
+        grep -F -- "${registry_name}" /etc/hosts 2>/dev/null || true
+    )"
+fi
+printf 'dns=%s\n' "${dns_state}"
 REMOTE
+    )"
+    case "${owner_client_state}" in
+        dns=valid|dns=override-required)
+            ;;
+        *)
+            echo "external owner DNS boundary changed" >&2
+            return 1
+            ;;
+    esac
 
-    printf 'coffer_tenant_client state=clean external_owner=%s tools=ready dns=valid residue=none\n' \
-        "${external_owner_hostname}"
+    printf 'coffer_tenant_client state=clean external_owner=%s tools=ready %s residue=none\n' \
+        "${external_owner_hostname}" "${owner_client_state}"
 }
 
 write_marker() {
