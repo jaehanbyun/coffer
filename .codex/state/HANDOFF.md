@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; Coffer replica faults accepted, Kolla HAProxy fault next
+- Status: plan 0018 active; Kolla HAProxy fault accepted, Galera fault next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -26,6 +26,9 @@ private-port denial, idempotent replay, and all-node runtime log hygiene.
 The controller-3 API, edge, and Distribution replica matrix is also accepted:
 nine authenticated outage probes retained project-A digests and project-B
 denial, all targets recovered healthy, and replay was marker-idempotent.
+The active Kolla HAProxy fault is accepted as well: both VIPs moved together
+from controller-3 to controller-2, three bounded tenant probes passed,
+controller-3 recovered healthy, and replay was marker-idempotent.
 
 ## Plan 0018 Activation
 
@@ -830,6 +833,26 @@ denial, all targets recovered healthy, and replay was marker-idempotent.
 - Exact next action: inspect external VIP ownership and Kolla
   Keepalived/HAProxy tracking read-only, then add a committed active-owner
   HAProxy stop/VIP-move/tenant-probe/restore harness before any Galera fault.
+- Read-only inspection confirmed one shared VRRP instance with a two-second
+  HAProxy socket check, `fall 2`, `rise 10`, and `nopreempt`. The first
+  mutation-free preflight corrected BSD awk compatibility and a masked owner
+  failure before any stop.
+- The first fault moved both VIPs from controller-2 to controller-3; its
+  immediate token call returned transient 503, and the EXIT trap restored the
+  exact HAProxy. All controller-3 Coffer backends remained `UP/L7OK`, and the
+  same tenant probe passed after convergence.
+- The corrected bounded-retry cycle stopped controller-3 HAProxy, moved both
+  VIPs to controller-2, and passed all three authenticated outage probes in
+  attempts 2, 2, and 1. Controller-3 HAProxy and Keepalived check recovered;
+  all nine Coffer backends, tenant paths, log hygiene, RGW health, and exactly
+  one shared VIP owner pass.
+- The root-owned mode-0600 marker is controller-1-only. Repeated `run`
+  returned `idempotent=yes` without a stop and retained identical marker
+  metadata.
+- Exact next action: inspect Galera wsrep membership, MariaDB container
+  metadata, and ProxySQL backend state read-only, then add a committed
+  controller-3 MariaDB stop/write-read/restore harness before reconciler
+  claim/fencing tests.
 
 ## Plan 0017 Completion
 
@@ -1415,13 +1438,13 @@ denial, all targets recovered healthy, and replay was marker-idempotent.
 
 ## Exact Next Action
 
-Inspect the three controllers' external-VIP ownership and non-sensitive
-Keepalived tracking plus HAProxy container contracts read-only. Then add and
-locally validate an exact active-owner Kolla HAProxy fault harness. It must
-commit and pass mutation-free preflight before stopping anything, prove VIP
-movement and three tenant digest/isolation probes through the survivor, restore
-the same HAProxy container, and finish with all controllers healthy and exactly
-one external VIP owner before any Galera fault.
+Inspect the three controllers' Galera wsrep membership, MariaDB container
+restart/health metadata, and ProxySQL writer/reader backend state read-only.
+Then add and locally validate an exact controller-3 MariaDB-member fault
+harness. It must commit and pass mutation-free preflight before stopping
+anything, perform a bounded repository/quota write plus tenant read through
+the surviving SQL path, restore the same member to a synced three-node
+primary component, and carry an EXIT recovery trap before reconciler tests.
 
 ## After This Work Package
 

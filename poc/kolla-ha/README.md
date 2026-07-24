@@ -462,3 +462,22 @@ path. Every target is restarted and required healthy before the next fault;
 an EXIT trap restores the current exact container after an intermediate
 failure. A repeated run validates the complete boundary and skips all
 completed faults without replacing their markers.
+
+After the service-replica matrix, run the active Kolla HAProxy fault:
+
+```text
+poc/kolla-ha/test-kolla-haproxy-failover.sh preflight <ssh-target>
+poc/kolla-ha/test-kolla-haproxy-failover.sh run <ssh-target>
+```
+
+The preflight dynamically resolves the one controller that owns both Kolla
+VIPs and requires all three HAProxy containers healthy, all three Keepalived
+checks passing, and the complete tenant boundary. `run` stops only that
+owner's HAProxy container. Keepalived remains running and must move both VIPs
+to one different allowlisted controller. Three authenticated tenant probes
+then pass through the surviving HAProxy path; each probe admits only three
+bounded attempts for VRRP/ARP/backend convergence. The exact original
+HAProxy is restarted and required healthy, its Keepalived check must pass,
+and full acceptance must finish with one shared internal/external VIP owner.
+An EXIT trap restores the stopped HAProxy. Repeated runs validate state and
+skip the completed fault without replacing the root-only marker.

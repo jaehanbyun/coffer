@@ -1597,6 +1597,41 @@ promotion while ADR 0006 remains blocked.
   digest/isolation path, exact HAProxy restoration, and one final VIP owner
   before any Galera fault.
 
+### 2026-07-24 — Kolla HAProxy and VIP fault accepted
+
+- Completed: Read-only inspection established the deployed Keepalived
+  contract: both Kolla VIPs share one VRRP instance, HAProxy's UNIX socket is
+  checked every two seconds with `fall 2` and `rise 10`, and `nopreempt`
+  retains the surviving owner after recovery. A committed harness then
+  dynamically targeted only the active owner's HAProxy container while
+  leaving Keepalived running.
+- Live evidence: The accepted cycle stopped controller-3 HAProxy. Internal
+  and external VIPs moved together to controller-2. Three authenticated
+  manifest/blob and project-B isolation probes passed through the survivor;
+  their convergence attempts were 2, 2, and 1. Controller-3 HAProxy returned
+  healthy, its Keepalived check passed, all nine Coffer backends recovered,
+  and exactly controller-2 retained both VIPs.
+- Failure corrections: The first mutation-free preflight exposed BSD awk's
+  reserved `index` name and a masked VIP-owner return code; both were fixed
+  before any stop. The first fault moved controller-2's VIPs to controller-3,
+  but an immediate token request received transient HTTP 503. The EXIT trap
+  restored HAProxy; all three controller-3 HAProxy backend sets remained
+  `UP/L7OK`, and the identical tenant probe passed after convergence. The
+  harness now permits only three bounded attempts per outage probe and records
+  the successful attempt.
+- Idempotency and hygiene: The completion marker is root-owned mode 0600 only
+  on controller-1. A repeated run performed no stop, returned
+  `idempotent=yes`, and retained identical marker metadata. Full tenant
+  cleanup, log hygiene, external RGW health, and one-VIP ownership gates pass.
+- Verification: Bash syntax, ShellCheck, nine focused runtime-contract tests,
+  refusal and forbidden-command checks, Gitleaks, diff checks, committed
+  preflight, dynamic VIP movement, three bounded outage probes, full recovery,
+  and metadata-idempotent replay pass.
+- Next exact action: Inspect the live Galera wsrep topology, container restart
+  contract, and ProxySQL backend state read-only. Then add a committed
+  controller-3 MariaDB member stop/write-read/restore harness with an EXIT
+  recovery trap before exercising reconciler claims or signing keys.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1627,7 +1662,8 @@ promotion while ADR 0006 remains blocked.
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | passed for daemon and storage-VM loss |
 | OCI and isolation | two-project clients through sole external edge | passed; quota 429/success, Docker push/pull, two-part upload, project-B denial, digest/log/residue gates |
 | Coffer replica faults | controller-3 API, edge, and Distribution stop/probe/restore | passed; 9/9 authenticated outage probes, complete recovery, idempotent replay |
-| Fault and recovery matrix | Kolla HAProxy, Galera, and reconciler faults plus restore checks | pending |
+| Kolla HAProxy fault | active-owner stop, paired VIP movement, tenant probes, restore | passed; VIP moved controller-3 to controller-2, 3/3 bounded probes, idempotent replay |
+| Fault and recovery matrix | Galera and reconciler faults plus restore checks | pending |
 | Upgrade, key rotation, rollback | bounded rolling rehearsals | pending |
 | Cleanup and repository regression | exact remote/local residue and focused checks | pending |
 
@@ -1678,14 +1714,16 @@ promotion while ADR 0006 remains blocked.
   residue. The controller-3 API, edge, and Distribution single-replica matrix
   also passes: nine authenticated outage probes retained both project-A
   digests and project-B denial, every container recovered healthy, and a
-  metadata-stable replay skipped all completed faults.
-- Exact next action: Inspect the live external-VIP Keepalived tracking and
-  HAProxy container contracts, then implement the exact active-owner HAProxy
-  stop/VIP-move/probe/restore cycle.
-- First file or command: Read only the three controllers' HAProxy/Keepalived
-  container health, external VIP ownership, and non-sensitive tracking
-  configuration before adding
-  `poc/kolla-ha/test-kolla-haproxy-failover.sh`.
+  metadata-stable replay skipped all completed faults. The active-owner
+  HAProxy cycle also passes: paired VIPs moved together, all three bounded
+  tenant probes passed, the exact HAProxy recovered, and replay was
+  metadata-idempotent.
+- Exact next action: Inspect the live Galera wsrep topology, MariaDB container
+  restart contract, and ProxySQL backend state, then implement the exact
+  controller-3 database-member stop/write-read/restore cycle.
+- First file or command: Read only the three controllers' Galera wsrep
+  membership, MariaDB container metadata, and ProxySQL backend status before
+  adding `poc/kolla-ha/test-kolla-galera-failover.sh`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an
