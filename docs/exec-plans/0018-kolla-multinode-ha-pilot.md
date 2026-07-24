@@ -1227,6 +1227,25 @@ promotion while ADR 0006 remains blocked.
   mutation scans, and live read-only status for this isolated correction;
   commit it locally, then resume only the same companion `prepare` action.
 
+### 2026-07-24 — Resumed prepare exposed temporary secret-root mode
+
+- Failure: After the parent-directory correction was committed, the resumed
+  transaction installed its staged tree and then failed a silent mode
+  assertion. The same transaction rollback again removed globals, inputs,
+  groups, created custom-config parent, and fixed transfer files while
+  retaining only the owner marker.
+- Root cause: A bounded probe on controller-1 confirmed that
+  `install -d -m 0700 <temporary>/coffer/secrets` creates the implicit
+  intermediate `coffer` directory as mode 0755. The final validator correctly
+  requires that secret-bearing input root to be mode 0700.
+- Correction: Explicitly create the temporary `coffer` parent as
+  root-owned mode 0700 before creating its mode-0700 secret and mode-0755
+  public children. The final paths, secret recipients, input values, and stop
+  boundary are unchanged.
+- Next exact action: Validate and locally commit this one-line mode
+  correction, prove the live owned/absent rollback state once more, and resume
+  only the same companion `prepare` action.
+
 ## Verification
 
 | Check | Command or method | Result |

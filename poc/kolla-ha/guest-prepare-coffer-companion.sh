@@ -221,6 +221,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
+install -d -o root -g root -m 0700 "${temporary}/coffer"
 install -d -o root -g root -m 0700 "${temporary}/coffer/secrets"
 install -d -o root -g root -m 0755 "${temporary}/coffer/public"
 install -o root -g root -m 0644 "${globals_input}" \

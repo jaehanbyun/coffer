@@ -582,6 +582,18 @@ signed Distribution v3.1.1 binary.
 - Exact next action: statically validate and locally commit this isolated
   parent-directory rollback correction, then resume only the same companion
   `prepare` action.
+- Preserved the parent correction in local commit `f001f20`. The resumed
+  transaction again rolled back fully but exited silently during final
+  validation. A bounded controller-side mode probe identified the exact
+  cause: `install -d -m 0700 <temporary>/coffer/secrets` gives its implicit
+  intermediate `coffer` directory mode 0755, while the accepted secret-root
+  contract requires 0700.
+- Correction: create the temporary `coffer` parent explicitly as
+  root-owned mode 0700 before its secret and public children. No final path,
+  recipient, or deployment boundary changes.
+- Exact next action: statically validate and locally commit the explicit
+  temporary-parent-mode correction, then resume only the same companion
+  `prepare` action.
 
 ## Plan 0017 Completion
 
