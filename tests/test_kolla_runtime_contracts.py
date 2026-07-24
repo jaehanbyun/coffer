@@ -142,6 +142,9 @@ def test_multinode_tenant_acceptance_is_owner_local_and_fail_closed() -> None:
     assert "checkpoint=repository" in guest
     assert "checkpoint=quota-open" in guest
     assert "checkpoint=owner-full" in guest
+    assert 'client_rc="$?"' in guest
+    assert "checkpoint=docker-push" in guest
+    assert "checkpoint=resumable-finalize" in guest
     assert "checkpoint=token-a" in guest
     assert 'if test "${action}" != quota-denial' in guest
     assert "quota_error_code=" in guest

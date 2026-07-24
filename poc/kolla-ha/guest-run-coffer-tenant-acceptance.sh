@@ -730,11 +730,13 @@ if test "${action}" = accept; then
         docker --config "${client_root}/docker-b" login \
             --username "${credential_b_id}" --password-stdin \
             "${registry_name}" >/dev/null 2>&1
+    printf 'coffer_tenant_owner checkpoint=docker-login state=ready\n' >&2
 
     docker image inspect "${source_image}" >/dev/null
     docker tag "${source_image}" "${target_image}"
     timeout 1800 docker --config "${client_root}/docker-a" push \
         --quiet "${target_image}" >/dev/null
+    printf 'coffer_tenant_owner checkpoint=docker-push state=passed\n' >&2
 
     curl --disable --fail --silent --show-error \
         --head \
@@ -754,6 +756,7 @@ if test "${action}" = accept; then
         ' "${client_root}/manifest.headers"
     )"
     [[ "${manifest_digest}" =~ ^sha256:[0-9a-f]{64}$ ]]
+    printf 'coffer_tenant_owner checkpoint=manifest state=present\n' >&2
 
     docker image rm --force "${target_image}" >/dev/null
     timeout 1800 docker --config "${client_root}/docker-a" pull \
@@ -763,6 +766,7 @@ if test "${action}" = accept; then
         jq -e \
             --arg expected "${registry_name}/${repository}@${manifest_digest}" \
             'index($expected) != null' >/dev/null
+    printf 'coffer_tenant_owner checkpoint=docker-pull state=passed\n' >&2
 
     if docker --config "${client_root}/docker-b" pull \
         "${target_image}" >"${client_root}/project-b-pull.log" 2>&1; then
@@ -792,6 +796,7 @@ if test "${action}" = accept; then
         exit 38
     fi
     unset secret_a secret_b
+    printf 'coffer_tenant_owner checkpoint=project-b state=denied\n' >&2
 
     python3 - "${client_root}/blob.bin" <<'PY'
 from pathlib import Path
@@ -852,6 +857,8 @@ PY
             ' "${client_root}/upload.headers"
         )"
         upload_url="$(location_url "${upload_location}")"
+        printf 'coffer_tenant_owner checkpoint=resumable-part part=%s state=passed\n' \
+            "${part}" >&2
     done
     case "${upload_url}" in
         *\?*) separator='&' ;;
@@ -878,6 +885,7 @@ PY
             "${registry_url}/v2/${repository}/blobs/${blob_digest}"
     )"
     test "${blob_status}" = 200
+    printf 'coffer_tenant_owner checkpoint=resumable-finalize state=passed\n' >&2
 
     project_b_tags="$(
         curl --disable --silent --show-error \
@@ -1153,7 +1161,15 @@ set_quota_limit 2147483648
 printf 'coffer_tenant_acceptance checkpoint=quota-open limit=2147483648\n'
 prepare_client_state
 printf 'coffer_tenant_acceptance checkpoint=owner-full state=starting\n'
+set +e
 client_evidence="$(run_owner_client accept)"
+client_rc="$?"
+set -e
+if test "${client_rc}" -ne 0; then
+    printf 'coffer_tenant_acceptance checkpoint=owner-full state=failed rc=%s\n' \
+        "${client_rc}" >&2
+    exit "${client_rc}"
+fi
 printf 'coffer_tenant_acceptance checkpoint=owner-full state=passed\n'
 verify_owner_client_clean
 printf '%s\n' "${client_evidence}" >"${temporary_root}/client-evidence.json"
