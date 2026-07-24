@@ -167,6 +167,24 @@ cluster_state() {
     printf 'current=%s updated=%s\n' "${current}" "${updated}"
 }
 
+wait_cluster_state() {
+    local attempt
+    local expected="$1"
+    local snapshot=""
+
+    for attempt in $(seq 1 90); do
+        if snapshot="$(cluster_state)" && test "${snapshot}" = "${expected}"; then
+            printf 'coffer_rolling_update convergence=%s attempt=%s\n' \
+                "${expected// /,}" "${attempt}"
+            return 0
+        fi
+        sleep 2
+    done
+    printf 'coffer_rolling_update convergence=failed expected=%s last=%s\n' \
+        "${expected// /,}" "${snapshot:-unavailable}" >&2
+    return 1
+}
+
 require_owner() {
     test "$(stat -c '%U:%G:%a' "${rolling_root}")" = root:root:700
     test "$(stat -c '%U:%G:%a' "${owner_marker}")" = root:root:600
@@ -365,8 +383,12 @@ case "${action}" in
             exit 0
         fi
         test "$((current_count + updated_count))" -eq 3
-        run_serial_upgrade "${update_image}" "${upgrade_log}"
-        test "$(cluster_state)" = 'current=0 updated=3'
+        if test "${current_count}" -eq 0 && test "${updated_count}" -eq 3; then
+            printf 'coffer_rolling_update phase=upgrade resume=postcheck\n'
+        else
+            run_serial_upgrade "${update_image}" "${upgrade_log}"
+        fi
+        wait_cluster_state 'current=0 updated=3'
         write_marker \
             "${upgrade_marker}" \
             "from=${current_image_id} to=${update_image_id}"
@@ -385,8 +407,12 @@ case "${action}" in
             exit 0
         fi
         test "$((current_count + updated_count))" -eq 3
-        run_serial_upgrade "${current_image}" "${rollback_log}"
-        test "$(cluster_state)" = 'current=3 updated=0'
+        if test "${current_count}" -eq 3 && test "${updated_count}" -eq 0; then
+            printf 'coffer_rolling_update phase=rollback resume=postcheck\n'
+        else
+            run_serial_upgrade "${current_image}" "${rollback_log}"
+        fi
+        wait_cluster_state 'current=3 updated=0'
         write_marker \
             "${rollback_marker}" \
             "from=${update_image_id} to=${current_image_id}"

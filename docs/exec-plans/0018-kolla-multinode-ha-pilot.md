@@ -1800,10 +1800,11 @@ promotion while ADR 0006 remains blocked.
   only `coffer_image_full`, and the companion `upgrade` action receives
   `kolla_serial=1`; persistent globals remain unchanged.
 - Availability and recovery: While Ansible is active, the outer harness
-  repeatedly proves the accepted manifest/blob, project-B denial, runtime-log
-  hygiene, and client cleanup. It requires at least one in-flight and three
-  total probes. An exact old/new mixed state can resume, and the retained old
-  image is wired to a separately marked serial rollback action.
+  repeatedly proves the accepted manifest/blob, project-B denial, and client
+  cleanup. The complete post-change gate separately scans all nine runtime
+  logs after containers converge. It requires at least one in-flight and
+  three total probes. An exact old/new mixed state can resume, and the retained
+  old image is wired to a separately marked serial rollback action.
 - Verification: Bash syntax, ShellCheck, twelve focused runtime-contract
   tests, diff checks, and scoped Gitleaks pass. Live mutation-free preflight
   returns current=3/updated=0, retains tenant digest/isolation, finds no
@@ -1815,6 +1816,37 @@ promotion while ADR 0006 remains blocked.
   tenant probes, final current=0/updated=3, unchanged Distribution/persistent
   globals, owner-only logs/markers, and zero temporary residue before the live
   Galera transaction probe.
+
+### 2026-07-25 — First rolling upgrade converged; postcheck race corrected
+
+- Live result: Kolla-Ansible completed with zero failed or unreachable hosts
+  and serially replaced all six API/edge containers. All three controllers
+  now report the recorded update image for API/edge, the unchanged
+  Distribution image, and nine healthy containers. The accepted manifest,
+  blob, project-B denial, external RGW, and full runtime-log hygiene gates pass
+  after convergence.
+- Harness failure: During replacement, the former `data-status` probe tried to
+  collect logs from a container name while Kolla had intentionally removed
+  that container, producing bounded `no such object` failures. Immediately
+  after Ansible, the guest also made a single health snapshot before Docker
+  healthchecks had converged. Ansible succeeded, but those two races prevented
+  the upgrade completion marker from being written.
+- Correction: Added a `path-status` action that proves only the external
+  manifest/blob and project-isolation path during the mutation and still
+  removes all client residue. Full control/quota/log acceptance remains the
+  final gate. The guest now waits up to 180 seconds for exact healthy image
+  convergence and recognizes an exact 0-current/3-updated state as a
+  postcheck-only resume, so it does not rerun Ansible.
+- Verification: Bash syntax passes; ShellCheck passes with only the existing
+  indirect trap-function informational diagnostic excluded. Eight focused
+  race/resume contracts, diff checks, and a live `path-status` probe pass.
+  Read-only status reports `partial current=0 updated=3`, exactly matching the
+  resumable postcheck state; the owner and upgrade log are root-only, the
+  temporary globals overlay is absent, and no completion marker exists yet.
+- Next exact action: Commit this bounded race correction, rerun only the
+  rolling `upgrade` action to finish postchecks and write the exact completion
+  marker without invoking Ansible, then repeat status and full tenant/service
+  acceptance before implementing the real-Galera concurrency probe.
 
 ## Verification
 

@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0018 active; rolling-upgrade preflight passed
+- Status: plan 0018 active; rolling update converged, postcheck resume pending
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -989,6 +989,31 @@ marker-idempotent replay passed.
   jh.byun@100.123.168.66`. Require serial image transitions, continuous
   tenant probes, final current=0/updated=3, unchanged Distribution and
   persistent globals, owner-only logs/markers, and no temporary residue.
+- Preserved the initial harness in `a1d431e` and invoked the exact upgrade.
+  Kolla-Ansible completed with no failed or unreachable hosts and replaced
+  API/edge serially on all three controllers. Independent status now shows
+  current=0/updated=3, unchanged Distribution, nine healthy containers,
+  accepted tenant digest/isolation, healthy RGW, clean logs, and no temporary
+  globals.
+- The outer probe nevertheless recorded transient failures because its former
+  full `data-status` action scanned a container name during Kolla's deliberate
+  remove/recreate window. The immediate guest postcheck also raced Docker
+  health convergence. These harness failures correctly withheld the upgrade
+  marker even though Ansible and the final runtime state succeeded.
+- Added a mutation-window-only `path-status` probe for manifest, blob,
+  project-B denial, and client cleanup; retained full control/quota/log scans
+  after convergence. Added a bounded 180-second image/health convergence gate
+  and an exact current=0/updated=3 postcheck-only resume that does not rerun
+  Ansible.
+- Bash syntax, eight focused resume/race contracts, diff checks, and a live
+  path probe pass. ShellCheck passes when excluding the pre-existing
+  indirect-trap SC2329 informational diagnostic. The remote rolling root has
+  only its root-owned owner marker and mode-0600 upgrade log; the temporary
+  overlay and upgrade completion marker are absent.
+- Exact next action: commit the bounded rolling correction, invoke the exact
+  `upgrade` action once to resume only postchecks and write its marker, then
+  repeat `status` plus full tenant/service acceptance before the real-Galera
+  concurrency probe.
 
 ## Plan 0017 Completion
 
@@ -1574,9 +1599,11 @@ marker-idempotent replay passed.
 
 ## Exact Next Action
 
-Commit the validated serial-one rolling-upgrade harness, then invoke only its
-`upgrade` action and require continuous tenant probes plus exact final image,
-secret, log, and residue gates.
+Commit the bounded rolling postcheck correction, then invoke only
+`poc/kolla-ha/run-coffer-rolling-update.sh upgrade
+jh.byun@100.123.168.66`. It must detect current=0/updated=3, skip Ansible,
+wait for exact health, write the owner-only upgrade marker, and pass final
+tenant, service, secret, log, RGW, and residue gates.
 
 ## After This Work Package
 

@@ -53,7 +53,7 @@ probe_tenant() {
 
     for attempt in 1 2 3; do
         if "${harness}/run-coffer-tenant-acceptance.sh" \
-            data-status "${ssh_target}"; then
+            path-status "${ssh_target}"; then
             printf 'coffer_rolling_update tenant_probe=passed attempt=%s\n' \
                 "${attempt}"
             return 0

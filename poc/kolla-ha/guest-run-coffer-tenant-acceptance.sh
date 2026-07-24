@@ -4,13 +4,13 @@ set -Eeuo pipefail
 umask 077
 
 if [[ "$#" -ne 1 ]]; then
-    echo "usage: $0 {preflight|accept|status|database-status}" >&2
+    echo "usage: $0 {preflight|accept|status|path-status|database-status}" >&2
     exit 64
 fi
 
 action="$1"
 case "${action}" in
-    preflight|accept|status|database-status)
+    preflight|accept|status|path-status|database-status)
         ;;
     *)
         echo "refusing an unknown Coffer tenant acceptance action" >&2
@@ -68,8 +68,10 @@ test "$(cat "${fixture_marker}")" = "${fixture_marker_value}"
 test "$(stat -c '%U:%G:%a' "${kolla_ca}")" = root:root:644
 test "$(stat -c '%U:%G:%a' "${deployment_key}")" = ubuntu:ubuntu:600
 test "$(stat -c '%U:%G:%a' "${known_hosts}")" = ubuntu:ubuntu:644
-test "$(docker inspect -f '{{.State.Running}}' coffer_api)" = true
-test "$(docker inspect -f '{{.State.Running}}' coffer_edge)" = true
+if test "${action}" != path-status; then
+    test "$(docker inspect -f '{{.State.Running}}' coffer_api)" = true
+    test "$(docker inspect -f '{{.State.Running}}' coffer_edge)" = true
+fi
 
 cleanup_local_temporary() {
     if test -z "${temporary_root}"; then
@@ -1160,12 +1162,39 @@ require_accepted_boundary() {
     printf 'coffer_tenant_acceptance state=accepted repository=1 quota=healthy digest=retained isolation=passed\n'
 }
 
+require_path_boundary() {
+    local client_status
+
+    test "$(stat -c '%U:%G:%a' "${acceptance_root}")" = root:root:700
+    test "$(stat -c '%U:%G:%a' "${repository_state}")" = root:root:600
+    test "$(stat -c '%U:%G:%a' "${evidence_file}")" = root:root:600
+    require_marker "${quota_marker}"
+    require_marker "${accepted_marker}"
+    prepare_client_state
+    jq \
+        --slurpfile evidence "${evidence_file}" \
+        '. + {acceptance: $evidence[0]}' "${temporary_root}/client.json" \
+        >"${temporary_root}/client-status.json"
+    mv -f \
+        "${temporary_root}/client-status.json" \
+        "${temporary_root}/client.json"
+    client_status="$(run_owner_client status)"
+    test "${client_status}" = status=passed
+    verify_owner_client_clean
+    printf 'coffer_tenant_path_probe manifest=200 blob=200 isolation=passed client_residue=none\n'
+}
+
 if test "${action}" = preflight; then
     require_clean_boundary
     exit 0
 fi
 
 create_temporary_root
+
+if test "${action}" = path-status; then
+    require_path_boundary
+    exit 0
+fi
 
 if test "${action}" = status ||
     test "${action}" = database-status; then
