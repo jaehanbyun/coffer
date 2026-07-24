@@ -8,7 +8,8 @@
   `docs/exec-plans/0014-kolla-runtime-images.md`,
   `docs/exec-plans/0015-kolla-ansible-operator-role.md`,
   `docs/exec-plans/0016-kolla-aio-end-to-end.md`,
-  `docs/exec-plans/0017-production-image-remediation.md`
+  `docs/exec-plans/0017-production-image-remediation.md`,
+  `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 
 This document is the operator-facing topology baseline for packaging Coffer
 with Kolla and deploying it through an operator-local Kolla-Ansible role. It
@@ -219,8 +220,10 @@ runtime contract; the Coffer image reports zero Critical/High under Docker
 Scout and Trivy. Production remains closed because the signed Distribution
 v3.1.1 release binary retains 8 Critical/10 High under Scout, 22 High under
 Trivy, three source-reachable vulnerabilities, and 37 vulnerable binary symbol
-groups. This image evidence does not replace Stage 5 HA or the other Stage 6
-promotion gates.
+groups. Plan 0018 is active for Stage 5 and requires replicated
+Kolla/Coffer/Galera plus an independently provisioned external RGW HA failure
+domain; a controller-only result is explicitly partial. This image evidence
+does not replace Stage 5 HA or the other Stage 6 promotion gates.
 
 Every later stage starts with a fresh execution plan and one exact next action.
 Completing one stage does not authorize deployment, credentials, destructive

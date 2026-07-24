@@ -1,20 +1,50 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0017 completed locally; no active execution plan
+- Status: plan 0018 active; six-guest preflight passed
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
-- Active execution plan: none
+- Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 
 ## Current Objective
 
-Plan 0017 is complete with a reproducible fail-closed production-image
-qualification baseline. Coffer-owned and wrapper-base Critical/High findings
-are remediated; the signed Distribution v3.1.1 release binary is the explicit
-upstream blocker. The recommended successor is a release-refresh work package
-after a newer signed supported Distribution release exists, followed by the
-unchanged image qualification and protocol gates. Publication, production
-deployment, multinode/HA, and upstream changes remain unauthorized.
+Plan 0018 is active to complete the disposable Kolla multinode and HA pilot.
+The read-only `bb00` refresh, preferred six-guest topology, immutable Ubuntu
+image pin, and mutation-free provision preflight are complete. Every live
+capacity and collision gate passes with the configured safety margins. No
+create or destroy behavior is implemented yet. Stage 5 requires replicated
+Kolla/Coffer/Galera and an independent external RGW HA failure domain; a
+controller-only pilot against the retained one-node RGW is partial evidence
+and cannot close the plan. ADR 0006 still blocks production promotion on the
+signed Distribution v3.1.1 binary.
+
+## Plan 0018 Activation
+
+- Published completed Stage 4 and plan 0017 to
+  `https://github.com/jaehanbyun/coffer.git` as scoped commits `ae82f32` and
+  `4f1ff7d`; local and remote `main` match at `4f1ff7d`.
+- Activated `docs/exec-plans/0018-kolla-multinode-ha-pilot.md` with explicit
+  exit gates for three-controller Galera/HAProxy, replicated Coffer services,
+  independent external RGW HA, replica loss, fencing, key overlap, rolling
+  upgrade, compatible rollback, cleanup, and repository regression.
+- No Stage 5 remote inspection, VM, identity, credential, network, storage, or
+  service mutation has occurred; only read-only inventory commands ran.
+- The current snapshot has 123.8 GiB available RAM, no swap, 876.5 GiB
+  filesystem space, 18 running domains, 82 allocated vCPUs, and no Stage 5
+  names. The retained one-node RGW remains running with autostart disabled.
+- Selected `poc/kolla-ha/topology.yml`: three 8-vCPU/16-GiB controllers,
+  three 4-vCPU/8-GiB storage nodes, 72 GiB total RAM, 576 GiB logical disk,
+  and dedicated management/storage/external networks on currently unused
+  `192.168.252.0/24` through `192.168.254.0/24`.
+- Added `poc/kolla-ha/provision.sh preflight`. Bash/ShellCheck and target
+  refusal checks pass. Ubuntu Noble daily build `20260705` and its x86_64
+  QCOW2 SHA-256 are pinned from the official date-fixed checksum list.
+- The live preflight passes for six domains/36 vCPUs and predicts 51.8 GiB
+  RAM, 300.5 GiB filesystem, and 320.6 GiB pool capacity remaining.
+- Exact next action: locally commit the completed plan/inventory/preflight
+  baseline, then implement paired exact-target create/status/destroy behavior
+  and partial-create rollback. Do not invoke create before local allowlist and
+  negative-target verification passes.
 
 ## Plan 0017 Completion
 
