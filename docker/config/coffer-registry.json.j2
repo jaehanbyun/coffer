@@ -38,6 +38,13 @@
             "perm": "0644"
         }{% endif %}
     ],
+    "directories": [
+        {
+            "path": "/var/log/kolla/coffer-registry",
+            "owner": "registry:registry",
+            "perm": "0750"
+        }
+    ],
     "permissions": [
         {
             "path": "/var/lib/registry",

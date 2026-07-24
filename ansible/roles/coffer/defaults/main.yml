@@ -32,6 +32,12 @@ coffer_edge_public_port: >-
 
 coffer_internal_fqdn: "{{ kolla_internal_fqdn }}"
 coffer_external_fqdn: "{{ kolla_external_fqdn }}"
+coffer_upstream_host: >-
+  {{
+    coffer_internal_fqdn
+    if coffer_deployment_profile == 'production'
+    else api_interface_address
+  }}
 coffer_internal_origin: >-
   {{
     coffer_internal_fqdn |
@@ -44,13 +50,13 @@ coffer_external_origin: >-
   }}
 coffer_api_internal_origin: >-
   {{
-    coffer_internal_fqdn |
-    kolla_url(internal_protocol, coffer_api_port)
+    coffer_upstream_host |
+    kolla_url(coffer_backend_protocol, coffer_api_port)
   }}
 coffer_registry_internal_origin: >-
   {{
-    coffer_internal_fqdn |
-    kolla_url(internal_protocol, coffer_registry_port)
+    coffer_upstream_host |
+    kolla_url(coffer_backend_protocol, coffer_registry_port)
   }}
 coffer_internal_endpoint: "{{ coffer_internal_origin }}/v1"
 coffer_public_endpoint: "{{ coffer_external_origin }}/v1"
@@ -70,6 +76,8 @@ coffer_registry_image_full: "{{ coffer_registry_image }}:{{ coffer_tag }}"
 # TLS
 ####################
 coffer_enable_tls_backend: "{{ kolla_enable_tls_backend | bool }}"
+coffer_backend_protocol: >-
+  {{ 'https' if coffer_enable_tls_backend | bool else 'http' }}
 coffer_backend_tls_cert: "{{ kolla_tls_backend_cert }}"
 coffer_backend_tls_key: "{{ kolla_tls_backend_key }}"
 coffer_backend_cacert: "{{ openstack_cacert }}"
@@ -105,6 +113,13 @@ coffer_database_user: >-
   {%- else -%}
   coffer
   {%- endif -%}
+coffer_database_password_urlencoded: >-
+  {{
+    lookup('file', coffer_database_password_file) |
+    trim |
+    urlencode |
+    replace('/', '%2F')
+  }}
 coffer_database_address: >-
   {{ database_address | put_address_in_context('url') }}:{{ database_port }}
 coffer_database_enable_tls_internal: >-
@@ -200,10 +215,11 @@ coffer_reconcile_enable_healthchecks: "{{ enable_container_healthchecks }}"
 coffer_api_healthcheck_test:
   - "CMD-SHELL"
   - >-
-    healthcheck_curl {{
+    curl --fail --silent --show-error --max-time 10
+    {{
     'https' if coffer_enable_tls_backend | bool else 'http'
     }}://{{ api_interface_address | put_address_in_context('url')
-    }}:{{ coffer_api_port }}/healthz
+    }}:{{ coffer_api_port }}/healthz >/dev/null
 coffer_edge_healthcheck_test:
   - "CMD-SHELL"
   - "healthcheck_listen coffer-edge {{ coffer_edge_port }}"

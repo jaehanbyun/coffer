@@ -1,4 +1,32 @@
 ---
+- name: Ensure the HAProxy custom CA input directory exists for Coffer
+  ansible.builtin.file:
+    path: "{{ node_config_directory }}/haproxy/ca-certificates"
+    state: directory
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0750"
+  become: true
+  notify: Restart haproxy container
+  when:
+    - coffer_enable_tls_backend | bool
+    - kolla_copy_ca_into_containers | bool
+
+- name: Install the verified Coffer backend CA into HAProxy trust
+  ansible.builtin.copy:
+    src: "{{ coffer_backend_cacert }}"
+    dest: >-
+      {{ node_config_directory
+      }}/haproxy/ca-certificates/coffer-backend-ca.crt
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0644"
+  become: true
+  notify: Restart haproxy container
+  when:
+    - coffer_enable_tls_backend | bool
+    - kolla_copy_ca_into_containers | bool
+
 - name: Configure HAProxy and ProxySQL for Coffer
   ansible.builtin.import_role:
     name: loadbalancer-config

@@ -1,0 +1,35 @@
+---
+# Disposable Stage 4 companion-role inputs. Secret values and private keys are
+# created only on the AIO controller under the owner-only paths below.
+enable_coffer: true
+coffer_deployment_profile: "isolated-lab"
+coffer_config_controller_become: true
+coffer_enable_reconcile: false
+coffer_enable_metrics: false
+
+coffer_image_full: "localhost/coffer:stage4"
+coffer_registry_image_full: "localhost/coffer-registry:stage4"
+
+coffer_enable_tls_backend: true
+kolla_verify_tls_backend: true
+kolla_copy_ca_into_containers: true
+coffer_backend_tls_cert: "/etc/kolla/config/coffer/public/backend.crt"
+coffer_backend_tls_key: "/etc/kolla/config/coffer/secrets/backend-key.pem"
+coffer_backend_cacert: "/etc/kolla/config/coffer/public/backend-ca.crt"
+coffer_rgw_cacert: "/etc/kolla/config/coffer/public/rgw-ca.crt"
+
+coffer_secret_source_dir: "/etc/kolla/config/coffer/secrets"
+coffer_public_source_dir: "/etc/kolla/config/coffer/public"
+coffer_secret_owner_uid: 0
+coffer_token_key_id: "stage4-20260724"
+
+coffer_rgw_endpoint: "https://coffer-rgw-poc:8443"
+coffer_rgw_bucket: "coffer-kolla-aio-stage4"
+coffer_rgw_region: "us-east-1"
+coffer_rgw_force_path_style: true
+coffer_rgw_skip_verify: false
+coffer_rgw_encrypt: false
+
+# Keep the single-node acceptance footprint bounded.
+coffer_api_workers: 2
+coffer_edge_workers: 2

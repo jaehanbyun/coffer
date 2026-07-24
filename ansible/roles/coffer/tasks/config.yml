@@ -158,6 +158,58 @@
   become: true
   when: inventory_hostname in groups['coffer-registry']
 
+- name: Ensure Kolla custom CA directories exist for Coffer processes
+  ansible.builtin.file:
+    path: >-
+      {{ node_config_directory }}/{{ item.key }}/ca-certificates
+    state: directory
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0750"
+  become: true
+  loop: >-
+    {{
+      coffer_services |
+      select_services_enabled_and_mapped_to_host |
+      dict2items
+    }}
+  loop_control:
+    label: "{{ item.key }}"
+  when: kolla_copy_ca_into_containers | bool
+
+- name: Install the verified RGW CA into the Distribution system trust input
+  ansible.builtin.copy:
+    src: "{{ coffer_rgw_cacert }}"
+    dest: >-
+      {{ node_config_directory
+      }}/coffer-registry/ca-certificates/coffer-rgw-ca.crt
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0644"
+  become: true
+  when:
+    - kolla_copy_ca_into_containers | bool
+    - inventory_hostname in groups['coffer-registry']
+
+- name: Install the verified backend CA into Coffer system trust inputs
+  ansible.builtin.copy:
+    src: "{{ coffer_backend_cacert }}"
+    dest: >-
+      {{ node_config_directory
+      }}/{{ item }}/ca-certificates/coffer-backend-ca.crt
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0644"
+  become: true
+  loop:
+    - coffer-api
+    - coffer-edge
+    - coffer-reconcile
+  when:
+    - kolla_copy_ca_into_containers | bool
+    - inventory_hostname in groups[coffer_services[item].group]
+    - coffer_services[item].enabled | bool
+
 - name: Copy backend TLS certificates to listener processes
   vars:
     certificate_names:

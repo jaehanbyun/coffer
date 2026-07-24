@@ -48,7 +48,7 @@
         - kolla_action in ['deploy', 'reconfigure', 'upgrade', 'config']
 
     - name: Reconcile load balancer containers
-      ansible.builtin.include_role:
+      ansible.builtin.import_role:
         name: loadbalancer
         tasks_from: check-containers
       when:

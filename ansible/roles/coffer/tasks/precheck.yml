@@ -69,26 +69,26 @@
     fail_msg: >-
       Only coffer-edge may define an external HAProxy frontend.
 
-- name: Require verified TLS for the current companion-role contract
+- name: Require external and verified backend TLS
   ansible.builtin.assert:
     that:
       - kolla_enable_tls_external | bool
-      - kolla_enable_tls_internal | bool
       - coffer_enable_tls_backend | bool
       - kolla_verify_tls_backend | bool
       - coffer_backend_cacert | length > 0
       - not coffer_rgw_skip_verify | bool
     fail_msg: >-
-      Coffer Stage 3 requires external, internal, and verified backend TLS.
+      Coffer requires external TLS, verified backend TLS, and verified RGW TLS.
 
-- name: Require production single external frontend
+- name: Require the complete production TLS and frontend profile
   ansible.builtin.assert:
     that:
+      - kolla_enable_tls_internal | bool
       - haproxy_single_external_frontend | bool
       - coffer_edge_public_port | int == 443
     fail_msg: >-
-      The production Coffer profile requires Kolla's TLS single external
-      frontend on port 443.
+      The production Coffer profile requires internal TLS and Kolla's TLS
+      single external frontend on port 443.
   when: coffer_deployment_profile == 'production'
 
 - name: Refuse an unresolved reconciliation identity
@@ -108,6 +108,7 @@
       - "{{ coffer_distribution_http_secret_file }}"
       - "{{ coffer_rgw_access_key_file }}"
       - "{{ coffer_rgw_secret_key_file }}"
+      - "{{ coffer_backend_tls_key }}"
   ansible.builtin.stat:
     path: "{{ item }}"
   delegate_to: localhost
@@ -147,7 +148,6 @@
     - "{{ coffer_rgw_cacert }}"
     - "{{ coffer_backend_cacert }}"
     - "{{ coffer_backend_tls_cert }}"
-    - "{{ coffer_backend_tls_key }}"
   loop_control:
     label: "{{ item | basename }}"
 
@@ -169,7 +169,7 @@
   ansible.builtin.command:
     argv:
       - openssl
-      - pkey
+      - rsa
       - -in
       - "{{ coffer_signing_key_file }}"
       - -check

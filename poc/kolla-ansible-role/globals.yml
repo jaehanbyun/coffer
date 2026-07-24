@@ -19,7 +19,7 @@ kolla_enable_tls_external: true
 kolla_enable_tls_internal: true
 kolla_enable_tls_backend: true
 kolla_verify_tls_backend: true
-kolla_copy_ca_into_containers: false
+kolla_copy_ca_into_containers: true
 haproxy_single_external_frontend: true
 haproxy_single_external_frontend_public_port: "443"
 api_interface_address: 127.0.0.1

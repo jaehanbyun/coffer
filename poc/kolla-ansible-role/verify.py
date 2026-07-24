@@ -384,6 +384,70 @@ def verify_bootstrap_failure() -> None:
     check("failed=1" in result.stdout, "bootstrap failure is visible")
 
 
+def verify_isolated_lab_protocol_split() -> None:
+    prepare()
+    database_password = (
+        WORK / "source-config" / "coffer" / "secrets" / "database-password"
+    )
+    database_password.write_text("stage3/a+b=c@d:e\n", encoding="utf-8")
+    database_password.chmod(0o600)
+    remember_generated_secrets()
+    run_action(
+        "precheck",
+        "-e",
+        "coffer_deployment_profile=isolated-lab",
+        "-e",
+        "kolla_enable_tls_internal=false",
+    )
+    with listening(61313):
+        run_action(
+            "deploy",
+            "-e",
+            "coffer_deployment_profile=isolated-lab",
+            "-e",
+            "kolla_enable_tls_internal=false",
+        )
+    edge_config = (
+        WORK / "target-config" / "coffer-edge" / "coffer.conf"
+    ).read_text(encoding="utf-8")
+    check(
+        "api_upstream_url = https://127.0.0.1:18787"
+        in edge_config
+        and (
+            "registry_upstream_url = "
+            "https://127.0.0.1:18789"
+        )
+        in edge_config,
+        "isolated lab uses direct TLS backends when Kolla internal VIP is HTTP",
+    )
+    api_config = (
+        WORK / "target-config" / "coffer-api" / "coffer.conf"
+    ).read_text(encoding="utf-8")
+    check(
+        "stage3%2Fa%2Bb%3Dc%40d%3Ae" in api_config
+        and "stage3/a+b=c@d:e" not in api_config,
+        "database credentials are URL-encoded in SQLAlchemy connection URLs",
+    )
+    endpoint_events = {
+        event["label"]
+        for event in events()
+        if event.get("action") == "toolbox"
+        and event.get("label", "").startswith("coffer:")
+    }
+    check(
+        any(
+            ":internal:http://registry.internal.example.test:18788/v1"
+            in label
+            for label in endpoint_events
+        )
+        and any(
+            ":public:https://registry.example.test/v1" in label
+            for label in endpoint_events
+        ),
+        "isolated lab separates HTTP internal endpoint from HTTPS public origin",
+    )
+
+
 def verify_rendered_contract(secret_values: dict[str, str]) -> None:
     target = WORK / "target-config"
     event_list = events()
@@ -531,6 +595,15 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
         == {"coffer-edge/jwks.json", "coffer-registry/jwks.json"},
         "public JWKS recipients are edge and Distribution",
     )
+    check(
+        (
+            target
+            / "coffer-registry"
+            / "ca-certificates"
+            / "coffer-rgw-ca.crt"
+        ).exists(),
+        "Distribution receives the RGW CA through Kolla system trust input",
+    )
 
     check(
         (WORK / "source-config" / "fluentd" / "input" / "15-coffer.conf").exists(),
@@ -612,6 +685,7 @@ def main() -> None:
         verify_pin_and_syntax()
         verify_wrapper_contract()
         verify_disabled_and_negative_prechecks()
+        verify_isolated_lab_protocol_split()
         with listening(61313):
             verify_bootstrap_failure()
             verify_successful_lifecycle()
