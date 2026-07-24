@@ -569,6 +569,19 @@ signed Distribution v3.1.1 binary.
   `poc/kolla-ha/prepare-coffer-companion.sh prepare
   jh.byun@100.123.168.66`. On failure, verify rollback and temporary-residue
   absence before resuming this phase.
+- Preserved that harness in local commit `192d154`. The first `prepare`
+  invocation reached the final atomic install but stopped because the
+  previously minimal Kolla deployment had no `/etc/kolla/config` parent.
+  Rollback passed: the inventory, globals, and inputs are absent; only the
+  expected owner marker remains; all fixed transfer paths are absent; all 36
+  Kolla containers, both image IDs, and external Ceph/RGW remain healthy.
+- Correction: create only the exact root-owned mode-0755 Kolla custom-config
+  parent when absent, record ownership of that creation, and remove it with
+  `rmdir` during a failed transaction after partial input cleanup. Existing
+  parent state must match the same owner/mode contract.
+- Exact next action: statically validate and locally commit this isolated
+  parent-directory rollback correction, then resume only the same companion
+  `prepare` action.
 
 ## Plan 0017 Completion
 

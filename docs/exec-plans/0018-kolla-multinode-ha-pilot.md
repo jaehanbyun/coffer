@@ -1208,6 +1208,25 @@ promotion while ADR 0006 remains blocked.
   inventory/input rollback and exact temporary-file cleanup, and resume only
   this phase.
 
+### 2026-07-24 — First companion prepare stopped at missing custom-config parent
+
+- Failure: The committed phase reached its final atomic install but
+  `/etc/kolla/config` did not exist on the minimal controller-1 deployment, so
+  moving the prepared Coffer tree to its final path failed. No database,
+  catalog, HAProxy, or container action had started.
+- Rollback evidence: Live mutation-free status reports state `owned` with no
+  globals, inputs, companion groups, runtime, database, catalog, or temporary
+  transfer residue. The original inventory is restored. Both image IDs, all
+  36 Kolla containers, and the external Ceph/RGW boundary remain healthy.
+- Correction: Treat `/etc/kolla/config` as an explicit transaction-owned
+  prerequisite. Create only that root-owned mode-0755 parent when absent,
+  track whether this phase created it, and remove it with exact `rmdir` during
+  rollback after partial Coffer input cleanup. Refuse an existing parent with
+  different owner, type, or mode.
+- Next exact action: Run Bash/ShellCheck, rollback-path inspection, forbidden
+  mutation scans, and live read-only status for this isolated correction;
+  commit it locally, then resume only the same companion `prepare` action.
+
 ## Verification
 
 | Check | Command or method | Result |

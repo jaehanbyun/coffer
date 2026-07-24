@@ -33,6 +33,7 @@ source_root="${state_root}/coffer-source"
 image_marker="${state_root}/images.complete"
 inventory="/etc/kolla/multinode"
 globals="/etc/kolla/coffer-globals.yml"
+config_root="/etc/kolla/config"
 input_root="/etc/kolla/config/coffer"
 secret_root="${input_root}/secrets"
 public_root="${input_root}/public"
@@ -192,6 +193,7 @@ temporary="$(mktemp -d /etc/kolla/coffer-stage5.prepare.XXXXXX)"
 inventory_changed=false
 inputs_installed=false
 globals_installed=false
+config_root_created=false
 committed=false
 cleanup() {
     local exit_code=$?
@@ -206,6 +208,9 @@ cleanup() {
         fi
         if test "${inputs_installed}" = true; then
             rm -rf -- "${input_root}"
+        fi
+        if test "${config_root_created}" = true; then
+            rmdir -- "${config_root}"
         fi
         rm -f -- "${inputs_marker}"
     fi
@@ -398,6 +403,13 @@ for name, value in expected.items():
         raise SystemExit(f"Coffer globals mismatch: {name}")
 PY
 
+if test -e "${config_root}"; then
+    test -d "${config_root}"
+    test "$(stat -c '%U:%G:%a' "${config_root}")" = root:root:755
+else
+    install -d -o root -g root -m 0755 "${config_root}"
+    config_root_created=true
+fi
 test ! -e "${input_root}"
 test ! -e "${globals}"
 mv "${temporary}/coffer" "${input_root}"
