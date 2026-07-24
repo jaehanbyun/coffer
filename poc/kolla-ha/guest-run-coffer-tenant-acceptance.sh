@@ -4,13 +4,13 @@ set -Eeuo pipefail
 umask 077
 
 if [[ "$#" -ne 1 ]]; then
-    echo "usage: $0 {preflight|accept|status}" >&2
+    echo "usage: $0 {preflight|accept|status|database-status}" >&2
     exit 64
 fi
 
 action="$1"
 case "${action}" in
-    preflight|accept|status)
+    preflight|accept|status|database-status)
         ;;
     *)
         echo "refusing an unknown Coffer tenant acceptance action" >&2
@@ -379,6 +379,52 @@ print(json.dumps({
 }, sort_keys=True))
 PY
 }
+
+database_write_probe() (
+    set -Eeuo pipefail
+
+    local original_limit=2147483648
+    local probe_limit=2147483649
+    local restore_required=0
+    local snapshot
+
+    restore_limit() {
+        local rc="$?"
+
+        trap - EXIT
+        if test "${restore_required}" -eq 1; then
+            set_quota_limit "${original_limit}" || rc=1
+        fi
+        exit "${rc}"
+    }
+    trap restore_limit EXIT
+
+    snapshot="$(quota_snapshot)"
+    jq -e --argjson limit "${original_limit}" '
+      .limit_bytes == $limit
+      and .reserved_bytes == 0
+      and .used_bytes > 0
+    ' <<<"${snapshot}" >/dev/null
+    restore_required=1
+    set_quota_limit "${probe_limit}"
+    snapshot="$(quota_snapshot)"
+    jq -e --argjson limit "${probe_limit}" '
+      .limit_bytes == $limit
+      and .reserved_bytes == 0
+      and .used_bytes > 0
+      and .used_bytes <= .limit_bytes
+    ' <<<"${snapshot}" >/dev/null
+    set_quota_limit "${original_limit}"
+    restore_required=0
+    snapshot="$(quota_snapshot)"
+    jq -e --argjson limit "${original_limit}" '
+      .limit_bytes == $limit
+      and .reserved_bytes == 0
+      and .used_bytes > 0
+      and .used_bytes <= .limit_bytes
+    ' <<<"${snapshot}" >/dev/null
+    trap - EXIT
+)
 
 prepare_client_state() {
     jq \
@@ -1121,8 +1167,13 @@ fi
 
 create_temporary_root
 
-if test "${action}" = status; then
+if test "${action}" = status ||
+    test "${action}" = database-status; then
     require_accepted_boundary
+    if test "${action}" = database-status; then
+        database_write_probe
+        printf 'coffer_tenant_database_probe write=passed read=passed restored_limit=2147483648\n'
+    fi
     exit 0
 fi
 

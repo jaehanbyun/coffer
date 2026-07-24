@@ -133,9 +133,10 @@ def test_multinode_tenant_acceptance_is_owner_local_and_fail_closed() -> None:
         / "guest-run-coffer-tenant-acceptance.sh"
     ).read_text(encoding="utf-8")
 
-    assert "{preflight|accept|status|data-status}" in outer
-    assert "{preflight|accept|status}" in guest
+    assert "{preflight|accept|status|data-status|database-status}" in outer
+    assert "{preflight|accept|status|database-status}" in guest
     assert "run-coffer-tenant-fixture.sh" in outer
+    assert 'test "${action}" != database-status' in outer
     assert 'phase_rc="$?"' in outer
     assert "accepted.complete" in outer
     assert "checkpoint=control-tokens" in guest
@@ -178,6 +179,9 @@ def test_multinode_tenant_acceptance_is_owner_local_and_fail_closed() -> None:
     )
     assert "rm -rf" not in guest
     assert "--remove-all-storage" not in guest
+    assert "database_write_probe" in guest
+    assert "probe_limit=2147483649" in guest
+    assert "restored_limit=2147483648" in guest
 
 
 def test_multinode_service_fault_targets_only_controller_three_containers() -> (

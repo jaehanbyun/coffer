@@ -3,14 +3,14 @@
 set -Eeuo pipefail
 
 if [[ "$#" -ne 2 ]]; then
-    echo "usage: $0 {preflight|accept|status|data-status} <ssh-target>" >&2
+    echo "usage: $0 {preflight|accept|status|data-status|database-status} <ssh-target>" >&2
     exit 64
 fi
 
 action="$1"
 ssh_target="$2"
 case "${action}" in
-    preflight|accept|status|data-status)
+    preflight|accept|status|data-status|database-status)
         ;;
     *)
         echo "refusing an unknown Coffer tenant acceptance action" >&2
@@ -36,7 +36,8 @@ ssh_options=(
     -o UserKnownHostsFile="${known_hosts}"
 )
 
-if test "${action}" != data-status; then
+if test "${action}" != data-status &&
+    test "${action}" != database-status; then
     "${harness}/run-coffer-tenant-fixture.sh" status "${ssh_target}"
 fi
 
