@@ -1479,6 +1479,46 @@ promotion while ADR 0006 remains blocked.
   creation until the harness is committed and its mutation-free preflight
   passes.
 
+### 2026-07-24 — Finite tenant identity fixture accepted
+
+- Completed: Added and committed the guarded
+  `preflight|prepare|status|cleanup` tenant fixture before invoking any
+  identity mutation. It reuses `kolla_toolbox`, materializes the existing
+  admin password only through an owner-only `/run` transfer, fixes every SDK
+  connection to the internal Keystone VIP/interface, and creates exactly two
+  projects, users, member assignments, and unrestricted-false application
+  credentials with a twelve-hour expiry.
+- Preflight evidence: The accepted companion and external RGW gates passed;
+  all tenant names and fixture state were absent; all three controllers had
+  zero client directory, Docker CA override, or tenant image residue; the
+  external VIP owner was uniquely controller-2; and the intentionally
+  unregistered FQDN was classified `dns=override-required`.
+- Failure corrections: The first preflight found no host `clouds.yaml`; the
+  deployed toolbox config is the supported source. The next two attempts
+  showed that its generated auth/catalog defaults select the unreachable
+  external VIP, so the helper now fixes the known internal Keystone URL and
+  internal catalog interface. A later attempt correctly exposed absent
+  external DNS; the preflight now admits only either the exact VIP mapping or
+  a clean boundary for a later temporary owner-local override. Every failed
+  attempt preceded identity creation and left no fixture or `/run` residue.
+- Live evidence: Prepare and independent status report two projects, two
+  users, and two valid credentials expiring at
+  `2026-07-25T05:20:30`. State and marker are
+  `root:root:0600` only on controller-1. Repeated prepare returned
+  `idempotent=yes`; state/marker inode, size, timestamp, owner, and mode were
+  unchanged, and all toolbox/admin transfer paths are absent.
+- Verification: Bash syntax, ShellCheck, two embedded Python compilations,
+  six focused runtime/fixture tests, refusal tests, changed/new-file Gitleaks,
+  diff checks, clean preflight, prepare, independent status, and repeated
+  prepare pass.
+- Next exact action: Extend the committed fixture with a separately guarded
+  `accept` phase. It must create one project-A repository through the control
+  API, prove exact quota 429 then success, run Docker push/pull plus explicit
+  resumable upload only on the unique external owner with a temporary DNS/CA
+  override, deny project B, retain aggregate digest evidence, scan all client
+  and service logs against tenant secrets, and remove all owner-client
+  material before writing its marker.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1558,12 +1598,13 @@ promotion while ADR 0006 remains blocked.
   nine-container runtime log hygiene gate passes without retained audit
   residue.
 - Exact next action: Implement the bounded two-project Stage 5 tenant
-  acceptance harness with finite identities, owner-local OCI client traffic,
-  project isolation, digest persistence, log hygiene, and exact cleanup.
-- First file or command: Inspect and adapt the completed Stage 4 identity and
-  tenant helpers into a new mutation-free Stage 5 preflight contract under
-  `poc/kolla-ha/`; do not create an identity before the new harness is
-  committed and preflight passes.
+  acceptance `accept` phase with owner-local OCI traffic, quota denial and
+  success, project isolation, resumable upload, digest evidence, service/client
+  log hygiene, and zero owner-client residue.
+- First file or command: Extend
+  `poc/kolla-ha/guest-run-coffer-tenant-fixture.sh` with the exact control,
+  quota, temporary owner-client, evidence, and marker contracts; commit and
+  validate the new phase before invoking repository or OCI mutations.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

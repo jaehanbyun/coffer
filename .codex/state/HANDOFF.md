@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; replicated Coffer baseline accepted, tenant acceptance next
+- Status: plan 0018 active; tenant identities prepared, OCI acceptance next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -756,6 +756,31 @@ private-port denial, idempotent replay, and all-node runtime log hygiene.
   persistence, log hygiene, and exact identity/client cleanup. Do not create
   identities until the harness is committed and its mutation-free preflight
   passes.
+- Added and committed the guarded tenant fixture in `03b3190`. It admits only
+  `preflight`, `prepare`, `status`, and exact `cleanup`, reuses the deployed
+  Kolla toolbox SDK, and limits the fixture to two projects/users/member
+  assignments and two unrestricted-false twelve-hour application credentials.
+- Three mutation-free attempts exposed the actual deployed boundaries before
+  identity creation: the host has no `clouds.yaml`; toolbox is the supported
+  SDK/config location; generated cloud/catalog defaults select the unreachable
+  external VIP unless both auth URL and interface are fixed internally; and
+  the isolated external FQDN intentionally requires a later temporary DNS
+  override. Corrections are preserved through commits `c090000`, `af89def`,
+  and `dc072fc`. Every failed attempt left fixture and `/run` residue absent.
+- The final preflight passed with zero existing identities or client residue,
+  controller-2 as the unique external owner, all client tools ready, and
+  `dns=override-required`. Prepare created exactly two finite projects, users,
+  and credentials expiring at `2026-07-25T05:20:30`; independent status and
+  the accepted companion/RGW boundaries pass.
+- Identity state and marker are `root:root:0600` only on controller-1.
+  Repeated prepare returned `idempotent=yes` with identical inode, size,
+  timestamp, ownership, and mode. Controller-2/3 have no client state, Docker
+  CA override, or tenant images, and both root-only toolbox transfer files are
+  absent.
+- Exact next action: extend and commit a guarded tenant `accept` phase, then
+  use it to create one project-A repository, prove quota 429 and success,
+  Docker push/pull, resumable upload, project-B denial, digest persistence,
+  all-node tenant-secret log hygiene, and zero external-owner client residue.
 
 ## Plan 0017 Completion
 
@@ -1341,12 +1366,12 @@ private-port denial, idempotent replay, and all-node runtime log hygiene.
 
 ## Exact Next Action
 
-Add and locally validate the bounded two-project Stage 5 tenant acceptance
-harness. Its mutation-free preflight must require the accepted companion
-boundary and exact absence of fixture names/state; its only later mutations
-are finite disposable identities, project-A repository/quota/content, and
-temporary client material on the unique external-VIP owner, all with exact
-cleanup. Commit the harness before invoking identity creation.
+Extend `poc/kolla-ha/guest-run-coffer-tenant-fixture.sh` and its outer wrapper
+with a separately guarded `accept` action. Commit and locally validate exact
+repository/control, quota 429/success, temporary owner-local DNS/CA/client,
+Docker push/pull, resumable upload, project-B denial, aggregate evidence,
+tenant-secret log scan, rollback, and marker contracts before invoking any OCI
+or repository mutation.
 
 ## After This Work Package
 

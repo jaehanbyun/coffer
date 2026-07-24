@@ -387,3 +387,32 @@ checkout, or use a registry. The resulting Git state must retain the
 published base commit, exactly two modified paths, no untracked files, and a
 root-only completion marker. The companion lifecycle validates this exact
 overlay before any resumed deploy.
+
+Prepare the finite two-project tenant fixture only after the replicated
+companion boundary is accepted:
+
+```text
+poc/kolla-ha/run-coffer-tenant-fixture.sh preflight <ssh-target>
+poc/kolla-ha/run-coffer-tenant-fixture.sh prepare <ssh-target>
+poc/kolla-ha/run-coffer-tenant-fixture.sh status <ssh-target>
+poc/kolla-ha/run-coffer-tenant-fixture.sh cleanup <ssh-target>
+```
+
+Every action first reruns the full companion, routing, runtime-log, and
+external-RGW status gate. `preflight` requires the exact project, user,
+credential, owner-client, Docker image, CA override, and transfer namespaces
+to be absent. The isolated external VIP has no persistent DNS record, so an
+absent `registry.coffer.stage5` resolution is accepted only as
+`dns=override-required`; a later client phase must install and exactly restore
+its temporary owner-local mapping.
+
+`prepare` uses the already deployed `kolla_toolbox` identity SDK and the
+internal Keystone endpoint. The existing Kolla admin password is materialized
+only as a root-owned mode-0600 `/run` transfer and removed on every exit. It
+creates exactly two projects, two users with only the project `member` role,
+and two unrestricted-false application credentials with a twelve-hour expiry.
+The credential state and marker remain mode `0600` only on controller-1.
+Controller-2/3 retain no client material. Repeated prepare validates the same
+identities without rotating them. `cleanup` removes the exact credentials,
+users, and projects from the recorded immutable IDs; it is reserved for the
+final fixture teardown after dependent acceptance and fault phases.
