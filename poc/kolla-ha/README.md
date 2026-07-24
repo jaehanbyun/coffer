@@ -70,3 +70,29 @@ poc/kolla-ha/verify-guests.sh <ssh-target>
 This verification stores only guest host keys under ignored `work/` and emits
 aggregate host/resource readiness. It does not read guest credentials or
 configuration contents.
+
+Prepare the three storage nodes and establish the Ceph control plane in
+separate, fail-closed phases:
+
+```text
+poc/kolla-ha/prepare-storage.sh <ssh-target>
+poc/kolla-ha/bootstrap-ceph-control.sh <ssh-target>
+```
+
+The preparation phase installs pinned prerequisites and proves `/dev/vdb` is
+the sole empty 64-GiB OSD candidate on each storage node. The control phase
+bootstraps only storage-1, distributes only cephadm's public key to storage-2/3,
+registers the three exact storage addresses, and converges on three MONs and
+two MGRs while requiring zero OSDs and zero RGW services.
+
+Only after the control-plane health gate passes, initialize the three exact
+OSD devices:
+
+```text
+poc/kolla-ha/bootstrap-ceph-osds.sh <ssh-target>
+```
+
+The OSD phase never selects all available devices. It admits only `/dev/vdb`
+on the three hard-coded storage hostnames, supports an exact partial resume,
+and exits only when one OSD per host is `up` and `in`, cluster health is OK,
+replica defaults remain size 3/minimum 2, and RGW is still absent.

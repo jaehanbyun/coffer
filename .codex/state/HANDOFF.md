@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; Ceph control plane healthy, exact OSD-only phase is next
+- Status: plan 0018 active; exact OSD-only harness validated, invocation is next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -105,6 +105,14 @@ signed Distribution v3.1.1 binary.
 - Exact next action: implement and validate an exact `/dev/vdb` OSD-only
   harness for the three storage hosts. Prove one `up`/`in` OSD per host and
   keep RGW absent.
+- Added and locally validated that OSD-only phase. It requires the healthy
+  control plane, exact three-host inventory, size/min-size 3/2, and zero RGW;
+  admits only one available 64-GiB `/dev/vdb` per allowlisted host; resumes
+  only an exact partial state; and exits on three running/up/in OSDs plus
+  `HEALTH_OK`.
+- Exact next action: commit the OSD harness locally, recheck the three live
+  device candidates and sole expected zero-OSD warning, then invoke
+  `poc/kolla-ha/bootstrap-ceph-osds.sh bb00` once.
 
 ## Plan 0017 Completion
 

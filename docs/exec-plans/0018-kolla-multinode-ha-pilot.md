@@ -405,6 +405,32 @@ promotion while ADR 0006 remains blocked.
   the three allowlisted storage hosts, proves one `up`/`in` OSD per host and
   size/min-size 3/2, and leaves RGW absent.
 
+### 2026-07-24 — Exact-device OSD harness validated
+
+- Completed: Added a separate wrapper and streamed guest phase for OSD
+  initialization. It requires the three-host MON quorum, two running MGRs,
+  replica defaults 3/2, no RGW service, and an exact healthy storage-host set
+  before any disk mutation.
+- Safety contract: The only admitted path is `/dev/vdb` on the three hard-coded
+  hostnames. The harness rejects unexpected or duplicate OSD metadata,
+  verifies the selected device is available, rejection-free, and exactly
+  64 GiB before creation, and never uses all-available-device selection,
+  wildcard hosts, zap, wipe, remove, or raw LVM commands.
+- Resume contract: Existing OSD metadata may contain zero through three
+  allowlisted hosts with at most one OSD each. The harness creates only a
+  missing host's exact device and waits for that OSD to become managed and
+  running before considering the next host.
+- Exit gate: Exactly three OSDs must be running, `up`, and `in`, with one
+  metadata hostname per storage host, `HEALTH_OK`, and zero RGW services.
+- Evidence: Bash syntax, ShellCheck, missing/option-shaped target refusal,
+  exact-path/static destructive-command scans, Markdown diff checks, and
+  Gitleaks pass. Live read-only inventory reports exactly one available,
+  rejection-free 64-GiB `/dev/vdb` on each allowlisted host.
+- Safety: The OSD harness has not been invoked; all three devices remain empty.
+- Next exact action: Commit the OSD-only harness locally, recheck the live
+  device inventory and sole expected `TOO_FEW_OSDS` health warning, then
+  invoke `poc/kolla-ha/bootstrap-ceph-osds.sh bb00` once.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -445,10 +471,10 @@ promotion while ADR 0006 remains blocked.
 ## Handoff
 
 - Current state: Active; three MONs and two MGRs are running with quorum, all
-  OSD devices remain empty, and only the expected zero-OSD warning remains.
-- Exact next action: Implement and locally validate an exact-device,
-  resumable OSD-only harness. Do not deploy RGW in the same action.
-- First file or command: `poc/kolla-ha/bootstrap-ceph-osds.sh`.
+  OSD devices remain empty, and the exact-device OSD harness is validated.
+- Exact next action: Commit and invoke the OSD-only harness once, then stop for
+  aggregate three-OSD, failure-domain, health, and zero-RGW verification.
+- First file or command: `git diff --check`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an
