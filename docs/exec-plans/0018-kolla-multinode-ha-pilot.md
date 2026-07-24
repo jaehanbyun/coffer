@@ -1632,6 +1632,47 @@ promotion while ADR 0006 remains blocked.
   controller-3 MariaDB member stop/write-read/restore harness with an EXIT
   recovery trap before exercising reconciler claims or signing keys.
 
+### 2026-07-24 — Galera reader-member fault accepted
+
+- Completed: Added a guarded `database-status` probe that verifies the
+  accepted tenant boundary, raises the exact project quota from 2 GiB by one
+  byte through the deployed database path, reads it back, and restores 2 GiB
+  under an EXIT guard. A separate committed fault harness and secret-safe
+  Galera/ProxySQL inspector then targeted only controller-3 MariaDB.
+- Live evidence: While controller-3 was paused, the surviving Galera component
+  reached size 2/Primary/Synced with exact incoming members controller-1/2.
+  All three ProxySQL instances retained controller-1 as writer and
+  controller-2 as reader while moving controller-3 to offline hostgroup 3.
+  Three quota write/read/restore plus OCI digest/isolation probes passed on
+  their first attempts.
+- Recovery evidence: Exact unpause returned controller-3 healthy. Galera
+  recovered size 3/Primary/Synced, all three ProxySQL instances returned
+  controller-3 to the online reader group, the quota remained 2 GiB with zero
+  reservation, and full Coffer/tenant/RGW acceptance passed.
+- Failure corrections: A diagnostic Python exception accidentally included
+  the disposable database root password in owner-visible tool output. It was
+  not written to the repository or a remote evidence file, but is treated as
+  compromised and must be rotated or destroyed before the final secret gate.
+  Subsequent diagnostics transfer passwords only through stdin. The first
+  stop-based fault was also restarted by an external Docker client despite
+  restart policy `no`; no write probe ran. A deterministic pause/unpause
+  fault replaced stop/start. Its first run exposed ProxySQL's real offline
+  hostgroup 3 transition; it was recovered before writes, modeled exactly,
+  and rerun.
+- Idempotency: The root-owned mode-0600 marker remains only on controller-1.
+  Repeated `run` performed no pause, returned `idempotent=yes`, and retained
+  identical marker metadata.
+- Verification: Bash syntax, ShellCheck, ten focused runtime-contract tests,
+  embedded Python compilation, refusal and forbidden-command checks,
+  Gitleaks, committed preflight, size-2 and three-write fault evidence, full
+  recovery, and metadata-idempotent replay pass.
+- Remaining Galera gate: Real concurrent quota transactions plus an observed
+  bounded deadlock or serialization retry are not yet proven by the sequential
+  member-loss probes.
+- Next exact action: Inspect the existing quota transaction retry surface and
+  add an exact real-Galera concurrent/deadlock probe that restores all rows
+  and quota values before enabling separate-host reconciler workers.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1663,7 +1704,8 @@ promotion while ADR 0006 remains blocked.
 | OCI and isolation | two-project clients through sole external edge | passed; quota 429/success, Docker push/pull, two-part upload, project-B denial, digest/log/residue gates |
 | Coffer replica faults | controller-3 API, edge, and Distribution stop/probe/restore | passed; 9/9 authenticated outage probes, complete recovery, idempotent replay |
 | Kolla HAProxy fault | active-owner stop, paired VIP movement, tenant probes, restore | passed; VIP moved controller-3 to controller-2, 3/3 bounded probes, idempotent replay |
-| Fault and recovery matrix | Galera and reconciler faults plus restore checks | pending |
+| Galera member fault | controller-3 pause, size-2 writes, exact unpause/rejoin | passed; 3/3 quota write/read/restore probes, size-3 recovery, idempotent replay |
+| Fault and recovery matrix | Galera concurrency/retry and reconciler faults plus restore checks | pending |
 | Upgrade, key rotation, rollback | bounded rolling rehearsals | pending |
 | Cleanup and repository regression | exact remote/local residue and focused checks | pending |
 
@@ -1718,12 +1760,12 @@ promotion while ADR 0006 remains blocked.
   HAProxy cycle also passes: paired VIPs moved together, all three bounded
   tenant probes passed, the exact HAProxy recovered, and replay was
   metadata-idempotent.
-- Exact next action: Inspect the live Galera wsrep topology, MariaDB container
-  restart contract, and ProxySQL backend state, then implement the exact
-  controller-3 database-member stop/write-read/restore cycle.
-- First file or command: Read only the three controllers' Galera wsrep
-  membership, MariaDB container metadata, and ProxySQL backend status before
-  adding `poc/kolla-ha/test-kolla-galera-failover.sh`.
+- Exact next action: Inspect the real deployed quota transaction retry
+  surface, then implement a bounded concurrent/deadlock Galera probe with
+  exact row and quota restoration.
+- First file or command: Read `src/coffer/quota.py` transaction/retry helpers
+  and the accepted shared-SQL deadlock tests before adding the Stage 5
+  concurrent database phase.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

@@ -481,3 +481,27 @@ HAProxy is restarted and required healthy, its Keepalived check must pass,
 and full acceptance must finish with one shared internal/external VIP owner.
 An EXIT trap restores the stopped HAProxy. Repeated runs validate state and
 skip the completed fault without replacing the root-only marker.
+
+After HAProxy recovery, run the exact Galera reader-member fault:
+
+```text
+poc/kolla-ha/test-kolla-galera-failover.sh preflight <ssh-target>
+poc/kolla-ha/test-kolla-galera-failover.sh run <ssh-target>
+```
+
+The preflight requires all three MariaDB and ProxySQL containers healthy,
+Galera size 3/Primary/Synced, the exact controller-1 writer plus
+controller-2/3 reader topology on all three ProxySQL instances, and the full
+tenant boundary. `run` pauses only controller-3 MariaDB; stop/start is not
+used because an external Kolla control path may restart a stopped database
+container. The surviving cluster must become size 2/Primary/Synced, and all
+ProxySQL instances must move controller-3 into offline hostgroup 3.
+
+During the pause, three database probes each change the accepted project's
+quota limit from 2 GiB to 2 GiB plus one byte, read it back, restore 2 GiB
+under an EXIT guard, and rerun digest/isolation checks. The exact target is
+then unpaused and must return healthy; Galera must recover size 3/Synced and
+all ProxySQL readers must return online before full acceptance and the
+root-only completion marker. The outer EXIT trap unpauses the target after
+any intermediate failure. Repeated runs perform no pause and retain marker
+metadata.

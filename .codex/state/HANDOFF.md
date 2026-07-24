@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; Kolla HAProxy fault accepted, Galera fault next
+- Status: plan 0018 active; Galera member fault accepted, concurrency/retry next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -29,6 +29,10 @@ denial, all targets recovered healthy, and replay was marker-idempotent.
 The active Kolla HAProxy fault is accepted as well: both VIPs moved together
 from controller-3 to controller-2, three bounded tenant probes passed,
 controller-3 recovered healthy, and replay was marker-idempotent.
+The controller-3 Galera reader-member fault is accepted: size 2 remained
+Primary/Synced, all ProxySQL instances moved it offline, three quota
+write/read/restore probes passed, and size 3/Synced recovery plus
+marker-idempotent replay passed.
 
 ## Plan 0018 Activation
 
@@ -853,6 +857,28 @@ controller-3 recovered healthy, and replay was marker-idempotent.
   metadata, and ProxySQL backend state read-only, then add a committed
   controller-3 MariaDB stop/write-read/restore harness before reconciler
   claim/fencing tests.
+- Added `database-status` in `c94e9fc` and the guarded member-fault boundary in
+  `eb3570b`. Baseline quota write/read/2-GiB restoration and the committed
+  mutation-free Galera/ProxySQL preflight pass.
+- One read-only diagnostic exception included the disposable database root
+  password in owner-visible tool output. The value was not stored in Git or
+  remote evidence, but is compromised and must be rotated or removed before
+  the final secret gate. Later database diagnostics use stdin-only delivery.
+- A stop-based attempt invoked no database write but an external Docker client
+  restarted controller-3 MariaDB despite restart policy `no`. The harness was
+  recovered and converted in `76c8378` to exact pause/unpause. The first pause
+  proved Galera size 2 but exposed ProxySQL's offline hostgroup 3 behavior;
+  it was unpaused before writes and modeled in `2ab4e81`.
+- The accepted pause cycle reached size 2/Primary/Synced and moved
+  controller-3 offline in all three ProxySQL instances. Three quota
+  write/read/restore plus digest/isolation probes passed first-attempt.
+  Unpause restored size 3/Primary/Synced, reader3 ONLINE, 2-GiB quota, all
+  Coffer/RGW gates, and zero owner-client residue.
+- The controller-1-only mode-0600 marker is metadata-stable; repeated `run`
+  skipped the pause as `idempotent=yes`.
+- Exact next action: inspect the existing quota transaction retry helper and
+  shared-SQL deadlock tests, then add a real-Galera bounded concurrent/deadlock
+  probe with exact row/value restoration before reconciler workers.
 
 ## Plan 0017 Completion
 
@@ -1438,13 +1464,12 @@ controller-3 recovered healthy, and replay was marker-idempotent.
 
 ## Exact Next Action
 
-Inspect the three controllers' Galera wsrep membership, MariaDB container
-restart/health metadata, and ProxySQL writer/reader backend state read-only.
-Then add and locally validate an exact controller-3 MariaDB-member fault
-harness. It must commit and pass mutation-free preflight before stopping
-anything, perform a bounded repository/quota write plus tenant read through
-the surviving SQL path, restore the same member to a synced three-node
-primary component, and carry an EXIT recovery trap before reconciler tests.
+Inspect `src/coffer/quota.py` and the accepted shared-SQL deadlock tests to
+identify the production retry surface. Then add and locally validate a
+bounded real-Galera concurrency probe that creates only exact temporary rows,
+forces or observes one deadlock/serialization retry through the deployed
+application code, restores all rows and the 2-GiB tenant quota, and leaves the
+three-node Primary/Synced topology healthy before reconciler tests.
 
 ## After This Work Package
 
