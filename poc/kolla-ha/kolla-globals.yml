@@ -19,6 +19,8 @@ kolla_same_external_internal_vip: false
 kolla_enable_tls_internal: false
 kolla_enable_tls_external: true
 kolla_certificates_dir: "/etc/kolla/certificates-stage5"
+kolla_admin_openrc_cacert: "/etc/kolla/certificates-stage5/ca/root.crt"
+kolla_copy_ca_into_containers: true
 
 enable_openstack_core: false
 enable_keystone: true

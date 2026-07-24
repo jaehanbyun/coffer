@@ -176,3 +176,20 @@ free reserved ports, outbound bootstrap access, and reachability to the
 external RGW VIP. The retained storage cluster must remain fully healthy.
 This preflight does not install a package, create an SSH key, generate a
 password, assign a VIP, or start a container.
+
+After the clean preflight is preserved, prepare the controller-1 deployment
+host without running Kolla:
+
+```text
+poc/kolla-ha/prepare-kolla-controllers.sh <ssh-target>
+```
+
+The phase generates one owner-only Ed25519 deployment key on controller-1 and
+adds only its public-key marker to the three exact controller accounts. It
+checks out the exact Kolla-Ansible commit into an owner-marked state directory,
+creates a dedicated venv, installs its pinned Galaxy dependencies, renders
+`/etc/kolla/multinode`, and generates root-only passwords plus a short-lived
+external-VIP certificate. A final Ansible ping must reach all three
+controllers from controller-1. Public-key and config transfer files are
+removed. This phase does not run `bootstrap-servers`, install Docker on the
+secondary controllers, assign either Kolla VIP, or start a container.

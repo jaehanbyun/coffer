@@ -234,6 +234,22 @@ signed Distribution v3.1.1 binary.
   owner-only controller-1 deployment key, exact public-key markers on the
   three controllers, pinned Kolla checkout/venv, passwords, and certificates;
   do not run `bootstrap-servers` in that phase.
+- Added and locally validated that prepare phase. Controller-1 owns the sole
+  private deployment key, pinned source/venv, root-only passwords, and
+  short-lived external-VIP TLS. All three controllers receive only one bounded
+  public-key marker. Transfer files are removed and final acceptance is three
+  Ansible pings.
+- Static/refusal/secret/diff checks pass. A live unknown action returned 64
+  before state creation; all three controllers still have zero owner state,
+  deployment key, `/etc/kolla`, or public marker. The prepare action has not
+  run and contains no Kolla bootstrap/precheck/pull/deploy or container/VIP
+  mutation.
+- Exact next action: commit and invoke
+  `poc/kolla-ha/prepare-kolla-controllers.sh
+  jh.byun@100.123.168.66`, then independently verify exact recipients,
+  source/venv commit, owner/modes, certificate, Ansible connectivity, zero
+  containers/VIPs, and healthy external RGW before writing the Kolla lifecycle
+  runner.
 
 ## Plan 0017 Completion
 

@@ -700,6 +700,40 @@ promotion while ADR 0006 remains blocked.
   controller-1, generates owner-only passwords/certificates, and stops before
   `kolla-ansible bootstrap-servers`.
 
+### 2026-07-24 — Kolla deployment-host prepare harness validated
+
+- Completed: Added separate controller authorization, controller-1
+  preparation, and local orchestration helpers. The phase is idempotent only
+  for its owner-marked state and refuses pre-existing unowned state, partial
+  key/certificate sets, mismatched commits, or unknown actions.
+- Recipient boundary: One Ed25519 private key remains mode 0600 and
+  ubuntu-owned only on controller-1. The three controllers receive exactly one
+  bounded public-key marker; transfer copies are removed. Controller-1 builds
+  its own dedicated known-hosts file and must SSH to all three exact
+  hostnames before installation continues.
+- Tooling boundary: Controller-1 checks out exact Kolla commit
+  `cec5b77ddc0af37e9b9a8df92f7458ae014fb5dc`, creates a system-site-packages
+  venv for the Ubuntu dbus binding, installs the Kolla package, Docker Python
+  SDK, and pinned Galaxy dependencies, then installs only the rendered
+  inventory and globals.
+- Secret boundary: Root-only Kolla passwords and a 14-day lab CA/external-VIP
+  certificate are generated on controller-1. The certificate covers only
+  `192.168.254.10`; private CA and HAProxy material remain mode 0600. No
+  secret or private key is copied to the local workspace or another host.
+- Stop boundary: The final action is an Ansible ping to all three controllers.
+  The harness contains no `bootstrap-servers`, precheck, pull, deploy, Docker
+  run/start, VIP assignment, or container start.
+- Evidence: Bash syntax, ShellCheck, missing/option/unknown action refusals,
+  forbidden-command scans, Gitleaks, and diff checks pass. A live unknown
+  action returned 64 before state creation; all three controllers still have
+  zero owner directory, deployment key, `/etc/kolla`, or public-key marker.
+- Safety: The prepare action has not been invoked.
+- Next exact action: Commit the validated prepare harness locally, then invoke
+  `poc/kolla-ha/prepare-kolla-controllers.sh
+  jh.byun@100.123.168.66`. Verify only the declared key recipients, pinned
+  source/venv, root-only config, TLS, three Ansible pings, zero containers/VIPs,
+  and healthy external RGW before adding the Kolla lifecycle runner.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -718,6 +752,7 @@ promotion while ADR 0006 remains blocked.
 | RGW daemon faults | storage-3 RGW and active ingress pair, reads, restoration | passed; 10 fault-window reads and full independent recovery |
 | Storage VM fault | exact storage-3 power loss, degraded reads, full recovery | passed; 5 outage reads and independent 3-node recovery |
 | Kolla controller preflight | pinned inventory/globals and three clean controller guests | passed mutation-free; external RGW remains healthy |
+| Kolla prepare harness | owner/recipient boundaries, pinned tooling, secrets, stop gate | passed locally and live refusal; invocation pending |
 | Kolla/Galera/Coffer baseline | multinode deploy and health acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | pending |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -752,11 +787,14 @@ promotion while ADR 0006 remains blocked.
   across one RGW and one active-ingress fault. All services are restored. The
   exact storage-3 VM power-loss cycle and full recovery passed. All services
   are healthy and all six domains are running. The three-controller Kolla
-  inventory and clean-state preflight pass without mutation.
-- Exact next action: Commit the Kolla preflight baseline, then add the
-  controller-1 deployment-host preparation phase without running Kolla yet.
-- First file or command: `git commit` for the preflight checkpoint, followed
-  by `poc/kolla-ha/prepare-kolla-controllers.sh`.
+  inventory and clean-state preflight pass without mutation. The bounded
+  controller preparation harness is locally validated but uninvoked.
+- Exact next action: Commit and invoke only the controller preparation phase,
+  then independently verify its recipient, secret, tooling, no-runtime, and
+  external-storage boundaries.
+- First file or command: `git commit` for the prepare checkpoint, followed by
+  `poc/kolla-ha/prepare-kolla-controllers.sh
+  jh.byun@100.123.168.66`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an
