@@ -382,6 +382,17 @@ signed Distribution v3.1.1 binary.
   disposable `rabbitmq_monitoring_password` without printing or retaining its
   old/new value, then rerun only `deploy`. Do not restore the deploy marker
   until the new log scan and full control-plane acceptance pass.
+- Preserved the log guard in local commit `d352870`.
+- Added a bounded monitoring-password rotation helper. It requires the exact
+  three preceding root-only markers and an absent deploy marker, changes only
+  `rabbitmq_monitoring_password`, creates no backup, atomically retains the
+  password file's root-only mode, and compares every unrelated parsed value
+  before replacement. Neither old nor new value is output.
+- Bash syntax, ShellCheck, Python compilation, missing/option-shaped refusal,
+  forbidden-operation scan, Gitleaks, and diff checks pass. The helper has not
+  run; the running services still use the old credential consistently.
+- Exact next action: commit the bounded rotation helper locally, invoke it
+  once through `jh.byun@100.123.168.66`, and immediately rerun only `deploy`.
 
 ## Plan 0017 Completion
 

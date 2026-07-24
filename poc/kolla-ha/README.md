@@ -212,3 +212,17 @@ marker, so the same phase can be diagnosed and resumed. The wrapper proves the
 external Ceph/RGW HA endpoint healthy before and after every phase. `status`
 only reads the exact three controllers and reports aggregate Docker, image,
 container, VIP, and phase-marker state without creating lifecycle state.
+
+If lifecycle-log acceptance ever exposes the disposable RabbitMQ monitoring
+credential, first remove only the invalid deploy marker and sanitize the
+owner-only logs, then rotate exactly that one generated password:
+
+```text
+poc/kolla-ha/rotate-kolla-monitoring-password.sh <ssh-target>
+```
+
+The helper refuses an accepted deploy, validates the three preceding
+lifecycle markers, changes only `rabbitmq_monitoring_password` in the
+root-only Kolla password file, creates no backup, and never outputs either
+value. The control plane must immediately be reconciled by rerunning the
+bounded `deploy` phase; rotation alone is not an accepted steady state.

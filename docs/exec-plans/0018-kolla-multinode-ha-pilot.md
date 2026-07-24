@@ -892,6 +892,23 @@ promotion while ADR 0006 remains blocked.
   and rerun only `deploy`. Do not accept the Kolla baseline or begin Coffer
   deployment until the new root-only logs and full control plane pass.
 
+### 2026-07-24 — Bounded monitoring-password rotation validated
+
+- Completed: Preserved the no-log and post-run scan guard in local commit
+  `d352870`. Added a dedicated recovery helper that accepts only the exact
+  `rabbitmq_monitoring_password` rotation workflow.
+- Safety contract: The helper requires the three preceding root-only lifecycle
+  markers and an absent deploy marker. It generates the new value only in
+  remote memory, creates no backup, atomically retains `root:root:0600`, and
+  proves every unrelated parsed password value is unchanged. It never prints
+  either credential.
+- Evidence: Bash syntax, ShellCheck, Python compilation,
+  missing/option-shaped target refusal, forbidden-operation scans, Gitleaks,
+  and diff checks pass. Rotation has not run, so the current control plane
+  remains internally consistent on the old disposable value.
+- Next exact action: Commit the rotation helper, invoke it exactly once, and
+  immediately rerun only `deploy` through the guarded lifecycle harness.
+
 ## Verification
 
 | Check | Command or method | Result |
