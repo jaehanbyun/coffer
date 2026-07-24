@@ -20,7 +20,7 @@ test -f /etc/ceph/coffer-stage5-release.txt
 grep -Fqx 'release=20.2.2' /etc/ceph/coffer-stage5-release.txt
 
 host_document="$(
-    cephadm shell -- ceph orch host ls --format json
+    cephadm shell -- ceph orch host ls --format json </dev/null
 )"
 for index in "${!hostnames[@]}"; do
     storage_hostname="${hostnames[$index]}"
@@ -32,7 +32,7 @@ for index in "${!hostnames[@]}"; do
     )"
     if test -z "${registered_address}"; then
         cephadm shell -- ceph orch host add \
-            "${storage_hostname}" "${storage_address}"
+            "${storage_hostname}" "${storage_address}" </dev/null
     else
         test "${registered_address}" = "${storage_address}"
     fi
@@ -41,7 +41,7 @@ done
 for storage_hostname in "${hostnames[@]}"; do
     for label in mon mgr rgw osd; do
         cephadm shell -- ceph orch host label add \
-            "${storage_hostname}" "${label}"
+            "${storage_hostname}" "${label}" </dev/null
     done
 done
 
@@ -54,19 +54,23 @@ mgr_placement="$(
     printf '%s' "${hostnames[0]},${hostnames[1]}"
 )"
 cephadm shell -- ceph orch apply mon \
-    --placement="${mon_placement}" --dry-run --format json-pretty >/dev/null
+    --placement="${mon_placement}" --dry-run --format json-pretty \
+    </dev/null >/dev/null
 cephadm shell -- ceph orch apply mgr \
-    --placement="${mgr_placement}" --dry-run --format json-pretty >/dev/null
-cephadm shell -- ceph orch apply mon --placement="${mon_placement}"
-cephadm shell -- ceph orch apply mgr --placement="${mgr_placement}"
+    --placement="${mgr_placement}" --dry-run --format json-pretty \
+    </dev/null >/dev/null
+cephadm shell -- ceph orch apply mon --placement="${mon_placement}" </dev/null
+cephadm shell -- ceph orch apply mgr --placement="${mgr_placement}" </dev/null
 
 for _ in $(seq 1 180); do
     quorum_count="$(
-        cephadm shell -- ceph quorum_status --format json 2>/dev/null |
+        cephadm shell -- ceph quorum_status --format json \
+            </dev/null 2>/dev/null |
             jq '.quorum_names | length' 2>/dev/null || true
     )"
     running_mgrs="$(
-        cephadm shell -- ceph orch ps --daemon_type mgr --format json |
+        cephadm shell -- ceph orch ps --daemon_type mgr --format json \
+            </dev/null |
             jq '[.[] | select(.status_desc == "running")] | length'
     )"
     if test "${quorum_count:-0}" -eq 3 &&
@@ -78,7 +82,9 @@ done
 test "${quorum_count:-0}" -eq 3
 test "${running_mgrs}" -eq 2
 
-host_document="$(cephadm shell -- ceph orch host ls --format json)"
+host_document="$(
+    cephadm shell -- ceph orch host ls --format json </dev/null
+)"
 test "$(
     printf '%s' "${host_document}" |
         jq '[.[] | select(
@@ -92,10 +98,11 @@ test "$(
         jq '[.[] | select(.status != "")] | length'
 )" -eq 0
 test "$(
-    cephadm shell -- ceph osd stat --format json | jq -r '.num_osds'
+    cephadm shell -- ceph osd stat --format json </dev/null |
+        jq -r '.num_osds'
 )" -eq 0
 test "$(
-    cephadm shell -- ceph orch ls --format json |
+    cephadm shell -- ceph orch ls --format json </dev/null |
         jq '[.[] | select(.service_type == "rgw")] | length'
 )" -eq 0
 

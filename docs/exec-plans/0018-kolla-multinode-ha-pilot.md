@@ -358,8 +358,18 @@ promotion while ADR 0006 remains blocked.
   explicitly prepared, so normal bootstrap now performs the upstream
   prerequisite and container-engine checks while retaining the dashboard,
   monitoring, OSD, and RGW exclusions.
-- Next exact action: Validate and commit the correction, rerun the empty-state
-  assertions, then invoke the same exact control bootstrap once.
+- Intermediate result: The corrected bootstrap created one healthy initial
+  MON and MGR, but the wrapper returned before host adoption. Because the guest
+  scripts are streamed to `bash -s`, the first interactive `cephadm shell`
+  process consumed the remaining script lines from stdin. Read-only inspection
+  found exactly one registered host, one running MON, one running MGR, zero
+  OSDs, and zero RGW services. The three OSD devices remain empty.
+- Second correction: Every `cephadm shell` call inside a streamed guest script
+  now receives `/dev/null` explicitly. The public-key read also has closed
+  stdin. This preserves the script stream and makes the partially completed
+  state safe to resume idempotently.
+- Next exact action: Validate and commit the stdin correction, then rerun the
+  control bootstrap to adopt storage-2/3 and reach three MONs/two MGRs.
 
 ## Verification
 
@@ -399,13 +409,14 @@ promotion while ADR 0006 remains blocked.
 
 ## Handoff
 
-- Current state: Active; the first MON bootstrap failed before daemon creation
-  and cleaned itself up. The exact container-engine initialization correction
-  awaits validation and retry.
-- Exact next action: Validate and commit the `--skip-prepare-host` removal,
-  recheck the empty cluster state, then invoke the control bootstrap once.
-- First file or command: `bash -n
-  poc/kolla-ha/guest-bootstrap-ceph-primary.sh`.
+- Current state: Active; storage-1 has the initial MON/MGR, storage-2/3 have
+  only the cephadm public-key marker, and all OSD devices remain empty. The
+  streamed-stdin correction awaits validation and idempotent resume.
+- Exact next action: Validate and commit explicit `/dev/null` input for every
+  streamed `cephadm shell`, then rerun the control bootstrap once.
+- First file or command: `shellcheck poc/kolla-ha/bootstrap-ceph-control.sh
+  poc/kolla-ha/guest-bootstrap-ceph-primary.sh
+  poc/kolla-ha/guest-adopt-ceph-hosts.sh`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

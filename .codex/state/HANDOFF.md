@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; first MON bootstrap failed safely, correction awaits retry
+- Status: plan 0018 active; initial MON/MGR exists, host-adoption stdin fix awaits retry
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -79,8 +79,15 @@ signed Distribution v3.1.1 binary.
   `/dev/vdb` LVM PVs.
 - Removed only that flag so normal bootstrap performs the upstream
   prerequisite/container-engine checks on the already prepared primary.
-- Exact next action: validate and commit the correction, recheck the empty
-  three-node state, then invoke the control-plane bootstrap once.
+- The corrected retry created one initial MON/MGR, but the first
+  `cephadm shell` inside each stdin-streamed guest script consumed the remaining
+  script. Aggregate inspection found one registered host, one MON, one MGR,
+  zero OSDs, zero RGW services, and three still-empty OSD devices.
+- Added explicit `/dev/null` input to every streamed `cephadm shell` call and
+  the standalone public-key read so the partial cluster can resume
+  idempotently.
+- Exact next action: validate and commit the stdin correction, then rerun the
+  control bootstrap to reach three MONs and two MGRs without creating OSD/RGW.
 
 ## Plan 0017 Completion
 

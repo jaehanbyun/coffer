@@ -39,7 +39,7 @@ ssh "${ssh_options[@]}" \
 cephadm_public_key="$(
     ssh "${ssh_options[@]}" \
         "ubuntu@${primary_management_address}" \
-        sudo cephadm shell -- ceph cephadm get-pub-key
+        sudo cephadm shell -- ceph cephadm get-pub-key </dev/null
 )"
 test "$(wc -l <<<"${cephadm_public_key}")" -eq 1
 if ! grep -Eq \

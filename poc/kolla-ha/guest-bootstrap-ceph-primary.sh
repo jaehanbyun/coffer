@@ -87,11 +87,12 @@ install -d -m 0700 /etc/ceph
 } >"${release_record}"
 chmod 0600 "${release_record}"
 
-cephadm shell -- ceph config set global osd_pool_default_size 3
-cephadm shell -- ceph config set global osd_pool_default_min_size 2
-cephadm shell -- ceph config set global mon_target_pg_per_osd 50
+cephadm shell -- ceph config set global osd_pool_default_size 3 </dev/null
+cephadm shell -- ceph config set global osd_pool_default_min_size 2 </dev/null
+cephadm shell -- ceph config set global mon_target_pg_per_osd 50 </dev/null
 test "$(
-    cephadm shell -- ceph osd stat --format json | jq -r '.num_osds'
+    cephadm shell -- ceph osd stat --format json </dev/null |
+        jq -r '.num_osds'
 )" -eq 0
 test -z "$(wipefs --no-act /dev/vdb)"
 
