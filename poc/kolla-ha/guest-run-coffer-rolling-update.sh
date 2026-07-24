@@ -187,6 +187,27 @@ wait_cluster_state() {
     return 1
 }
 
+wait_node_state() {
+    local index="$1"
+    local expected="$2"
+    local attempt
+    local snapshot=""
+
+    for attempt in $(seq 1 90); do
+        if snapshot="$(node_state "${index}")" &&
+            [[ "${snapshot}" == *" state=${expected} "* ]]; then
+            printf 'coffer_rolling_node host=%s state=%s attempt=%s\n' \
+                "${hostnames[${index}]}" "${expected}" "${attempt}"
+            return 0
+        fi
+        sleep 2
+    done
+    printf 'coffer_rolling_node convergence=failed host=%s expected=%s last=%s\n' \
+        "${hostnames[${index}]}" "${expected}" \
+        "${snapshot:-unavailable}" >&2
+    return 1
+}
+
 require_owner() {
     test "$(stat -c '%U:%G:%a' "${rolling_root}")" = root:root:700
     test "$(stat -c '%U:%G:%a' "${owner_marker}")" = root:root:600
@@ -268,33 +289,50 @@ verify_log() {
 run_serial_upgrade() {
     local image="$1"
     local log="$2"
-    local rc
+    local desired_state
+    local index
+    local rc=0
 
+    case "${image}" in
+        "${current_image}") desired_state=current ;;
+        "${update_image}") desired_state=updated ;;
+        *) return 64 ;;
+    esac
     create_globals "${image}"
     cleanup_globals() {
         rm -f -- "${temporary_globals}"
     }
     trap cleanup_globals EXIT
     install -o root -g root -m 0600 /dev/null "${log}"
-    set +e
-    env \
-        PATH="${venv}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
-        LC_ALL=C.UTF-8 \
-        LANG=C.UTF-8 \
-        ANSIBLE_NOCOLOR=1 \
-        ANSIBLE_NO_LOG=True \
-        ANSIBLE_COLLECTIONS_PATH=/home/ubuntu/.ansible/collections:/usr/share/ansible/collections \
-        KOLLA_ANSIBLE_PYTHON="${venv}/bin/python3" \
-        timeout --signal=INT --kill-after=120 7200 \
-        "${entrypoint}" upgrade \
-        -i "${inventory}" \
-        --configdir "${config_root}" \
-        --passwords "${passwords}" \
-        -e "@${temporary_globals}" \
-        -e kolla_serial=1 \
-        >"${log}" 2>&1
-    rc="$?"
-    set -e
+    for index in "${!hostnames[@]}"; do
+        set +e
+        env \
+            PATH="${venv}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+            LC_ALL=C.UTF-8 \
+            LANG=C.UTF-8 \
+            ANSIBLE_NOCOLOR=1 \
+            ANSIBLE_NO_LOG=True \
+            ANSIBLE_COLLECTIONS_PATH=/home/ubuntu/.ansible/collections:/usr/share/ansible/collections \
+            KOLLA_ANSIBLE_PYTHON="${venv}/bin/python3" \
+            timeout --signal=INT --kill-after=120 7200 \
+            "${entrypoint}" upgrade \
+            -i "${inventory}" \
+            --configdir "${config_root}" \
+            --passwords "${passwords}" \
+            --limit "${hostnames[${index}]}" \
+            -e "@${temporary_globals}" \
+            -e kolla_serial=1 \
+            >>"${log}" 2>&1
+        rc="$?"
+        set -e
+        if test "${rc}" -ne 0; then
+            break
+        fi
+        wait_node_state "${index}" "${desired_state}" || {
+            rc=1
+            break
+        }
+    done
     cleanup_globals
     trap - EXIT
     verify_log "${log}"

@@ -1764,15 +1764,16 @@ residue is absent, and replay preserved completion-marker metadata.
 
 ## Exact Next Action
 
-Validate and commit the corrected PEM-specific log guard and two-phase
-rollback acceptance. The audited live state has all three API/edge pairs on
-the original compatible image, new signer/new-only JWKS preserved, zero
-Ansible failures, no rollback marker, and no temporary overlay; one
-three-attempt 503 window makes that first rehearsal unaccepted. Invoke only
-the public guarded `rollback` action: it must serially restore the pinned
-update image, serially roll back again under continuous probes, reset without
-finalizing on any failed probe, and write the final rollback marker only after
-zero availability failures and complete service/tenant/storage gates.
+Validate and commit the per-controller `--limit` rolling correction. The
+audited live state has all three API/edge pairs on the original compatible
+image, new signer/new-only JWKS preserved, no final/rehearsal rollback marker,
+and no temporary overlay. Two repeatable 503 windows were traced to one
+handler flush restarting multiple/all replicas despite play-level serial.
+Invoke only the public guarded `rollback` action: it must restore the update
+image and roll back again through six separately limited controller phases,
+wait for each host's desired image and health before continuing, retain zero
+fully failed tenant probe windows, and finalize only after complete
+service/tenant/storage gates.
 
 ## After This Work Package
 

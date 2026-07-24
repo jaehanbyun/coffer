@@ -205,6 +205,9 @@ def test_multinode_rolling_update_is_serial_and_has_exact_rollback() -> None:
     assert 'current_image="localhost/coffer:stage5"' in guest
     assert 'registry_image="localhost/coffer-registry:stage5"' in guest
     assert "kolla_serial=1" in guest
+    assert '--limit "${hostnames[${index}]}"' in guest
+    assert "wait_node_state" in guest
+    assert "for index in \"${!hostnames[@]}\"" in guest
     assert '\"${entrypoint}\" upgrade' in guest
     assert "coffer-stage5-rolling-globals.yml" in guest
     assert 'local staged="${temporary_globals}.tmp.$$"' in guest

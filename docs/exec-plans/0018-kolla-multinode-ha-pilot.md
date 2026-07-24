@@ -2310,6 +2310,32 @@ promotion while ADR 0006 remains blocked.
   second compatible rollback under continuous probes, preserve the new
   signing key, and finalize only with zero probe failures.
 
+### 2026-07-25 — Play serial did not serialize Coffer handlers
+
+- Reproduction: The two-phase retry correctly withheld finalization, but one
+  three-attempt 503 window recurred during the re-upgrade and another during
+  rollback. Both Ansible phases otherwise converged with zero failed or
+  unreachable hosts, and `rollback-reset` removed only the rehearsal marker.
+  Current state is again the healthy original-image/new-key boundary with no
+  final rollback marker.
+- Root cause evidence: The Ansible log shows one handler flush restarting
+  `coffer-api` on all three controllers and then `coffer-edge` on all three.
+  Docker start timestamps confirm two API replicas restarted in the same
+  second and all three edge replicas restarted within one second. The
+  play-level `kolla_serial=1` did not constrain the notified handler flush, so
+  the supposed rolling operation had all-replica outage windows.
+- Correction: A rolling image phase now executes three separately limited
+  Kolla invocations, one exact controller at a time. After each invocation it
+  requires that host's API and edge to be healthy on the desired pinned image
+  before the next controller is admitted. The existing cluster-wide
+  convergence, continuous tenant probes, two-phase finalization, and exact
+  reset remain in force.
+- Next exact action: Validate and commit the per-controller `--limit`
+  correction, then invoke public `rollback` from the same unaccepted boundary.
+  Require update and rollback to show three ordered host convergence records,
+  zero fully failed tenant probe windows, final marker creation, and complete
+  service/key/storage acceptance.
+
 ## Verification
 
 | Check | Command or method | Result |
