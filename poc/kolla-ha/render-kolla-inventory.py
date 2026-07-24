@@ -12,6 +12,7 @@ CONTROLLERS = (
     ("coffer-kolla-ha-stage5-controller-3", "192.168.252.13", "ssh"),
 )
 PRIVATE_KEY = "/home/ubuntu/.ssh/coffer-stage5-kolla"
+KNOWN_HOSTS = "/home/ubuntu/.ssh/coffer-stage5-known_hosts"
 
 
 def controller_line(name: str, address: str, connection: str) -> str:
@@ -20,6 +21,11 @@ def controller_line(name: str, address: str, connection: str) -> str:
         values.append("ansible_connection=local")
     else:
         values.append(f"ansible_ssh_private_key_file={PRIVATE_KEY}")
+        values.append(
+            "ansible_ssh_common_args="
+            f"'-o UserKnownHostsFile={KNOWN_HOSTS} "
+            "-o StrictHostKeyChecking=yes'"
+        )
     return " ".join(values)
 
 

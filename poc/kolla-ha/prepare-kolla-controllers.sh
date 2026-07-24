@@ -17,6 +17,8 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 harness="${root}/poc/kolla-ha"
 work="${root}/work/kolla-ha"
 known_hosts="${work}/known_hosts"
+kolla_source="${root}/work/kolla-ansible-stage3"
+kolla_commit="cec5b77ddc0af37e9b9a8df92f7458ae014fb5dc"
 primary_management_address="192.168.252.11"
 management_addresses=(
     192.168.252.11
@@ -103,7 +105,10 @@ for index in "${!management_addresses[@]}"; do
     test "${actual_hostname}" = "${hostnames[${index}]}"
 done
 
-test -f "${work}/kolla-multinode"
+test "$(git -C "${kolla_source}" rev-parse HEAD)" = "${kolla_commit}"
+uv run python "${harness}/render-kolla-inventory.py" \
+    "${kolla_source}/ansible/inventory/multinode" \
+    "${work}/kolla-multinode"
 scp "${jump_options[@]}" \
     "${work}/kolla-multinode" \
     "ubuntu@${primary_management_address}:${remote_inventory}"
