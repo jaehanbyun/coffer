@@ -1943,6 +1943,45 @@ promotion while ADR 0006 remains blocked.
   restores all rows, and retains tenant service before signing-key overlap or
   rollback.
 
+### 2026-07-25 — Separate-worker reconciler fencing harness validated
+
+- Completed locally: Added a guarded `preflight|run` harness that executes the
+  installed claim/fencing implementation as separate stdin-only processes in
+  the controller-1 and controller-2 `coffer_api` containers. The deployed
+  periodic reconciler remains intentionally disabled because its production
+  maintenance identity is unresolved; this phase isolates the shared-Galera
+  worker/lease contract without inventing that identity.
+- Candidate boundary: The claim API is intentionally global, so the setup
+  records a timezone-aware cursor immediately before its three synthetic
+  reservations. Both workers pass that cursor to `after`, excluding every
+  older tenant or system reservation. Only two fixed project IDs and four fixed
+  repository IDs may be created or cleaned.
+- Multi-worker contract: Both controller processes claim concurrently with
+  bounded batches of two. A bounded retry by the initially smaller worker
+  tolerates MariaDB's safe empty-batch behavior. Final acceptance requires
+  three unique reservations, three unique claim tokens, no overlap, and both
+  exact worker IDs before every claim is consumed and usage returns to zero.
+- Lease/fence contract: Controller-2 acquires one separate two-second lease and
+  exits cleanly. Controller-1 proves that a logical time immediately before
+  expiry cannot reclaim it, waits for actual wall-clock expiry, replaces the
+  token, rejects the old token with `StaleReconciliationClaim`, and consumes
+  the replacement claim.
+- Recovery: A root-only owner marker authorizes child-first cleanup on an
+  interrupted resume. The EXIT trap removes only the allowlisted rows and
+  owner-only local worker outputs; completion requires aggregate residue zero,
+  both nodes' installed retry bound, tenant acceptance, and healthy
+  Galera/ProxySQL.
+- Verification: Thirty-two focused tests, Bash syntax, ShellCheck, Python
+  compilation, four refusal/forbidden-command contracts, scoped Gitleaks, and
+  diff checks pass. Live mutation-free preflight reports both controller
+  helpers ready, retry bound 3, aggregate residue zero, absent marker/helper
+  state, and full tenant/Galera health.
+- Next exact action: Commit the guarded reconciler fencing harness, invoke only
+  its `run` action once, and require disjoint cross-controller claims, actual
+  lease expiry and stale-token denial, exact cleanup, retained tenant service,
+  owner-only evidence, and metadata-idempotent replay before signing-key
+  overlap.
+
 ## Verification
 
 | Check | Command or method | Result |

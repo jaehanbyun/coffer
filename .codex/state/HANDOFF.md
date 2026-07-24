@@ -1068,6 +1068,29 @@ marker-idempotent replay passed.
   multi-worker claim/fencing fixtures, then implement a bounded separate-worker
   Galera harness using only allowlisted stale reservations, exact claim/lease
   fencing, child-first cleanup, and final tenant/Galera health gates.
+- Added a guarded reconciler claim/fencing harness that runs the installed code
+  as separate stdin-only processes in controller-1 and controller-2
+  `coffer_api`. The periodic reconciler stays disabled because the production
+  maintenance identity is still unresolved.
+- A setup-time cursor excludes every pre-existing global reconciliation
+  candidate. Both workers claim only three newer fixed reservations with
+  bounded size two; an initially smaller worker may retry to tolerate
+  MariaDB's safe transient empty batch. Acceptance requires both workers,
+  three unique rows/tokens, no overlap, and zero usage after consumption.
+- Controller-2 also acquires a separate real two-second lease and exits.
+  Controller-1 must prove pre-expiry blocking, wait for wall-clock expiry,
+  acquire a replacement token, reject the old token with
+  `StaleReconciliationClaim`, and restore the reservation.
+- Root-only ownership authorizes child-first partial-run cleanup. Thirty-two
+  focused tests, Bash/ShellCheck/Python compilation, four refusal/forbidden
+  contracts, scoped Gitleaks, and diff checks pass. Live mutation-free
+  preflight reports both controller helpers ready, retry bound 3, row residue
+  zero, absent marker/helper state, and full tenant/Galera health.
+- Exact next action: commit the guarded reconciler fencing harness and invoke
+  only `poc/kolla-ha/test-coffer-reconciler-fencing.sh run
+  jh.byun@100.123.168.66`; require disjoint claims, actual lease recovery,
+  stale-token denial, exact cleanup, final tenant/Galera health, and
+  idempotent marker replay.
 
 ## Plan 0017 Completion
 
@@ -1653,11 +1676,12 @@ marker-idempotent replay passed.
 
 ## Exact Next Action
 
-Read `tests/test_quota_reconciliation.py`,
-`poc/quota-sql/verify_shared_sql.py`, and the deployed reconciler process
-contract. Then implement a guarded Stage 5 separate-worker claim/fencing
-harness with allowlisted stale reservations, disjoint claims, stale-token
-denial, lease recovery, exact row cleanup, and full tenant/Galera gates.
+Commit the guarded reconciler fencing harness, then invoke only
+`poc/kolla-ha/test-coffer-reconciler-fencing.sh run
+jh.byun@100.123.168.66`. Require disjoint controller-1/controller-2 claims,
+actual two-second lease recovery, stale-token denial, aggregate row residue
+zero, retained tenant digest/isolation, healthy Galera/ProxySQL, and owner-only
+marker evidence.
 
 ## After This Work Package
 

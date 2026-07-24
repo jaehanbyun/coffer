@@ -330,6 +330,55 @@ def test_multinode_galera_transactions_use_real_bounded_conflict() -> None:
         assert "rm -rf" not in script
 
 
+def test_multinode_reconciler_fencing_uses_separate_bounded_workers() -> None:
+    outer = (
+        ROOT / "poc" / "kolla-ha" / "test-coffer-reconciler-fencing.sh"
+    ).read_text(encoding="utf-8")
+    guest = (
+        ROOT
+        / "poc"
+        / "kolla-ha"
+        / "guest-run-coffer-reconciler-fencing.sh"
+    ).read_text(encoding="utf-8")
+    helper = (
+        ROOT / "poc" / "kolla-ha" / "guest-coffer-reconciler-fencing.py"
+    ).read_text(encoding="utf-8")
+
+    assert "{preflight|run}" in outer
+    assert "{status|start|complete}" in guest
+    assert "192.168.252.11" in outer
+    assert "192.168.252.12" in outer
+    assert "docker exec -i coffer_api" in outer
+    assert "guest-coffer-reconciler-fencing.py" in outer
+    assert "resume=owned-partial" in outer
+    assert "run_helper 0 claim" in outer
+    assert "run_helper 1 claim" in outer
+    assert "run_helper 1 abandon" in outer
+    assert "run_helper 0 recover" in outer
+    assert "worker_zero_pid" in outer
+    assert "worker_one_pid" in outer
+    assert "cleanup_required" in outer
+    assert "root:root:700" in guest
+    assert guest.count("root:root:600") == 2
+    assert "MAX_TRANSACTION_ATTEMPTS != 3" in helper
+    assert "ReconciliationCursor" in helper
+    assert "after=parse_cursor(cursor)" in helper
+    assert "timedelta(seconds=2)" in helper
+    assert "StaleReconciliationClaim" in helper
+    assert "an abandoned claim token crossed the fence" in helper
+    assert "set(WORKERS)" in helper
+    assert "claim batches overlapped" in helper
+    assert "cleanup(store._engine)" in helper
+    assert "residue_count" in helper
+    assert "application_credential" not in helper
+    for script in (outer, guest):
+        assert "docker stop" not in script
+        assert "docker restart" not in script
+        assert "docker rm" not in script
+        assert "virsh" not in script
+        assert "rm -rf" not in script
+
+
 def test_multinode_service_fault_targets_only_controller_three_containers() -> (
     None
 ):
