@@ -549,6 +549,26 @@ signed Distribution v3.1.1 binary.
   `poc/kolla-ha/prepare-coffer-companion.sh` with exact three-host groups,
   owner-only inputs/backend TLS, direct storage-1 RGW secret transfer, and a
   hard stop before database/catalog/HAProxy/runtime mutation.
+- Added the bounded `status|prepare` companion-input phase and its two guest
+  helpers. It fixes the four Coffer groups to the three controllers, validates
+  the production globals, creates signing/JWKS and backend-TLS inputs only on
+  controller-1, and streams the existing RGW access key, secret key, and
+  public CA directly from storage-1 without retaining a local archive.
+- The prepare transaction preserves the original inventory and removes
+  partial inputs/globals on failure. Its completion marker is withheld until
+  the independent `ready` preflight passes; database, Keystone, HAProxy, and
+  Coffer containers are outside this phase. `status` performs no cleanup or
+  other mutation and fails if any fixed temporary transfer path exists.
+- Bash syntax, ShellCheck, Python compilation, YAML parsing, target refusals,
+  mutation-surface scans, Gitleaks, diff checks, and the live mutation-free
+  status pass. The live boundary retains identical images, 36 healthy Kolla
+  containers, healthy external Ceph/RGW, and fully absent companion/runtime/
+  database/catalog state.
+- Exact next action: commit the validated companion preparation harness
+  locally, then invoke only
+  `poc/kolla-ha/prepare-coffer-companion.sh prepare
+  jh.byun@100.123.168.66`. On failure, verify rollback and temporary-residue
+  absence before resuming this phase.
 
 ## Plan 0017 Completion
 

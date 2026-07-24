@@ -1174,6 +1174,40 @@ promotion while ADR 0006 remains blocked.
   them locally, and stop before database, Keystone, HAProxy, or Coffer
   container mutation.
 
+### 2026-07-24 — Coffer companion preparation harness validated
+
+- Completed: Added separate mutation-free `status` and transactional
+  `prepare` actions with controller-1 and storage-1 guest helpers. The
+  committed inputs are the four exact three-controller Coffer groups,
+  production-profile globals, signing key/JWKS, backend CA/leaf, Distribution
+  HTTP secret, database and Keystone passwords, and existing RGW registry
+  credentials plus its public CA.
+- Secret boundary: The RGW exporter validates the root-owned fixture and
+  streams a deterministic three-member archive from storage-1 directly to
+  controller-1 through SSH. The local workstation receives neither the
+  archive nor credential values. Controller-1 is the sole secret recipient;
+  public trust inputs are separated from root-only mode-0600 sources.
+- Transaction and stop boundary: The guest phase keeps the original inventory
+  in a root temporary directory, installs inputs atomically, and restores the
+  inventory while removing partial globals/inputs on failure. The outer
+  completion marker is written only after `preflight-coffer-ha.sh ready`
+  accepts exact images, groups, TLS identities, storage inputs, and continued
+  zero runtime/database/catalog state. No Ansible playbook, Kolla lifecycle,
+  database, Keystone, HAProxy, or container mutation is in this phase.
+- Read-only evidence: Live `status` reports companion state absent, identical
+  image IDs on all controllers, 36 healthy Kolla containers, healthy external
+  Ceph/RGW, zero Coffer runtime/database/catalog, and no temporary residue.
+  `status` has no cleanup path and therefore performs no remote mutation.
+- Verification: Bash syntax, ShellCheck, Python compilation, YAML parsing,
+  missing/unknown/option-shaped target refusals, forbidden mutation and
+  publication scans, Gitleaks, diff checks, and repeated live read-only status
+  pass.
+- Next exact action: Commit this validated preparation harness locally, then
+  invoke only `poc/kolla-ha/prepare-coffer-companion.sh prepare
+  jh.byun@100.123.168.66`. If it fails, preserve the owner marker, require
+  inventory/input rollback and exact temporary-file cleanup, and resume only
+  this phase.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1241,15 +1275,14 @@ promotion while ADR 0006 remains blocked.
   external certificate identities, ProxySQL TLS recipients, four production
   globals, internal HTTPS, the sole external port 443 frontend, catalog URLs,
   three-member Galera/RabbitMQ quorums, seven protected logs, and zero Coffer
-  state all pass.
-- Exact next action: Implement and statically validate
-  `poc/kolla-ha/prepare-coffer-companion.sh` and its bounded guest helpers.
-  Do not run it until exact inventory, secret recipient, storage-to-controller
-  transfer, TLS identity, rollback, and no-runtime/database/catalog contracts
-  pass.
-- First file or command: Inspect `poc/kolla-aio/guest-prepare-coffer.sh`,
-  `poc/kolla-aio/coffer-globals.yml`, and the companion role input defaults
-  before adding the Stage 5 preparation harness.
+  state all pass. The companion preparation harness is locally validated and
+  its mutation-free live status confirms that no companion state exists yet.
+- Exact next action: Commit the companion preparation harness locally, then
+  run `poc/kolla-ha/prepare-coffer-companion.sh prepare
+  jh.byun@100.123.168.66` exactly once.
+- First file or command: `git add` the four companion harness files plus this
+  plan, `poc/kolla-ha/README.md`, and `.codex/state/HANDOFF.md`; inspect the
+  staged diff, then create one local atomic commit.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

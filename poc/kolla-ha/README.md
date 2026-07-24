@@ -311,3 +311,28 @@ the exact source commit, 36 unchanged healthy Kolla containers, zero Coffer
 runtime/config/listeners, and a healthy external Ceph/RGW boundary. Companion
 inventory, owner-only inputs, database, catalog, and role execution remain
 later phases.
+
+Prepare the companion inventory and owner-controlled inputs only after the
+image phase is accepted:
+
+```text
+poc/kolla-ha/prepare-coffer-companion.sh status <ssh-target>
+poc/kolla-ha/prepare-coffer-companion.sh prepare <ssh-target>
+```
+
+`status` is mutation-free and rejects any temporary transfer residue. The
+first `prepare` appends the four exact three-controller Coffer groups, stages
+the production-profile globals, creates the signing/JWKS and backend-TLS
+inputs, and transfers only the existing registry access key, secret key, and
+public RGW CA directly from storage-1 to controller-1 through the encrypted
+SSH path. No credential archive or value is retained on the local workstation,
+and secret source files remain root-owned mode `0600` only on controller-1.
+
+The guest phase uses a root temporary directory and restores the original
+inventory while removing partially installed globals and inputs on failure.
+The outer completion marker is created only after the independent `ready`
+preflight proves exact groups, images, TLS identities, secret recipients,
+external RGW access, and the continued absence of Coffer runtime, database,
+catalog, and HAProxy routes. A repeated `prepare` validates the committed
+state without rotating keys or certificates. Companion role `prechecks` and
+deployment remain separate later phases.
