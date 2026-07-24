@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; six guests ready, Ceph HA preparation is next
+- Status: plan 0018 active; storage prepared, Ceph MON/MGR bootstrap is next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -11,8 +11,10 @@
 Plan 0018 is active to complete the disposable Kolla multinode and HA pilot.
 The read-only `bb00` refresh, preferred six-guest topology, immutable Ubuntu
 image pin, exact-target lifecycle harness, VM create, and guest readiness
-checks are complete. Three controller and three storage guests are running on
-dedicated autostart-disabled networks; every domain is autostart-disabled.
+checks are complete. Three controller and three prepared storage guests are
+running on dedicated autostart-disabled networks; every domain is
+autostart-disabled. Storage preparation proves all three OSD devices are still
+empty and no Ceph daemon has started.
 Stage 5 requires replicated
 Kolla/Coffer/Galera and an independent external RGW HA failure domain; a
 controller-only pilot against the retained one-node RGW is partial evidence
@@ -54,10 +56,14 @@ signed Distribution v3.1.1 binary.
   fixed management/storage addresses, qemu guest agent, and controller-only
   external NICs across all six guests. The shared host retained about 119 GiB
   available RAM and 876 GiB free storage after first boot.
-- Exact next action: implement the bounded storage preparation phase using the
-  existing pinned Ceph Tentacle download pattern, configure only planned
-  hostname resolution, and prove `/dev/vdb` is empty on each storage guest
-  before any Ceph bootstrap.
+- Added and ran the storage preparation phase. All three storage nodes have
+  chrony and the Ceph prerequisites, resolve the three storage addresses, and
+  retain empty 64-GiB `/dev/vdb` devices. Ceph config and containers are
+  absent. The first hostname check failed safely on cloud-init's loopback
+  alias; the scoped idempotent correction passed.
+- Exact next action: implement a MON/MGR-only Ceph Tentacle bootstrap. Bootstrap
+  storage-1, adopt only storage-2/3 through the generated cephadm key, and
+  establish three MON/two MGR services before any OSD or RGW mutation.
 
 ## Plan 0017 Completion
 

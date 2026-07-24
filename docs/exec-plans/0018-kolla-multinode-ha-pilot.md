@@ -286,6 +286,33 @@ promotion while ADR 0006 remains blocked.
   install prerequisites, establish planned hostname resolution, and verify
   that `/dev/vdb` is the sole empty OSD candidate on each storage guest.
 
+### 2026-07-24 — Three storage nodes prepared without Ceph mutation
+
+- Completed: Reused the retained SHA-256-verified cephadm 20.2.2 artifact and
+  pinned Ceph image digest. Added a storage-only preparation harness that
+  copies the public artifact, installs chrony/LVM/Podman/Skopeo prerequisites,
+  owns one marker-bounded hostname block, and verifies the sole OSD candidate
+  without initializing it.
+- Evidence: All three nodes report chrony active, the three storage names
+  resolving to their `192.168.253.31` through `.33` addresses, `/dev/vdb`
+  exactly 64 GiB with no partition, filesystem signature, mount, or LVM PV,
+  the expected cephadm and image digests, no Ceph configuration, and zero
+  containers.
+- Failure and correction: The first run wrote the intended marker but failed
+  before package installation because cloud-init's `127.0.1.1 <hostname>`
+  entry won name resolution. The corrected script disables future cloud-init
+  hosts rewriting and removes only a Stage 5 storage hostname's loopback alias
+  before installing the exact storage map. The idempotent rerun passed.
+- Safety: No `cephadm bootstrap`, disk wipe, LVM creation, OSD initialization,
+  container start, RGW service, identity, or credential operation has occurred.
+- Changed files: Added `poc/kolla-ha/prepare-storage.sh` and
+  `poc/kolla-ha/guest-prepare-storage.sh`; updated this plan and `HANDOFF.md`.
+- Next exact action: Add a three-node Ceph bootstrap harness that bootstraps
+  only storage-1 on `192.168.253.31`, adopts storage-2/3 through cephadm's
+  generated SSH key, applies three MONs and two MGRs, and stops before OSD or
+  RGW creation. Validate the exact host and service allowlists locally before
+  invoking it.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -296,6 +323,7 @@ promotion while ADR 0006 remains blocked.
 | Libvirt lifecycle safety | allowlists, exact destroy, partial rollback, remote status | passed; exact create completed |
 | Guest provisioning and readiness | exact status, autostart, cloud-init, NIC, disk, and resource checks | passed |
 | Provision/destroy target safety | local allowlist, rollback, and negative-target tests | passed |
+| Storage preparation | pinned inputs, hostname map, chrony, empty OSD devices | passed |
 | Kolla/Galera/Coffer baseline | multinode deploy and health acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | pending |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -325,9 +353,9 @@ promotion while ADR 0006 remains blocked.
 
 - Current state: Active; all six autostart-disabled guests are running and
   readiness-verified on three dedicated autostart-disabled networks.
-- Exact next action: Add the bounded storage-node preparation phase and verify
-  the three empty `/dev/vdb` OSD candidates before Ceph bootstrap.
-- First file or command: `poc/kolla-ha/prepare-storage.sh`.
+- Exact next action: Implement and locally validate MON/MGR-only cephadm
+  bootstrap and host adoption; do not initialize OSDs in the same action.
+- First file or command: `poc/kolla-ha/bootstrap-ceph-control.sh`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an
