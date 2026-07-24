@@ -26,9 +26,8 @@ flowchart LR
     Gateway["TLS load balancer / API gateway"]
     subgraph Coffer["Coffer-owned services"]
         direction TB
-        API["Control API"]
-        Auth["Registry token service"]
-        Quota["Manifest quota admission"]
+        Edge["Registry edge / manifest quota admission"]
+        API["Control API / registry token service"]
         Reconcile["Quota reconciler"]
     end
     Registry["Upstream OCI Distribution data plane"]
@@ -44,17 +43,14 @@ flowchart LR
     User --> OCI
     OSC -->|"repository operations"| Gateway
     OCI -->|"OCI /v2/ and token exchange"| Gateway
-    Gateway -->|"control API"| API
-    Gateway -->|"token realm"| Auth
-    Gateway -->|"blob, pull, non-manifest"| Registry
-    Gateway -->|"bounded manifest PUT"| Quota
+    Gateway -->|"all Coffer origin traffic"| Edge
+    Edge -->|"/v1/ and /auth/token"| API
+    Edge -->|"/v2/ streaming and admitted manifest PUT"| Registry
     API --> Keystone
     API --> DB
-    Auth --> Keystone
-    Auth --> DB
-    Auth -. "JWKS trust" .-> Registry
-    Quota -->|"reserve logical bytes"| DB
-    Quota -->|"admitted manifest"| Registry
+    API -. "JWKS trust" .-> Edge
+    API -. "JWKS trust" .-> Registry
+    Edge -->|"reserve logical bytes"| DB
     Reconcile -->|"bounded ledger pages"| DB
     Reconcile -->|"HEAD exact digest"| Registry
     Registry --> Object
@@ -70,9 +66,23 @@ Owns project-scoped repository resources, repository policy, tag immutability co
 
 Implements the OCI/Docker Bearer token challenge endpoint. For the MVP it authenticates a finite, role-restricted Keystone application credential supplied through Basic auth, verifies its immutable project scope and roles, and issues a separate approximately five-minute JWT containing only the intersection of requested and authorized `repository:<namespace>/<name>:<actions>` access. It never stores the application-credential secret, never issues a non-expiring refresh token, and Distribution verifies the JWT signature locally.
 
+The control API and token endpoint share the deployable `coffer-api` WSGI
+process. This keeps the signing private key out of the edge and Distribution
+containers without introducing a separate token service before scaling evidence
+requires one.
+
 ### Coffer manifest quota admission
 
-Handles only bounded manifest/index PUT requests at a non-bypassable private edge. It verifies the Coffer JWT and explicit repository authority, resolves the descriptor graph, atomically reserves project-unique logical bytes in shared SQL, forwards the exact manifest bytes to unmodified Distribution, and commits or conservatively retains the reservation from the upstream outcome. It returns Distribution-compatible 429 or 503 responses and never stores blob bodies or the canonical manifest payload.
+Runs in the deployable `coffer-edge`, the only ingress for the Coffer origin.
+The edge routes `/v1/` and `/auth/token` to `coffer-api`, streams ordinary
+`/v2/` requests to private Distribution, and handles only bounded
+manifest/index PUT requests in the admission seam. It verifies the Coffer JWT
+and explicit repository authority, resolves the descriptor graph, atomically
+reserves project-unique logical bytes in shared SQL, forwards the exact
+manifest bytes to unmodified Distribution, and commits or conservatively
+retains the reservation from the upstream outcome. It returns
+Distribution-compatible 429 or 503 responses and never stores blob bodies or
+the canonical manifest payload.
 
 ### Coffer quota reconciler
 
@@ -119,18 +129,25 @@ sequenceDiagram
     participant C as OCI client and credential helper
     participant K as Keystone
     participant A as Coffer control/auth
+    participant E as Coffer edge
     participant R as OCI Distribution
 
     U->>K: create finite role-subset application credential
     K-->>U: application credential ID and one-time secret
     U->>C: configure credential through stdin/helper
-    C->>R: docker login and request /v2/
-    R-->>C: 401 Bearer realm, service, requested scope
-    C->>A: Basic application-credential ID/secret plus service/scope
+    C->>E: docker login and request /v2/
+    E->>R: stream request on private route
+    R-->>E: 401 Bearer realm, service, requested scope
+    E-->>C: forward challenge
+    C->>E: Basic credential to /auth/token
+    E->>A: forward token request on private route
     A->>K: authenticate application credential without extra scope
     K-->>A: project UUID, principal, roles, expiry, audit IDs
-    A-->>C: short-lived repository/action-scoped JWT
-    C->>R: push or pull with Bearer JWT
+    A-->>E: short-lived repository/action-scoped JWT
+    E-->>C: forward token response
+    C->>E: push or pull with Bearer JWT
+    E->>E: admit manifest PUT and stream other /v2/ traffic
+    E->>R: private registry request
     R->>R: verify issuer, audience, signature, scope, and expiry locally
 ```
 
@@ -157,6 +174,11 @@ sequenceDiagram
 ## HA and Operations Baseline
 
 - At least two stateless control/auth replicas and two Distribution replicas with identical backend configuration and HTTP secret behind the regional TLS load balancer; use shared Redis when configured.
+- At least two `coffer-edge` replicas are the only tenant ingress. Accepted ADR
+  0014 fixes backend ports `8787`/`8788`/`8789`, the external registry FQDN,
+  internal/public TLS boundaries, Kolla secret recipients, and one-shot
+  migration/rollback ownership; the complete operator contract is
+  [Kolla deployment topology](kolla-deployment-topology.md).
 - Shared HA SQL and object storage are external dependencies with independent backup and recovery procedures.
 - Run the online Alembic migration as a separate owner-controlled job before application rollout. An exact legacy repository table can be adopted; drift, offline conditional migration, and application-side auto-upgrade fail closed. Local rehearsals cover write-stopped tagged/digest-only inventory, atomic empty-ledger import/rollback, and read-only exact post-import ledger comparison on SQLite, PostgreSQL, and MariaDB. Production still requires backup/restore, exact RGW/helper qualification, representative-scale transaction evidence, writer exclusion, authenticated live Distribution comparison, rollback, and cutover ownership.
 - Run the dedicated one-shot or periodic reconciliation process using the verified version-plus-token claim API. Local cadence, jitter, graceful shutdown, cursor continuation, and lease-budget semantics are implemented; production promotion still requires packaging/rollout, authenticated service identity, database-time/clock, deadlock retry, Galera, forced-replica failure, and restart-correct metric aggregation policy.
@@ -189,7 +211,7 @@ sequenceDiagram
 | Persistence | SQLAlchemy/Alembic through `oslo.db`; MariaDB/Galera as the operator baseline, PostgreSQL supported by the PoC schema | Aligns with common OpenStack control-plane deployments; revisions `0001`–`0004`, row locks, claims, abandoned-process recovery, atomic baseline import, and exact read-only comparison pass both disposable engines |
 | Policy | `oslo.policy`-compatible rules | Familiar deployer overrides and role enforcement |
 | Blob storage | One private regional Ceph RGW S3 bucket through the upstream registry driver | Reuses common OpenStack storage deployments without a custom driver; per-project buckets would require separate registry fleets/routing |
-| Edge | Operator-provided TLS load balancer/reverse proxy | Keeps network topology and certificate ownership deployer-controlled |
+| Edge | Kolla HAProxy plus the Coffer-owned streaming edge | HAProxy owns VIP/FQDN/TLS/load balancing; Coffer owns closed path dispatch and non-bypassable manifest admission |
 | Observability | Structured OpenStack-style logging, request IDs, Prometheus-compatible metrics | Supports both OpenStack operations and registry-specific dashboards |
 
 ## Deferred Architecture
@@ -199,7 +221,10 @@ sequenceDiagram
 - Search/index service and user interface.
 - Per-project physical object-store isolation or sharded registries.
 - A Swift-native storage driver; upstream marks it unsupported and is not accepting new drivers.
-- Integration packaging for Kolla-Ansible, OpenStack-Helm, or other deployment systems.
+- Kolla-compatible images and the operator-local Kolla-Ansible role; their
+  deployment topology is fixed by ADR 0014, while implementation and deployment
+  remain later work packages. OpenStack-Helm and other deployment systems remain
+  deferred.
 - Glance import/export bridging and native consumer helpers for Ironic, Kolla, Zun, or Magnum.
 
 ## Risks Requiring PoC Evidence
@@ -232,6 +257,11 @@ sequenceDiagram
 - `docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md` proposes the exact-version read-only cutover evidence seam; `docs/research/m3-existing-content-inventory.md` records its primary-source completeness boundary.
 - `docs/adrs/0012-import-existing-content-into-empty-quota-ledger.md` proposes the singleton-marker, one-transaction baseline import, exact read-only ledger comparison, and remaining production gates.
 - `docs/adrs/0013-require-explicit-authentication-for-live-comparison.md` proposes mandatory injected repository authentication for live comparison while deferring the production provider.
+- `docs/adrs/0014-fix-kolla-deployment-topology.md` accepts the five-role
+  topology, sole-ingress edge, Kolla endpoint/TLS/secret contract, and
+  owner-controlled one-shot migration and rollback boundary.
+- `docs/architecture/kolla-deployment-topology.md` is the operator-facing
+  deployment contract and seven-stage long-horizon roadmap.
 - `docs/runbooks/quota-schema-reconciliation.md` records the migration and reconciliation operator boundary and repeatable local verification.
 - `docs/runbooks/existing-content-inventory.md` records inventory/import refusal conditions, disposable verification, and separate production cutover gates.
 - `docs/research/openstack-registry-landscape.md` records the current OpenStack service gap, active OpenStack-Helm deployment chart, consumer projects, and historical false friends.
