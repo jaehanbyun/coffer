@@ -594,6 +594,21 @@ signed Distribution v3.1.1 binary.
 - Exact next action: statically validate and locally commit the explicit
   temporary-parent-mode correction, then resume only the same companion
   `prepare` action.
+- Preserved the mode correction in local commit `0400cca`; the next resume
+  passed. Exact groups, owner-only inputs, backend/RGW TLS, the external
+  sentinel, identical images, and continued absent runtime/database/catalog
+  passed both pre-completion and post-completion `ready` gates.
+- A repeated-prepare metadata check exposed a gate-ordering defect without
+  changing state: the wrapper called the completed image-phase status first,
+  but that lower phase intentionally rejects the now-present companion
+  inputs. Owner/input/global/inventory metadata remained identical before and
+  after the refused repeat.
+- Correction: inspect companion markers first. Absent/owned state still
+  requires the image-phase gate; prepared inputs and complete state use the
+  stronger integrated `ready` gate. A complete repeat performs no transfer,
+  key generation, or lower-phase absence check.
+- Exact next action: validate and locally commit this idempotent gate-order
+  correction, then repeat `prepare` with a before/after metadata comparison.
 
 ## Plan 0017 Completion
 

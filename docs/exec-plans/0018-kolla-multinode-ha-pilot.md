@@ -1246,6 +1246,27 @@ promotion while ADR 0006 remains blocked.
   correction, prove the live owned/absent rollback state once more, and resume
   only the same companion `prepare` action.
 
+### 2026-07-24 — Companion inputs prepared; repeat gate ordering corrected
+
+- Completed: After commit `0400cca`, the resumed prepare passed. It installed
+  four exact three-host groups, controller-1-only secret/public inputs, and
+  the completion marker only after two independent `ready` gates accepted
+  backend/RGW TLS, exact image IDs, sentinel access, and zero
+  runtime/database/catalog state.
+- Idempotency failure: The first repeat was refused before any transfer or
+  generation because the wrapper still called the lower image-phase status,
+  whose accepted terminal boundary requires companion inputs to be absent.
+  A metadata-only before/after comparison of markers, inventory, globals,
+  directories, and files remained identical.
+- Correction: Select the gate from durable companion markers. Absent or owned
+  state retains the completed-image check. Inputs-prepared and complete state
+  use the stronger integrated `ready` check; a complete repeat performs no
+  transfer, generation, inventory write, or lower-phase absence assertion.
+- Next exact action: Validate and locally commit the marker-first gate order,
+  then repeat the complete `prepare` with server-side metadata comparison and
+  independently audit recipient, temporary-residue, runtime, database, and
+  catalog boundaries.
+
 ## Verification
 
 | Check | Command or method | Result |

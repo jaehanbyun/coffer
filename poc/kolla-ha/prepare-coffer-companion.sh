@@ -63,39 +63,45 @@ assert_no_temporary_residue() {
         sudo test ! -e "${remote_export}"
 }
 
-"${harness}/build-distribute-coffer-images.sh" status "${ssh_target}"
-
 if test "${action}" = status; then
     ssh "${ssh_options[@]}" "ubuntu@${controller}" \
         sudo env LC_ALL=C.UTF-8 LANG=C.UTF-8 bash -s -- status \
         <"${harness}/guest-prepare-coffer-companion.sh"
     if ssh "${ssh_options[@]}" "ubuntu@${controller}" \
-        sudo test -f "${complete_marker}"; then
+        sudo test -f "${inputs_marker}"; then
         "${harness}/preflight-coffer-ha.sh" ready "${ssh_target}"
+    else
+        "${harness}/build-distribute-coffer-images.sh" status "${ssh_target}"
     fi
     assert_no_temporary_residue
     printf 'coffer_companion action=status result=passed temporary_residue=none\n'
     exit 0
 fi
 
-trap cleanup EXIT
-
 if ssh "${ssh_options[@]}" "ubuntu@${controller}" \
     sudo test -f "${complete_marker}"; then
     "${harness}/preflight-coffer-ha.sh" ready "${ssh_target}"
+    assert_no_temporary_residue
     printf 'coffer_companion action=prepare result=passed idempotent=yes\n'
     exit 0
 fi
 
-scp "${ssh_options[@]}" \
-    "${harness}/guest-prepare-coffer-companion.sh" \
-    "ubuntu@${controller}:${remote_prepare}"
-scp "${ssh_options[@]}" \
-    "${harness}/coffer-globals.yml" \
-    "ubuntu@${controller}:${remote_globals}"
+trap cleanup EXIT
 
-if ! ssh "${ssh_options[@]}" "ubuntu@${controller}" \
+if ssh "${ssh_options[@]}" "ubuntu@${controller}" \
     sudo test -f "${inputs_marker}"; then
+    "${harness}/preflight-coffer-ha.sh" ready "${ssh_target}"
+    scp "${ssh_options[@]}" \
+        "${harness}/guest-prepare-coffer-companion.sh" \
+        "ubuntu@${controller}:${remote_prepare}"
+else
+    "${harness}/build-distribute-coffer-images.sh" status "${ssh_target}"
+    scp "${ssh_options[@]}" \
+        "${harness}/guest-prepare-coffer-companion.sh" \
+        "ubuntu@${controller}:${remote_prepare}"
+    scp "${ssh_options[@]}" \
+        "${harness}/coffer-globals.yml" \
+        "ubuntu@${controller}:${remote_globals}"
     scp "${ssh_options[@]}" \
         "${harness}/guest-export-coffer-rgw-inputs.py" \
         "ubuntu@${storage}:${remote_export}"
