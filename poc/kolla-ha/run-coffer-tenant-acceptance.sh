@@ -3,14 +3,14 @@
 set -Eeuo pipefail
 
 if [[ "$#" -ne 2 ]]; then
-    echo "usage: $0 {preflight|accept|status} <ssh-target>" >&2
+    echo "usage: $0 {preflight|accept|status|data-status} <ssh-target>" >&2
     exit 64
 fi
 
 action="$1"
 ssh_target="$2"
 case "${action}" in
-    preflight|accept|status)
+    preflight|accept|status|data-status)
         ;;
     *)
         echo "refusing an unknown Coffer tenant acceptance action" >&2
@@ -36,11 +36,18 @@ ssh_options=(
     -o UserKnownHostsFile="${known_hosts}"
 )
 
-"${harness}/run-coffer-tenant-fixture.sh" status "${ssh_target}"
+if test "${action}" != data-status; then
+    "${harness}/run-coffer-tenant-fixture.sh" status "${ssh_target}"
+fi
+
+guest_action="${action}"
+if test "${action}" = data-status; then
+    guest_action=status
+fi
 
 set +e
 ssh "${ssh_options[@]}" "ubuntu@${controller}" \
-    sudo env LC_ALL=C.UTF-8 LANG=C.UTF-8 bash -s -- "${action}" \
+    sudo env LC_ALL=C.UTF-8 LANG=C.UTF-8 bash -s -- "${guest_action}" \
     <"${harness}/guest-run-coffer-tenant-acceptance.sh"
 phase_rc="$?"
 set -e

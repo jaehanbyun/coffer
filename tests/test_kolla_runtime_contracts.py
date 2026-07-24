@@ -133,7 +133,7 @@ def test_multinode_tenant_acceptance_is_owner_local_and_fail_closed() -> None:
         / "guest-run-coffer-tenant-acceptance.sh"
     ).read_text(encoding="utf-8")
 
-    assert "{preflight|accept|status}" in outer
+    assert "{preflight|accept|status|data-status}" in outer
     assert "{preflight|accept|status}" in guest
     assert "run-coffer-tenant-fixture.sh" in outer
     assert 'phase_rc="$?"' in outer
@@ -178,3 +178,28 @@ def test_multinode_tenant_acceptance_is_owner_local_and_fail_closed() -> None:
     )
     assert "rm -rf" not in guest
     assert "--remove-all-storage" not in guest
+
+
+def test_multinode_service_fault_targets_only_controller_three_containers() -> (
+    None
+):
+    script = (
+        ROOT / "poc" / "kolla-ha" / "test-coffer-service-failover.sh"
+    ).read_text(encoding="utf-8")
+
+    assert "{preflight|run}" in script
+    assert "192.168.252.13" in script
+    assert script.count("coffer_api") >= 2
+    assert script.count("coffer_edge") >= 2
+    assert script.count("coffer_registry") >= 2
+    assert 'docker stop --time 15 "${service}"' in script
+    assert 'docker start "${service}"' in script
+    assert "data-status" in script
+    assert "for attempt in 1 2 3" in script
+    assert "for convergence_attempt in 1 2 3" in script
+    assert "trap restore_current EXIT" in script
+    assert 'temporary="${marker}.tmp.$$"' in script
+    assert "unless-stopped" in script
+    assert "docker rm" not in script
+    assert "virsh" not in script
+    assert "rm -rf" not in script
