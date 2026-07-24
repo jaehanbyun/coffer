@@ -733,12 +733,12 @@ run_kolla() {
         >"${log}" 2>&1
     rc="$?"
     set -e
+    verify_log_secret_free "${log}"
     if test "${rc}" -ne 0; then
         printf 'kolla_lifecycle phase=%s result=failed rc=%s log=%s\n' \
             "${phase}" "${rc}" "${log}" >&2
         return "${rc}"
     fi
-    verify_log_secret_free "${log}"
     awk '
         /^PLAY RECAP/ {capture = 1; next}
         capture && NF {print "kolla_recap " $0}
@@ -768,12 +768,12 @@ run_kolla_check() {
         >"${log}" 2>&1
     rc="$?"
     set -e
+    verify_log_secret_free "${log}"
     if test "${rc}" -ne 0; then
         printf 'kolla_lifecycle phase=%s-check result=failed rc=%s log=%s\n' \
             "${phase}" "${rc}" "${log}" >&2
         return "${rc}"
     fi
-    verify_log_secret_free "${log}"
 }
 
 if test "${action}" = status; then
@@ -867,7 +867,7 @@ case "${action}" in
         test "$(stat -c '%U:%G:%a' "${production_profile_marker}")" = \
             root:root:600
         test "$(cat "${production_profile_marker}")" = \
-            coffer-stage5-production-profile-v1
+            coffer-stage5-production-profile-v2
         run_kolla reconfigure 7200 reconfigure
         collect_status
         test "${status_docker}" -eq 3

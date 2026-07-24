@@ -16,8 +16,12 @@ root_ca="${certificate_root}/ca/root.crt"
 root_key="${certificate_root}/private/root/root.key"
 external_certificate="${certificate_root}/haproxy.pem"
 internal_certificate="${certificate_root}/haproxy-internal.pem"
+proxysql_ca="${certificate_root}/proxysql-ca.pem"
+proxysql_certificate="${certificate_root}/proxysql-cert.pem"
+proxysql_key="${certificate_root}/proxysql-key.pem"
 marker="/home/ubuntu/coffer-stage5/production-profile.prepared"
-marker_value="coffer-stage5-production-profile-v1"
+legacy_marker_value="coffer-stage5-production-profile-v1"
+marker_value="coffer-stage5-production-profile-v2"
 expected_containers=(
     cron
     fluentd
@@ -204,6 +208,38 @@ validate_prepared() {
     validate_certificate "${external_certificate}" ip 192.168.254.10
     validate_certificate \
         "${external_certificate}" hostname registry.coffer.stage5
+    test "$(stat -c '%U:%G:%a' "${proxysql_ca}")" = root:root:644
+    test "$(stat -c '%U:%G:%a' "${proxysql_certificate}")" = \
+        root:root:644
+    test "$(stat -c '%U:%G:%a' "${proxysql_key}")" = root:root:600
+    cmp --silent "${root_ca}" "${proxysql_ca}"
+    openssl verify \
+        -CAfile "${proxysql_ca}" \
+        -verify_ip 192.168.252.10 \
+        "${proxysql_certificate}" >/dev/null
+    test "$(
+        openssl x509 -in "${proxysql_certificate}" -pubkey -noout |
+            openssl pkey -pubin -outform DER 2>/dev/null |
+            sha256sum |
+            awk '{print $1}'
+    )" = "$(
+        openssl pkey -in "${proxysql_key}" -pubout -outform DER 2>/dev/null |
+            sha256sum |
+            awk '{print $1}'
+    )"
+}
+
+validate_legacy_prepared() {
+    test "$(stat -c '%U:%G:%a' "${marker}")" = root:root:600
+    test "$(cat "${marker}")" = "${legacy_marker_value}"
+    validate_globals prepared
+    validate_certificate "${internal_certificate}" ip 192.168.252.10
+    validate_certificate "${external_certificate}" ip 192.168.254.10
+    validate_certificate \
+        "${external_certificate}" hostname registry.coffer.stage5
+    test ! -e "${proxysql_ca}"
+    test ! -e "${proxysql_certificate}"
+    test ! -e "${proxysql_key}"
 }
 
 runtime_before="$(runtime_snapshot)"
@@ -211,8 +247,21 @@ require_no_coffer_state
 
 if test "${action}" = status; then
     if test -e "${marker}"; then
-        validate_prepared
-        profile_state=prepared
+        case "$(cat "${marker}")" in
+            "${marker_value}")
+                validate_prepared
+                profile_state=prepared
+                ;;
+            "${legacy_marker_value}")
+                validate_legacy_prepared
+                echo "Kolla production profile requires ProxySQL TLS inputs" >&2
+                exit 78
+                ;;
+            *)
+                echo "refusing an unknown production-profile marker" >&2
+                exit 78
+                ;;
+        esac
     else
         validate_clean
         profile_state=clean
@@ -223,15 +272,29 @@ if test "${action}" = status; then
     exit 0
 fi
 
+starting_state=clean
 if test -e "${marker}"; then
-    validate_prepared
-    test "$(runtime_snapshot)" = "${runtime_before}"
-    printf 'kolla_production_profile state=prepared runtime_sha256=%s idempotent=yes reconfigure=not-run\n' \
-        "${runtime_before}"
-    exit 0
+    case "$(cat "${marker}")" in
+        "${marker_value}")
+            validate_prepared
+            test "$(runtime_snapshot)" = "${runtime_before}"
+            printf 'kolla_production_profile state=prepared runtime_sha256=%s idempotent=yes reconfigure=not-run\n' \
+                "${runtime_before}"
+            exit 0
+            ;;
+        "${legacy_marker_value}")
+            validate_legacy_prepared
+            starting_state=legacy
+            ;;
+        *)
+            echo "refusing an unknown production-profile marker" >&2
+            exit 78
+            ;;
+    esac
+else
+    validate_clean
 fi
 
-validate_clean
 temporary="$(mktemp -d /run/coffer-stage5-profile.XXXXXX)"
 changed=0
 
@@ -240,11 +303,21 @@ cleanup_temporary() {
 }
 
 rollback_profile() {
-    install -o root -g root -m 0644 \
-        "${temporary}/globals.original" "${globals}"
-    install -o root -g root -m 0600 \
-        "${temporary}/external.original" "${external_certificate}"
-    rm -f -- "${internal_certificate}" "${marker}"
+    rm -f -- \
+        "${proxysql_ca}" \
+        "${proxysql_certificate}" \
+        "${proxysql_key}"
+    if test "${starting_state}" = clean; then
+        install -o root -g root -m 0644 \
+            "${temporary}/globals.original" "${globals}"
+        install -o root -g root -m 0600 \
+            "${temporary}/external.original" "${external_certificate}"
+        rm -f -- "${internal_certificate}" "${marker}"
+    else
+        printf '%s\n' "${legacy_marker_value}" >"${marker}"
+        chown root:root "${marker}"
+        chmod 0600 "${marker}"
+    fi
 }
 
 finish() {
@@ -259,12 +332,13 @@ finish() {
 }
 trap finish EXIT
 
-install -o root -g root -m 0644 "${globals}" \
-    "${temporary}/globals.original"
-install -o root -g root -m 0600 "${external_certificate}" \
-    "${temporary}/external.original"
+if test "${starting_state}" = clean; then
+    install -o root -g root -m 0644 "${globals}" \
+        "${temporary}/globals.original"
+    install -o root -g root -m 0600 "${external_certificate}" \
+        "${temporary}/external.original"
 
-python3 - "${globals}" "${temporary}/globals.prepared" <<'PY'
+    python3 - "${globals}" "${temporary}/globals.prepared" <<'PY'
 from pathlib import Path
 import sys
 
@@ -302,7 +376,8 @@ if changed != expected:
     raise SystemExit("Kolla globals mutation exceeded the allowlist")
 destination.write_text(prepared, encoding="utf-8")
 PY
-chmod 0644 "${temporary}/globals.prepared"
+    chmod 0644 "${temporary}/globals.prepared"
+fi
 
 generate_leaf() {
     local name="$1"
@@ -338,33 +413,67 @@ generate_leaf() {
     chmod 0600 "${temporary}/${name}.pem"
 }
 
-generate_leaf \
-    internal 192.168.252.10 \
-    "IP:192.168.252.10"
-generate_leaf \
-    external 192.168.254.10 \
-    "IP:192.168.254.10,DNS:registry.coffer.stage5"
+if test "${starting_state}" = clean; then
+    generate_leaf \
+        internal 192.168.252.10 \
+        "IP:192.168.252.10"
+    generate_leaf \
+        external 192.168.254.10 \
+        "IP:192.168.254.10,DNS:registry.coffer.stage5"
+else
+    openssl x509 -in "${internal_certificate}" \
+        -out "${temporary}/internal.crt"
+    openssl pkey -in "${internal_certificate}" \
+        -out "${temporary}/internal.key"
+fi
 
-openssl verify \
-    -CAfile "${root_ca}" \
-    -verify_ip 192.168.252.10 \
-    "${temporary}/internal.pem" >/dev/null
+install -o root -g root -m 0644 \
+    "${root_ca}" "${temporary}/proxysql-ca.pem"
+install -o root -g root -m 0644 \
+    "${temporary}/internal.crt" "${temporary}/proxysql-cert.pem"
+install -o root -g root -m 0600 \
+    "${temporary}/internal.key" "${temporary}/proxysql-key.pem"
+
 openssl verify \
     -CAfile "${root_ca}" \
     -verify_ip 192.168.254.10 \
-    "${temporary}/external.pem" >/dev/null
+    "$(
+        if test "${starting_state}" = clean; then
+            printf '%s' "${temporary}/external.pem"
+        else
+            printf '%s' "${external_certificate}"
+        fi
+    )" >/dev/null
 openssl verify \
     -CAfile "${root_ca}" \
     -verify_hostname registry.coffer.stage5 \
-    "${temporary}/external.pem" >/dev/null
+    "$(
+        if test "${starting_state}" = clean; then
+            printf '%s' "${temporary}/external.pem"
+        else
+            printf '%s' "${external_certificate}"
+        fi
+    )" >/dev/null
+openssl verify \
+    -CAfile "${temporary}/proxysql-ca.pem" \
+    -verify_ip 192.168.252.10 \
+    "${temporary}/proxysql-cert.pem" >/dev/null
 
 changed=1
-install -o root -g root -m 0600 \
-    "${temporary}/internal.pem" "${internal_certificate}"
-install -o root -g root -m 0600 \
-    "${temporary}/external.pem" "${external_certificate}"
+if test "${starting_state}" = clean; then
+    install -o root -g root -m 0600 \
+        "${temporary}/internal.pem" "${internal_certificate}"
+    install -o root -g root -m 0600 \
+        "${temporary}/external.pem" "${external_certificate}"
+    install -o root -g root -m 0644 \
+        "${temporary}/globals.prepared" "${globals}"
+fi
 install -o root -g root -m 0644 \
-    "${temporary}/globals.prepared" "${globals}"
+    "${temporary}/proxysql-ca.pem" "${proxysql_ca}"
+install -o root -g root -m 0644 \
+    "${temporary}/proxysql-cert.pem" "${proxysql_certificate}"
+install -o root -g root -m 0600 \
+    "${temporary}/proxysql-key.pem" "${proxysql_key}"
 printf '%s\n' "${marker_value}" >"${marker}"
 chown root:root "${marker}"
 chmod 0600 "${marker}"
@@ -375,5 +484,5 @@ runtime_after="$(runtime_snapshot)"
 test "${runtime_after}" = "${runtime_before}"
 changed=0
 
-printf 'kolla_production_profile state=prepared runtime_sha256=%s idempotent=no reconfigure=not-run\n' \
-    "${runtime_after}"
+printf 'kolla_production_profile state=prepared runtime_sha256=%s idempotent=no upgraded_from=%s reconfigure=not-run\n' \
+    "${runtime_after}" "${starting_state}"

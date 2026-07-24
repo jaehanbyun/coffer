@@ -32,6 +32,9 @@ CERTIFICATES = CONFIG_ROOT / "certificates-stage5"
 ROOT_CA = CERTIFICATES / "ca/root.crt"
 EXTERNAL_CERT = CERTIFICATES / "haproxy.pem"
 INTERNAL_CERT = CERTIFICATES / "haproxy-internal.pem"
+PROXYSQL_CA = CERTIFICATES / "proxysql-ca.pem"
+PROXYSQL_CERT = CERTIFICATES / "proxysql-cert.pem"
+PROXYSQL_KEY = CERTIFICATES / "proxysql-key.pem"
 VENV = STATE_ROOT / "venv"
 EXPECTED_GROUPS = (
     "coffer-api",
@@ -318,6 +321,43 @@ def validate_ready(
         ip_addresses=("192.168.254.10",),
         dns_names=("registry.coffer.stage5",),
     )
+    require_regular_file(PROXYSQL_CA, 0o644)
+    require_regular_file(PROXYSQL_CERT, 0o644)
+    require_regular_file(PROXYSQL_KEY, 0o600)
+    if PROXYSQL_CA.read_bytes() != ROOT_CA.read_bytes():
+        raise RuntimeError("ProxySQL CA differs from the Kolla root CA")
+    run(
+        [
+            "openssl",
+            "verify",
+            "-CAfile",
+            str(PROXYSQL_CA),
+            "-verify_ip",
+            "192.168.252.10",
+            str(PROXYSQL_CERT),
+        ]
+    )
+    certificate_key = run(
+        [
+            "openssl",
+            "x509",
+            "-in",
+            str(PROXYSQL_CERT),
+            "-pubkey",
+            "-noout",
+        ]
+    ).stdout
+    private_key = run(
+        [
+            "openssl",
+            "pkey",
+            "-in",
+            str(PROXYSQL_KEY),
+            "-pubout",
+        ]
+    ).stdout
+    if certificate_key != private_key:
+        raise RuntimeError("ProxySQL certificate and key do not match")
 
     if (
         run(["git", "-C", str(SOURCE_ROOT), "rev-parse", "HEAD"])
