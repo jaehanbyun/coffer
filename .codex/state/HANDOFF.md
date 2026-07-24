@@ -1158,6 +1158,22 @@ marker-idempotent replay passed.
   jh.byun@100.123.168.66`; require overlap, signer switch, old-token continuity,
   full-lifetime retirement, per-replica outcomes, zero token residue, final
   acceptance, and idempotent replay before image rollback.
+- Preserved the harness in `e5b713d`. Its first run stopped after owner
+  creation and original-input backup because the Kolla control venv does not
+  install Coffer and the material generator imported `coffer.tokens`.
+- Independent aggregate audit confirms no prepared/phase/completion marker,
+  no temporary globals, old-key/old-only source and all three runtimes, nine
+  healthy containers, and no Kolla action or token issuance. The only new
+  state is the exact root-only owner, empty new/token/log directories, and
+  owner-only original rollback inputs.
+- Replaced the project import with local RSA JWK encoding using cryptography
+  and made missing-prepared-marker state resume only after validating the
+  exact owner. Bash/ShellCheck, focused tests, diff checks, and the live
+  partial-state audit pass.
+- Exact next action: commit this preparation-resume correction and rerun only
+  key-rotation `run`; require full overlap/signer/lifetime/retirement,
+  per-replica outcomes, zero token residue, final acceptance, and idempotent
+  replay.
 
 ## Plan 0017 Completion
 
@@ -1743,12 +1759,12 @@ marker-idempotent replay passed.
 
 ## Exact Next Action
 
-Commit the guarded key-rotation harness, then invoke only
+Commit the key-material preparation-resume correction, then invoke only
 `poc/kolla-ha/run-coffer-key-rotation.sh run
-jh.byun@100.123.168.66`. Require serial old+new trust, signer switch,
-old/new-token acceptance across every replica, retirement only after the full
-old-token lifetime, new success/old denial, no token or temporary overlay
-residue, and complete tenant/service/log/RGW gates.
+jh.byun@100.123.168.66` from the exact owner-only partial state. Require serial
+old+new trust, signer switch, old/new-token acceptance across every replica,
+retirement only after the full old-token lifetime, new success/old denial, no
+token or temporary overlay residue, and complete service/log/RGW gates.
 
 ## After This Work Package
 

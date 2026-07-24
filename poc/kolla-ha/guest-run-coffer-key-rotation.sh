@@ -146,8 +146,12 @@ PY
 }
 
 prepare_material() {
-    install -d -o root -g root -m 0700 "${rotation_root}"
-    write_marker "${owner_marker}" "${owner_value}"
+    if test ! -e "${rotation_root}"; then
+        install -d -o root -g root -m 0700 "${rotation_root}"
+        write_marker "${owner_marker}" "${owner_value}"
+    else
+        require_owner
+    fi
     install -d -o root -g root -m 0700 \
         "${original_root}" "${new_root}" "${token_root}" "${log_root}"
     install -o root -g root -m 0600 \
@@ -165,13 +169,12 @@ prepare_material() {
         "${original_root}/jwks.json" "${new_kid}" <<'PY'
 import json
 import os
+import base64
 from pathlib import Path
 import sys
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-
-from coffer.tokens import public_jwk
 
 key_path, jwks_path, overlap_path, original_path = [
     Path(value) for value in sys.argv[1:5]
@@ -185,7 +188,22 @@ key_path.write_bytes(
         serialization.NoEncryption(),
     )
 )
-new_jwk = public_jwk(private_key.public_key(), key_id=key_id)
+numbers = private_key.public_key().public_numbers()
+
+def encode(value: int) -> str:
+    size = max(1, (value.bit_length() + 7) // 8)
+    return base64.urlsafe_b64encode(
+        value.to_bytes(size, "big")
+    ).rstrip(b"=").decode()
+
+new_jwk = {
+    "alg": "RS256",
+    "e": encode(numbers.e),
+    "kid": key_id,
+    "kty": "RSA",
+    "n": encode(numbers.n),
+    "use": "sig",
+}
 jwks_path.write_text(
     json.dumps({"keys": [new_jwk]}, sort_keys=True) + "\n",
     encoding="utf-8",
@@ -662,7 +680,7 @@ if test "${action}" = rollback; then
     exit 0
 fi
 
-if test ! -e "${rotation_root}"; then
+if test ! -e "${prepared_marker}"; then
     prepare_material
 fi
 require_material

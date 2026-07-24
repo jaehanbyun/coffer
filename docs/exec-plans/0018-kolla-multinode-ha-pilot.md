@@ -2077,6 +2077,30 @@ promotion while ADR 0006 remains blocked.
   full-lifetime retirement, per-replica new/old outcomes, zero token residue,
   owner-only evidence, and metadata-idempotent replay before image rollback.
 
+### 2026-07-25 — First key-rotation run failed safely before deployment
+
+- Failure: Preserved the harness in `e5b713d`. Its first run created the
+  root-only owner directory and copied the original rollback inputs, then the
+  new-material generator failed because the Kolla control venv does not install
+  the Coffer package and could not import `coffer.tokens`.
+- Safety evidence: No prepared/phase/completion marker exists. The source and
+  all three runtime replicas remain old-key/old-only JWKS, all nine containers
+  are healthy, the temporary globals file is absent, and no Kolla/Ansible
+  action or token issuance occurred. Only the exact owner plus empty
+  new/token/log directories and owner-only original backups exist.
+- Correction: Replaced the project import with a local RFC-compatible RSA JWK
+  encoding using the already present cryptography dependency. The state
+  machine now re-enters `prepare_material` whenever the prepared marker is
+  absent, while first requiring the exact owner marker; unknown partial state
+  still fails closed.
+- Verification: Bash syntax, ShellCheck, focused runtime contracts, diff
+  checks, and an independent live aggregate audit of the exact pre-deployment
+  partial state pass.
+- Next exact action: Commit the preparation-resume correction and rerun only
+  key-rotation `run`. It must finish new material, deploy overlap serially,
+  switch the signer, preserve old-token service, wait the full lifetime, retire
+  old trust, and pass all replica/residue/final gates.
+
 ## Verification
 
 | Check | Command or method | Result |
