@@ -1768,6 +1768,30 @@ promotion while ADR 0006 remains blocked.
   embedded source, replace the empty marker with its exact ID, prove no
   rebuild/runtime change, and replay status idempotently.
 
+### 2026-07-25 — Quota-retry update image accepted
+
+- Completed: Preserved the stdin correction in `cf40796` and resumed the exact
+  partial phase. It reused the already built image rather than rebuilding.
+  All three controllers now have identical update image ID
+  `sha256:bf728bc1938d7f68a38fef16600d1c7a81bc0181863425736941fc0228bacb66`
+  with exact embedded module hashes and the three-attempt retry bound.
+- Rollback and runtime boundary: The original image remains on all nodes as
+  ID `sha256:336140d2d9b552b8635a3a742c5ca30a95173ccfb4459a46e2430b8ef0b007d4`.
+  Every running API/edge/registry retained its original recorded image ID and
+  healthy state. No Kolla action or runtime replacement occurred.
+- Security and residue: Owner/completion markers and the build log are
+  root-owned mode 0600 on controller-1. The local/remote source archives are
+  absent and no image was published.
+- Idempotency: Repeated `build` returned from the accepted marker. Image
+  ID/creation values on all three nodes plus owner/completion/build-log inode,
+  size, timestamp, ownership, and mode remained identical; no rebuild or
+  transfer occurred.
+- Next exact action: Add and commit a serial-one rolling-upgrade harness with
+  a temporary owner-only globals overlay selecting only the update Coffer
+  image. Keep Distribution unchanged, continuously prove tenant digest and
+  isolation, require one host at a time, and preserve the old image plus an
+  exact compatible rollback path before the live Galera retry probe.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1793,6 +1817,7 @@ promotion while ADR 0006 remains blocked.
 | Kolla production profile preparation | exact certificate/globals mutation, rollback, idempotency, no runtime reload | passed; source prepared and runtime unchanged |
 | Kolla production profile reconfigure | internal/external TLS, single frontend, catalog, quorums, logs, absent Coffer | passed idempotently; 36 healthy containers |
 | Coffer image build/distribution | pins, owner/resume boundary, direct transfer, identical IDs, idempotency | passed; two exact images on three controllers, runtime absent |
+| Coffer quota-retry update image | pinned archive/source, identical IDs, retained rollback, runtime unchanged | passed; update image on 3 controllers, metadata-idempotent replay |
 | Coffer companion preparation | inventory, inputs, direct RGW transfer, rollback, idempotency, absent runtime | passed; complete marker and integrated ready gate accepted |
 | Coffer HA baseline | companion deploy and replicated service acceptance | passed; 9 healthy replicas, 18 sockets, full TLS/routing and log-hygiene gates |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | passed for daemon and storage-VM loss |

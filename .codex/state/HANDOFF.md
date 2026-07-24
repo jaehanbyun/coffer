@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0018 active; update image built, partial marker recovery pending
+- Status: plan 0018 active; quota-retry update image accepted
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -952,10 +952,24 @@ marker-idempotent replay passed.
   three-attempt bound are exact; all current containers remain unchanged.
 - Added only stdin attachment to the no-network, remove-on-exit validation
   container. Exact hash validation still occurs inside the built image.
-- Exact next action: commit this isolated validator correction, then resume
-  only the same update-image `build`. It must not rebuild or transfer an
-  already identical image; require source validation, a nonempty exact image
-  ID, unchanged runtime, and idempotent replay.
+- Preserved that correction in `cf40796` and resumed the same phase without a
+  rebuild. All three controllers now carry update image ID
+  `sha256:bf728bc1938d7f68a38fef16600d1c7a81bc0181863425736941fc0228bacb66`.
+  The embedded installed module hashes and three-attempt bound pass; the
+  original image ID remains
+  `sha256:336140d2d9b552b8635a3a742c5ca30a95173ccfb4459a46e2430b8ef0b007d4`.
+- Every running API/edge/registry retained its original recorded image ID and
+  healthy state. The mode-0600 owner/completion markers and build log are
+  controller-1-only, local/remote archive transfers are absent, and no image
+  was published.
+- Repeated `build` returned from the accepted marker. All three image
+  ID/creation values plus owner/completion/build-log inode, size, timestamp,
+  ownership, and mode were unchanged; no rebuild or transfer occurred.
+- Exact next action: add a committed serial-one Coffer rolling-upgrade harness.
+  It must use a temporary owner-only globals overlay selecting only the update
+  Coffer image, keep Distribution unchanged, continuously probe tenant
+  digest/isolation, require one host at a time, and retain the old image and an
+  exact compatible rollback path before any live Galera retry probe.
 
 ## Plan 0017 Completion
 
@@ -1541,9 +1555,9 @@ marker-idempotent replay passed.
 
 ## Exact Next Action
 
-Commit the exact partial-state correction and resume only the update-image
-`build`. Validate and atomically repair the empty completion ID without
-rebuilding or changing the current runtime.
+Add and locally validate a serial-one Coffer rolling-upgrade harness using the
+accepted update image and an owner-only temporary globals overlay. Do not
+invoke it until its live mutation-free preflight and rollback gates pass.
 
 ## After This Work Package
 
