@@ -145,6 +145,7 @@ def test_multinode_tenant_acceptance_is_owner_local_and_fail_closed() -> None:
     assert 'client_rc="$?"' in guest
     assert "checkpoint=docker-push" in guest
     assert "checkpoint=resumable-finalize" in guest
+    assert "checkpoint=status manifest=" in guest
     assert guest.count("sudo -u ubuntu ssh -n") == 4
     assert ". + {acceptance: $evidence[0]}" in guest
     assert ".acceptance.manifest_digest" in guest

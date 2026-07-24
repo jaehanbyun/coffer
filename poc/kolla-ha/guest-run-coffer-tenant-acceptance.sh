@@ -955,6 +955,8 @@ project_b_status="$(
         --head \
         "${registry_url}/v2/${repository}/manifests/${expected_manifest}"
 )"
+printf 'coffer_tenant_owner checkpoint=status manifest=%s blob=%s project_b=%s\n' \
+    "${manifest_status}" "${blob_status}" "${project_b_status}" >&2
 test "${manifest_status}" = 200
 test "${blob_status}" = 200
 test "${project_b_status}" = 401
