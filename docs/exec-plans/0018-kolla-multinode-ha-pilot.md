@@ -1327,6 +1327,30 @@ promotion while ADR 0006 remains blocked.
   credential scan, second complete-ready gate, zero runtime/database/catalog,
   and healthy storage boundary before deploy.
 
+### 2026-07-24 — Companion prechecks accepted idempotently
+
+- Completed: Preserved the guarded lifecycle harness in commit `1f14cce` and
+  invoked only `prechecks`. Controller-1 completed 19 tasks, controller-2/3
+  completed 13 each, and localhost completed three; every recap has zero
+  changed, unreachable, failed, rescued, or ignored tasks.
+- Log and ordering evidence: The prechecks log and completion marker are
+  root-only. The log passed raw/URL/base64 Kolla and companion credential
+  checks plus private-key and Authorization checks. Deploy remains unmarked
+  and uninvoked.
+- Stop-boundary evidence: All three controllers still have zero Coffer
+  containers, listeners, and rendered service configs. The independent
+  complete-ready gate confirms database/user and Keystone service/user absent,
+  exact images/inputs/TLS intact, 36 Kolla containers healthy, the private
+  sentinel readable, and no temporary residue.
+- Idempotency: A repeated prechecks invocation returned `idempotent=yes`.
+  Server-side metadata for the existing marker and log was unchanged, and the
+  same ready plus external-storage gates passed.
+- Next exact action: Commit this accepted prechecks checkpoint locally, then
+  invoke only `run-coffer-companion-lifecycle.sh deploy
+  jh.byun@100.123.168.66`. On failure, keep the deploy marker absent, preserve
+  the root-only log, audit exact database/catalog/config/container state, and
+  correct only the first demonstrated cause.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1400,13 +1424,14 @@ promotion while ADR 0006 remains blocked.
   inputs, verified backend/RGW TLS, and durable owner/input/completion markers
   pass both integrated ready and repeated metadata-idempotency checks. Coffer
   runtime, database, catalog, and HAProxy routes remain absent.
-- Exact next action: Commit the validated guarded companion lifecycle harness,
-  then invoke only its `prechecks` action. Do not run `deploy` until the
-  prechecks marker, root-only secret-free log, independent complete-ready
-  gate, and absent runtime/database/catalog boundary pass.
-- First file or command: Stage the two lifecycle scripts, this plan,
-  `poc/kolla-ha/README.md`, and `.codex/state/HANDOFF.md`; inspect and commit
-  that atomic harness milestone, then invoke only the `prechecks` action.
+- Exact next action: Commit the accepted prechecks checkpoint, then invoke
+  only the committed companion `deploy` action. Do not proceed to tenant or
+  fault tests until the deploy marker, replicated health, schema/catalog,
+  sole-ingress TLS, private-port denial, log scan, and external RGW gates pass.
+- First file or command: Stage this plan and `.codex/state/HANDOFF.md`,
+  inspect and commit the prechecks evidence, then invoke only
+  `poc/kolla-ha/run-coffer-companion-lifecycle.sh deploy
+  jh.byun@100.123.168.66`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

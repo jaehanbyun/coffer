@@ -645,6 +645,23 @@ signed Distribution v3.1.1 binary.
   invoke only `poc/kolla-ha/run-coffer-companion-lifecycle.sh prechecks
   jh.byun@100.123.168.66`. Do not invoke deploy until the prechecks marker,
   log scan, and independent absent-state boundary pass.
+- Preserved the guarded lifecycle in local commit `1f14cce` and invoked only
+  `prechecks`. The three controller recaps are `changed=0`, `unreachable=0`,
+  and `failed=0`; the secret-free root-only log and prechecks marker were
+  accepted.
+- Independent post-precheck `ready` still reports zero Coffer containers,
+  listeners, rendered configs, database/user, Keystone service/user, and
+  temporary residue. All 36 Kolla containers and external Ceph/RGW remain
+  healthy.
+- A repeated `prechecks` returned `idempotent=yes`; server-side marker/log
+  metadata was unchanged, and the same independent ready/storage boundaries
+  passed.
+- Exact next action: record and locally commit the accepted prechecks
+  checkpoint, then invoke only
+  `poc/kolla-ha/run-coffer-companion-lifecycle.sh deploy
+  jh.byun@100.123.168.66`. If deployment or acceptance fails, preserve its
+  root-only log, require the deploy marker to remain absent, audit exact
+  partial state, and do not run another lifecycle action until corrected.
 
 ## Plan 0017 Completion
 
@@ -1230,12 +1247,11 @@ signed Distribution v3.1.1 binary.
 
 ## Exact Next Action
 
-Commit `poc/kolla-ha/run-coffer-companion-lifecycle.sh`, its guest helper, and
-the updated durable state. Then invoke only `prechecks` through
-`jh.byun@100.123.168.66`. Require a root-only marker and secret-free log,
-repeat the complete companion ready gate, and prove zero Coffer runtime,
-database, catalog, or rendered service state before implementing or invoking
-deploy corrections.
+Commit the accepted prechecks evidence, then invoke only the guarded companion
+`deploy` action through `jh.byun@100.123.168.66`. Require the deploy and Kolla
+check logs to remain root-only and secret-free; do not create the deploy marker
+until nine healthy replicas/listeners, migration head, catalog, verified TLS,
+sole external edge, private-port denial, and external RGW all pass.
 
 ## After This Work Package
 
