@@ -128,10 +128,10 @@ wait_target_healthy() {
         state="$(
             ssh "${ssh_options[@]}" "ubuntu@${target_address}" \
                 sudo docker inspect \
-                -f '{{.State.Running}}|{{.State.Health.Status}}' \
+                -f '{{.State.Running}}:{{.State.Health.Status}}' \
                 "${service}" 2>/dev/null || true
         )"
-        if test "${state}" = "true|healthy"; then
+        if test "${state}" = "true:healthy"; then
             return 0
         fi
         sleep 2

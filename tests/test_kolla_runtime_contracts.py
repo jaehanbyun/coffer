@@ -198,6 +198,8 @@ def test_multinode_service_fault_targets_only_controller_three_containers() -> (
     assert "for attempt in 1 2 3" in script
     assert "for convergence_attempt in 1 2 3" in script
     assert "trap restore_current EXIT" in script
+    assert "true:healthy" in script
+    assert "true|healthy" not in script
     assert 'temporary="${marker}.tmp.$$"' in script
     assert (
         "'{{.HostConfig.RestartPolicy.Name}}' \"${container}\")\" = no"
