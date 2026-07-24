@@ -2007,6 +2007,38 @@ promotion while ADR 0006 remains blocked.
   bounded-equivalent claims, actual lease recovery/fencing, final residue
   zero, complete acceptance, and idempotent replay.
 
+### 2026-07-25 — Separate-worker Galera fencing accepted
+
+- Completed: Preserved the cursor correction in `83c223d` and resumed the
+  owner-only partial run. It performed allowlisted cleanup before recreating
+  candidates. Controller-1 and controller-2 ultimately claimed 1+2 unique
+  rows with one bounded retry after MariaDB returned a safe transient empty
+  batch; both worker IDs, all three reservation IDs, and all three claim tokens
+  were unique with no overlap.
+- Lease/fence evidence: Controller-2 acquired the separate two-second lease
+  and exited. Controller-1 proved a pre-expiry logical claim remained blocked,
+  waited through real wall-clock expiry, acquired a different token, and
+  received `StaleReconciliationClaim` when it attempted the abandoned token.
+  The replacement token released the reservation and restored quota.
+- Recovery and service evidence: Child-first cleanup plus both controller
+  helpers reported aggregate residue zero and retry bound 3. The ordinary
+  tenant database write/read/restore, manifest/blob, project-B denial,
+  runtime-log hygiene, three-node Galera/ProxySQL, HAProxy, and external RGW
+  gates all passed before completion.
+- Replay: The root-only completion marker was written after final acceptance.
+  Repeated `run` executed no setup, claim, wait, or mutation; both controller
+  preflights reconfirmed residue zero and marker inode, size, timestamp,
+  ownership, group, and mode remained identical.
+- Scope statement: This proves real shared-Galera claims, lease expiry, and
+  fencing from separate controller processes. It does not enable the periodic
+  reconciler or decide its production maintenance identity.
+- Next exact action: Inspect the current signing-key/JWKS materialization and
+  token-validation contracts, then add a bounded overlapping-key rotation
+  harness. It must retain old-token validity during overlap across all edge
+  and Distribution replicas, switch the signer to a new key, retire the old
+  public key only after its maximum token lifetime, prove old-token rejection
+  and new-token success, and keep an exact rollback path.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2041,7 +2073,7 @@ promotion while ADR 0006 remains blocked.
 | Kolla HAProxy fault | active-owner stop, paired VIP movement, tenant probes, restore | passed; VIP moved controller-3 to controller-2, 3/3 bounded probes, idempotent replay |
 | Galera member fault | controller-3 pause, size-2 writes, exact unpause/rejoin | passed; 3/3 quota write/read/restore probes, size-3 recovery, idempotent replay |
 | Tenant credential renewal | two-phase finite replacement, data continuity, residue, replay | passed; 2 credentials, digest/isolation retained, owner-only metadata stable |
-| Fault and recovery matrix | Galera concurrency/retry and reconciler faults plus restore checks | Galera concurrency/retry passed; reconciler pending |
+| Fault and recovery matrix | Galera concurrency/retry and reconciler faults plus restore checks | passed; periodic maintenance identity remains a production decision |
 | Upgrade, key rotation, rollback | bounded rolling rehearsals | upgrade passed; key overlap and rollback pending |
 | Cleanup and repository regression | exact remote/local residue and focused checks | pending |
 

@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0018 active; real-Galera quota concurrency/retry accepted
+- Status: plan 0018 active; separate-worker Galera fencing accepted
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -1110,6 +1110,27 @@ marker-idempotent replay passed.
   owned-partial reconciler `run`; require cleanup-before-resume, disjoint
   claims, real lease expiry and fencing, residue zero, final tenant/Galera
   acceptance, and idempotent replay.
+- Preserved the correction in `83c223d` and resumed the owner-only partial
+  run. Cleanup ran before setup; controller-1/controller-2 claimed 1+2 unique
+  reservations with one bounded retry after a safe empty batch. Both worker
+  IDs and all reservation/token values were distinct with no overlap.
+- Controller-2 acquired and abandoned the separate real two-second lease.
+  Controller-1 proved pre-expiry blocking, recovered with a different token
+  after wall-clock expiry, fenced the old token with
+  `StaleReconciliationClaim`, and restored quota with the replacement.
+- Both helpers reported retry bound 3 and aggregate residue zero. The tenant
+  database write/read/restore, manifest/blob, project-B denial, logs,
+  Galera/ProxySQL, HAProxy, and RGW gates passed before the root-only completion
+  marker was written.
+- Repeated `run` skipped all worker mutation, reconfirmed both helpers clean,
+  and retained identical inode/size/timestamp/ownership/group/mode metadata for
+  owner and completion markers.
+- Scope remains bounded: periodic reconciliation is still disabled and its
+  production maintenance identity remains unresolved.
+- Exact next action: inspect signing-key/JWKS materialization and token
+  validation, then implement a bounded overlapping-key rotation with
+  old/new-token evidence across all replicas, maximum-lifetime retirement,
+  exact rollback material, log/secret hygiene, and final tenant acceptance.
 
 ## Plan 0017 Completion
 
@@ -1695,12 +1716,11 @@ marker-idempotent replay passed.
 
 ## Exact Next Action
 
-Commit the reconciler cursor-precision correction, then invoke only
-`poc/kolla-ha/test-coffer-reconciler-fencing.sh run
-jh.byun@100.123.168.66` from its owner-only partial state. It must clean before
-resume, produce disjoint controller-1/controller-2 claims, recover the actual
-two-second lease, deny the stale token, leave aggregate row residue zero, and
-pass tenant/Galera plus owner-only marker gates.
+Read the deployed Coffer signing-key/JWKS inputs, token issuer/verifier code,
+and accepted Stage 4 token tests without printing key material. Then implement
+a guarded Stage 5 overlapping-key rotation harness with old/new token evidence
+across every edge/Distribution replica, maximum-lifetime retirement, rollback
+material, and full secret/log/tenant gates.
 
 ## After This Work Package
 
