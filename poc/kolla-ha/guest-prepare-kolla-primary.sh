@@ -173,6 +173,7 @@ install_config() {
             "${config_root}/passwords.yml"
         trap - EXIT
     fi
+    chmod 0600 "${config_root}/passwords.yml"
     test "$(stat -c '%U:%G:%a' "${config_root}/passwords.yml")" = \
         root:root:600
     "${venv}/bin/python3" - "${config_root}/passwords.yml" <<'PY'
