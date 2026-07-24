@@ -208,3 +208,24 @@ def test_multinode_service_fault_targets_only_controller_three_containers() -> (
     assert "docker rm" not in script
     assert "virsh" not in script
     assert "rm -rf" not in script
+
+
+def test_multinode_haproxy_fault_targets_only_the_active_vip_owner() -> None:
+    script = (
+        ROOT / "poc" / "kolla-ha" / "test-kolla-haproxy-failover.sh"
+    ).read_text(encoding="utf-8")
+
+    assert "{preflight|run}" in script
+    assert "192.168.254.10/32" in script
+    assert "192.168.252.10/32" in script
+    assert "wait_vip_moved" in script
+    assert "docker stop --time 15 haproxy" in script
+    assert "docker start haproxy" in script
+    assert "data-status" in script
+    assert "for attempt in 1 2 3" in script
+    assert "trap restore_current EXIT" in script
+    assert "docker stop --time 15 keepalived" not in script
+    assert "docker start keepalived" not in script
+    assert "docker rm" not in script
+    assert "virsh" not in script
+    assert "rm -rf" not in script
