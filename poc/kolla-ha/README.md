@@ -226,3 +226,27 @@ lifecycle markers, changes only `rabbitmq_monitoring_password` in the
 root-only Kolla password file, creates no backup, and never outputs either
 value. The control plane must immediately be reconciled by rerunning the
 bounded `deploy` phase; rotation alone is not an accepted steady state.
+
+Before preparing or deploying Coffer, preserve the exact clean boundary:
+
+```text
+poc/kolla-ha/preflight-coffer-ha.sh clean <ssh-target>
+poc/kolla-ha/preflight-coffer-ha.sh ready <ssh-target>
+```
+
+`clean` requires the same twelve healthy Kolla baseline containers on every
+controller and rejects any Coffer container, listener, service configuration,
+HAProxy route, image, Galera schema/user, Keystone service/user, companion
+inventory group, source checkout, or owner-controlled input. It also proves
+the three-node external RGW healthy, requires its credentials and public CA
+only on storage-1, and reads the retained 4-MiB sentinel without changing it.
+
+`ready` is a later pre-deploy gate. It retains the zero-runtime, zero-database,
+and zero-catalog requirements while additionally requiring identical
+`localhost/coffer:stage5` and `localhost/coffer-registry:stage5` image IDs on
+all controllers, the published product source commit, three-host companion
+groups, internal/external Kolla TLS, the single external frontend on port
+443, the `registry.coffer.stage5` certificate name, complete verified backend
+TLS recipients, and exact owner-only Coffer inputs. It must fail before the
+companion role runs if any recipient, image, group, certificate, RGW input, or
+source pin differs.

@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; external RGW and Kolla control-plane HA baselines healthy
+- Status: plan 0018 active; Coffer HA clean preflight passed
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -428,12 +428,25 @@ signed Distribution v3.1.1 binary.
   token with internal/public identity endpoints.
 - External Ceph/RGW remains at three-MON quorum, three up/in OSDs, three RGWs,
   two ingress pairs, zero inactive/unclean PGs, and `HEALTH_OK`.
-- Exact next action: inspect the existing companion-role and Stage 4 immutable
-  image contracts read-only, then implement a mutation-free Stage 5 Coffer HA
-  preflight. It must resolve x86_64 functional image digests through the
-  independent bootstrap path, exact service inventory/ports, external RGW
-  inputs, Galera database ownership, TLS recipients, and zero existing Coffer
-  state before any companion deploy.
+- Added and passed the mutation-free Stage 5 Coffer HA `clean|ready`
+  preflight. Clean state proves the exact twelve healthy Kolla containers on
+  each controller and zero Coffer runtime, listeners, configuration, routes,
+  images, Galera schema/user, Keystone service/user, companion inventory,
+  source, or input state. RGW remains fully healthy; owner-only credentials
+  and its CA remain storage-1-only; the 4-MiB sentinel digest is unchanged.
+- The ready contract pins published source commit
+  `4f1ff7ddfd89d21f17ab7cbb531c335e85d94542`, identical x86_64 image IDs,
+  three-host groups, production TLS/frontend settings, backend certificate
+  recipients, exact RGW inputs, and owner-only files while retaining zero
+  runtime/database/catalog state. A live ready run fails closed at the first
+  missing image, as expected.
+- Corrected two read-only preflight assumptions without remote mutation:
+  OpenSSL hostname/IP acceptance now uses chain-aware `openssl verify`, and
+  only storage-1 is required to retain the RGW CA/credential source.
+- Exact next action: implement and statically validate
+  `poc/kolla-ha/prepare-kolla-production-profile.sh`. It may prepare only the
+  internal/external Kolla certificates and two production frontend globals;
+  it must stop before Kolla reconfigure or any Coffer/image/input mutation.
 
 ## Plan 0017 Completion
 
@@ -1019,13 +1032,14 @@ signed Distribution v3.1.1 binary.
 
 ## Exact Next Action
 
-Implement `poc/production-images/` with immutable Kolla, Ubuntu, Distribution,
-provenance, and scanner pins, then run its candidate build/security/runtime
-qualification and verify that unresolved upstream binary findings fail closed.
+Implement `poc/kolla-ha/prepare-kolla-production-profile.sh` with exact
+controller-1 ownership, short-lived internal/external certificates, an
+external SAN for `registry.coffer.stage5`, allowlisted globals changes,
+idempotency, rollback, and an explicit no-reconfigure/no-Coffer stop gate.
 
 ## After This Work Package
 
-Plan 0017 may accept a production-candidate image only if every ADR 0006 gate
-passes. Otherwise it must close with a reproducible blocked baseline and exact
-upstream dependencies. Multinode/HA and upstream integration remain later
-independent packages.
+Reconfigure only the Kolla control plane through the guarded lifecycle path,
+prove internal and external trusted TLS plus denials, then build and distribute
+the functional x86_64 pilot images through the independent bootstrap path.
+The signed Distribution v3.1.1 input remains production-blocked.

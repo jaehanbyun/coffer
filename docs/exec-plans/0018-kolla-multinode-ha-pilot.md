@@ -961,6 +961,46 @@ promotion while ADR 0006 remains blocked.
   bootstrap path and prove exact service groups, ports, RGW inputs, database
   ownership, TLS recipients, and zero pre-existing Coffer state before deploy.
 
+### 2026-07-24 — Coffer HA clean/ready preflight passed
+
+- Completed: Added separate controller-node, controller-owner, and storage
+  input checks behind `preflight-coffer-ha.sh clean|ready`. The harness first
+  requires the accepted Kolla and Ceph/RGW baselines, then validates exact
+  Coffer state and recipients without installing, copying, creating, or
+  changing remote state.
+- Clean evidence: All three controllers retain the same twelve running/healthy
+  Kolla containers and have zero Coffer containers, reserved-port listeners,
+  service configuration, HAProxy routes, or pilot images. Galera has neither
+  a `coffer` schema nor user; Keystone has neither an `oci-registry` service
+  nor `coffer` user; and companion inventory, source, inputs, internal TLS,
+  and the single external frontend remain absent.
+- Storage evidence: Three MONs, three up/in OSDs, three RGWs, two ingress
+  pairs, clean PGs, and `HEALTH_OK` remain intact. Owner-only RGW inputs and
+  its public CA exist only on storage-1, storage-2/3 retain no credential or
+  CA directory, and the private 4-MiB sentinel still has SHA-256
+  `543e845c8c7185da3bc04a566b068274825c837a740d029726b169481b919e50`.
+- Ready contract: Before companion deploy, all controllers must have identical
+  Stage 5 Coffer/Distribution image IDs; controller-1 must own source commit
+  `4f1ff7ddfd89d21f17ab7cbb531c335e85d94542`, exact three-host Coffer groups,
+  production globals, verified internal/external/backend certificates and
+  exact owner-only inputs. Database/catalog/runtime must still be absent.
+- Failure corrections: The first live run exposed that `openssl x509
+  -checkhost` reports a mismatch with exit zero; identity checks now use
+  chain-aware `openssl verify -verify_hostname/-verify_ip`. The second run
+  corrected an overbroad secondary-storage CA requirement to the actual
+  primary-only recipient model. Both stopped without remote mutation.
+  A final `ready` invocation fails closed at the first missing pilot image, as
+  expected before preparation.
+- Verification: Bash syntax, ShellCheck, Python compilation, invalid
+  action/target refusal, mutation-surface review, Coffer harness Gitleaks,
+  diff checks, live `clean`, and live negative `ready` pass.
+- Next exact action: Implement
+  `poc/kolla-ha/prepare-kolla-production-profile.sh`. It must generate only
+  the missing internal VIP certificate, replace the short-lived external
+  certificate with one that also covers `registry.coffer.stage5`, enable
+  internal TLS and Kolla's single external frontend, and stop before any Kolla
+  reconfigure or Coffer/image/input mutation.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -982,8 +1022,9 @@ promotion while ADR 0006 remains blocked.
 | Kolla prepare harness | owner/recipient boundaries, pinned tooling, secrets, stop gate | passed live and independently audited; runtime/VIPs remain absent |
 | Kolla lifecycle harness | phase allowlist, ordering, timeouts, logs, markers, status, storage boundary | passed after no-log guard, credential rotation, and owner-local VIP probe |
 | Kolla/Galera baseline | multinode deploy, quorums, identity, TLS, and secret acceptance | passed; 36 healthy containers, Galera/RabbitMQ three-node quorums |
+| Coffer HA pre-deploy boundary | clean/ready controller, DB, catalog, TLS, image, and RGW recipient gates | clean passed live; ready fails closed before preparation |
 | Coffer HA baseline | companion deploy and replicated service acceptance | pending |
-| External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | pending |
+| External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | passed for daemon and storage-VM loss |
 | OCI and isolation | two-project clients through sole external edge | pending |
 | Fault and recovery matrix | allowlisted per-replica failures and restore checks | pending |
 | Upgrade, key rotation, rollback | bounded rolling rehearsals | pending |
@@ -1016,14 +1057,18 @@ promotion while ADR 0006 remains blocked.
   across one RGW and one active-ingress fault. All services are restored. The
   exact storage-3 VM power-loss cycle and full recovery passed. All services
   are healthy and all six domains are running. The three-controller Kolla
-  inventory and clean-state preflight pass without mutation. Controller
-  preparation and its independent recipient/secret/tooling/no-runtime audit
-  pass; Kolla bootstrap has not run and both Kolla VIPs remain absent.
-- Exact next action: Implement and pass the mutation-free Stage 5 Coffer HA
-  deployment preflight.
-- First file or command:
-  Read `poc/kolla-ansible-role/` and the completed Stage 4 image/deploy
-  contracts, then create `poc/kolla-ha/preflight-coffer-ha.sh`.
+  inventory and lifecycle are deployed with three-node Galera/RabbitMQ
+  quorums, 36 healthy containers, and one owner for each Kolla VIP. The
+  mutation-free Coffer `clean` boundary passes across controller runtime,
+  Galera, Keystone, companion inputs, and the external RGW fixture; `ready`
+  correctly fails before the still-unprepared pilot images.
+- Exact next action: Implement and statically validate
+  `poc/kolla-ha/prepare-kolla-production-profile.sh`; do not invoke it until
+  its exact certificate recipients, globals allowlist, rollback behavior, and
+  no-Kolla-reconfigure stop gate pass.
+- First file or command: Read the pinned Kolla certificate and single-frontend
+  contracts, then create
+  `poc/kolla-ha/prepare-kolla-production-profile.sh`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an
