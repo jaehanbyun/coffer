@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0018 active; quota-retry update image accepted
+- Status: plan 0018 active; rolling-upgrade preflight passed
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -970,6 +970,25 @@ marker-idempotent replay passed.
   Coffer image, keep Distribution unchanged, continuously probe tenant
   digest/isolation, require one host at a time, and retain the old image and an
   exact compatible rollback path before any live Galera retry probe.
+- Added `preflight|status|upgrade|rollback` rolling-update actions. The guest
+  admits only recorded old/update Coffer IDs, requires Distribution to retain
+  its old ID, validates `coffer_image_full` as the sole semantic change in a
+  mode-0600 `/run` overlay, and invokes the companion upgrade play with
+  `kolla_serial=1`. The persistent globals file is never changed.
+- The outer harness runs bounded tenant digest/blob/project-B probes while the
+  Ansible process is alive, requires at least one in-flight and three total
+  successful probes, and performs the full companion and tenant acceptance
+  gates afterward. The same state machine can resume an old/new partial mix
+  and has an exact serial rollback marker/action.
+- Bash syntax, ShellCheck, twelve focused runtime-contract tests, diff checks,
+  and scoped Gitleaks pass. Live mutation-free preflight reports current=3,
+  updated=0, no rolling root or temporary overlay, retained digest/isolation,
+  nine healthy services, and healthy external RGW.
+- Exact next action: commit the rolling harness locally, then invoke only
+  `poc/kolla-ha/run-coffer-rolling-update.sh upgrade
+  jh.byun@100.123.168.66`. Require serial image transitions, continuous
+  tenant probes, final current=0/updated=3, unchanged Distribution and
+  persistent globals, owner-only logs/markers, and no temporary residue.
 
 ## Plan 0017 Completion
 
@@ -1555,9 +1574,9 @@ marker-idempotent replay passed.
 
 ## Exact Next Action
 
-Add and locally validate a serial-one Coffer rolling-upgrade harness using the
-accepted update image and an owner-only temporary globals overlay. Do not
-invoke it until its live mutation-free preflight and rollback gates pass.
+Commit the validated serial-one rolling-upgrade harness, then invoke only its
+`upgrade` action and require continuous tenant probes plus exact final image,
+secret, log, and residue gates.
 
 ## After This Work Package
 

@@ -1792,6 +1792,30 @@ promotion while ADR 0006 remains blocked.
   isolation, require one host at a time, and preserve the old image plus an
   exact compatible rollback path before the live Galera retry probe.
 
+### 2026-07-25 — Serial rolling-upgrade harness validated
+
+- Completed locally: Added guarded `preflight|status|upgrade|rollback`
+  actions. Only recorded old/update Coffer image IDs are admitted; Distribution
+  must retain its original image. An owner-only `/run` globals overlay changes
+  only `coffer_image_full`, and the companion `upgrade` action receives
+  `kolla_serial=1`; persistent globals remain unchanged.
+- Availability and recovery: While Ansible is active, the outer harness
+  repeatedly proves the accepted manifest/blob, project-B denial, runtime-log
+  hygiene, and client cleanup. It requires at least one in-flight and three
+  total probes. An exact old/new mixed state can resume, and the retained old
+  image is wired to a separately marked serial rollback action.
+- Verification: Bash syntax, ShellCheck, twelve focused runtime-contract
+  tests, diff checks, and scoped Gitleaks pass. Live mutation-free preflight
+  returns current=3/updated=0, retains tenant digest/isolation, finds no
+  rolling root or temporary overlay, and passes all service/RGW health gates.
+- Safety: No Ansible action, image replacement, container restart,
+  configuration, database, identity, or object mutation has run.
+- Next exact action: Commit the rolling harness locally, then invoke only its
+  exact `upgrade` action. Require serial transitions, successful in-flight
+  tenant probes, final current=0/updated=3, unchanged Distribution/persistent
+  globals, owner-only logs/markers, and zero temporary residue before the live
+  Galera transaction probe.
+
 ## Verification
 
 | Check | Command or method | Result |

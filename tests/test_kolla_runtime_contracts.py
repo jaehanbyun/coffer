@@ -180,6 +180,41 @@ def test_multinode_update_image_is_pinned_and_keeps_runtime_unchanged() -> None:
     assert '"${update_root}"/source.*' in guest
 
 
+def test_multinode_rolling_update_is_serial_and_has_exact_rollback() -> None:
+    outer = (
+        ROOT / "poc" / "kolla-ha" / "run-coffer-rolling-update.sh"
+    ).read_text(encoding="utf-8")
+    guest = (
+        ROOT
+        / "poc"
+        / "kolla-ha"
+        / "guest-run-coffer-rolling-update.sh"
+    ).read_text(encoding="utf-8")
+
+    assert "{preflight|status|upgrade|rollback}" in outer
+    assert "{preflight|status|upgrade|rollback}" in guest
+    assert "run-coffer-companion-lifecycle.sh" in outer
+    assert "run-coffer-tenant-acceptance.sh" in outer
+    assert "data-status" in outer
+    assert "during_probe_count" in outer
+    assert "test \"${during_probe_count}\" -ge 1" in outer
+    assert "localhost/coffer:stage5-quota-retry" in guest
+    assert 'current_image="localhost/coffer:stage5"' in guest
+    assert 'registry_image="localhost/coffer-registry:stage5"' in guest
+    assert "kolla_serial=1" in guest
+    assert '\"${entrypoint}\" upgrade' in guest
+    assert "coffer-stage5-rolling-globals.yml" in guest
+    assert 'changed != expected_changed' in guest
+    assert "rolling globals changed outside the Coffer image" in guest
+    assert "current=0 updated=3" in guest
+    assert "current=3 updated=0" in guest
+    assert "rollback.complete" in guest
+    assert "docker stop" not in guest
+    assert "docker restart" not in guest
+    assert "docker image rm" not in guest
+    assert "virsh" not in guest
+
+
 def test_multinode_tenant_acceptance_is_owner_local_and_fail_closed() -> None:
     outer = (
         ROOT / "poc" / "kolla-ha" / "run-coffer-tenant-acceptance.sh"

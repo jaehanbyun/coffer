@@ -330,6 +330,25 @@ running API/edge/registry container to retain its original image ID and health;
 the original `localhost/coffer:stage5` image remains the rollback input. This
 phase creates no container and performs no Kolla action.
 
+After the update image is accepted, use the guarded serial rolling path:
+
+```text
+poc/kolla-ha/run-coffer-rolling-update.sh preflight <ssh-target>
+poc/kolla-ha/run-coffer-rolling-update.sh status <ssh-target>
+poc/kolla-ha/run-coffer-rolling-update.sh upgrade <ssh-target>
+poc/kolla-ha/run-coffer-rolling-update.sh rollback <ssh-target>
+```
+
+The guest phase writes only a root-owned `/run` globals copy, verifies
+`coffer_image_full` is its sole semantic change, and invokes the companion
+`upgrade` action with `kolla_serial=1`. API and edge on each controller must
+use either the recorded old or update image ID; Distribution must always keep
+its original ID. The outer phase repeatedly proves the accepted manifest,
+blob, project-B denial, runtime-log hygiene, and owner-client cleanup while
+Ansible is active. The original image remains installed and the same harness
+provides exact serial rollback. The persistent Coffer globals file is never
+modified.
+
 Prepare the companion inventory and owner-controlled inputs only after the
 image phase is accepted:
 
