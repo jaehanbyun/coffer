@@ -1764,14 +1764,13 @@ residue is absent, and replay preserved completion-marker metadata.
 
 ## Exact Next Action
 
-Validate and commit the per-controller `--limit` rolling correction. The
-audited live state has all three API/edge pairs on the original compatible
-image, new signer/new-only JWKS preserved, no final/rehearsal rollback marker,
-and no temporary overlay. Two repeatable 503 windows were traced to one
-handler flush restarting multiple/all replicas despite play-level serial.
-Invoke only the public guarded `rollback` action: it must restore the update
-image and roll back again through six separately limited controller phases,
-wait for each host's desired image and health before continuing, retain zero
+Validate and commit the limited image-only skip-tag correction. The first
+per-controller attempt failed before mutation because HAProxy rendering needs
+facts for non-limited hosts. Live state remains three original compatible
+API/edge pairs with new signer/new-only JWKS, no final/rehearsal marker, and
+no temporary overlay. Rerun only public guarded `rollback`; each of the six
+separately limited Coffer role phases must skip unchanged load-balancer and
+observability plays, wait for its host's desired image/health, retain zero
 fully failed tenant probe windows, and finalize only after complete
 service/tenant/storage gates.
 

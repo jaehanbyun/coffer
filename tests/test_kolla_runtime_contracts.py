@@ -206,6 +206,7 @@ def test_multinode_rolling_update_is_serial_and_has_exact_rollback() -> None:
     assert 'registry_image="localhost/coffer-registry:stage5"' in guest
     assert "kolla_serial=1" in guest
     assert '--limit "${hostnames[${index}]}"' in guest
+    assert "--skip-tags haproxy,loadbalancer,fluentd,cron,prometheus" in guest
     assert "wait_node_state" in guest
     assert "for index in \"${!hostnames[@]}\"" in guest
     assert '\"${entrypoint}\" upgrade' in guest

@@ -2336,6 +2336,24 @@ promotion while ADR 0006 remains blocked.
   zero fully failed tenant probe windows, final marker creation, and complete
   service/key/storage acceptance.
 
+### 2026-07-25 — Limited load-balancer render failed before mutation
+
+- Failure: The first per-controller re-upgrade invocation stopped with Kolla
+  rc 2 before any container change. HAProxy's shared template iterates every
+  backend host and requires gathered `hostname` facts, while `--limit` had
+  intentionally gathered facts for only controller-1.
+- Safety evidence: Both tenant probes passed, the update/rollback images and
+  key state did not change, no rehearsal marker or temporary overlay exists,
+  and the owner-only diagnostic log contains only the expected censored
+  template failure.
+- Correction: Image-only per-controller invocations now skip the unchanged
+  HAProxy/loadbalancer, Fluentd, cron, and Prometheus plays. Only the Coffer
+  role is admitted on the one limited host; load-balancer and observability
+  configuration were already accepted and are not image-dependent.
+- Next exact action: Validate and commit the scoped skip-tag correction, then
+  rerun only public `rollback` from the unchanged original-image/unaccepted
+  boundary.
+
 ## Verification
 
 | Check | Command or method | Result |

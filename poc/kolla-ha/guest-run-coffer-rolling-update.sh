@@ -320,6 +320,7 @@ run_serial_upgrade() {
             --configdir "${config_root}" \
             --passwords "${passwords}" \
             --limit "${hostnames[${index}]}" \
+            --skip-tags haproxy,loadbalancer,fluentd,cron,prometheus \
             -e "@${temporary_globals}" \
             -e kolla_serial=1 \
             >>"${log}" 2>&1
