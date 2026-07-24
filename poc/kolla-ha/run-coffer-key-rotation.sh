@@ -82,6 +82,14 @@ wait "${guest_pid}"
 guest_rc="$?"
 set -e
 test "${guest_rc}" -eq 0
+for _ in 1 2 3; do
+    test "${probes}" -ge 3 && break
+    if probe_tenant; then
+        probes="$((probes + 1))"
+    else
+        probe_failure=1
+    fi
+done
 test "${probe_failure}" -eq 0
 test "${probes}" -ge 3
 "${harness}/run-coffer-companion-lifecycle.sh" status "${ssh_target}"

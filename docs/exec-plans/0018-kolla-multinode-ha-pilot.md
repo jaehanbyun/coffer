@@ -2199,6 +2199,32 @@ promotion while ADR 0006 remains blocked.
   new-key 200/400, retired-old 401/401, zero token residue, and final service
   gates.
 
+### 2026-07-25 — Forward key rotation completed; outer replay gate pending
+
+- Completed remotely: The corrected overlap proof returned registry 200 and
+  edge 400 on all three replicas for both a time-valid old-key token and a
+  fresh API-issued new-key token. After the original issued old token's full
+  lifetime had elapsed, serial retirement converged to new-only trust. A
+  fresh new token returned 200/400 on all replicas and a time-valid old-key
+  token returned 401/401 on all replicas.
+- Availability and residue: Continuous tenant probes passed except for one
+  admitted second-attempt recovery during signer change and one admitted
+  third-attempt recovery during retirement. The complete marker is root-only,
+  all token files and the temporary globals overlay are absent, all nine
+  containers are healthy with new signer/new-only JWKS, and the independent
+  read-only key-rotation status passed.
+- Wrapper failure: The final resumed guest phase completed during the first
+  in-flight tenant probe. The outer wrapper then returned 1 only because it
+  required three in-flight probes and did not fill the minimum after a fast
+  idempotent/resume completion.
+- Correction: The outer wrapper now performs at most three bounded
+  post-completion tenant probes until the same minimum is met; any failed
+  probe still fails the action. It does not rerun or mutate the guest phase.
+- Next exact action: Validate and commit this post-completion probe correction,
+  capture completion-marker metadata, rerun `run` idempotently, and require
+  metadata identity plus all final companion, tenant, and key status gates
+  before accepting key rotation.
+
 ## Verification
 
 | Check | Command or method | Result |

@@ -391,6 +391,7 @@ def test_multinode_key_rotation_overlaps_and_retires_every_replica() -> None:
     assert "{preflight|status|run|rollback}" in outer
     assert "{preflight|status|run|rollback}" in guest
     assert "path-status" in outer
+    assert "for _ in 1 2 3" in outer
     assert "run-coffer-companion-lifecycle.sh" in outer
     assert "stage5-20260724" in guest
     assert "stage5-20260725" in guest
