@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; RGW HA endpoint healthy, S3 fixture harness validated
+- Status: plan 0018 active; RGW HA endpoint and private S3 fixture healthy
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -145,11 +145,20 @@ signed Distribution v3.1.1 binary.
   and storage-2/3 must have no fixture directory.
 - Bash syntax, ShellCheck, Python compilation, refusal tests, source secret
   scans, fixture constant checks, Gitleaks, and diff checks pass. Live
-  preflight reports health OK, boto3 present, zero users, zero buckets, and no
-  fixture state on any node. The harness has not been invoked.
-- Exact next action: commit the S3 fixture harness locally, recheck zero state,
-  invoke `poc/kolla-ha/provision-ceph-s3.sh bb00` once, then rerun it to prove
-  credential and sentinel idempotency.
+  preflight reported health OK, boto3 present, zero users, zero buckets, and no
+  fixture state on any node before invocation.
+- Preserved the S3 fixture harness in local commit `8d7c4bd` and invoked it
+  twice through `jh.byun@100.123.168.66`. Both runs returned anonymous 403,
+  cross-owner 403, extra-bucket 400, and the same 4-MiB sentinel SHA-256
+  `543e845c8c7185da3bc04a566b068274825c837a740d029726b169481b919e50`.
+- Independent inspection confirms two one-key/no-cap/one-bucket identities,
+  exact bucket ownership, root-only state on storage-1, no temporary helper,
+  no credential directory on storage-2/3, three running RGWs, two running
+  HAProxy daemons, zero inactive PGs, and `HEALTH_OK`.
+- Exact next action: implement and validate the bounded daemon-level RGW and
+  ingress failover harness. Test one exact RGW replica and then the active
+  ingress pair with sentinel verification and full restore gates; defer whole
+  storage-VM failure until this smaller fault phase closes.
 
 ## Plan 0017 Completion
 

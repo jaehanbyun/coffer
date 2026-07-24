@@ -528,6 +528,31 @@ promotion while ADR 0006 remains blocked.
   `poc/kolla-ha/provision-ceph-s3.sh bb00` once and immediately rerun it to
   prove credential and sentinel idempotency.
 
+### 2026-07-24 — Private S3 HA fixture complete
+
+- Completed: Preserved the fixture harness in local commit `8d7c4bd`, passed a
+  fresh zero-state preflight through `jh.byun@100.123.168.66`, and invoked the
+  committed phase twice.
+- Isolation evidence: Anonymous and registry-to-denial bucket requests both
+  returned 403. A second bucket for the registry identity was rejected with
+  400. The identities expose no admin caps, retain maximum one bucket and one
+  key each, and own only their corresponding bucket.
+- Persistence evidence: The retained private object is 4 MiB with SHA-256
+  `543e845c8c7185da3bc04a566b068274825c837a740d029726b169481b919e50`.
+  Both invocations read back that digest. The second invocation verified the
+  existing credentials and object metadata instead of rotating or replacing
+  them.
+- Secret and health evidence: Independent inspection found the directory mode
+  0700 and all three credential/config files root-owned mode 0600 on
+  storage-1. The temporary helper is absent; storage-2/3 have no credential
+  directory. Three RGWs and two HAProxy daemons remain running, all PGs are
+  active and clean, and Ceph is `HEALTH_OK`.
+- Next exact action: Implement the least disruptive bounded fault phase first:
+  stop one exact RGW replica, verify the sentinel through the surviving VIP,
+  restore it, then stop the exact active ingress pair, prove one VIP owner and
+  sentinel access after failover, and restore the pair. Do not power off a
+  storage VM until daemon-level recovery is complete.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -542,7 +567,7 @@ promotion while ADR 0006 remains blocked.
 | Ceph control plane | exact hosts, 3-MON quorum, 2 MGRs, key recipients, zero OSD/RGW | passed at the zero-OSD checkpoint |
 | Ceph replicated OSDs | exact devices, 3 up/in OSDs, host CRUSH domain, size/min 3/2, idempotency | passed; `HEALTH_OK` |
 | RGW HA endpoint | 3 RGWs, 2 ingress pairs, one VIP owner, backend/frontend TLS, idempotency | passed; 5 pools/129 clean PGs, zero users |
-| S3 fixture harness | owner-only identities, denials, persistent sentinel, zero-state preflight | passed locally; live invocation pending |
+| S3 fixture | owner-only identities, denials, persistent sentinel, idempotency | passed twice; digest retained, no secondary residue |
 | Kolla/Galera/Coffer baseline | multinode deploy and health acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | pending |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -571,12 +596,12 @@ promotion while ADR 0006 remains blocked.
 ## Handoff
 
 - Current state: Active; the Ceph control plane and exact three-host replicated
-  OSD baseline plus three-RGW/two-ingress TLS endpoint are healthy. The S3
-  fixture harness is locally validated; no S3 user or bucket exists.
-- Exact next action: Commit the S3 fixture harness locally, then invoke it
-  twice to prove the owner-only identity and persistent sentinel contracts.
-- First file or command: `git commit` for the exact S3 fixture files and this
-  checkpoint, followed by `poc/kolla-ha/provision-ceph-s3.sh bb00`.
+  OSD baseline plus three-RGW/two-ingress TLS endpoint are healthy. The two
+  owner-limited S3 identities and buckets are provisioned; the deterministic
+  private sentinel passed two identical round trips.
+- Exact next action: Add and locally validate an exact daemon-level RGW and
+  ingress failover harness with restore assertions before any VM-level fault.
+- First file or command: `poc/kolla-ha/test-ceph-rgw-failover.sh`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an
