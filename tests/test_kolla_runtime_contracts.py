@@ -236,3 +236,30 @@ def test_multinode_haproxy_fault_targets_only_the_active_vip_owner() -> None:
     assert "docker rm" not in script
     assert "virsh" not in script
     assert "rm -rf" not in script
+
+
+def test_multinode_galera_fault_targets_only_controller_three_mariadb() -> None:
+    outer = (
+        ROOT / "poc" / "kolla-ha" / "test-kolla-galera-failover.sh"
+    ).read_text(encoding="utf-8")
+    guest = (
+        ROOT / "poc" / "kolla-ha" / "guest-check-kolla-galera.sh"
+    ).read_text(encoding="utf-8")
+
+    assert "{preflight|run}" in outer
+    assert "192.168.252.13" in outer
+    assert "docker stop --time 30 mariadb" in outer
+    assert "docker start mariadb" in outer
+    assert "database-status" in outer
+    assert "trap restore_target EXIT" in outer
+    assert "wait_database_state degraded" in outer
+    assert "wait_database_state healthy" in outer
+    assert "{healthy|degraded}" in guest
+    assert "wsrep_cluster_size" in guest
+    assert "runtime_mysql_servers" in guest
+    assert "MYSQL_PWD" in guest
+    assert "docker exec -e" not in guest
+    for script in (outer, guest):
+        assert "docker rm" not in script
+        assert "virsh" not in script
+        assert "rm -rf" not in script
