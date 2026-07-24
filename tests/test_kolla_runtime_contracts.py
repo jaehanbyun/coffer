@@ -219,6 +219,8 @@ def test_multinode_haproxy_fault_targets_only_the_active_vip_owner() -> None:
     assert "192.168.254.10/32" in script
     assert "192.168.252.10/32" in script
     assert "wait_vip_moved" in script
+    assert "field_index" in script
+    assert "rejected VIP ownership before stop" in script
     assert "docker stop --time 15 haproxy" in script
     assert "docker start haproxy" in script
     assert "data-status" in script

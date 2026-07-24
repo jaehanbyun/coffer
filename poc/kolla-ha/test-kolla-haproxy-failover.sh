@@ -56,8 +56,8 @@ field_value() {
 
     awk -v field="${field}" '
         {
-            for (index = 1; index <= NF; index++) {
-                split($index, pair, "=")
+            for (field_index = 1; field_index <= NF; field_index++) {
+                split($field_index, pair, "=")
                 if (pair[1] == field) {
                     print pair[2]
                     exit
@@ -156,12 +156,24 @@ REMOTE
 
 require_single_vip_owner() {
     local snapshot
+    local external_count
+    local internal_count
+    local external_owner
+    local internal_owner
 
-    snapshot="$(vip_snapshot)"
-    test "$(field_value "${snapshot}" external_count)" -eq 1
-    test "$(field_value "${snapshot}" internal_count)" -eq 1
-    test "$(field_value "${snapshot}" external_owner)" = \
-        "$(field_value "${snapshot}" internal_owner)"
+    if ! snapshot="$(vip_snapshot)"; then
+        return 1
+    fi
+    external_count="$(field_value "${snapshot}" external_count)"
+    internal_count="$(field_value "${snapshot}" internal_count)"
+    external_owner="$(field_value "${snapshot}" external_owner)"
+    internal_owner="$(field_value "${snapshot}" internal_owner)"
+    if ! test "${external_count}" -eq 1 ||
+        ! test "${internal_count}" -eq 1 ||
+        ! test "${external_owner}" = "${internal_owner}"; then
+        echo "Kolla VIP does not have one shared owner" >&2
+        return 1
+    fi
     printf '%s\n' "${snapshot}"
 }
 
@@ -313,7 +325,10 @@ preflight() {
         snapshot="$(node_preflight_snapshot "${index}")"
         printf 'kolla_haproxy_fault_node %s\n' "${snapshot}"
     done
-    vip="$(require_single_vip_owner)"
+    if ! vip="$(require_single_vip_owner)"; then
+        echo "Kolla HAProxy fault preflight rejected VIP ownership" >&2
+        return 1
+    fi
     printf 'kolla_haproxy_fault_vip %s\n' "${vip}"
     verify_marker
     printf 'kolla_haproxy_fault action=preflight result=passed mutations=none\n'
@@ -330,7 +345,10 @@ if marker_exists; then
     exit 0
 fi
 
-baseline="$(require_single_vip_owner)"
+if ! baseline="$(require_single_vip_owner)"; then
+    echo "Kolla HAProxy fault rejected VIP ownership before stop" >&2
+    exit 1
+fi
 current_hostname="$(field_value "${baseline}" external_owner)"
 current_address="$(address_for_hostname "${current_hostname}")"
 ssh "${ssh_options[@]}" "ubuntu@${current_address}" \
