@@ -1001,6 +1001,40 @@ promotion while ADR 0006 remains blocked.
   internal TLS and Kolla's single external frontend, and stop before any Kolla
   reconfigure or Coffer/image/input mutation.
 
+### 2026-07-24 — Kolla production profile inputs prepared
+
+- Completed: Preserved the fail-closed profile harness in local commit
+  `ebc08ff`, then invoked its exact `prepare` action through the direct jump
+  target. It retained the existing Stage 5 CA, created one internal-VIP leaf,
+  replaced the source external leaf with IP `192.168.254.10` plus DNS
+  `registry.coffer.stage5`, and changed only the three allowlisted internal
+  TLS/single-frontend/port globals.
+- No-reconfigure evidence: The exact names, IDs, and start times of all twelve
+  Kolla containers on controller-1 retained runtime snapshot SHA-256
+  `c0041e9f3aa7236c3811f97e42f0afcd756372737b668e11ee45ee78250505a9`.
+  All 36 Kolla containers remain running/healthy, both VIPs retain exactly
+  one owner, and the new internal certificate is still absent from the
+  rendered HAProxy service directory. Coffer runtime, images, inputs,
+  database, and catalog remain absent.
+- Recipient and cleanup evidence: The two source PEMs are `root:root:0600`,
+  chain and exact IP/DNS verification pass, the root CA/key pair is unchanged,
+  the root serial and temporary directory are absent, and no retained backup
+  exists. A second `prepare` returned `idempotent=yes` with the same runtime
+  snapshot and did not rotate either certificate.
+- Storage boundary: External Ceph/RGW remained at three-MON quorum, three
+  up/in OSDs, three RGWs, two ingress pairs, clean PGs, and `HEALTH_OK` before
+  and after both invocations.
+- Verification: Bash syntax, ShellCheck, action/target refusal, explicit
+  no-reconfigure/container/VM mutation scan, rollback-path review, Gitleaks,
+  live clean status, first prepare, repeated prepare, independent certificate/
+  globals/runtime/residue audit, and diff checks pass.
+- Next exact action: Extend the guarded Kolla lifecycle with one exact
+  `reconfigure` phase. It must retain no-log/credential scanning, prove
+  internal HTTPS and the external single frontend on 443 from their VIP
+  owners, reject plaintext/untrusted paths and external port 5000, validate
+  the updated Keystone catalog plus Galera/RabbitMQ quorums, and leave Coffer
+  state absent.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1023,6 +1057,7 @@ promotion while ADR 0006 remains blocked.
 | Kolla lifecycle harness | phase allowlist, ordering, timeouts, logs, markers, status, storage boundary | passed after no-log guard, credential rotation, and owner-local VIP probe |
 | Kolla/Galera baseline | multinode deploy, quorums, identity, TLS, and secret acceptance | passed; 36 healthy containers, Galera/RabbitMQ three-node quorums |
 | Coffer HA pre-deploy boundary | clean/ready controller, DB, catalog, TLS, image, and RGW recipient gates | clean passed live; ready fails closed before preparation |
+| Kolla production profile preparation | exact certificate/globals mutation, rollback, idempotency, no runtime reload | passed; source prepared and runtime unchanged |
 | Coffer HA baseline | companion deploy and replicated service acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | passed for daemon and storage-VM loss |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -1060,15 +1095,18 @@ promotion while ADR 0006 remains blocked.
   inventory and lifecycle are deployed with three-node Galera/RabbitMQ
   quorums, 36 healthy containers, and one owner for each Kolla VIP. The
   mutation-free Coffer `clean` boundary passes across controller runtime,
-  Galera, Keystone, companion inputs, and the external RGW fixture; `ready`
-  correctly fails before the still-unprepared pilot images.
-- Exact next action: Implement and statically validate
-  `poc/kolla-ha/prepare-kolla-production-profile.sh`; do not invoke it until
-  its exact certificate recipients, globals allowlist, rollback behavior, and
-  no-Kolla-reconfigure stop gate pass.
-- First file or command: Read the pinned Kolla certificate and single-frontend
-  contracts, then create
-  `poc/kolla-ha/prepare-kolla-production-profile.sh`.
+  Galera, Keystone, companion inputs, and the external RGW fixture. The Kolla
+  production source profile is now prepared and idempotently audited: internal
+  and external certificates have exact identities, three globals changed,
+  runtime stayed byte-for-byte at the same container snapshot, and no
+  reconfigure has run.
+- Exact next action: Add and statically validate the exact `reconfigure`
+  action to `poc/kolla-ha/run-kolla-lifecycle.sh` and its guest runner. Do not
+  invoke it until internal/external owner-local TLS, catalog, port-denial,
+  quorum, log-secret, failure, and marker contracts pass.
+- First file or command: Update
+  `poc/kolla-ha/guest-run-kolla-lifecycle.sh` to admit the new phase after the
+  accepted deploy marker and prepared-profile marker.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

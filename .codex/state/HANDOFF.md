@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; Coffer HA clean preflight passed
+- Status: plan 0018 active; Kolla production profile prepared, reconfigure pending
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -447,6 +447,23 @@ signed Distribution v3.1.1 binary.
   `poc/kolla-ha/prepare-kolla-production-profile.sh`. It may prepare only the
   internal/external Kolla certificates and two production frontend globals;
   it must stop before Kolla reconfigure or any Coffer/image/input mutation.
+- Preserved that harness in local commit `ebc08ff` and invoked `prepare`
+  once. The existing CA remained unchanged; the new internal leaf verifies
+  for `192.168.252.10`, and the replacement source external leaf verifies for
+  `192.168.254.10` and `registry.coffer.stage5`. Only the three allowlisted
+  internal-TLS/single-frontend/443 globals changed.
+- No Kolla process reloaded: controller-1's exact container name/ID/start-time
+  snapshot stayed at SHA-256
+  `c0041e9f3aa7236c3811f97e42f0afcd756372737b668e11ee45ee78250505a9`;
+  all 36 containers remain healthy and both VIPs retain one owner. Coffer
+  runtime, images, inputs, database, and catalog remain absent.
+- A second invocation passed idempotently without certificate rotation.
+  Independent audit found exact root-only source PEMs and marker, valid
+  identities, no rendered internal HAProxy PEM yet, no CA serial, no temporary
+  directory, no backup, and fully healthy external RGW.
+- Exact next action: extend the guarded Kolla lifecycle with one exact
+  production-profile `reconfigure` phase and owner-local internal/external TLS,
+  443/5000, catalog, quorum, credential-log, and absent-Coffer acceptance.
 
 ## Plan 0017 Completion
 
@@ -1032,10 +1049,11 @@ signed Distribution v3.1.1 binary.
 
 ## Exact Next Action
 
-Implement `poc/kolla-ha/prepare-kolla-production-profile.sh` with exact
-controller-1 ownership, short-lived internal/external certificates, an
-external SAN for `registry.coffer.stage5`, allowlisted globals changes,
-idempotency, rollback, and an explicit no-reconfigure/no-Coffer stop gate.
+Extend `poc/kolla-ha/run-kolla-lifecycle.sh` and its guest runner with one
+exact `reconfigure` action after the accepted deploy and prepared-profile
+markers. Keep no-log/credential scanning and add owner-local internal HTTPS,
+external port 443, external port 5000 denial, catalog, quorum, and
+absent-Coffer acceptance before writing a new root-only completion marker.
 
 ## After This Work Package
 

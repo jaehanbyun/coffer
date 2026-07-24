@@ -250,3 +250,27 @@ groups, internal/external Kolla TLS, the single external frontend on port
 TLS recipients, and exact owner-only Coffer inputs. It must fail before the
 companion role runs if any recipient, image, group, certificate, RGW input, or
 source pin differs.
+
+Prepare the Kolla-side production TLS/frontend inputs without reconfiguring a
+running container:
+
+```text
+poc/kolla-ha/prepare-kolla-production-profile.sh status <ssh-target>
+poc/kolla-ha/prepare-kolla-production-profile.sh prepare <ssh-target>
+```
+
+The first `prepare` requires the complete Coffer `clean` preflight. It retains
+the existing Stage 5 CA, generates a short-lived internal VIP certificate and
+replaces only the source external certificate with IP
+`192.168.254.10` plus DNS `registry.coffer.stage5`, then changes exactly three
+globals: internal TLS, the single external frontend, and public port `443`.
+The existing globals and external PEM are held only in a root temporary
+directory during the atomic action. Any failure restores those two files and
+removes only the newly created internal PEM and completion marker.
+
+Acceptance compares the names, IDs, and start times of the exact twelve Kolla
+containers before and after preparation, requires Coffer runtime/images/inputs
+to remain absent, and leaves no temporary key, serial, or backup. A repeated
+`prepare` validates the marker, certificate identities, globals, and unchanged
+runtime without rotating certificates. Kolla reconfiguration is a separate
+guarded lifecycle phase.
