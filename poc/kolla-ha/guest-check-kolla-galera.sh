@@ -144,22 +144,29 @@ for address in "${proxysql_addresses[@]}"; do
         query_proxysql "${address}" \
             "SELECT hostgroup_id,hostname,status FROM runtime_mysql_servers ORDER BY hostgroup_id,hostname;"
     )"
-    test "$(wc -l <<<"${proxysql}")" -eq 5
-    test "$(proxysql_status "${proxysql}" 0 192.168.252.11)" = ONLINE
-    test "$(proxysql_status "${proxysql}" 0 192.168.252.12)" = SHUNNED
-    test "$(proxysql_status "${proxysql}" 0 192.168.252.13)" = SHUNNED
-    test "$(proxysql_status "${proxysql}" 1 192.168.252.12)" = ONLINE
-    reader_three="$(proxysql_status "${proxysql}" 1 192.168.252.13)"
-    case "${expected_state}:${reader_three}" in
-        healthy:ONLINE|degraded:SHUNNED|degraded:OFFLINE_HARD)
+    case "${expected_state}" in
+        healthy)
+            test "$(wc -l <<<"${proxysql}")" -eq 5
+            test "$(proxysql_status "${proxysql}" 0 192.168.252.11)" = ONLINE
+            test "$(proxysql_status "${proxysql}" 0 192.168.252.12)" = SHUNNED
+            test "$(proxysql_status "${proxysql}" 0 192.168.252.13)" = SHUNNED
+            test "$(proxysql_status "${proxysql}" 1 192.168.252.12)" = ONLINE
+            test "$(proxysql_status "${proxysql}" 1 192.168.252.13)" = ONLINE
+            reader_three_state=online
             ;;
-        *)
-            echo "ProxySQL reader state does not match Galera state" >&2
-            exit 1
+        degraded)
+            test "$(wc -l <<<"${proxysql}")" -eq 4
+            test "$(proxysql_status "${proxysql}" 0 192.168.252.11)" = ONLINE
+            test "$(proxysql_status "${proxysql}" 0 192.168.252.12)" = SHUNNED
+            test "$(proxysql_status "${proxysql}" 1 192.168.252.12)" = ONLINE
+            test -z "$(proxysql_status "${proxysql}" 0 192.168.252.13)"
+            test -z "$(proxysql_status "${proxysql}" 1 192.168.252.13)"
+            test "$(proxysql_status "${proxysql}" 3 192.168.252.13)" = SHUNNED
+            reader_three_state=offline-hostgroup-3
             ;;
     esac
 done
 
 printf 'kolla_galera state=%s cluster_size=%s primary=yes synced=yes proxysql=3 writer=controller-1 reader-2=online reader-3=%s\n' \
     "${expected_state}" "$(status_value "${galera}" wsrep_cluster_size)" \
-    "${reader_three,,}"
+    "${reader_three_state}"

@@ -258,6 +258,7 @@ def test_multinode_galera_fault_targets_only_controller_three_mariadb() -> None:
     assert "{healthy|degraded}" in guest
     assert "wsrep_cluster_size" in guest
     assert "runtime_mysql_servers" in guest
+    assert "offline-hostgroup-3" in guest
     assert "MYSQL_PWD" in guest
     assert "docker exec -e" not in guest
     for script in (outer, guest):
