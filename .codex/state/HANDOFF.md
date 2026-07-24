@@ -623,6 +623,28 @@ signed Distribution v3.1.1 binary.
   It must use the pinned controller-1 source/venv, root-only no-log phase
   logs and markers, exact inventory/globals inputs, independent ready gates,
   and a hard stop before invoking `prechecks` until committed.
+- Added that lifecycle wrapper and controller-1 helper. It invokes only the
+  published companion entry point, orders `prechecks` before `deploy`, uses
+  non-blocking locking and hard timeouts, retains root-only logs/markers,
+  enables global Ansible no-log, and scans logs against Kolla plus companion
+  credentials before accepting a phase.
+- Deploy acceptance is fixed to nine healthy service replicas/listeners,
+  twelve rendered service/bootstrap config directories, disabled reconciler,
+  migration head `0004_inventory_import`, one database user, one
+  `oci-registry` service/user with three exact endpoints, verified internal/
+  backend/public TLS, external `/v2/` challenge, private-port denial, Kolla
+  `check`, and external RGW health.
+- The first live read-only status stopped at an over-escaped host parser after
+  collecting the correct first-node snapshot; no lifecycle directory, log,
+  marker, runtime, or configuration was created. The parser correction passes
+  all three exact nodes with zero containers/listeners/configs and healthy
+  external RGW before and after.
+- Bash syntax, ShellCheck, target refusals, forbidden destructive/publication
+  scans, Gitleaks, diff checks, and live mutation-free status pass.
+- Exact next action: commit the validated lifecycle harness locally, then
+  invoke only `poc/kolla-ha/run-coffer-companion-lifecycle.sh prechecks
+  jh.byun@100.123.168.66`. Do not invoke deploy until the prechecks marker,
+  log scan, and independent absent-state boundary pass.
 
 ## Plan 0017 Completion
 
@@ -1208,17 +1230,17 @@ signed Distribution v3.1.1 binary.
 
 ## Exact Next Action
 
-Implement and locally validate
-`poc/kolla-ha/prepare-coffer-companion.sh` and its bounded guest helpers.
-Start from `poc/kolla-aio/guest-prepare-coffer.sh`,
-`poc/kolla-aio/coffer-globals.yml`, and the companion role defaults. Require
-exact three-host groups, owner-only secrets/backend TLS, direct storage-1 to
-controller-1 RGW input transfer, and rollback. Stop before database, Keystone,
-HAProxy, or Coffer container mutation.
+Commit `poc/kolla-ha/run-coffer-companion-lifecycle.sh`, its guest helper, and
+the updated durable state. Then invoke only `prechecks` through
+`jh.byun@100.123.168.66`. Require a root-only marker and secret-free log,
+repeat the complete companion ready gate, and prove zero Coffer runtime,
+database, catalog, or rendered service state before implementing or invoking
+deploy corrections.
 
 ## After This Work Package
 
-After the images are identical, prepare the pinned source, exact three-host
-companion inventory, backend TLS recipients, and owner-only RGW/Kolla inputs.
-Then pass the mutation-free `ready` preflight before companion deploy. The
-signed Distribution v3.1.1 input remains production-blocked.
+After prechecks pass, invoke the committed deploy phase and require replicated
+runtime, database/catalog, sole-ingress TLS, private-registry isolation,
+external RGW, and log acceptance. Tenant OCI/isolation and fault/upgrade/
+rollback matrices remain later milestones. The signed Distribution v3.1.1
+input remains production-blocked.

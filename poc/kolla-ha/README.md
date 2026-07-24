@@ -336,3 +336,28 @@ external RGW access, and the continued absence of Coffer runtime, database,
 catalog, and HAProxy routes. A repeated `prepare` validates the committed
 state without rotating keys or certificates. Companion role `prechecks` and
 deployment remain separate later phases.
+
+Run the companion role only through its guarded lifecycle:
+
+```text
+poc/kolla-ha/run-coffer-companion-lifecycle.sh status <ssh-target>
+poc/kolla-ha/run-coffer-companion-lifecycle.sh prechecks <ssh-target>
+poc/kolla-ha/run-coffer-companion-lifecycle.sh deploy <ssh-target>
+```
+
+The wrapper invokes the published source's `ansible/kolla-ansible-coffer`
+entry point from controller-1 with the pinned Kolla venv, exact inventory,
+Kolla config/password files, and companion globals. `prechecks` and `deploy`
+are separately locked, timeout-bounded, and ordered by root-only completion
+markers. Their logs are replaced as root-only files and scanned against both
+Kolla-generated passwords and every companion secret in raw and encoded
+forms; a failed or contaminated phase cannot create its marker.
+
+Before `prechecks` and `deploy`, the complete companion `ready` gate and
+external RGW audit must pass. Prechecks must leave all Coffer runtime,
+database, catalog, listener, and rendered-service state absent. Deploy adds
+three API, three edge, and three private Distribution replicas, then requires
+container health, nine verified-TLS backend listeners, one-shot migration
+head, Keystone service/user/endpoints, sole public edge routing, private-port
+denial, Kolla `check`, and healthy external RGW before its marker is written.
+OCI tenant/isolation and disruptive-fault acceptance remain later phases.

@@ -1293,6 +1293,40 @@ promotion while ADR 0006 remains blocked.
   pre/post acceptance, and no action invocation before the harness is
   committed.
 
+### 2026-07-24 — Companion lifecycle harness validated before execution
+
+- Completed: Added a `status|prechecks|deploy` outer wrapper and controller-1
+  guest runner around the published `ansible/kolla-ansible-coffer` entry
+  point. It fixes the Kolla venv, inventory, config/password paths, companion
+  globals, source commit, recipient markers, phase ordering, non-blocking
+  lock, timeouts, and root-only log/marker paths.
+- Secret and failure boundary: Both Ansible phases set global no-log, replace
+  only their owner-only log, and scan it against Kolla passwords plus every
+  companion secret in raw, URL-encoded, and base64 forms before accepting the
+  command result. A failed command, secret match, Kolla check, or acceptance
+  probe cannot create its completion marker.
+- Deploy gate: Acceptance requires three API, edge, and private Distribution
+  replicas, all nine healthy and listening through verified TLS, twelve exact
+  rendered config directories, no reconciler, schema head
+  `0004_inventory_import`, one database user, one service user and
+  `oci-registry` service with three canonical endpoints, public `/v2/`
+  authentication challenge, external private-port denial, and external RGW
+  health. Tenant/isolation and disruptive faults remain later phases.
+- Failure correction: The first mutation-free status reached the correct
+  controller-1 snapshot and then failed an over-escaped `sed` host parser.
+  The corrected parser accepts all three nodes. Lifecycle/log directories,
+  markers, rendered configs, listeners, containers, database, and catalog
+  remain absent.
+- Verification: Bash syntax, ShellCheck, missing/unknown/option-shaped target
+  refusals, destructive/publication scans, Gitleaks, diff checks, and live
+  read-only status pass with three zero-runtime nodes and healthy external
+  Ceph/RGW.
+- Next exact action: Commit the guarded lifecycle harness locally, then invoke
+  only `run-coffer-companion-lifecycle.sh prechecks
+  jh.byun@100.123.168.66`. Require the root-only prechecks marker/log,
+  credential scan, second complete-ready gate, zero runtime/database/catalog,
+  and healthy storage boundary before deploy.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1366,13 +1400,13 @@ promotion while ADR 0006 remains blocked.
   inputs, verified backend/RGW TLS, and durable owner/input/completion markers
   pass both integrated ready and repeated metadata-idempotency checks. Coffer
   runtime, database, catalog, and HAProxy routes remain absent.
-- Exact next action: Implement and statically validate a guarded
-  `poc/kolla-ha/run-coffer-companion-lifecycle.sh` plus controller-1 helper
-  admitting only `status`, `prechecks`, and `deploy`. Do not run `prechecks`
-  until that harness and its no-log/timeout/ordering contracts are committed.
-- First file or command: Inspect `poc/kolla-aio/guest-run-stage4.sh` and the
-  current `ansible/kolla-ansible-coffer` argument contract, then add the Stage
-  5 wrapper without changing companion-role source.
+- Exact next action: Commit the validated guarded companion lifecycle harness,
+  then invoke only its `prechecks` action. Do not run `deploy` until the
+  prechecks marker, root-only secret-free log, independent complete-ready
+  gate, and absent runtime/database/catalog boundary pass.
+- First file or command: Stage the two lifecycle scripts, this plan,
+  `poc/kolla-ha/README.md`, and `.codex/state/HANDOFF.md`; inspect and commit
+  that atomic harness milestone, then invoke only the `prechecks` action.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an
