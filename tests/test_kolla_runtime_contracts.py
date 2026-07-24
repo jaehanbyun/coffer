@@ -120,3 +120,37 @@ def test_multinode_tenant_fixture_is_finite_and_exactly_bounded() -> None:
     assert 'grep -F -- "${registry_name}" /etc/hosts' in guest
     assert "rm -rf" not in guest
     assert "--remove-all-storage" not in guest
+
+
+def test_multinode_tenant_acceptance_is_owner_local_and_fail_closed() -> None:
+    outer = (
+        ROOT / "poc" / "kolla-ha" / "run-coffer-tenant-acceptance.sh"
+    ).read_text(encoding="utf-8")
+    guest = (
+        ROOT
+        / "poc"
+        / "kolla-ha"
+        / "guest-run-coffer-tenant-acceptance.sh"
+    ).read_text(encoding="utf-8")
+
+    assert "{preflight|accept|status}" in outer
+    assert "{preflight|accept|status}" in guest
+    assert "run-coffer-tenant-fixture.sh" in outer
+    assert "192.168.254.10/32" in guest
+    assert "192.168.254.10 %s" in guest
+    assert "cp --preserve=all" in guest
+    assert "docker_ca_created" in guest
+    assert "project logical quota exceeded" in guest
+    assert "test \"${quota_status}\" = 429" in guest
+    assert "set_quota_limit 2147483648" in guest
+    assert guest.count("--request PATCH") == 1
+    assert "for part in 1 2" in guest
+    assert "project B unexpectedly pulled" in guest
+    assert "project B unexpectedly pushed" in guest
+    assert "coffer_tenant_runtime_log_audit" in guest
+    assert "write_marker \"${accepted_marker}\"" in guest
+    assert guest.index("scan_runtime_logs") < guest.rindex(
+        'write_marker "${accepted_marker}"'
+    )
+    assert "rm -rf" not in guest
+    assert "--remove-all-storage" not in guest
