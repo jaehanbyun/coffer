@@ -164,7 +164,11 @@ def test_multinode_update_image_is_pinned_and_keeps_runtime_unchanged() -> None:
     assert "runtime=unchanged" in guest
     assert "require_runtime_unchanged" in guest
     assert "installed quota source digest changed" in guest
+    assert "/var/lib/kolla/venv/bin/python3" in guest
     assert "quota.MAX_TRANSACTION_ATTEMPTS != 3" in guest
+    assert "validate_empty_partial_marker" in guest
+    assert "grep -Fxq 'update_image_id='" in guest
+    assert 'if ! result="$(' in guest
     assert "docker save" in guest
     assert "sudo docker load" in guest
     assert "docker stop" not in guest

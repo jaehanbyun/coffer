@@ -114,7 +114,7 @@ require_runtime_unchanged() {
     local index="$1"
     local result
 
-    result="$(
+    if ! result="$(
         run_on_controller "${index}" bash -s -- \
             "${controller_hostnames[${index}]}" \
             "${current_image_id}" "${registry_image_id}" <<'REMOTE'
@@ -132,7 +132,9 @@ test "$(docker inspect -f '{{.Image}}' coffer_edge)" = "${current_image_id}"
 test "$(docker inspect -f '{{.Image}}' coffer_registry)" = "${registry_image_id}"
 printf 'host=%s runtime=current\n' "${expected_hostname}"
 REMOTE
-    )"
+    )"; then
+        return 1
+    fi
     test "${result}" = \
         "host=${controller_hostnames[${index}]} runtime=current"
 }
@@ -141,7 +143,7 @@ validate_update_image() {
     local index="$1"
     local result
 
-    result="$(
+    if ! result="$(
         run_on_controller "${index}" bash -s -- \
             "${update_image}" "${quota_sha256}" \
             "${quota_import_sha256}" <<'REMOTE'
@@ -157,7 +159,7 @@ metadata="$(
 [[ "${metadata}" =~ ^sha256:[0-9a-f]{64}\ amd64\ linux\ coffer$ ]]
 snapshot="$(
     docker run --rm --pull=never \
-        --entrypoint /var/lib/coffer/venv/bin/python3 \
+        --entrypoint /var/lib/kolla/venv/bin/python3 \
         "${image}" - "${quota_sha256}" "${quota_import_sha256}" <<'PY'
 from pathlib import Path
 import hashlib
@@ -180,7 +182,9 @@ PY
 test "${snapshot}" = 'retry=3 source=verified'
 printf '%s\n' "${metadata%% *}"
 REMOTE
-    )"
+    )"; then
+        return 1
+    fi
     [[ "${result}" =~ ^sha256:[0-9a-f]{64}$ ]]
     printf '%s\n' "${result}"
 }
@@ -206,13 +210,29 @@ validate_complete() {
         "${current_image_id}" "${expected_update_id}"
 }
 
+validate_empty_partial_marker() {
+    test "$(stat -c '%U:%G:%a' "${complete_marker}")" = root:root:600
+    test "$(wc -l <"${complete_marker}" | tr -d ' ')" -eq 4
+    grep -Fxq 'schema=coffer-stage5-update-images-v1' "${complete_marker}"
+    grep -Fxq "source_commit=${source_commit}" "${complete_marker}"
+    grep -Fxq "current_image_id=${current_image_id}" "${complete_marker}"
+    grep -Fxq 'update_image_id=' "${complete_marker}"
+}
+
 for index in "${!controller_addresses[@]}"; do
     require_runtime_unchanged "${index}"
 done
 
 if test -e "${complete_marker}"; then
-    validate_complete
-    exit 0
+    recorded_update_id="$(
+        sed -n 's/^update_image_id=//p' "${complete_marker}"
+    )"
+    if [[ "${recorded_update_id}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+        validate_complete
+        exit 0
+    fi
+    test "${action}" = build
+    validate_empty_partial_marker
 fi
 
 if test "${action}" = preflight; then
@@ -319,6 +339,7 @@ if test "$(image_id 0 "${update_image}")" = absent; then
     docker tag "${build_image}" "${update_image}"
 fi
 update_image_id="$(validate_update_image 0)"
+[[ "${update_image_id}" =~ ^sha256:[0-9a-f]{64}$ ]]
 for index in 1 2; do
     if test "$(image_id "${index}" "${update_image}")" != "${update_image_id}"; then
         docker save "${update_image}" |

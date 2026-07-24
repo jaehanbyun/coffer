@@ -1744,6 +1744,24 @@ promotion while ADR 0006 remains blocked.
   hashes on all controllers, unchanged current runtime IDs/health, retained
   rollback image, owner-only evidence, and metadata-idempotent replay before
   rolling deployment.
+- First build result: After `ad362bf` fixed the harness, Kolla successfully
+  built the base and Coffer application layers and the same update image ID
+  reached all three controllers. The source validator then used the wrong
+  `/var/lib/coffer/venv/bin/python3` path instead of the image's
+  `/var/lib/kolla/venv/bin/python3`.
+- Partial-state correction: Command-substitution status also masked the failed
+  validator, allowing a root-only four-line completion marker with an empty
+  update ID. All nine running containers remain healthy on their recorded old
+  image IDs, and the new image is unused. The corrected validator explicitly
+  propagates remote failure and admits only this exact empty-ID marker for
+  atomic repair; every other malformed marker fails closed.
+- Verification: Bash syntax, ShellCheck, eleven focused runtime-contract
+  tests, diff checks, scoped Gitleaks, exact three-node image inspection, and
+  current-runtime health/ID checks pass.
+- Next exact action: Commit the correction, then resume only the update-image
+  `build`. Validate the existing image and embedded source, replace the empty
+  marker with its exact ID, prove no rebuild/runtime change, and replay status
+  idempotently.
 
 ## Verification
 

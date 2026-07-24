@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0018 active; update-image preflight passed
+- Status: plan 0018 active; update image built, partial marker recovery pending
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -929,6 +929,26 @@ marker-idempotent replay passed.
   controllers, installed retry source hashes and attempt bound, unchanged
   runtime image IDs/health, retained old image, owner-only evidence, and
   metadata-idempotent replay before any rolling deployment.
+- Preserved the harness in `ad362bf` and invoked the exact build. Kolla
+  completed the base and Coffer images, and the update tag reached all three
+  controllers with the same ID. Validation then failed because the harness
+  assumed `/var/lib/coffer/venv/bin/python3`; the image uses the Kolla-standard
+  `/var/lib/kolla/venv/bin/python3`.
+- A second fail-closed issue was exposed: a validation failure inside command
+  substitution was not explicitly propagated, so distribution continued and
+  wrote a mode-0600 four-line completion marker with an empty update image ID.
+  Independent inspection confirms every API/edge/registry remains healthy on
+  its original recorded image ID; the new tag is unused and identical on all
+  three controllers.
+- Corrected only the installed Python path and explicit failure propagation.
+  The resume path admits exactly the observed owner-only four-line marker with
+  an empty ID, validates the already distributed image and embedded source,
+  then atomically replaces that marker. Any other malformed marker fails
+  closed.
+- Exact next action: commit the partial-state correction locally, then resume
+  only the same update-image `build`. It must not rebuild or transfer an
+  already identical image; require source validation, a nonempty exact image
+  ID, unchanged runtime, and idempotent replay.
 
 ## Plan 0017 Completion
 
@@ -1514,9 +1534,9 @@ marker-idempotent replay passed.
 
 ## Exact Next Action
 
-Commit the validated source-archive-pinned update-image harness. Then build
-and directly distribute the new Coffer tag while retaining the exact current
-runtime and rollback image unchanged.
+Commit the exact partial-state correction and resume only the update-image
+`build`. Validate and atomically repair the empty completion ID without
+rebuilding or changing the current runtime.
 
 ## After This Work Package
 
