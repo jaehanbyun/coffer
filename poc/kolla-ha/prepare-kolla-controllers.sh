@@ -128,6 +128,8 @@ ssh "${jump_options[@]}" \
     /home/ubuntu/coffer-stage5/venv/bin/ansible \
     -i /etc/kolla/multinode control -m ping
 
+cleanup
+trap - EXIT
 for address in "${management_addresses[@]}"; do
     ssh "${jump_options[@]}" "ubuntu@${address}" \
         test ! -e "${remote_public_key}"
@@ -136,6 +138,4 @@ ssh "${jump_options[@]}" \
     "ubuntu@${primary_management_address}" \
     test ! -e "${remote_inventory}" -a ! -e "${remote_globals}"
 
-cleanup
-trap - EXIT
 printf 'kolla_prepare controllers=3 deployment_key_recipients=3 source=pinned venv=ready passwords=owner-only tls=ready bootstrap=not-run\n'
