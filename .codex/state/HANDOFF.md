@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; three Ceph hosts registered, readiness-gated MON/MGR placement awaits retry
+- Status: plan 0018 active; Ceph has 3 MON/2 MGR, stale stray-health cache gates OSD creation
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -13,8 +13,8 @@ The read-only `bb00` refresh, preferred six-guest topology, immutable Ubuntu
 image pin, exact-target lifecycle harness, VM create, and guest readiness
 checks are complete. Three controller and three prepared storage guests are
 running on dedicated autostart-disabled networks; every domain is
-autostart-disabled. Storage preparation proves all three OSD devices are still
-empty and no Ceph daemon has started.
+autostart-disabled. The three-node Ceph control plane has quorum with three
+MONs and two MGRs while all three OSD devices remain empty.
 Stage 5 requires replicated
 Kolla/Coffer/Galera and an independent external RGW HA failure domain; a
 controller-only pilot against the retained one-node RGW is partial evidence
@@ -92,8 +92,17 @@ signed Distribution v3.1.1 binary.
   MON, one MGR, zero OSDs/RGW services, and three empty OSD devices.
 - Added a bounded pre-placement gate requiring all three exact hosts to have
   empty orchestrator status before dry-run or apply.
-- Exact next action: validate and commit the readiness gate, then rerun the
-  control bootstrap to reach three MONs/two MGRs without creating OSD/RGW.
+- Preserved that correction in local commit `8950680`; the idempotent resume
+  passed with three healthy hosts, MON quorum 3, two running MGRs, replica
+  defaults 3/2, zero OSDs, and zero RGW services. The admin keyring remains
+  primary-only and all three `/dev/vdb` devices are empty.
+- A bounded MGR failover promoted storage-2 while two MGRs stayed running.
+  The health map nevertheless retains stale stray-host/daemon warnings for
+  the bootstrap MON/MGR despite `orch ps`, service specs, and cephadm logs
+  identifying them as managed. OSD creation is fail-closed on this mismatch.
+- Exact next action: refresh and inspect the cephadm daemon cache after its
+  convergence window. Proceed to OSD-only work only after the warning clears
+  or a reproducible Tentacle cache defect is isolated without suppression.
 
 ## Plan 0017 Completion
 

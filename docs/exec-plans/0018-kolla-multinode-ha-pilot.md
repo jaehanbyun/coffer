@@ -380,6 +380,32 @@ promotion while ADR 0006 remains blocked.
 - Next exact action: Validate and commit the host-readiness gate, then
   idempotently rerun the control bootstrap to reach three MONs/two MGRs.
 
+### 2026-07-24 — Ceph control plane reached quorum
+
+- Completed: Preserved the readiness correction in local commit `8950680` and
+  idempotently resumed the harness. All three exact storage hosts are healthy;
+  MONs run on storage-1/2/3 with quorum 3, and MGRs run on storage-1/2.
+- Safety evidence: `ceph osd stat` remains zero and no RGW service exists.
+  Every `/dev/vdb` remains signature-free and absent from LVM. Only storage-1
+  has the owner-mode admin keyring; storage-2/3 have exactly one bounded
+  cephadm public-key marker and no admin keyring.
+- Configuration: The cluster config database retains
+  `osd_pool_default_size=3`, `osd_pool_default_min_size=2`, and
+  `mon_target_pg_per_osd=50`.
+- HA check: A bounded failover promoted the ready storage-2 MGR while both MGR
+  daemons remained running.
+- Residual health state: `TOO_FEW_OSDS` is expected before the next phase.
+  The health map also retains stale `CEPHADM_STRAY_HOST` and
+  `CEPHADM_STRAY_DAEMON` entries for the bootstrap MON/MGR even though
+  `ceph orch ps`, the explicit mon/mgr specs, and cephadm reconfiguration logs
+  all show them managed. An MGR failover did not immediately clear the cached
+  warnings, so OSD mutation remains gated on resolving or conclusively
+  characterizing this inconsistency.
+- Next exact action: Refresh and inspect the cephadm daemon cache after its
+  bounded convergence window. Proceed to an exact three-device OSD-only
+  harness only when the stray warnings clear or a reproducible Tentacle
+  health-cache defect is isolated without disabling the warnings.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -391,6 +417,7 @@ promotion while ADR 0006 remains blocked.
 | Guest provisioning and readiness | exact status, autostart, cloud-init, NIC, disk, and resource checks | passed |
 | Provision/destroy target safety | local allowlist, rollback, and negative-target tests | passed |
 | Storage preparation | pinned inputs, hostname map, chrony, empty OSD devices | passed |
+| Ceph control plane | exact hosts, 3-MON quorum, 2 MGRs, key recipients, zero OSD/RGW | passed; stale stray-health cache under investigation |
 | Kolla/Galera/Coffer baseline | multinode deploy and health acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | pending |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -418,13 +445,14 @@ promotion while ADR 0006 remains blocked.
 
 ## Handoff
 
-- Current state: Active; storage-1 has the initial MON/MGR, storage-2/3 have
-  been registered and labeled, and all OSD devices remain empty. The exact-host
-  readiness gate awaits validation and idempotent resume.
-- Exact next action: Validate and commit the bounded orchestrator host
-  readiness gate, then rerun the control bootstrap once.
-- First file or command: `shellcheck
-  poc/kolla-ha/guest-adopt-ceph-hosts.sh`.
+- Current state: Active; three MONs and two MGRs are running with quorum and
+  all OSD devices remain empty. A stale cephadm stray-health inconsistency is
+  the only control-plane gate before OSD creation.
+- Exact next action: Re-run `ceph orch ps --refresh` after the bounded cache
+  window and inspect aggregate health plus managed-daemon evidence. Do not
+  suppress the warnings or initialize OSDs while the inconsistency is unknown.
+- First file or command: `ssh ... 'sudo cephadm shell -- ceph orch ps
+  --refresh --format json'`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an
