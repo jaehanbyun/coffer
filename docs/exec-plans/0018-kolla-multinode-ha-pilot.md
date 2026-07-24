@@ -1351,6 +1351,42 @@ promotion while ADR 0006 remains blocked.
   the root-only log, audit exact database/catalog/config/container state, and
   correct only the first demonstrated cause.
 
+### 2026-07-24 — First companion deploy stopped at bootstrap CA trust
+
+- Failure: The committed deploy reached the one-shot schema bootstrap and
+  stopped with `dependency_unavailable`; no deploy marker was written. The
+  root-only Ansible and bootstrap logs passed Kolla/companion credential,
+  private-key, and Authorization scans before their safe summaries were read.
+- Root cause: API/edge/registry were members of Kolla's custom CA-copy service
+  set, but the one-shot `coffer-bootstrap` process was not. Its config.json
+  also omitted `/var/lib/kolla/share/ca-certificates`, so the database
+  connection rejected ProxySQL's internal self-signed chain.
+- Partial-state evidence: All controllers have zero Coffer containers but
+  four rendered service/bootstrap directories and three HAProxy listeners.
+  The Coffer database/user and Keystone service/user plus three endpoints
+  exist, while `alembic_version` is absent. The prechecks marker remains,
+  deploy marker is absent, and external Ceph/RGW is fully healthy.
+- Correction: Include `coffer-bootstrap` through `coffer_processes` in
+  `service-cert-copy`, add the conditional Kolla CA config.json contract, and
+  cover enabled/disabled rendering plus service-set selection with focused
+  tests. Preserve the immutable functional images and clean published source.
+- Operator-source boundary: Added a separate transactional operator checkout
+  based on published commit `4f1ff7d` with only the two SHA-256-pinned
+  correction files. Its original source and image tags remain unchanged.
+  Lifecycle validation requires the exact two-path Git diff, file hashes, no
+  untracked state, and root-only marker before resume.
+- Resume boundary: Lifecycle status/deploy now admits either the original
+  zero-state predeploy boundary or exactly zero containers, twelve rendered
+  configs, nine HAProxy listeners, one database/user and catalog set, and no
+  migration table. Any other partial state fails closed.
+- Verification: Six focused bootstrap/runtime tests, Bash syntax, ShellCheck,
+  embedded Python compilation, diff checks, and live mutation-free
+  operator-source `state=absent` status pass.
+- Next exact action: Commit this isolated correction, invoke only
+  `prepare-coffer-operator-source.sh prepare
+  jh.byun@100.123.168.66`, require lifecycle status `deploy-partial`, then
+  resume only the guarded companion deploy action.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1422,16 +1458,17 @@ promotion while ADR 0006 remains blocked.
   state all pass. The companion inputs are now complete: four exact
   three-host groups, production globals, controller-1-only secret/public
   inputs, verified backend/RGW TLS, and durable owner/input/completion markers
-  pass both integrated ready and repeated metadata-idempotency checks. Coffer
-  runtime, database, catalog, and HAProxy routes remain absent.
-- Exact next action: Commit the accepted prechecks checkpoint, then invoke
-  only the committed companion `deploy` action. Do not proceed to tenant or
-  fault tests until the deploy marker, replicated health, schema/catalog,
-  sole-ingress TLS, private-port denial, log scan, and external RGW gates pass.
-- First file or command: Stage this plan and `.codex/state/HANDOFF.md`,
-  inspect and commit the prechecks evidence, then invoke only
-  `poc/kolla-ha/run-coffer-companion-lifecycle.sh deploy
-  jh.byun@100.123.168.66`.
+  pass both integrated ready and repeated metadata-idempotency checks. The
+  failed first deploy now has an exact resumable partial state: no Coffer
+  container or migration table, but twelve rendered configs, nine HAProxy
+  listeners, and the database/catalog identities. The deploy marker is absent.
+- Exact next action: Commit the bootstrap-CA and exact-resume repair, prepare
+  the separate operator source, require lifecycle status `deploy-partial`,
+  then resume only companion deploy. Do not proceed to tenant or fault tests
+  until the deploy marker and all post-deploy gates pass.
+- First file or command: Stage the bootstrap CA fix, its focused test, the
+  operator-source/lifecycle correction, this plan, README, and HANDOFF; commit
+  the atomic repair, then invoke only operator-source `prepare`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

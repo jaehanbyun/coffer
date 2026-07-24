@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; companion inputs prepared and accepted
+- Status: plan 0018 active; prechecks accepted, deploy repair pending
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -662,6 +662,34 @@ signed Distribution v3.1.1 binary.
   jh.byun@100.123.168.66`. If deployment or acceptance fails, preserve its
   root-only log, require the deploy marker to remain absent, audit exact
   partial state, and do not run another lifecycle action until corrected.
+- Preserved prechecks evidence in local commit `95bb95e` and invoked deploy.
+  It stopped at the no-log one-shot schema bootstrap with no deploy marker.
+  The protected lifecycle log remains root-only and passed the credential
+  scan; its safe failure summary is `dependency_unavailable`.
+- Exact root cause: the bootstrap process could reach ProxySQL but rejected
+  its self-signed internal chain because `coffer-bootstrap` alone was omitted
+  from Kolla's CA-copy service set and its config.json lacked the custom CA
+  bundle entry.
+- Exact partial state: each controller has four rendered Coffer config
+  directories and three HAProxy listeners, but zero Coffer service/bootstrap
+  containers. The database and user plus one Keystone service/user and three
+  endpoints exist; `alembic_version` does not. External Ceph/RGW remains
+  healthy and the deploy marker is absent.
+- Correction: include the one-shot bootstrap in `coffer_processes` CA copying
+  and its Kolla config.json CA input, with three focused rendering/source
+  tests. Keep the already built images and published clean source unchanged;
+  prepare a separate base-commit-plus-exact-two-files operator checkout whose
+  file digests and Git diff are validated before resume.
+- Added the bounded `status|prepare` operator-source phase and upgraded the
+  lifecycle status/deploy gates to accept only either the clean predeploy
+  boundary or this exact 0-container/12-config/9-listener/no-migration partial
+  boundary.
+- Bash/ShellCheck, embedded Python compilation, six focused bootstrap/runtime
+  tests, diff checks, and live mutation-free operator-source absence status
+  pass.
+- Exact next action: commit the bootstrap CA, operator-source, and exact-resume
+  correction locally. Invoke only operator-source `prepare`, require lifecycle
+  `status` to classify `deploy-partial`, then resume only companion `deploy`.
 
 ## Plan 0017 Completion
 
@@ -1247,16 +1275,14 @@ signed Distribution v3.1.1 binary.
 
 ## Exact Next Action
 
-Commit the accepted prechecks evidence, then invoke only the guarded companion
-`deploy` action through `jh.byun@100.123.168.66`. Require the deploy and Kolla
-check logs to remain root-only and secret-free; do not create the deploy marker
-until nine healthy replicas/listeners, migration head, catalog, verified TLS,
-sole external edge, private-port denial, and external RGW all pass.
+Commit the bootstrap CA propagation fix, focused tests, exact operator-source
+preparation, and partial-state resume gates. Then prepare only that operator
+source through `jh.byun@100.123.168.66`, require lifecycle status
+`deploy-partial`, and resume only deploy. Keep the marker absent until all
+replica, schema/catalog, TLS/routing, log, and RGW gates pass.
 
 ## After This Work Package
 
-After prechecks pass, invoke the committed deploy phase and require replicated
-runtime, database/catalog, sole-ingress TLS, private-registry isolation,
-external RGW, and log acceptance. Tenant OCI/isolation and fault/upgrade/
-rollback matrices remain later milestones. The signed Distribution v3.1.1
-input remains production-blocked.
+After deploy recovery passes, run tenant OCI/isolation acceptance before any
+replica, Galera, key-rotation, upgrade, rollback, or cleanup matrix. The signed
+Distribution v3.1.1 input remains production-blocked.

@@ -20,8 +20,14 @@ esac
 
 expected_hostname="coffer-kolla-ha-stage5-controller-1"
 state_root="/home/ubuntu/coffer-stage5"
-source_root="${state_root}/coffer-source"
+source_root="${state_root}/coffer-operator-source"
 source_commit="4f1ff7ddfd89d21f17ab7cbb531c335e85d94542"
+source_marker="${state_root}/coffer-operator-source.prepared"
+source_marker_value="coffer-stage5-operator-source-v1"
+source_config_relative="ansible/roles/coffer/tasks/config.yml"
+source_template_relative="docker/config/coffer-bootstrap.json.j2"
+source_config_sha256="b4e0bf378ea88943f700df0adfca4bc3df44ac34369541bc8853ce769ebe3208"
+source_template_sha256="96758f497c0b821e02091668cc3b2b215ac9addb7a5c2541f93c27af92ee2d04"
 venv="${state_root}/venv"
 entrypoint="${source_root}/ansible/kolla-ansible-coffer"
 inventory="/etc/kolla/multinode"
@@ -55,7 +61,25 @@ groups=(
 test "$(id -u)" -eq 0
 test "$(hostname)" = "${expected_hostname}"
 test "$(git -C "${source_root}" rev-parse HEAD)" = "${source_commit}"
-test -z "$(git -C "${source_root}" status --porcelain --untracked-files=all)"
+test "$(stat -c '%U:%G:%a' "${source_marker}")" = root:root:600
+test "$(cat "${source_marker}")" = "${source_marker_value}"
+test "$(
+    sha256sum "${source_root}/${source_config_relative}" | awk '{print $1}'
+)" = "${source_config_sha256}"
+test "$(
+    sha256sum "${source_root}/${source_template_relative}" | awk '{print $1}'
+)" = "${source_template_sha256}"
+test "$(
+    git -C "${source_root}" diff --name-only | LC_ALL=C sort
+)" = "$(
+    printf '%s\n' "${source_config_relative}" "${source_template_relative}" |
+        LC_ALL=C sort
+)"
+test -z "$(
+    git -C "${source_root}" status --porcelain --untracked-files=all |
+        awk '$1 != "M" {print}'
+)"
+git -C "${source_root}" diff --check
 test -x "${entrypoint}"
 test -x "${venv}/bin/kolla-ansible"
 test -x "${venv}/bin/ansible-inventory"
@@ -347,7 +371,8 @@ probe_service_endpoints() {
 
 probe_database_and_catalog() {
     "${venv}/bin/python3" - \
-        "${passwords}" "${config_root}/certificates-stage5/ca/root.crt" <<'PY'
+        "${passwords}" "${config_root}/certificates-stage5/ca/root.crt" \
+        "$1" <<'PY'
 from __future__ import annotations
 
 import json
@@ -362,7 +387,8 @@ import yaml
 
 
 passwords = yaml.safe_load(Path(sys.argv[1]).read_text(encoding="utf-8"))
-database = subprocess.run(
+expected_mode = sys.argv[3]
+database_state = subprocess.run(
     [
         "docker",
         "exec",
@@ -376,15 +402,42 @@ database = subprocess.run(
             "SELECT COUNT(*) FROM information_schema.SCHEMATA "
             "WHERE SCHEMA_NAME='coffer';"
             "SELECT COUNT(*) FROM mysql.user WHERE User='coffer';"
-            "SELECT version_num FROM coffer.alembic_version;"
+            "SELECT COUNT(*) FROM information_schema.TABLES "
+            "WHERE TABLE_SCHEMA='coffer' AND TABLE_NAME='alembic_version';"
         ),
     ],
     check=True,
     capture_output=True,
     text=True,
 ).stdout.splitlines()
-if database != ["1", "1", "0004_inventory_import"]:
-    raise SystemExit("Coffer database acceptance failed")
+if database_state not in (["1", "1", "0"], ["1", "1", "1"]):
+    raise SystemExit("Coffer database state acceptance failed")
+migration = "absent"
+if database_state[2] == "1":
+    migration = subprocess.run(
+        [
+            "docker",
+            "exec",
+            "-e",
+            f"MYSQL_PWD={passwords['database_password']}",
+            "mariadb",
+            "mariadb",
+            "-uroot",
+            "-Nse",
+            "SELECT version_num FROM coffer.alembic_version;",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+if expected_mode == "partial":
+    if database_state != ["1", "1", "0"] or migration != "absent":
+        raise SystemExit("Coffer partial database acceptance failed")
+elif expected_mode == "deployed":
+    if database_state != ["1", "1", "1"] or migration != "0004_inventory_import":
+        raise SystemExit("Coffer deployed database acceptance failed")
+else:
+    raise SystemExit("unknown Coffer control-state mode")
 
 context = ssl.create_default_context(cafile=sys.argv[2])
 payload = json.dumps(
@@ -459,10 +512,34 @@ expected = {
 if actual != expected:
     raise SystemExit("Coffer endpoint catalog acceptance failed")
 print(
-    "coffer_control_probe database=present migration=0004_inventory_import "
-    "database_user=1 service=1 service_user=1 endpoints=3"
+    f"coffer_control_probe state={expected_mode} database=present "
+    f"migration={migration} database_user=1 service=1 service_user=1 "
+    "endpoints=3"
 )
 PY
+}
+
+classify_predeploy_or_partial_boundary() {
+    collect_nodes
+    if test "${total_containers}" -eq 0 &&
+        test "${total_running}" -eq 0 &&
+        test "${total_healthy}" -eq 0 &&
+        test "${total_unhealthy}" -eq 0 &&
+        test "${total_bootstrap}" -eq 0 &&
+        test "${total_listeners}" -eq 0 &&
+        test "${total_configs}" -eq 0; then
+        boundary_state=prechecked
+        return 0
+    fi
+    test "${total_containers}" -eq 0
+    test "${total_running}" -eq 0
+    test "${total_healthy}" -eq 0
+    test "${total_unhealthy}" -eq 0
+    test "${total_bootstrap}" -eq 0
+    test "${total_listeners}" -eq 9
+    test "${total_configs}" -eq 12
+    probe_database_and_catalog partial
+    boundary_state=deploy-partial
 }
 
 require_deployed_boundary() {
@@ -474,7 +551,7 @@ require_deployed_boundary() {
     test "${total_bootstrap}" -le 1
     test "${total_listeners}" -eq 9
     test "${total_configs}" -eq 12
-    probe_database_and_catalog
+    probe_database_and_catalog deployed
     probe_service_endpoints
 }
 
@@ -555,8 +632,8 @@ if test "${action}" = status; then
         state=deployed
     elif test -e "$(marker_path prechecks)"; then
         require_marker prechecks
-        require_predeploy_boundary
-        state=prechecked
+        classify_predeploy_or_partial_boundary
+        state="${boundary_state}"
     else
         test ! -e "$(marker_path deploy)"
         require_predeploy_boundary
@@ -597,7 +674,7 @@ case "${action}" in
             printf 'coffer_companion_lifecycle phase=deploy result=passed idempotent=yes\n'
             exit 0
         fi
-        require_predeploy_boundary
+        classify_predeploy_or_partial_boundary
         run_companion deploy 7200
         run_companion_check
         require_deployed_boundary

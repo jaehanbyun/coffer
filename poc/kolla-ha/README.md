@@ -361,3 +361,19 @@ container health, nine verified-TLS backend listeners, one-shot migration
 head, Keystone service/user/endpoints, sole public edge routing, private-port
 denial, Kolla `check`, and healthy external RGW before its marker is written.
 OCI tenant/isolation and disruptive-fault acceptance remain later phases.
+
+If an operator-role correction is required after the immutable functional
+images have already been built, prepare a separate exact operator source:
+
+```text
+poc/kolla-ha/prepare-coffer-operator-source.sh status <ssh-target>
+poc/kolla-ha/prepare-coffer-operator-source.sh prepare <ssh-target>
+```
+
+This phase clones the still-clean published source locally on controller-1
+and installs only the two SHA-256-pinned operator files admitted by the
+harness. It does not rebuild or relabel runtime images, modify the published
+source checkout, or use a registry. The resulting Git state must retain the
+published base commit, exactly two modified paths, no untracked files, and a
+root-only completion marker. The companion lifecycle validates this exact
+overlay before any resumed deploy.

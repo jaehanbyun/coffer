@@ -267,7 +267,7 @@
   ansible.builtin.import_role:
     name: service-cert-copy
   vars:
-    project_services: "{{ coffer_services }}"
+    project_services: "{{ coffer_processes }}"
     kolla_copy_backend_tls_files: false
 
 - name: Install Coffer observability inputs on the controller

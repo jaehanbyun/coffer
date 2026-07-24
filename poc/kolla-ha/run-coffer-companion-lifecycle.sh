@@ -45,8 +45,10 @@ audit_storage() {
         <"${harness}/guest-ceph-storage-vm-audit.sh"
 }
 
-if test "${action}" != status; then
+if test "${action}" = prechecks; then
     "${harness}/prepare-coffer-companion.sh" status "${ssh_target}"
+elif test "${action}" = deploy; then
+    "${harness}/prepare-coffer-operator-source.sh" status "${ssh_target}"
 fi
 audit_storage
 
