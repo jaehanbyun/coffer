@@ -302,6 +302,25 @@ signed Distribution v3.1.1 binary.
   jh.byun@100.123.168.66`. On failure, retain the owner-only remote log,
   verify no success marker, audit exact partial runtime state and external
   RGW, then correct and resume only `bootstrap`.
+- Preserved the lifecycle harness in local commit `56632de` and invoked only
+  `bootstrap`. It failed in about 20 seconds before any Docker installation
+  because the ubuntu-run Kolla CLI could not read the intentionally
+  `root:root:0600` passwords file. The success marker is absent; corrected
+  `status` reports Docker `0/3`, zero images/containers/VIPs, and no completed
+  phase. RGW remained healthy before and after.
+- Kept the root-only secret boundary and changed the Kolla CLI plus deploy
+  check to run as root. The exact nine Galaxy collections remain under the
+  deployment owner's directory, so the root invocation pins
+  `ANSIBLE_COLLECTIONS_PATH` to that path and the system path. Phase logs now
+  become `root:root:0600`.
+- Read-only root preflight confirms the passwords file remains root-only,
+  all nine collections are available, the exact inventory parses, Kolla's
+  bootstrap command loads, Docker remains absent, and no bootstrap marker
+  exists. Bash syntax, ShellCheck, Gitleaks, and diff checks pass.
+- Exact next action: commit the root-execution correction locally, then resume
+  only
+  `poc/kolla-ha/run-kolla-lifecycle.sh bootstrap
+  jh.byun@100.123.168.66`.
 
 ## Plan 0017 Completion
 

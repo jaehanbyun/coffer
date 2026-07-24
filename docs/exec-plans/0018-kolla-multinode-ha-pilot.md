@@ -790,11 +790,22 @@ promotion while ADR 0006 remains blocked.
   refusal, live remote unknown-action refusal, exact command/timeout checks,
   forbidden-mutation scans, Gitleaks, diff checks, corrected live status, and
   external RGW before/after audits pass.
-- Next exact action: Commit this lifecycle harness locally, then invoke only
-  `poc/kolla-ha/run-kolla-lifecycle.sh bootstrap
-  jh.byun@100.123.168.66`. If bootstrap fails, inspect its owner-only log
-  without disclosing secrets, prove the marker absent, audit exact partial
-  runtime state and RGW, and resume only that phase after a scoped correction.
+- Bootstrap attempt: Preserved the harness in local commit `56632de` and
+  invoked only `bootstrap`. It failed in about 20 seconds because the
+  ubuntu-run Kolla CLI could not read the intentionally `root:root:0600`
+  passwords file. No Docker binary, image, container, VIP, or success marker
+  exists on any controller; RGW passed both boundary audits.
+- Correction: Preserve the root-only password boundary and run Kolla plus its
+  deploy check as root. Explicitly pin `ANSIBLE_COLLECTIONS_PATH` to the nine
+  Galaxy collections installed under the deployment owner and the system
+  collection path. Phase logs are now `root:root:0600`.
+- Correction evidence: A root read-only preflight parses the exact inventory,
+  loads the Kolla bootstrap command, sees all nine collections, retains the
+  root-only passwords, and proves Docker and the bootstrap marker absent. Bash
+  syntax, ShellCheck, Gitleaks, and diff checks pass.
+- Next exact action: Commit the root-execution correction locally, then resume
+  only `poc/kolla-ha/run-kolla-lifecycle.sh bootstrap
+  jh.byun@100.123.168.66`.
 
 ## Verification
 

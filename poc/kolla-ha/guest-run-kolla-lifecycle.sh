@@ -52,7 +52,9 @@ test -f "${known_hosts}"
 test "$(stat -c '%U:%G:%a' "${inventory}")" = root:root:644
 test "$(stat -c '%U:%G:%a' "${config_root}/globals.yml")" = root:root:644
 test "$(stat -c '%U:%G:%a' "${passwords}")" = root:root:600
-sudo -u ubuntu "${venv}/bin/ansible-inventory" \
+env \
+    ANSIBLE_COLLECTIONS_PATH=/home/ubuntu/.ansible/collections:/usr/share/ansible/collections \
+    "${venv}/bin/ansible-inventory" \
     -i "${inventory}" --graph >/dev/null
 
 ssh_options=(
@@ -264,16 +266,14 @@ run_kolla() {
     local log="${log_root}/${phase}.log"
     local rc
 
-    install -o ubuntu -g ubuntu -m 0600 /dev/null "${log}"
+    install -o root -g root -m 0600 /dev/null "${log}"
     set +e
-    # Root intentionally opens the pre-created 0600 log before dropping the
-    # command to the deployment owner.
-    # shellcheck disable=SC2024
-    sudo -u ubuntu env \
+    env \
         PATH="${venv}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
         LC_ALL=C.UTF-8 \
         LANG=C.UTF-8 \
         ANSIBLE_NOCOLOR=1 \
+        ANSIBLE_COLLECTIONS_PATH=/home/ubuntu/.ansible/collections:/usr/share/ansible/collections \
         timeout --signal=INT --kill-after=120 "${timeout_seconds}" \
         "${venv}/bin/kolla-ansible" \
         "$@" \
@@ -299,16 +299,14 @@ run_deploy_check() {
     local log="${log_root}/deploy-check.log"
     local rc
 
-    install -o ubuntu -g ubuntu -m 0600 /dev/null "${log}"
+    install -o root -g root -m 0600 /dev/null "${log}"
     set +e
-    # Root intentionally opens the pre-created 0600 log before dropping the
-    # command to the deployment owner.
-    # shellcheck disable=SC2024
-    sudo -u ubuntu env \
+    env \
         PATH="${venv}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
         LC_ALL=C.UTF-8 \
         LANG=C.UTF-8 \
         ANSIBLE_NOCOLOR=1 \
+        ANSIBLE_COLLECTIONS_PATH=/home/ubuntu/.ansible/collections:/usr/share/ansible/collections \
         timeout --signal=INT --kill-after=120 1800 \
         "${venv}/bin/kolla-ansible" check \
         -i "${inventory}" \
