@@ -2436,6 +2436,41 @@ promotion while ADR 0006 remains blocked.
   exact libvirt destroy actions. Validate dependency order, refusal paths, and
   an unchanged live preflight before requesting destructive execution.
 
+### 2026-07-25 — Final teardown preflight accepted
+
+- Completed: Added the resumable top-level
+  `preflight|run|status` teardown composition and shared-host before/after
+  auditor. Tenant cleanup is now idempotent so an interrupted sequence can
+  resume without recreating identities.
+- Live preflight: The mutation-free run classified
+  `tenant=prepared`, `companion=deployed`, `s3=prepared`, and
+  `libvirt=present`. It admitted exactly six running autostart-disabled
+  domains, sixteen Stage 5 volumes, three active autostart-disabled networks,
+  and the retained autostart-disabled `coffer-rgw-poc`.
+- Post-destroy contract: The auditor requires every Stage 5 domain, volume,
+  network, and host bridge to be absent, while unrelated domain definitions,
+  network definitions, volume names/capacities, host Docker container
+  definitions, host service state, and `coffer-rgw-poc` match the retained
+  pre-destroy snapshot. A synthetic removal fixture passed with zero Stage 5
+  residue and 18 unrelated domains, eight unrelated networks, and three
+  unrelated Coffer-pool volumes unchanged.
+- Failure retained: The first live preflight stopped read-only because libvirt
+  reports domain autostart as `disable` but network autostart as `no`. The
+  auditor now admits only the explicit disabled values `disable`, `disabled`,
+  and `no`; the same real inventory then passed. No safety assertion was
+  weakened.
+- Evidence: Python compilation, Bash parsing, warning-or-higher ShellCheck,
+  target refusal, top-level mutation-surface and dependency-order assertions,
+  live preflight, synthetic post-destroy audit, and diff checks pass.
+- Safety: No cleanup, stop, bucket/user deletion, libvirt destroy, or other
+  remote mutation has run. The destructive `run` action is ready but remains
+  uninvoked.
+- Next exact action: After explicit destructive-operation approval, invoke
+  `poc/kolla-ha/teardown-stage5.sh run
+  jh.byun@100.123.168.66` once. Require tenant identities 0, Coffer stopped,
+  RGW users/buckets 0, exact libvirt residue 0, unchanged unrelated-host
+  signatures, then rerun `status` idempotently.
+
 ## Verification
 
 | Check | Command or method | Result |

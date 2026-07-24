@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0018 active; exact cleanup path guarded
+- Status: plan 0018 active; destructive teardown ready for approval
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -55,6 +55,12 @@ destruction, and every phase has a read-only or idempotent acceptance
 boundary. Live S3 status confirms exactly two users/two buckets and no
 secondary credential recipient; an attempted cleanup while Coffer was still
 deployed failed at the stopped-state guard before any deletion.
+The top-level teardown preflight is accepted. It classifies the live state as
+tenant prepared, companion deployed, S3 prepared, and libvirt present; exact
+inventory is six domains, sixteen volumes, and three networks, with retained
+`coffer-rgw-poc` unchanged. A synthetic post-destroy audit proves the residue
+and unrelated-resource comparison contract. No destructive teardown action
+has run.
 
 ## Plan 0018 Activation
 
@@ -1781,11 +1787,12 @@ deployed failed at the stopped-state guard before any deletion.
 
 ## Exact Next Action
 
-Add a top-level teardown preflight and post-destroy audit that composes the
-accepted tenant cleanup, companion stop, exact S3 cleanup, and exact libvirt
-destroy actions. Validate the order and refusal paths locally, run only the
-mutation-free live preflight, and record the exact Stage 5 and unrelated-host
-inventory boundary before requesting destructive execution.
+After explicit approval for the destructive boundary, invoke
+`poc/kolla-ha/teardown-stage5.sh run
+jh.byun@100.123.168.66` once. Require exact tenant identity cleanup,
+Coffer-only stop, zero RGW users/buckets and credential residue, removal of
+only the six Stage 5 domains/sixteen volumes/three networks, unchanged
+unrelated shared-host signatures, and an idempotent final `status`.
 
 ## After This Work Package
 

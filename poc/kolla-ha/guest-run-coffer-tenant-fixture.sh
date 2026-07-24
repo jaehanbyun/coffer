@@ -855,6 +855,14 @@ if test "${action}" = renew-preflight; then
     exit 0
 fi
 
+if test "${action}" = cleanup &&
+    test ! -e "${fixture_root}" &&
+    test ! -e "${prepared_marker}"; then
+    require_clean_boundary
+    printf 'coffer_tenant_fixture phase=cleanup result=passed idempotent=yes\n'
+    exit 0
+fi
+
 exec 9>/run/lock/coffer-stage5-tenant-fixture.lock
 if ! flock -n 9; then
     echo "refusing concurrent Coffer tenant fixture execution" >&2

@@ -485,6 +485,24 @@ removes only those users and `/etc/coffer-stage5-rgw`, and proves the
 three-RGW/two-ingress cluster remains healthy. The final libvirt destroy is
 still a separately approved destructive operation.
 
+The top-level resumable composition is:
+
+```text
+poc/kolla-ha/teardown-stage5.sh preflight <ssh-target>
+poc/kolla-ha/teardown-stage5.sh run <ssh-target>
+poc/kolla-ha/teardown-stage5.sh status <ssh-target>
+```
+
+`preflight` is mutation-free and admits only an ordered prepared or partial
+teardown state. It snapshots the shared host under ignored `work/`, validates
+all six running autostart-disabled domains, sixteen volumes, three networks,
+and the retained `coffer-rgw-poc`, then classifies tenant, companion, and S3
+state. `run` invokes the four exact idempotent actions in dependency order.
+After libvirt destroy it requires every Stage 5 name and bridge to be absent
+while unrelated domain, network, volume, host-container, and service
+definitions match the pre-destroy snapshot. `status` repeats that post-destroy
+audit from the retained redacted inventory evidence.
+
 Run tenant OCI acceptance only after that finite fixture is prepared:
 
 ```text
