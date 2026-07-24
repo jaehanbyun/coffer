@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; prechecks accepted, deploy repair pending
+- Status: plan 0018 active; replicated Coffer baseline accepted, tenant acceptance next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -19,7 +19,10 @@ Stage 5 requires replicated
 Kolla/Coffer/Galera and an independent external RGW HA failure domain; a
 controller-only pilot against the retained one-node RGW is partial evidence
 and cannot close the plan. ADR 0006 still blocks production promotion on the
-signed Distribution v3.1.1 binary.
+signed Distribution v3.1.1 binary. The replicated Coffer companion baseline
+is now accepted with nine healthy containers, eighteen HAProxy sockets,
+verified internal/external TLS routing, exact catalog/schema state,
+private-port denial, idempotent replay, and all-node runtime log hygiene.
 
 ## Plan 0018 Activation
 
@@ -728,6 +731,31 @@ signed Distribution v3.1.1 binary.
   corrections, upgrade only the operator source, require structural
   `deploy-candidate`, then replay the idempotent deploy so config handlers
   restart edge and the full marker gate runs.
+- Preserved the Kolla frontend-upstream CA and transactional operator-source
+  v2 correction in local commit `88de660`. The v1-to-v2 upgrade retained the
+  published source and immutable image inputs and produced the exact admitted
+  two-file overlay.
+- Lifecycle status accepted the exact `deploy-candidate`; the replayed Ansible
+  deploy and Kolla check had zero failed or unreachable hosts. The complete
+  marker gate then passed with nine healthy service containers, eighteen
+  sockets, twelve configs, migration `0004_inventory_import`, exact
+  database/catalog resources, API 200, edge/registry 401, all nine direct
+  backends correct, FQDN-verified external 401, private 8789 denied, and
+  healthy external RGW.
+- Independent status passed. A repeated deploy returned `idempotent=yes`, and
+  the completion markers, three lifecycle logs, and controller-1 Coffer
+  container IDs retained identical metadata.
+- Strengthened the deployed boundary to collect all nine application logs
+  into root-only temporary controller-1 files, scan them against every Kolla
+  and companion secret plus private-key, Authorization, and JWT patterns, and
+  remove them on every exit. Bash/ShellCheck, five focused runtime-contract
+  tests, and the live all-node log audit pass with no retained audit residue.
+- Exact next action: add and locally validate a bounded two-project Stage 5
+  tenant acceptance harness with finite Keystone identities, unique external
+  VIP owner-local OCI traffic, project-A push/pull, project-B denial, digest
+  persistence, log hygiene, and exact identity/client cleanup. Do not create
+  identities until the harness is committed and its mutation-free preflight
+  passes.
 
 ## Plan 0017 Completion
 
@@ -1313,13 +1341,15 @@ signed Distribution v3.1.1 binary.
 
 ## Exact Next Action
 
-Commit the Kolla frontend-upstream CA, transactional operator-source v2, and
-owner-local external probe corrections. Upgrade only the operator source
-through `jh.byun@100.123.168.66`, require structural `deploy-candidate`, then
-replay the idempotent deploy to apply edge config and run the full marker gate.
+Add and locally validate the bounded two-project Stage 5 tenant acceptance
+harness. Its mutation-free preflight must require the accepted companion
+boundary and exact absence of fixture names/state; its only later mutations
+are finite disposable identities, project-A repository/quota/content, and
+temporary client material on the unique external-VIP owner, all with exact
+cleanup. Commit the harness before invoking identity creation.
 
 ## After This Work Package
 
-After deploy recovery passes, run tenant OCI/isolation acceptance before any
-replica, Galera, key-rotation, upgrade, rollback, or cleanup matrix. The signed
+After tenant OCI/isolation acceptance, run replica and Galera failure work
+before signing-key rotation, upgrade, rollback, or final cleanup. The signed
 Distribution v3.1.1 input remains production-blocked.

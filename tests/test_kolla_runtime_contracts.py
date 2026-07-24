@@ -62,3 +62,25 @@ def test_edge_and_reconciler_trust_the_kolla_frontend_ca() -> None:
         config_tasks.count('src: "{{ kolla_certificates_dir }}/ca/root.crt"')
         == 2
     )
+
+
+def test_multinode_lifecycle_scans_every_runtime_log_without_retaining_it() -> (
+    None
+):
+    lifecycle = (
+        ROOT
+        / "poc"
+        / "kolla-ha"
+        / "guest-run-coffer-companion-lifecycle.sh"
+    ).read_text(encoding="utf-8")
+
+    assert "verify_runtime_logs_secret_free" in lifecycle
+    assert lifecycle.count("docker logs coffer_") == 3
+    assert "mktemp -d" in lifecycle
+    assert 'rm -f -- "${runtime_log}"' in lifecycle
+    assert 'rmdir -- "${temporary_root}"' in lifecycle
+    assert "bearer token found in retained Coffer log" in lifecycle
+    deployed_boundary = lifecycle.split(
+        "require_deployed_boundary() {", maxsplit=1
+    )[1].split("run_companion() {", maxsplit=1)[0]
+    assert "verify_runtime_logs_secret_free" in deployed_boundary

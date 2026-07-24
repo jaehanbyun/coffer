@@ -116,7 +116,7 @@ promotion while ADR 0006 remains blocked.
       harnesses, then prove dry-run and negative-target behavior locally.
 - [x] Provision the isolated storage and controller guests, bootstrap external
       Ceph/RGW HA and Kolla multinode, and record only aggregate health facts.
-- [ ] Build or resolve immutable functional pilot images through the
+- [x] Build or resolve immutable functional pilot images through the
       independent bootstrap path and deploy the Coffer companion role with
       production-shaped TLS and private backends.
 - [ ] Run baseline catalog, two-project OCI, resumable upload, quota,
@@ -1443,6 +1443,42 @@ promotion while ADR 0006 remains blocked.
   `deploy-candidate`, then replay only companion deploy and require the full
   endpoint plus marker gate.
 
+### 2026-07-24 — Replicated Coffer companion baseline accepted
+
+- Completed: Preserved the upstream-CA/operator-source-v2 correction in
+  commit `88de660`, transactionally upgraded the exact two-file operator
+  overlay, and classified the existing runtime as `deploy-candidate`. The
+  idempotent companion deploy replay and Kolla check completed with zero
+  failed or unreachable hosts and wrote the deploy marker only after every
+  acceptance gate passed.
+- Runtime evidence: Three API, three edge, and three private Distribution
+  containers are healthy. The exact topology has eighteen HAProxy sockets and
+  twelve rendered configurations; Alembic is at `0004_inventory_import`; the
+  single database/user, Keystone service/user, and three canonical endpoints
+  are present; and external Ceph/RGW remains at three-MON quorum, three of
+  three OSDs up/in, three RGWs, clean PGs, and `HEALTH_OK`.
+- Routing evidence: The API returns 200; edge and Distribution return the
+  expected 401 challenge on all nine direct backends and the internal VIP.
+  The unique external VIP owner returns the FQDN-verified 401 challenge with
+  service `coffer-registry`, while external access to private port 8789 is
+  denied.
+- Idempotency and hygiene: Independent status passed, and a repeated deploy
+  returned `idempotent=yes`. Completion-marker and lifecycle-log metadata plus
+  controller-1 container IDs were unchanged. The deployed boundary now
+  collects all nine runtime logs into root-only temporary files, scans them
+  against Kolla and companion secrets plus private-key, Authorization, and
+  JWT patterns, and removes the files before returning; the live audit passed.
+- Verification: Bash syntax, ShellCheck, five focused runtime-contract tests,
+  diff checks, independent live status, runtime log hygiene, and the repeated
+  deploy boundary pass.
+- Next exact action: Add and locally validate a bounded Stage 5 tenant
+  acceptance harness that creates exactly two finite Keystone projects,
+  users, and application credentials, runs its OCI client only on the unique
+  external-VIP owner, proves project-A push/pull and project-B denial through
+  port 443, and has exact identity/client cleanup. Do not invoke identity
+  creation until the harness is committed and its mutation-free preflight
+  passes.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1469,7 +1505,7 @@ promotion while ADR 0006 remains blocked.
 | Kolla production profile reconfigure | internal/external TLS, single frontend, catalog, quorums, logs, absent Coffer | passed idempotently; 36 healthy containers |
 | Coffer image build/distribution | pins, owner/resume boundary, direct transfer, identical IDs, idempotency | passed; two exact images on three controllers, runtime absent |
 | Coffer companion preparation | inventory, inputs, direct RGW transfer, rollback, idempotency, absent runtime | passed; complete marker and integrated ready gate accepted |
-| Coffer HA baseline | companion deploy and replicated service acceptance | pending |
+| Coffer HA baseline | companion deploy and replicated service acceptance | passed; 9 healthy replicas, 18 sockets, full TLS/routing and log-hygiene gates |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | passed for daemon and storage-VM loss |
 | OCI and isolation | two-project clients through sole external edge | pending |
 | Fault and recovery matrix | allowlisted per-replica failures and restore checks | pending |
@@ -1515,15 +1551,19 @@ promotion while ADR 0006 remains blocked.
   three-host groups, production globals, controller-1-only secret/public
   inputs, verified backend/RGW TLS, and durable owner/input/completion markers
   pass both integrated ready and repeated metadata-idempotency checks. The
-  recovered deploy has nine healthy service containers, twelve configs, 18
-  backend/frontend listeners, and no deploy marker until the corrected
-  acceptance completes.
-- Exact next action: Commit the upstream-CA/operator-v2 and external-owner
-  probe corrections, upgrade only the operator source, confirm structural
-  `deploy-candidate`, then replay companion deploy for full acceptance.
-- First file or command: Stage the role/test, operator-source upgrade,
-  lifecycle probe/resume changes, this plan, and HANDOFF; inspect and commit
-  the atomic correction.
+  accepted deploy has nine healthy service containers, twelve configs,
+  eighteen backend/frontend listeners, migration head, exact catalog,
+  verified internal and external routing, denied private-port bypass, and a
+  root-only deploy marker. Repeated deploy is metadata-idempotent, and the
+  nine-container runtime log hygiene gate passes without retained audit
+  residue.
+- Exact next action: Implement the bounded two-project Stage 5 tenant
+  acceptance harness with finite identities, owner-local OCI client traffic,
+  project isolation, digest persistence, log hygiene, and exact cleanup.
+- First file or command: Inspect and adapt the completed Stage 4 identity and
+  tenant helpers into a new mutation-free Stage 5 preflight contract under
+  `poc/kolla-ha/`; do not create an identity before the new harness is
+  committed and preflight passes.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

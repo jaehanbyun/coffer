@@ -353,14 +353,22 @@ markers. Their logs are replaced as root-only files and scanned against both
 Kolla-generated passwords and every companion secret in raw and encoded
 forms; a failed or contaminated phase cannot create its marker.
 
-Before `prechecks` and `deploy`, the complete companion `ready` gate and
+Before `prechecks` and the first `deploy`, the complete companion `ready` gate and
 external RGW audit must pass. Prechecks must leave all Coffer runtime,
 database, catalog, listener, and rendered-service state absent. Deploy adds
 three API, three edge, and three private Distribution replicas, then requires
-container health, nine verified-TLS backend listeners, one-shot migration
-head, Keystone service/user/endpoints, sole public edge routing, private-port
-denial, Kolla `check`, and healthy external RGW before its marker is written.
-OCI tenant/isolation and disruptive-fault acceptance remain later phases.
+container health, nine verified-TLS service backends plus nine nonlocal-VIP
+frontend sockets, one-shot migration head, Keystone service/user/endpoints,
+sole public edge routing, private-port denial, Kolla `check`, and healthy
+external RGW before its marker is written.
+
+An accepted `status` also collects API, edge, and Distribution logs from all
+three controllers into root-only temporary files on controller-1. It scans
+them against Kolla and companion secrets plus private-key, Authorization, and
+JWT patterns, then removes every temporary file before returning. A repeated
+`deploy` validates the same complete boundary and returns idempotently without
+replacing its marker, lifecycle logs, or service containers. OCI
+tenant/isolation and disruptive-fault acceptance remain later phases.
 
 If an operator-role correction is required after the immutable functional
 images have already been built, prepare a separate exact operator source:
@@ -372,8 +380,10 @@ poc/kolla-ha/prepare-coffer-operator-source.sh prepare <ssh-target>
 
 This phase clones the still-clean published source locally on controller-1
 and installs only the two SHA-256-pinned operator files admitted by the
-harness. It does not rebuild or relabel runtime images, modify the published
-source checkout, or use a registry. The resulting Git state must retain the
+harness. Version 2 supplies the one-shot bootstrap CA input and makes edge
+trust the Kolla internal-VIP CA while preserving the separate Coffer leaf CA.
+It does not rebuild or relabel runtime images, modify the published source
+checkout, or use a registry. The resulting Git state must retain the
 published base commit, exactly two modified paths, no untracked files, and a
 root-only completion marker. The companion lifecycle validates this exact
 overlay before any resumed deploy.

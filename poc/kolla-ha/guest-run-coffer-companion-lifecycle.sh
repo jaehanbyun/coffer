@@ -189,16 +189,78 @@ for value in values:
         candidates.add(urllib.parse.quote(text, safe="").encode())
         candidates.add(base64.b64encode(value))
     if any(candidate and candidate in data for candidate in candidates):
-        raise SystemExit("credential found in companion lifecycle log")
+        raise SystemExit("credential found in retained Coffer log")
 if b"-----BEGIN PRIVATE KEY-----" in data:
-    raise SystemExit("private key found in companion lifecycle log")
+    raise SystemExit("private key found in retained Coffer log")
 if re.search(
     rb"Authorization ['\"](?:Basic|Bearer) [A-Za-z0-9+/=._-]+",
     data,
 ):
-    raise SystemExit("authorization credential found in companion lifecycle log")
+    raise SystemExit("authorization credential found in retained Coffer log")
+if re.search(
+    rb"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+",
+    data,
+):
+    raise SystemExit("bearer token found in retained Coffer log")
 PY
 }
+
+verify_runtime_logs_secret_free() (
+    set -Eeuo pipefail
+
+    local temporary_root
+    local index
+    local address
+    local expected
+    local log
+    local -a runtime_logs=()
+
+    temporary_root="$(
+        mktemp -d "${state_root}/.coffer-runtime-log-audit.XXXXXX"
+    )"
+    chmod 0700 "${temporary_root}"
+    # shellcheck disable=SC2329  # Invoked by the EXIT trap.
+    cleanup_runtime_logs() {
+        local runtime_log
+
+        for runtime_log in "${runtime_logs[@]}"; do
+            rm -f -- "${runtime_log}"
+        done
+        rmdir -- "${temporary_root}"
+    }
+    collect_runtime_log() {
+        local target_address="$1"
+
+        sudo -u ubuntu ssh \
+            "${ssh_options[@]}" "ubuntu@${target_address}" \
+            sudo env LC_ALL=C LANG=C bash -s
+    }
+    trap cleanup_runtime_logs EXIT
+
+    for index in "${!addresses[@]}"; do
+        address="${addresses[${index}]}"
+        expected="${hostnames[${index}]}"
+        log="${temporary_root}/${expected}.log"
+        runtime_logs+=("${log}")
+        if ! collect_runtime_log "${address}" \
+            >"${log}" 2>&1 <<'REMOTE'
+set -Eeuo pipefail
+
+docker logs coffer_api
+docker logs coffer_edge
+docker logs coffer_registry
+REMOTE
+        then
+            printf 'runtime log collection failed for %s\n' \
+                "${expected}" >&2
+            return 1
+        fi
+        chmod 0600 "${log}"
+        verify_log_secret_free "${log}"
+    done
+
+    printf 'coffer_runtime_log_audit hosts=3 containers=9 secrets=redacted result=passed\n'
+)
 
 node_snapshot() {
     local index="$1"
@@ -613,6 +675,7 @@ require_deployed_boundary() {
     test "${total_configs}" -eq 12
     probe_database_and_catalog deployed
     probe_service_endpoints
+    verify_runtime_logs_secret_free
 }
 
 run_companion() {
