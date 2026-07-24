@@ -501,6 +501,33 @@ promotion while ADR 0006 remains blocked.
   anonymous/cross-owner/extra-bucket denial, and retain a known-digest private
   sentinel for later replica-loss tests without printing credentials.
 
+### 2026-07-24 — Isolated S3 fixture harness validated
+
+- Completed: Added a separate wrapper, owner-only guest provisioner, and
+  standard-library/boto3 acceptance helper for the disposable registry and
+  denial identities. The phase creates exactly one bucket per identity,
+  retains a deterministic 4-MiB private sentinel, and emits only aggregate
+  status and its non-secret digest.
+- Secret boundary: The two RGW user records and future Distribution S3
+  environment are mode `0600` under `/etc/coffer-stage5-rgw` on storage-1.
+  The wrapper removes its temporary helper and asserts that storage-2/3 have
+  no fixture directory. Existing owned keys must retain their hashes on a
+  rerun; a pre-existing unowned user or orphan credential file fails closed.
+- Acceptance contract: Anonymous access, cross-owner access, and a second
+  registry bucket must fail. A pre-existing sentinel must retain the expected
+  size and SHA-256 metadata before it is read and verified; it is never
+  silently replaced.
+- Evidence: Bash syntax, ShellCheck, Python compilation, target refusals,
+  source secret scans, AST fixture constants, Gitleaks, and diff checks pass.
+  Live read-only preflight reports `HEALTH_OK`, boto3 present, zero S3 users,
+  zero buckets, and no fixture state on any storage node.
+- Safety: The S3 fixture harness has not been invoked. No identity, key,
+  bucket, object, or credential file exists yet.
+- Next exact action: Commit the validated fixture harness locally, recheck the
+  zero-state preflight, then invoke
+  `poc/kolla-ha/provision-ceph-s3.sh bb00` once and immediately rerun it to
+  prove credential and sentinel idempotency.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -515,6 +542,7 @@ promotion while ADR 0006 remains blocked.
 | Ceph control plane | exact hosts, 3-MON quorum, 2 MGRs, key recipients, zero OSD/RGW | passed at the zero-OSD checkpoint |
 | Ceph replicated OSDs | exact devices, 3 up/in OSDs, host CRUSH domain, size/min 3/2, idempotency | passed; `HEALTH_OK` |
 | RGW HA endpoint | 3 RGWs, 2 ingress pairs, one VIP owner, backend/frontend TLS, idempotency | passed; 5 pools/129 clean PGs, zero users |
+| S3 fixture harness | owner-only identities, denials, persistent sentinel, zero-state preflight | passed locally; live invocation pending |
 | Kolla/Galera/Coffer baseline | multinode deploy and health acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | pending |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -543,11 +571,12 @@ promotion while ADR 0006 remains blocked.
 ## Handoff
 
 - Current state: Active; the Ceph control plane and exact three-host replicated
-  OSD baseline plus three-RGW/two-ingress TLS endpoint are healthy. No S3 user
-  or bucket exists.
-- Exact next action: Implement and locally validate the isolated S3 fixture
-  phase with owner-only credentials and persistent sentinel evidence.
-- First file or command: `poc/kolla-ha/provision-ceph-s3.sh`.
+  OSD baseline plus three-RGW/two-ingress TLS endpoint are healthy. The S3
+  fixture harness is locally validated; no S3 user or bucket exists.
+- Exact next action: Commit the S3 fixture harness locally, then invoke it
+  twice to prove the owner-only identity and persistent sentinel contracts.
+- First file or command: `git commit` for the exact S3 fixture files and this
+  checkpoint, followed by `poc/kolla-ha/provision-ceph-s3.sh bb00`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

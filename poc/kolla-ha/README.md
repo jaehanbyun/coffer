@@ -111,3 +111,19 @@ primary; only the public CA is exported under ignored `work/kolla-ha/`.
 Acceptance requires verified backend/frontend TLS, exactly one VIP owner,
 healthy replicated pools, and zero S3 users. User/bucket provisioning and
 failure testing are later phases.
+
+Create the disposable private S3 fixtures only after the RGW HA endpoint
+passes:
+
+```text
+poc/kolla-ha/provision-ceph-s3.sh <ssh-target>
+```
+
+This phase creates one non-system registry identity and one independently
+owned denial identity with one-bucket limits and no admin caps. Credentials
+and the future Distribution environment stay mode `0600` only on storage-1;
+secondary hosts and the local workspace receive no S3 secret. The fixture
+proves anonymous, cross-owner, and extra-bucket denial, then retains one
+deterministic 4-MiB private object for replica-loss testing. Repeated execution
+must verify the existing key identities and object digest rather than rotate or
+overwrite them.
