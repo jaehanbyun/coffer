@@ -826,6 +826,22 @@ promotion while ADR 0006 remains blocked.
   jh.byun@100.123.168.66`. Do not pull images unless the root-only prechecks
   marker and independent acceptance pass.
 
+### 2026-07-24 — Three-controller Kolla prechecks passed
+
+- Completed: The exact `prechecks --use-test-images` phase passed with
+  `changed=0`, `failed=0`, and `unreachable=0` on all three controllers.
+- Independent evidence: Lifecycle status reports only `bootstrap,prechecks`
+  complete, Docker active `3/3`, and zero images, containers, or VIPs.
+  Bootstrap/prechecks markers and logs are `root:root:0600`; passwords remain
+  root-only and pull/deploy markers are absent.
+- Storage boundary: External Ceph/RGW remains at three-MON quorum, three
+  up/in OSDs, three RGWs, two ingress pairs, zero inactive/unclean PGs, and
+  `HEALTH_OK`.
+- Next exact action: Invoke only
+  `poc/kolla-ha/run-kolla-lifecycle.sh pull
+  jh.byun@100.123.168.66`. Do not deploy until all three nodes have images,
+  the exact pull marker passes, and external RGW remains healthy.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -845,7 +861,7 @@ promotion while ADR 0006 remains blocked.
 | Storage VM fault | exact storage-3 power loss, degraded reads, full recovery | passed; 5 outage reads and independent 3-node recovery |
 | Kolla controller preflight | pinned inventory/globals and three clean controller guests | passed mutation-free; external RGW remains healthy |
 | Kolla prepare harness | owner/recipient boundaries, pinned tooling, secrets, stop gate | passed live and independently audited; runtime/VIPs remain absent |
-| Kolla lifecycle harness | phase allowlist, ordering, timeouts, logs, markers, status, storage boundary | passed; bootstrap independently accepted, prechecks pending |
+| Kolla lifecycle harness | phase allowlist, ordering, timeouts, logs, markers, status, storage boundary | passed; bootstrap/prechecks independently accepted, pull pending |
 | Kolla/Galera/Coffer baseline | multinode deploy and health acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | pending |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -884,9 +900,9 @@ promotion while ADR 0006 remains blocked.
   preparation and its independent recipient/secret/tooling/no-runtime audit
   pass; Kolla bootstrap has not run and both Kolla VIPs remain absent.
 - Exact next action: Invoke and independently accept only the lifecycle
-  runner's `prechecks` phase.
+  runner's `pull` phase.
 - First file or command:
-  `poc/kolla-ha/run-kolla-lifecycle.sh prechecks
+  `poc/kolla-ha/run-kolla-lifecycle.sh pull
   jh.byun@100.123.168.66`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production

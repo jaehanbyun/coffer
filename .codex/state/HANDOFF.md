@@ -337,6 +337,17 @@ signed Distribution v3.1.1 binary.
   jh.byun@100.123.168.66`. If it fails, retain and inspect only the redacted
   root-only prechecks log, verify the success marker absent, and do not pull
   images.
+- The exact prechecks phase passed with `changed=0`, `failed=0`, and
+  `unreachable=0` on all three controllers. Independent status still reports
+  Docker active `3/3`, zero images/containers/VIPs, and only `bootstrap` plus
+  `prechecks` complete.
+- The bootstrap/prechecks markers and logs are exact `root:root:0600`;
+  passwords remain root-only, and pull/deploy markers are absent. External
+  Ceph/RGW remains fully healthy.
+- Exact next action: invoke only
+  `poc/kolla-ha/run-kolla-lifecycle.sh pull
+  jh.byun@100.123.168.66`. Do not deploy unless all three nodes have images,
+  the root-only pull marker passes, and external RGW remains healthy.
 
 ## Plan 0017 Completion
 
