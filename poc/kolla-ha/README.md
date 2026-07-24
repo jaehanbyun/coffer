@@ -444,3 +444,21 @@ passwords, both application credential secrets, private-key, Authorization,
 and JWT patterns. Repository/evidence/markers stay root-only on controller-1
 for the later fault matrix. Repeated `accept` performs the read-only boundary
 and does not replace them.
+
+After tenant acceptance, run the exact controller-3 service-replica matrix:
+
+```text
+poc/kolla-ha/test-coffer-service-failover.sh preflight <ssh-target>
+poc/kolla-ha/test-coffer-service-failover.sh run <ssh-target>
+```
+
+The mutation-free preflight requires all nine Coffer containers healthy,
+the complete tenant/digest/isolation boundary, and either zero or only the
+three allowlisted root-owned completion markers. `run` stops only
+controller-3's API, edge, and unmodified Distribution containers, one at a
+time. While each replica is unavailable it requires three authenticated
+manifest/blob reads plus project-B denial through the surviving external
+path. Every target is restarted and required healthy before the next fault;
+an EXIT trap restores the current exact container after an intermediate
+failure. A repeated run validates the complete boundary and skips all
+completed faults without replacing their markers.

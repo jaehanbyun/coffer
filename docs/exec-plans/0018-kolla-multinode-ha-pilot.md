@@ -119,7 +119,7 @@ promotion while ADR 0006 remains blocked.
 - [x] Build or resolve immutable functional pilot images through the
       independent bootstrap path and deploy the Coffer companion role with
       production-shaped TLS and private backends.
-- [ ] Run baseline catalog, two-project OCI, resumable upload, quota,
+- [x] Run baseline catalog, two-project OCI, resumable upload, quota,
       non-bypass, digest, replica distribution, and secret/log acceptance.
 - [ ] Run allowlisted replica, Galera, RGW, reconciler fencing, signing-key
       overlap, rolling-upgrade, compatible rollback, and recovery rehearsals.
@@ -1562,6 +1562,41 @@ promotion while ADR 0006 remains blocked.
   and retain an EXIT recovery trap. Do not stop HAProxy, Galera, or a whole
   controller in this phase.
 
+### 2026-07-24 — Coffer service replica faults accepted
+
+- Completed: Added a committed `data-status` tenant path and exact
+  controller-3 fault harness before any container stop. API, edge, and
+  unmodified Distribution were stopped one at a time. Each outage passed
+  three authenticated manifest/blob plus project-B isolation probes through
+  the surviving external route; all nine probes converged on their first
+  attempt.
+- Recovery evidence: Every target returned healthy before the next fault.
+  Each post-fault full status restored all nine Coffer backends, eighteen
+  listeners, twelve configs, catalog/schema state, private-port denial,
+  tenant digest/quota/isolation, nine-container log hygiene, and the healthy
+  three-RGW external storage boundary.
+- Idempotency: Three root-owned mode-0600 completion markers remain only on
+  controller-1. A repeated `run` reported `idempotent=yes` for all three
+  faults, performed no additional stop, and retained identical marker inode,
+  size, timestamp, owner, and mode.
+- Failure correction: The first API cycle proved all three outage probes, but
+  its restore wait used a pipe character in an SSH-rendered Docker format.
+  The remote shell interpreted it as a pipeline, so the bounded wait failed
+  despite the already healthy container. Independent inspection confirmed
+  all three controller-3 services healthy; the exact local harness process
+  was terminated after its recovery trap had restarted API. The parser now
+  uses a shell-safe colon, and a fresh full preflight plus the complete matrix
+  passed. No edge or Distribution fault ran before the correction.
+- Verification: Bash syntax, ShellCheck, eight focused runtime-contract
+  tests, refusal checks, Gitleaks, diff checks, committed preflight, the
+  nine-probe fault matrix, complete recovery, and metadata-idempotent replay
+  pass.
+- Next exact action: Inspect the live Kolla Keepalived tracking and HAProxy
+  restart contracts read-only, then add a separately guarded active external
+  VIP-owner HAProxy fault. It must prove VIP movement, the same tenant
+  digest/isolation path, exact HAProxy restoration, and one final VIP owner
+  before any Galera fault.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1591,7 +1626,8 @@ promotion while ADR 0006 remains blocked.
 | Coffer HA baseline | companion deploy and replicated service acceptance | passed; 9 healthy replicas, 18 sockets, full TLS/routing and log-hygiene gates |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | passed for daemon and storage-VM loss |
 | OCI and isolation | two-project clients through sole external edge | passed; quota 429/success, Docker push/pull, two-part upload, project-B denial, digest/log/residue gates |
-| Fault and recovery matrix | allowlisted per-replica failures and restore checks | pending |
+| Coffer replica faults | controller-3 API, edge, and Distribution stop/probe/restore | passed; 9/9 authenticated outage probes, complete recovery, idempotent replay |
+| Fault and recovery matrix | Kolla HAProxy, Galera, and reconciler faults plus restore checks | pending |
 | Upgrade, key rotation, rollback | bounded rolling rehearsals | pending |
 | Cleanup and repository regression | exact remote/local residue and focused checks | pending |
 
@@ -1639,13 +1675,17 @@ promotion while ADR 0006 remains blocked.
   verified internal and external routing, denied private-port bypass, and a
   root-only deploy marker. Repeated deploy is metadata-idempotent, and the
   nine-container runtime log hygiene gate passes without retained audit
-  residue.
-- Exact next action: Implement the controller-3-only API, edge, and
-  Distribution replica stop/probe/healthy-restore cycle.
-- First file or command: Add a fault-compatible read-only tenant data probe
-  that does not require all nine replicas, then use it from a new exact
-  `poc/kolla-ha/test-coffer-service-failover.sh`; commit and preflight before
-  any container stop.
+  residue. The controller-3 API, edge, and Distribution single-replica matrix
+  also passes: nine authenticated outage probes retained both project-A
+  digests and project-B denial, every container recovered healthy, and a
+  metadata-stable replay skipped all completed faults.
+- Exact next action: Inspect the live external-VIP Keepalived tracking and
+  HAProxy container contracts, then implement the exact active-owner HAProxy
+  stop/VIP-move/probe/restore cycle.
+- First file or command: Read only the three controllers' HAProxy/Keepalived
+  container health, external VIP ownership, and non-sensitive tracking
+  configuration before adding
+  `poc/kolla-ha/test-kolla-haproxy-failover.sh`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an
