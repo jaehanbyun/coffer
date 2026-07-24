@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; six-guest preflight passed
+- Status: plan 0018 active; libvirt lifecycle harness awaits create
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -10,9 +10,10 @@
 
 Plan 0018 is active to complete the disposable Kolla multinode and HA pilot.
 The read-only `bb00` refresh, preferred six-guest topology, immutable Ubuntu
-image pin, and mutation-free provision preflight are complete. Every live
-capacity and collision gate passes with the configured safety margins. No
-create or destroy behavior is implemented yet. Stage 5 requires replicated
+image pin, provision preflight, and exact-target libvirt lifecycle harness are
+complete. Every live capacity and collision gate passes with the configured
+safety margins. Create and destroy are implemented but have not been invoked.
+Stage 5 requires replicated
 Kolla/Coffer/Galera and an independent external RGW HA failure domain; a
 controller-only pilot against the retained one-node RGW is partial evidence
 and cannot close the plan. ADR 0006 still blocks production promotion on the
@@ -41,10 +42,15 @@ signed Distribution v3.1.1 binary.
   QCOW2 SHA-256 are pinned from the official date-fixed checksum list.
 - The live preflight passes for six domains/36 vCPUs and predicts 51.8 GiB
   RAM, 300.5 GiB filesystem, and 320.6 GiB pool capacity remaining.
-- Exact next action: locally commit the completed plan/inventory/preflight
-  baseline, then implement paired exact-target create/status/destroy behavior
-  and partial-create rollback. Do not invoke create before local allowlist and
-  negative-target verification passes.
+- Local commit `1a78bd7` preserves the plan/inventory/preflight baseline.
+- Added a paired remote libvirt helper with independent hard-coded allowlists,
+  verified image download, autostart-disabled resources, exact destroy, and
+  partial-create rollback. Local executable contracts and remote read-only
+  status pass; all six domains, sixteen volumes, and three networks are absent.
+- Exact next action: locally commit this lifecycle harness, rerun preflight and
+  status, then invoke `poc/kolla-ha/provision.sh create bb00` once. If create
+  fails, inspect only aggregate error/status evidence and confirm rollback
+  before changing the harness.
 
 ## Plan 0017 Completion
 

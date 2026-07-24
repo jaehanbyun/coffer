@@ -226,6 +226,37 @@ promotion while ADR 0006 remains blocked.
   `create` until those actions pass local syntax, schema, negative-target, and
   allowlist review.
 
+### 2026-07-24 — Exact libvirt lifecycle harness validated
+
+- Completed: Preserved the plan/inventory/preflight baseline in local commit
+  `1a78bd7`. Extracted the preflight validator, added a standard-library remote
+  libvirt helper, and extended the wrapper with explicit
+  `preflight|status|create|destroy` actions.
+- Safety contract: The remote helper independently hard-codes the six domain,
+  three network/bridge, pool, base-volume, and MAC-prefix allowlists. Create
+  rechecks absence, verifies the date-pinned image before upload, leaves
+  networks/domains autostart-disabled, and rolls back only the resources
+  appended by that invocation. Destroy names every resource exactly, removes
+  domains before volumes and networks, and never uses globs,
+  `--remove-all-storage`, or prefix-selected deletion.
+- Evidence: Bash syntax, ShellCheck, Python compilation, good/bad allowlist,
+  six-domain/16-volume derivation, NAT/isolated XML, controller/storage NIC
+  rendering, exact destroy, and partial rollback contracts pass. The remote
+  host has all four required tools and three usable public keys. A fresh
+  preflight passes; read-only remote status reports all six domains, sixteen
+  volumes, and three networks absent.
+- Limitation: Ruff is not installed in the locked project environment, so that
+  optional style command could not start. Python compilation and the executable
+  harness verification passed; no dependency was added merely for this check.
+- Safety: Neither create nor destroy has been invoked. No remote state changed.
+- Changed files: Added `poc/kolla-ha/preflight.py`,
+  `poc/kolla-ha/libvirt_remote.py`, and `poc/kolla-ha/verify.py`; updated the
+  provision wrapper, README, this plan, and `HANDOFF.md`.
+- Next exact action: Commit the paired lifecycle harness locally, rerun
+  `provision.sh preflight bb00` and `provision.sh status bb00`, then invoke
+  `provision.sh create bb00` once. On any failure, verify its automatic
+  rollback with read-only status before making a correction.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -233,6 +264,7 @@ promotion while ADR 0006 remains blocked.
 | Published Stage 4/image baseline | local and remote Git commit equality | passed at `4f1ff7d` |
 | Host capacity and namespace | bounded read-only Stage 5 audit | passed |
 | Mutation-free provision preflight | schema, budget, namespace, network, and image gates | passed |
+| Libvirt lifecycle safety | allowlists, exact destroy, partial rollback, remote clean status | passed; create not invoked |
 | Provision/destroy target safety | local dry-run and negative-target tests | pending |
 | Kolla/Galera/Coffer baseline | multinode deploy and health acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | pending |
@@ -263,8 +295,8 @@ promotion while ADR 0006 remains blocked.
 
 - Current state: Active; read-only inventory and the preferred six-guest
   topology are complete. No Stage 5 remote mutation has occurred.
-- Exact next action: Preserve the passed preflight in a local atomic commit,
-  then implement paired create/status/destroy behavior without invoking it.
+- Exact next action: Preserve the paired lifecycle harness in a local atomic
+  commit, rerun clean preflight/status, then invoke the exact create action.
 - First file or command: `git diff --check`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production

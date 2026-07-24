@@ -33,7 +33,29 @@ libvirt names and sizes, operational network state, listeners, and restricted
 Docker fields. It does not read command lines, environment variables,
 configuration contents, credentials, keys, or certificates.
 
-Provisioning remains disabled until the Ubuntu image checksum is pinned and
-the preflight proves all declared names, MAC addresses, networks, volumes, and
-subnets are free while leaving at least 40 GiB host memory and 250 GiB storage
-available after the complete six-guest budget.
+The provision wrapper accepts four explicit actions:
+
+```text
+poc/kolla-ha/provision.sh preflight <ssh-target>
+poc/kolla-ha/provision.sh status <ssh-target>
+poc/kolla-ha/provision.sh create <ssh-target>
+poc/kolla-ha/provision.sh destroy <ssh-target>
+```
+
+`preflight` and `status` are read-only. `create` always reruns preflight, then
+defines only the three declared networks, sixteen declared volumes, and six
+declared domains. It downloads the date-pinned Ubuntu image on the host,
+verifies its SHA-256 before upload, keeps every network and domain autostart
+disabled, and rolls back only resources recorded as created by that invocation
+if a later step fails.
+
+`destroy` is destructive and intentionally exact: the remote helper has a
+second hard-coded Stage 5 allowlist and refuses any other domain, network,
+bridge, pool, base volume, or MAC prefix. It removes the six declared domains
+before their volumes, removes the shared Stage 5 base last, then removes only
+the three Stage 5 networks. It never uses `--remove-all-storage`, a wildcard,
+or a domain/pool prefix query as a deletion target.
+
+The current preflight requires all declared names, MAC addresses, networks,
+volumes, and subnets to be free while leaving at least 40 GiB host memory and
+250 GiB storage available after the complete six-guest budget.
