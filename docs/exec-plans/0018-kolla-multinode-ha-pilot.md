@@ -1877,6 +1877,42 @@ promotion while ADR 0006 remains blocked.
   conflict, restore exact quota/row state, retain tenant service, and leave no
   helper or credential residue before compatible rollback.
 
+### 2026-07-25 — Real-Galera transaction harness validated
+
+- Completed locally: Added a guarded `preflight|run` harness that executes the
+  installed updated `QuotaStore` inside `coffer_api`, reads its existing
+  owner-only configuration in-process, and reaches the deployed ProxySQL and
+  Galera topology. The helper and database connection never become host files,
+  command arguments, environment metadata, or retained output.
+- Concurrency contract: Two independent stores synchronize on one project
+  quota and submit two 150-byte logical reservations against a 150-byte limit.
+  Exact success requires one admitted pending reservation, one
+  `QuotaExceeded`, and reserved/used state 150/0 before cleanup.
+- Retry contract: A separate connection locks an allowlisted temporary project
+  row. The installed store sets a one-second session lock timeout, observes
+  its real MySQL 1205 error, and must emit exactly one fixed retry record for
+  `set_limit` attempt 2 before committing the second attempt. The test does
+  not monkeypatch or inject an exception.
+- Recovery and hygiene: Only two fixed temporary project IDs and two fixed
+  repository IDs are admitted. A root-only owner marker makes interrupted
+  executions resumable. The helper removes claims, manifests, descriptor
+  edges, reservations, descriptors, and project quotas in child-first order
+  both before an owned resume and in `finally`; completion requires aggregate
+  residue zero and healthy tenant/Galera checks.
+- Verification: Twenty-five focused Python tests, Bash syntax, ShellCheck,
+  Python compilation, four refusal/forbidden-command contracts, and diff
+  checks pass. Live mutation-free preflight reports three-node Primary/Synced
+  Galera, all ProxySQL routes healthy, retry bound 3, exact row residue zero,
+  and no marker/helper state.
+- Safety: No synthetic row, lock, limit change, marker, helper file, service
+  restart, container mutation, identity change, or object change occurred in
+  preflight.
+- Next exact action: Commit the guarded transaction harness locally, invoke
+  only its `run` action once, and require one-winner admission, actual 1205
+  followed by attempt 2 success, exact row cleanup, retained tenant digest and
+  isolation, three-node Galera health, owner-only evidence, and idempotent
+  replay before compatible rollback.
+
 ## Verification
 
 | Check | Command or method | Result |

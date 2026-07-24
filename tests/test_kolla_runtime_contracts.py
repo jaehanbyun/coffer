@@ -195,7 +195,7 @@ def test_multinode_rolling_update_is_serial_and_has_exact_rollback() -> None:
     assert "{preflight|status|upgrade|rollback}" in guest
     assert "run-coffer-companion-lifecycle.sh" in outer
     assert "run-coffer-tenant-acceptance.sh" in outer
-    assert "data-status" in outer
+    assert "path-status" in outer
     assert "during_probe_count" in outer
     assert "test \"${during_probe_count}\" -ge 1" in outer
     assert "localhost/coffer:stage5-quota-retry" in guest
@@ -208,6 +208,8 @@ def test_multinode_rolling_update_is_serial_and_has_exact_rollback() -> None:
     assert "rolling globals changed outside the Coffer image" in guest
     assert "current=0 updated=3" in guest
     assert "current=3 updated=0" in guest
+    assert "wait_cluster_state" in guest
+    assert "resume=postcheck" in guest
     assert "rollback.complete" in guest
     assert "docker stop" not in guest
     assert "docker restart" not in guest
@@ -226,9 +228,13 @@ def test_multinode_tenant_acceptance_is_owner_local_and_fail_closed() -> None:
         / "guest-run-coffer-tenant-acceptance.sh"
     ).read_text(encoding="utf-8")
 
-    assert "{preflight|accept|status|data-status|database-status}" in outer
-    assert "{preflight|accept|status|database-status}" in guest
+    assert (
+        "{preflight|accept|status|path-status|data-status|database-status}"
+        in outer
+    )
+    assert "{preflight|accept|status|path-status|database-status}" in guest
     assert "run-coffer-tenant-fixture.sh" in outer
+    assert 'test "${action}" != path-status' in outer
     assert 'test "${action}" != database-status' in outer
     assert 'phase_rc="$?"' in outer
     assert "accepted.complete" in outer
@@ -275,6 +281,53 @@ def test_multinode_tenant_acceptance_is_owner_local_and_fail_closed() -> None:
     assert "database_write_probe" in guest
     assert "probe_limit=2147483649" in guest
     assert "restored_limit=2147483648" in guest
+    assert "require_path_boundary" in guest
+    assert "coffer_tenant_path_probe" in guest
+
+
+def test_multinode_galera_transactions_use_real_bounded_conflict() -> None:
+    outer = (
+        ROOT / "poc" / "kolla-ha" / "test-coffer-galera-transactions.sh"
+    ).read_text(encoding="utf-8")
+    guest = (
+        ROOT
+        / "poc"
+        / "kolla-ha"
+        / "guest-run-coffer-galera-transactions.sh"
+    ).read_text(encoding="utf-8")
+    helper = (
+        ROOT / "poc" / "kolla-ha" / "guest-coffer-galera-transactions.py"
+    ).read_text(encoding="utf-8")
+
+    assert "{preflight|run}" in outer
+    assert "{status|start|complete}" in guest
+    assert "run-coffer-tenant-acceptance.sh" in outer
+    assert "guest-check-kolla-galera.sh" in outer
+    assert "docker exec -i coffer_api" in outer
+    assert "guest-coffer-galera-transactions.py" in outer
+    assert "resume=owned-partial" in outer
+    assert "retry_code=1205" in outer
+    assert "retry_attempt=2" in outer
+    assert "coffer-stage5-galera-transactions.py" in guest
+    assert "root:root:700" in guest
+    assert guest.count("root:root:600") == 2
+    assert "MAX_TRANSACTION_ATTEMPTS != 3" in helper
+    assert "innodb_lock_wait_timeout=1" in helper
+    assert '"handle_error"' in helper
+    assert "conflict_codes != [1205]" in helper
+    assert "ThreadPoolExecutor(max_workers=2)" in helper
+    assert 'results.count("admitted")' in helper
+    assert 'results.count("denied")' in helper
+    assert "finally:" in helper
+    assert "cleanup(store._engine)" in helper
+    assert "residue_count" in helper
+    assert "application_credential" not in helper
+    for script in (outer, guest):
+        assert "docker stop" not in script
+        assert "docker restart" not in script
+        assert "docker rm" not in script
+        assert "virsh" not in script
+        assert "rm -rf" not in script
 
 
 def test_multinode_service_fault_targets_only_controller_three_containers() -> (

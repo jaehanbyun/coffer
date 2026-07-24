@@ -1030,6 +1030,27 @@ marker-idempotent replay passed.
   harness proving one-winner concurrent reservation plus one actual
   retryable-conflict recovery with exact quota/row restoration and zero
   helper/credential residue.
+- Added a guarded real-Galera transaction harness. It runs the installed
+  updated `QuotaStore` inside `coffer_api`, reads the deployed database
+  connection only in-process, and sends the helper over stdin without a
+  retained host/container file.
+- Two independent stores must produce one admitted and one denied 150-byte
+  reservation against a 150-byte limit. A separate row-lock holder then forces
+  a real MySQL 1205 through ProxySQL; success requires exactly one installed
+  retry record for `set_limit` attempt 2 and a committed second attempt.
+- Only two fixed temporary project IDs and two fixed repository IDs are in
+  scope. Child-first cleanup runs before an owned resume and in `finally`;
+  completion requires aggregate row residue zero. A root-only owner/completion
+  marker state machine records ownership without credentials.
+- Twenty-five focused tests, Bash/ShellCheck/Python compilation, four refusal
+  and forbidden-command contracts, and diff checks pass. Live mutation-free
+  preflight reports Galera size 3 Primary/Synced, healthy ProxySQL routing,
+  retry bound 3, zero allowlisted row residue, and absent marker/helper state.
+- Exact next action: commit the guarded transaction harness, invoke only
+  `poc/kolla-ha/test-coffer-galera-transactions.sh run
+  jh.byun@100.123.168.66`, and require the exact 1-admitted/1-denied,
+  retry-code-1205/attempt-2, residue-zero result plus final tenant and
+  three-node Galera health before compatible rollback.
 
 ## Plan 0017 Completion
 
@@ -1615,11 +1636,12 @@ marker-idempotent replay passed.
 
 ## Exact Next Action
 
-Read `tests/test_quota_shared_sql.py`, `tests/test_quota.py`, and
-`src/coffer/quota.py`, then implement a guarded Stage 5 real-Galera
-concurrency/retry harness. It must use only temporary allowlisted rows, prove
-one-winner admission and an actual installed retry, restore exact state in an
-EXIT/finally path, and require full tenant/Galera health before and after.
+Commit the guarded real-Galera transaction harness, then invoke only
+`poc/kolla-ha/test-coffer-galera-transactions.sh run
+jh.byun@100.123.168.66`. Require exact one-winner reservation, a real MySQL
+1205 followed by installed attempt 2 success, aggregate row residue zero,
+three-node Galera/ProxySQL health, retained tenant digest/isolation, and
+owner-only marker evidence.
 
 ## After This Work Package
 
