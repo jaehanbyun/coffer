@@ -136,6 +136,9 @@ def test_multinode_tenant_acceptance_is_owner_local_and_fail_closed() -> None:
     assert "{preflight|accept|status}" in outer
     assert "{preflight|accept|status}" in guest
     assert "run-coffer-tenant-fixture.sh" in outer
+    assert 'phase_rc="$?"' in outer
+    assert "checkpoint=control-tokens" in guest
+    assert "checkpoint=repository" in guest
     assert guest.count("/var/lib/kolla/venv/bin/python3") == 3
     assert '"${repository_name}" "${project_a}" "${project_b}"' in guest
     assert "192.168.254.10/32" in guest

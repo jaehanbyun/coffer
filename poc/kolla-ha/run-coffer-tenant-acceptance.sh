@@ -38,9 +38,17 @@ ssh_options=(
 
 "${harness}/run-coffer-tenant-fixture.sh" status "${ssh_target}"
 
+set +e
 ssh "${ssh_options[@]}" "ubuntu@${controller}" \
     sudo env LC_ALL=C.UTF-8 LANG=C.UTF-8 bash -s -- "${action}" \
     <"${harness}/guest-run-coffer-tenant-acceptance.sh"
+phase_rc="$?"
+set -e
+if test "${phase_rc}" -ne 0; then
+    printf 'coffer_tenant_acceptance action=%s result=failed rc=%s\n' \
+        "${action}" "${phase_rc}" >&2
+    exit "${phase_rc}"
+fi
 
 if test "${action}" = accept; then
     ssh "${ssh_options[@]}" "ubuntu@${controller}" \

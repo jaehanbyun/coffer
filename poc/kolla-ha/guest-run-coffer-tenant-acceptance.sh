@@ -1052,7 +1052,9 @@ else
 fi
 
 prepare_control_clients
+printf 'coffer_tenant_acceptance checkpoint=control-tokens state=ready\n'
 ensure_repository
+printf 'coffer_tenant_acceptance checkpoint=repository state=ready\n'
 
 if test ! -e "${quota_marker}"; then
     set_quota_limit 1
@@ -1061,6 +1063,7 @@ if test ! -e "${quota_marker}"; then
     test "${quota_result}" = quota=429
     verify_owner_client_clean
     write_marker "${quota_marker}"
+    printf 'coffer_tenant_acceptance checkpoint=quota-denial status=429\n'
 else
     require_marker "${quota_marker}"
 fi
