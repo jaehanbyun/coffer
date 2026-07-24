@@ -4,13 +4,13 @@ set -Eeuo pipefail
 umask 077
 
 if [[ "$#" -ne 1 ]]; then
-    echo "usage: $0 {preflight|status|upgrade|rollback}" >&2
+    echo "usage: $0 {preflight|status|upgrade|rollback-rehearse|rollback-finalize|rollback-reset}" >&2
     exit 64
 fi
 
 action="$1"
 case "${action}" in
-    preflight|status|upgrade|rollback)
+    preflight|status|upgrade|rollback-rehearse|rollback-finalize|rollback-reset)
         ;;
     *)
         echo "refusing an unknown Coffer rolling-update action" >&2
@@ -32,8 +32,10 @@ rolling_root="${state_root}/rolling-update"
 owner_marker="${rolling_root}/owner"
 upgrade_marker="${rolling_root}/upgrade.complete"
 rollback_marker="${rolling_root}/rollback.complete"
+rollback_rehearsal_marker="${rolling_root}/rollback.rehearsal"
 upgrade_log="${rolling_root}/upgrade.log"
 rollback_log="${rolling_root}/rollback.log"
+rollback_reupgrade_log="${rolling_root}/rollback-reupgrade.log"
 temporary_globals="/run/coffer-stage5-rolling-globals.yml"
 owner_value="coffer-stage5-rolling-update-v1"
 current_image="localhost/coffer:stage5"
@@ -259,7 +261,7 @@ verify_log() {
 
     test "$(stat -c '%U:%G:%a' "${log}")" = root:root:600
     ! grep -Eiq \
-        '(authorization:|application_credential_secret|private key|password[=:])' \
+        '(authorization:|application_credential_secret|-----BEGIN ([A-Z0-9]+ )*PRIVATE KEY-----|password[=:])' \
         "${log}"
 }
 
@@ -335,6 +337,9 @@ if test "${action}" = status; then
             require_marker \
                 "${rollback_marker}" \
                 "from=${update_image_id} to=${current_image_id}"
+            require_marker \
+                "${rollback_rehearsal_marker}" \
+                "from=${current_image_id} via=${update_image_id} to=${current_image_id}"
             test "${current_count}" -eq 3
             test "${updated_count}" -eq 0
             state=rolled-back
@@ -342,9 +347,20 @@ if test "${action}" = status; then
             require_marker \
                 "${upgrade_marker}" \
                 "from=${current_image_id} to=${update_image_id}"
-            test "${current_count}" -eq 0
-            test "${updated_count}" -eq 3
-            state=updated
+            if test -e "${rollback_rehearsal_marker}"; then
+                require_marker \
+                    "${rollback_rehearsal_marker}" \
+                    "from=${current_image_id} via=${update_image_id} to=${current_image_id}"
+                state=rollback-rehearsal
+            elif test "${current_count}" -eq 0 &&
+                test "${updated_count}" -eq 3; then
+                state=updated
+            elif test "${current_count}" -eq 3 &&
+                test "${updated_count}" -eq 0; then
+                state=rollback-applied-unaccepted
+            else
+                state=partial
+            fi
         else
             test "${current_count}" -ge 0
             test "${updated_count}" -ge 0
@@ -391,29 +407,78 @@ case "${action}" in
             "${upgrade_marker}" \
             "from=${current_image_id} to=${update_image_id}"
         ;;
-    rollback)
+    rollback-rehearse)
         require_marker \
             "${upgrade_marker}" \
             "from=${current_image_id} to=${update_image_id}"
         if test -e "${rollback_marker}"; then
             require_marker \
+                "${rollback_rehearsal_marker}" \
+                "from=${current_image_id} via=${update_image_id} to=${current_image_id}"
+            require_marker \
                 "${rollback_marker}" \
                 "from=${update_image_id} to=${current_image_id}"
             test "${current_count}" -eq 3
             test "${updated_count}" -eq 0
-            printf 'coffer_rolling_update phase=rollback result=passed idempotent=yes\n'
+            printf 'coffer_rolling_update phase=rollback-rehearse result=passed idempotent=yes\n'
             exit 0
         fi
         test "$((current_count + updated_count))" -eq 3
-        if test "${current_count}" -eq 3 && test "${updated_count}" -eq 0; then
-            printf 'coffer_rolling_update phase=rollback resume=postcheck\n'
+        if test ! -e "${rollback_rehearsal_marker}"; then
+            if test "${current_count}" -ne 0 ||
+                test "${updated_count}" -ne 3; then
+                run_serial_upgrade \
+                    "${update_image}" "${rollback_reupgrade_log}"
+                wait_cluster_state 'current=0 updated=3'
+            fi
+            write_marker \
+                "${rollback_rehearsal_marker}" \
+                "from=${current_image_id} via=${update_image_id} to=${current_image_id}"
         else
-            run_serial_upgrade "${current_image}" "${rollback_log}"
+            require_marker \
+                "${rollback_rehearsal_marker}" \
+                "from=${current_image_id} via=${update_image_id} to=${current_image_id}"
         fi
-        wait_cluster_state 'current=3 updated=0'
-        write_marker \
-            "${rollback_marker}" \
+        snapshot="$(cluster_state)"
+        if test "${snapshot}" != 'current=3 updated=0'; then
+            run_serial_upgrade "${current_image}" "${rollback_log}"
+            wait_cluster_state 'current=3 updated=0'
+        fi
+        printf 'coffer_rolling_update phase=rollback-rehearse result=passed finalize=pending\n'
+        ;;
+    rollback-finalize)
+        require_marker \
+            "${upgrade_marker}" \
+            "from=${current_image_id} to=${update_image_id}"
+        require_marker \
+            "${rollback_rehearsal_marker}" \
+            "from=${current_image_id} via=${update_image_id} to=${current_image_id}"
+        test "${current_count}" -eq 3
+        test "${updated_count}" -eq 0
+        if test -e "${rollback_marker}"; then
+            require_marker \
+                "${rollback_marker}" \
+                "from=${update_image_id} to=${current_image_id}"
+            printf 'coffer_rolling_update phase=rollback-finalize result=passed idempotent=yes\n'
+            exit 0
+        fi
+        write_marker "${rollback_marker}" \
             "from=${update_image_id} to=${current_image_id}"
+        printf 'coffer_rolling_update phase=rollback-finalize result=passed\n'
+        ;;
+    rollback-reset)
+        require_marker \
+            "${upgrade_marker}" \
+            "from=${current_image_id} to=${update_image_id}"
+        test ! -e "${rollback_marker}"
+        require_marker \
+            "${rollback_rehearsal_marker}" \
+            "from=${current_image_id} via=${update_image_id} to=${current_image_id}"
+        test "${current_count}" -eq 3
+        test "${updated_count}" -eq 0
+        rm -f -- "${rollback_rehearsal_marker}"
+        test ! -e "${rollback_rehearsal_marker}"
+        printf 'coffer_rolling_update phase=rollback-reset result=passed target=exact\n'
         ;;
 esac
 

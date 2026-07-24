@@ -2276,6 +2276,40 @@ promotion while ADR 0006 remains blocked.
   globals, remove only that exact disposable residue, rerun rolling status,
   then invoke only compatible image `rollback`.
 
+### 2026-07-25 — Rollback applied but availability acceptance failed
+
+- Applied state: After exact overlay cleanup, mutation-free status again
+  reported three updated pairs. The structured overlay passed and serial
+  rollback completed with zero failed or unreachable Ansible hosts. All three
+  API/edge pairs now run the original compatible image while retaining the
+  new signer and new-only JWKS; all nine containers are healthy and the
+  temporary overlay is absent.
+- Log-guard root cause: The guest stopped before convergence/marker output
+  because its broad `private key` scan matched only the public Ansible task
+  name `Copy backend TLS private keys to listener processes`. Counts for
+  authorization, application-credential secret, and password assignment were
+  zero. The key-rotation Kolla phases encountered the same false positive,
+  explaining their exact applied-but-unmarked boundaries; their later strict
+  adoption checks remain valid.
+- Availability failure: Most continuous path probes passed, but one probe
+  exhausted all three bounded attempts with 503 during the rollback. Later
+  probes and the final aggregate audit recovered. This is retained as a real
+  failed availability rehearsal even though image convergence succeeded; it
+  is not waived or relabeled as success.
+- Correction: Log hygiene now rejects an actual PEM private-key header rather
+  than a benign task label. Rollback becomes a two-phase acceptance:
+  `rollback-rehearse` performs the image transition but cannot write the final
+  marker; the outer observer writes it through `rollback-finalize` only after
+  every availability probe passes. On probe failure, `rollback-reset` removes
+  only the exact rehearsal marker so a complete update-then-rollback cycle can
+  be repeated. Re-upgrade and rollback remain serial-one and use the two
+  already pinned image IDs.
+- Next exact action: Validate and commit the corrected log guard and
+  two-phase rollback acceptance. From the audited original-image/unaccepted
+  state, invoke public `rollback`; it must restore the update image, perform a
+  second compatible rollback under continuous probes, preserve the new
+  signing key, and finalize only with zero probe failures.
+
 ## Verification
 
 | Check | Command or method | Result |

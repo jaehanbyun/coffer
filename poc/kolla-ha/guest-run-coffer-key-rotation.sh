@@ -322,7 +322,7 @@ PY
 verify_log() {
     test "$(stat -c '%U:%G:%a' "$1")" = root:root:600
     ! grep -Eiq \
-        '(authorization:|application_credential_secret|private key|password[=:])' \
+        '(authorization:|application_credential_secret|-----BEGIN ([A-Z0-9]+ )*PRIVATE KEY-----|password[=:])' \
         "$1"
 }
 

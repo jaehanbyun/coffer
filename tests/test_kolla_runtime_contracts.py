@@ -192,7 +192,10 @@ def test_multinode_rolling_update_is_serial_and_has_exact_rollback() -> None:
     ).read_text(encoding="utf-8")
 
     assert "{preflight|status|upgrade|rollback}" in outer
-    assert "{preflight|status|upgrade|rollback}" in guest
+    assert (
+        "{preflight|status|upgrade|rollback-rehearse|rollback-finalize|rollback-reset}"
+        in guest
+    )
     assert "run-coffer-companion-lifecycle.sh" in outer
     assert "run-coffer-tenant-acceptance.sh" in outer
     assert "path-status" in outer
@@ -214,6 +217,12 @@ def test_multinode_rolling_update_is_serial_and_has_exact_rollback() -> None:
     assert "wait_cluster_state" in guest
     assert "resume=postcheck" in guest
     assert "rollback.complete" in guest
+    assert "rollback.rehearsal" in guest
+    assert "rollback-reupgrade.log" in guest
+    assert "rollback-rehearse" in outer
+    assert "rollback-finalize" in outer
+    assert "rollback-reset" in outer
+    assert "BEGIN ([A-Z0-9]+ )*PRIVATE KEY" in guest
     assert "docker stop" not in guest
     assert "docker restart" not in guest
     assert "docker image rm" not in guest
@@ -407,6 +416,7 @@ def test_multinode_key_rotation_overlaps_and_retires_every_replica() -> None:
     assert "refusing an unknown unmarked overlap state" in guest
     assert "refusing an unknown unmarked signer state" in guest
     assert "refusing an unknown unmarked retirement state" in guest
+    assert "BEGIN ([A-Z0-9]+ )*PRIVATE KEY" in guest
     assert "discover_external_owner" in guest
     assert "owner_kolla_ca" in guest
     assert "sudo curl --disable" in guest

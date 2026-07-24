@@ -1764,14 +1764,15 @@ residue is absent, and replay preserved completion-marker metadata.
 
 ## Exact Next Action
 
-Validate and commit the structured rolling-overlay correction. On
-controller-1, verify the failed exact
-`/run/coffer-stage5-rolling-globals.yml` is root-only and parses identically
-to persistent globals, then remove only that disposable overlay. Rerun
-mutation-free rolling status and invoke only the guarded `rollback` action.
-Require continuous tenant paths, serial-one convergence to the original
-compatible Coffer image, new-key/new-only-JWKS preservation, full final
-gates, and metadata-idempotent rollback replay.
+Validate and commit the corrected PEM-specific log guard and two-phase
+rollback acceptance. The audited live state has all three API/edge pairs on
+the original compatible image, new signer/new-only JWKS preserved, zero
+Ansible failures, no rollback marker, and no temporary overlay; one
+three-attempt 503 window makes that first rehearsal unaccepted. Invoke only
+the public guarded `rollback` action: it must serially restore the pinned
+update image, serially roll back again under continuous probes, reset without
+finalizing on any failed probe, and write the final rollback marker only after
+zero availability failures and complete service/tenant/storage gates.
 
 ## After This Work Package
 

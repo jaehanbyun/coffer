@@ -74,7 +74,11 @@ if test "${action}" = preflight || test "${action}" = status; then
     exit 0
 fi
 
-run_guest "${action}" &
+guest_action="${action}"
+if test "${action}" = rollback; then
+    guest_action=rollback-rehearse
+fi
+run_guest "${guest_action}" &
 guest_pid="$!"
 probe_count=0
 probe_failure=0
@@ -95,7 +99,13 @@ if test "${guest_rc}" -ne 0; then
         "${action}" "${guest_rc}" "${probe_count}" >&2
     exit "${guest_rc}"
 fi
-test "${probe_failure}" -eq 0
+if test "${probe_failure}" -ne 0; then
+    if test "${action}" = rollback; then
+        run_guest rollback-reset
+    fi
+    echo "tenant availability failed during rolling update" >&2
+    exit 1
+fi
 test "${during_probe_count}" -ge 1
 while test "${probe_count}" -lt 3; do
     probe_tenant
@@ -103,6 +113,9 @@ while test "${probe_count}" -lt 3; do
 done
 test "${probe_count}" -ge 3
 
+if test "${action}" = rollback; then
+    run_guest rollback-finalize
+fi
 require_baseline
 run_guest status
 "${harness}/run-coffer-tenant-acceptance.sh" status "${ssh_target}"
