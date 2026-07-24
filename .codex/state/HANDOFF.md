@@ -205,6 +205,19 @@ signed Distribution v3.1.1 binary.
   `poc/kolla-ha/test-ceph-storage-vm-failover.sh
   jh.byun@100.123.168.66`, then independently audit complete recovery before
   controller/Kolla work.
+- Preserved the VM-fault harness in local commit `9e9792d` and ran one full
+  power-loss cycle. Only storage-3 shut off. The remaining cluster reached
+  two-MON quorum, 2/3 OSDs up with 3/3 in, two RGWs, two ingress pairs, zero
+  inactive PGs, 193 degraded PGs, one VIP owner, `HEALTH_WARN`, and five
+  successful sentinel reads.
+- The same domain restarted and returned to 3-MON quorum, 3/3 up/in OSDs,
+  three RGWs, clean PGs, and `HEALTH_OK`. Independent audit confirms all six
+  domains running, target autostart disabled, two ingress pairs, one VIP owner,
+  accepted sentinel digest, and no temporary helpers.
+- Exact next action: start the controller track with a mutation-free Kolla
+  2026.1 multinode inventory/preflight for controller-1/2/3. Reuse the Stage 4
+  commit and companion-role contracts; keep external RGW unchanged and do not
+  deploy Coffer before Galera/HAProxy baseline health passes.
 
 ## Plan 0017 Completion
 

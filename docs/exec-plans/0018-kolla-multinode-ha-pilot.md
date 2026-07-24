@@ -642,6 +642,28 @@ promotion while ADR 0006 remains blocked.
   jh.byun@100.123.168.66` once. Independently audit full recovery before any
   controller/Kolla mutation.
 
+### 2026-07-24 — Storage-3 power-loss and recovery passed
+
+- Completed: Preserved the exact VM-fault harness in local commit `9e9792d`
+  and ran one complete storage-3 abrupt power-loss/recovery cycle.
+- Outage evidence: Only storage-3 became `shut off`; all other five Stage 5
+  domains remained running. Ceph converged to the exact two-node MON quorum,
+  two of three OSDs up with all three still in, two RGWs, both ingress pairs,
+  zero inactive PGs, 193 expected unclean PGs, and `HEALTH_WARN`. Exactly one
+  VIP owner remained and five sentinel reads passed with the accepted digest.
+- Recovery evidence: The exact domain restarted with autostart still disabled.
+  It rejoined three-MON quorum; all three OSDs returned up/in; the third RGW
+  returned after its host refresh; every PG became active and clean; and Ceph
+  returned to `HEALTH_OK`. The sentinel retained its size and digest.
+- Independent audit: The target and all other five domains are running; 3/3/3
+  MON/OSD/RGW state, two HAProxy, two Keepalived, one VIP owner, clean PGs,
+  `HEALTH_OK`, and helper cleanup all pass.
+- Next exact action: Begin the controller track with a mutation-free inventory
+  and Kolla 2026.1 multinode deployment plan for controller-1/2/3. Reuse the
+  accepted Stage 4 pin and companion-role contracts, keep the external RGW
+  endpoint unchanged, and do not deploy Coffer until three-controller
+  Kolla/Galera/HAProxy health passes.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -658,7 +680,7 @@ promotion while ADR 0006 remains blocked.
 | RGW HA endpoint | 3 RGWs, 2 ingress pairs, one VIP owner, backend/frontend TLS, idempotency | passed; 5 pools/129 clean PGs, zero users |
 | S3 fixture | owner-only identities, denials, persistent sentinel, idempotency | passed twice; digest retained, no secondary residue |
 | RGW daemon faults | storage-3 RGW and active ingress pair, reads, restoration | passed; 10 fault-window reads and full independent recovery |
-| Storage VM fault harness | exact XML/target, degraded/recovered Ceph gates, EXIT restore | passed locally and live; power-loss invocation pending |
+| Storage VM fault | exact storage-3 power loss, degraded reads, full recovery | passed; 5 outage reads and independent 3-node recovery |
 | Kolla/Galera/Coffer baseline | multinode deploy and health acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | pending |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -691,12 +713,14 @@ promotion while ADR 0006 remains blocked.
   owner-limited S3 identities and buckets are provisioned; the deterministic
   private sentinel passed two identical baseline round trips and ten reads
   across one RGW and one active-ingress fault. All services are restored. The
-  exact storage-3 VM fault harness passed mutation-free live preflight.
-- Exact next action: Commit and invoke the storage-3 power-loss/recovery
-  harness, then independently verify complete recovery.
-- First file or command: `git commit` for the VM-fault checkpoint, followed by
-  `poc/kolla-ha/test-ceph-storage-vm-failover.sh
-  jh.byun@100.123.168.66`.
+  exact storage-3 VM power-loss cycle and full recovery passed. All services
+  are healthy and all six domains are running.
+- Exact next action: Add the mutation-free three-controller Kolla inventory
+  and deployment preflight, derived from the accepted Stage 4 pin and
+  companion-role contract.
+- First file or command: inspect `poc/kolla-aio/` and
+  `poc/kolla-ansible/` inputs, then add the bounded controller inventory under
+  `poc/kolla-ha/`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an
