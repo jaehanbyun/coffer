@@ -159,3 +159,20 @@ The same domain is then started and must return to three-MON quorum, three
 up/in OSDs, three RGWs, clean PGs, and `HEALTH_OK`. An exit trap starts the
 exact target and attempts the same recovery gate after any intermediate
 failure.
+
+Before installing Kolla on the three controller guests, run the mutation-free
+controller preflight:
+
+```text
+poc/kolla-ha/preflight-kolla-controllers.sh <ssh-target>
+```
+
+It renders the official pinned Kolla-Ansible 2026.1 multinode inventory into
+ignored `work/kolla-ha/`, validates the control/network/database/identity
+groups, and checks the committed minimal Keystone/Galera/HAProxy globals. Each
+controller must still have its exact three-interface shape, clean Kolla and
+container state, at least 15 GiB RAM and 70 GiB root space, synchronized time,
+free reserved ports, outbound bootstrap access, and reachability to the
+external RGW VIP. The retained storage cluster must remain fully healthy.
+This preflight does not install a package, create an SSH key, generate a
+password, assign a VIP, or start a container.

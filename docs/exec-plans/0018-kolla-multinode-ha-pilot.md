@@ -664,6 +664,42 @@ promotion while ADR 0006 remains blocked.
   endpoint unchanged, and do not deploy Coffer until three-controller
   Kolla/Galera/HAProxy health passes.
 
+### 2026-07-24 — Three-controller Kolla preflight passed
+
+- Completed: Added a pinned inventory renderer, minimal
+  Keystone/Galera/HAProxy globals, and a mutation-free guest/controller
+  preflight. The renderer keeps the official Kolla-Ansible 2026.1 group
+  hierarchy after replacing only the initial host assignments.
+- Inventory evidence: The ignored rendered inventory resolves controller-1/2/3
+  as the exact control, network, MariaDB, RabbitMQ, and Keystone members;
+  compute, monitoring, and Kolla storage groups are empty; deployment remains
+  localhost. The source, role contract, and render marker all pin commit
+  `cec5b77ddc0af37e9b9a8df92f7458ae014fb5dc`.
+- Guest evidence: Each controller is clean Ubuntu Noble x86_64 with 8 vCPUs,
+  at least 15 GiB RAM and 70 GiB free root storage, synchronized time, the
+  exact management/storage/external NICs, no assigned Kolla VIP, free reserved
+  ports, no Kolla/container state, and working bootstrap and RGW paths.
+- Configuration decision: Deploy only the shared infrastructure and Keystone
+  baseline first: MariaDB/ProxySQL, RabbitMQ, Memcached, HAProxy/Keepalived,
+  Fluentd, and Keystone. OpenStack core, Horizon, Cinder, Swift, and Prometheus
+  stay disabled. Internal traffic uses the isolated management VIP; the
+  separate external VIP uses TLS on ens5.
+- Failures corrected before remote mutation: The project venv did not contain
+  `ansible-inventory`, so the preflight now uses the already-pinned Stage 3
+  Kolla venv. Child groups are validated by recursive effective membership,
+  and a trailing space in `ip route` is ignored by comparing semantic route
+  fields.
+- Storage isolation: The external Ceph cluster remained at quorum 3, OSD
+  3/3, RGW 3, two ingress pairs, clean PGs, and `HEALTH_OK`.
+- Safety: No package, key, password, certificate, VIP, container, or service
+  was created or changed.
+- Next exact action: Commit the controller-preflight baseline locally. Then
+  add a recoverable prepare/bootstrap harness that creates one owner-only
+  deployment SSH key on controller-1, installs only its public key on the
+  three exact controllers, checks out the pinned Kolla source and venv on
+  controller-1, generates owner-only passwords/certificates, and stops before
+  `kolla-ansible bootstrap-servers`.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -681,6 +717,7 @@ promotion while ADR 0006 remains blocked.
 | S3 fixture | owner-only identities, denials, persistent sentinel, idempotency | passed twice; digest retained, no secondary residue |
 | RGW daemon faults | storage-3 RGW and active ingress pair, reads, restoration | passed; 10 fault-window reads and full independent recovery |
 | Storage VM fault | exact storage-3 power loss, degraded reads, full recovery | passed; 5 outage reads and independent 3-node recovery |
+| Kolla controller preflight | pinned inventory/globals and three clean controller guests | passed mutation-free; external RGW remains healthy |
 | Kolla/Galera/Coffer baseline | multinode deploy and health acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | pending |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -714,13 +751,12 @@ promotion while ADR 0006 remains blocked.
   private sentinel passed two identical baseline round trips and ten reads
   across one RGW and one active-ingress fault. All services are restored. The
   exact storage-3 VM power-loss cycle and full recovery passed. All services
-  are healthy and all six domains are running.
-- Exact next action: Add the mutation-free three-controller Kolla inventory
-  and deployment preflight, derived from the accepted Stage 4 pin and
-  companion-role contract.
-- First file or command: inspect `poc/kolla-aio/` and
-  `poc/kolla-ansible/` inputs, then add the bounded controller inventory under
-  `poc/kolla-ha/`.
+  are healthy and all six domains are running. The three-controller Kolla
+  inventory and clean-state preflight pass without mutation.
+- Exact next action: Commit the Kolla preflight baseline, then add the
+  controller-1 deployment-host preparation phase without running Kolla yet.
+- First file or command: `git commit` for the preflight checkpoint, followed
+  by `poc/kolla-ha/prepare-kolla-controllers.sh`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

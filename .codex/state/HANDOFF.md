@@ -218,6 +218,22 @@ signed Distribution v3.1.1 binary.
   2026.1 multinode inventory/preflight for controller-1/2/3. Reuse the Stage 4
   commit and companion-role contracts; keep external RGW unchanged and do not
   deploy Coffer before Galera/HAProxy baseline health passes.
+- Added and passed the mutation-free Kolla controller preflight. It renders
+  the official pinned 2026.1 multinode group hierarchy with the three exact
+  controllers in control/network/MariaDB/RabbitMQ/Keystone and no
+  compute/monitoring/storage hosts.
+- All three guests are clean Ubuntu Noble x86_64, 8-vCPU/16-GiB controllers
+  with more than 70 GiB free root space, exact NIC/address/MAC shape, free
+  reserved ports, synchronized time, no Kolla/container state, and working
+  Quay/GitHub/RGW paths. The external storage audit remains fully healthy.
+- Minimal Kolla baseline is fixed to MariaDB/ProxySQL, RabbitMQ, Memcached,
+  HAProxy/Keepalived, Fluentd, and Keystone. OpenStack core remains disabled;
+  external VIP TLS is enabled on ens5.
+- Exact next action: commit this preflight checkpoint and implement
+  `poc/kolla-ha/prepare-kolla-controllers.sh`. It may create only the
+  owner-only controller-1 deployment key, exact public-key markers on the
+  three controllers, pinned Kolla checkout/venv, passwords, and certificates;
+  do not run `bootstrap-servers` in that phase.
 
 ## Plan 0017 Completion
 
