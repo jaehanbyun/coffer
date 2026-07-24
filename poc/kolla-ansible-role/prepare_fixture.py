@@ -169,6 +169,7 @@ def prepare() -> None:
 
     ca_pem, certificate_pem, private_key_pem = certificate_pair()
     write_bytes(certificate_directory / "ca" / "contract-ca.crt", ca_pem, 0o644)
+    write_bytes(certificate_directory / "ca" / "root.crt", ca_pem, 0o644)
     write_bytes(certificate_directory / "backend-cert.pem", certificate_pem, 0o644)
     write_bytes(certificate_directory / "backend-key.pem", private_key_pem, 0o600)
     write_bytes(source_config / "coffer" / "certs" / "rgw-ca.crt", ca_pem, 0o644)

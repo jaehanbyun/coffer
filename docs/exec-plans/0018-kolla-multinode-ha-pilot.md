@@ -1,7 +1,7 @@
 ---
 title: "Kolla multinode and HA pilot"
 status: active
-updated: 2026-07-24
+updated: 2026-07-25
 owner: primary-agent
 ---
 
@@ -2382,6 +2382,30 @@ promotion while ADR 0006 remains blocked.
   exact identity, bucket, container, guest, volume, network, key/log, and
   temporary-state cleanup action before destructive teardown.
 
+### 2026-07-25 — Pre-cleanup repository regression accepted
+
+- Completed: Ran the complete non-destructive local regression before
+  teardown. The suite passed 251 tests, the locked dependency check, Python
+  compilation, the Kolla companion-role executable contract, every tracked
+  shell parse, warning-or-higher ShellCheck, Go test/vet, YAML/JSON/Markdown
+  parsing, 44 local links, a tracked-tree Gitleaks scan, and diff checks.
+- Correction: The isolated companion-role fixture still emitted only the
+  legacy `contract-ca.crt` name while the current role contract consumes
+  `certificates/ca/root.crt`. The fixture now writes the same disposable
+  public CA under both admitted names. The corrected role verification passed
+  all 52 checks.
+- Triage: The full informational ShellCheck run retained four existing
+  non-blocking diagnostics (`SC2329`, two `SC2029`, and `SC1091`); the
+  authoritative warning-or-higher run passed. The first role verification
+  failure and two malformed orchestration attempts are rejected evidence and
+  were not counted as acceptance.
+- Safety: This milestone changed no live service, identity, credential,
+  bucket, guest, volume, network, or remote file.
+- Next exact action: Implement and validate an exact S3 fixture cleanup and
+  post-cleanup audit. It must delete only the two recorded Stage 5 buckets and
+  users, remove only `/etc/coffer-stage5-rgw`, prove zero RGW users/buckets
+  while Ceph remains healthy, and make no Ceph service or libvirt mutation.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2418,7 +2442,8 @@ promotion while ADR 0006 remains blocked.
 | Tenant credential renewal | two-phase finite replacement, data continuity, residue, replay | passed; 2 credentials, digest/isolation retained, owner-only metadata stable |
 | Fault and recovery matrix | Galera concurrency/retry and reconciler faults plus restore checks | passed; periodic maintenance identity remains a production decision |
 | Upgrade, key rotation, rollback | bounded rolling rehearsals | passed; forward rotation and zero-failure compatible rollback accepted |
-| Cleanup and repository regression | exact remote/local residue and focused checks | pending |
+| Pre-cleanup repository regression | full local focused checks before teardown | passed; 251 tests and 52 role-contract checks |
+| Cleanup and final residue regression | exact remote/local residue and post-destroy checks | pending |
 
 ## Failures, Blockers, and Risks
 
