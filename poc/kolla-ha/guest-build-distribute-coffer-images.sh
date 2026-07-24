@@ -36,6 +36,7 @@ deployment_key="/home/ubuntu/.ssh/coffer-stage5-kolla"
 deployment_known_hosts="/home/ubuntu/.ssh/coffer-stage5-known_hosts"
 source_commit="4f1ff7ddfd89d21f17ab7cbb531c335e85d94542"
 kolla_commit="686c6d13dc1c31092b22c6c481e16a7329e935ea"
+docker_sdk_version="7.2.0"
 ubuntu_amd64_sha256="52df9b1ee71626e0088f7d400d5c6b5f7bb916f8f0c82b474289a4ece6cf3faf"
 owner_value="coffer-stage5-images-v1 ${source_commit} ${kolla_commit}"
 coffer_image="localhost/coffer:stage5"
@@ -308,7 +309,7 @@ fi
 if test ! -f "${install_marker}"; then
     "${build_venv}/bin/python3" -m pip install \
         --disable-pip-version-check --no-cache-dir \
-        "${kolla_source}"
+        "${kolla_source}" "docker==${docker_sdk_version}"
     "${build_venv}/bin/python3" -c 'import docker, kolla'
     printf '%s\n' "${kolla_commit}" >"${install_marker}"
     chmod 0600 "${install_marker}"
@@ -316,6 +317,10 @@ fi
 test "$(stat -c '%U:%G:%a' "${install_marker}")" = root:root:600
 test "$(cat "${install_marker}")" = "${kolla_commit}"
 test -x "${build_venv}/bin/kolla-build"
+test "$(
+    "${build_venv}/bin/python3" -c \
+        'import docker; print(docker.__version__)'
+)" = "${docker_sdk_version}"
 
 install -o root -g root -m 0600 /dev/null "${build_log}"
 if ! timeout 5400 "${build_venv}/bin/kolla-build" \

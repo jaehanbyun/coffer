@@ -510,6 +510,19 @@ signed Distribution v3.1.1 binary.
 - Exact next action: commit the validated image harness locally, then invoke
   only `poc/kolla-ha/build-distribute-coffer-images.sh build
   jh.byun@100.123.168.66`.
+- Preserved that harness in local commit `ec7b649` and invoked the build
+  action. It created only the owner marker, exact Coffer/Kolla source
+  checkouts, and isolated venv, then stopped before image construction because
+  Kolla's package does not install the Python Docker SDK used by its Docker
+  engine.
+- The completion marker and both final tags remain absent on all three
+  controllers. All 36 Kolla containers, zero Coffer runtime/config/listeners,
+  and external Ceph/RGW health passed the post-failure boundary.
+- Added an exact `docker==7.2.0` build-venv input, matching the working
+  controller deployment venv, and require that version before `kolla-build`.
+- Exact next action: commit this isolated dependency correction locally, then
+  resume only `poc/kolla-ha/build-distribute-coffer-images.sh build
+  jh.byun@100.123.168.66`.
 
 ## Plan 0017 Completion
 
@@ -1095,12 +1108,12 @@ signed Distribution v3.1.1 binary.
 
 ## Exact Next Action
 
-Commit the validated Coffer image harness locally, then invoke only
+Commit the isolated Python Docker SDK correction locally, then resume only
 `poc/kolla-ha/build-distribute-coffer-images.sh build
-jh.byun@100.123.168.66`. On failure, retain the root-only controller-1 log,
-require the completion marker absent, audit the exact owned partial state, and
-resume only the image phase. Do not prepare companion inventory or inputs
-until all three controllers have identical accepted image IDs.
+jh.byun@100.123.168.66`. Retain the same owner marker and exact source/v1
+partial state. Do not prepare companion inventory or inputs until all three
+controllers have identical accepted image IDs and the completion marker
+passes.
 
 ## After This Work Package
 

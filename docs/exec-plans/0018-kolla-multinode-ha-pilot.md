@@ -1117,6 +1117,22 @@ promotion while ADR 0006 remains blocked.
   completion marker is absent, audit exact partial image/source state, and
   resume only this phase.
 
+### 2026-07-24 — First image build stopped before image construction
+
+- Failure: The committed build action created only its owner marker, exact
+  Coffer/Kolla source checkouts, and isolated build venv, then stopped before
+  Kolla image construction because Kolla's package does not depend on the
+  Python Docker SDK required by its Docker engine.
+- Safety evidence: The completion marker is absent; both final image tags are
+  absent on all three controllers; Coffer runtime/config/listeners remain
+  absent; all 36 Kolla containers and external Ceph/RGW remain healthy.
+- Correction: Pin and install Python Docker SDK 7.2.0 in only the isolated
+  image-build venv, matching the already working controller deployment venv.
+  Require that exact installed version before invoking `kolla-build`.
+- Next exact action: Commit the Docker SDK correction locally and resume only
+  `poc/kolla-ha/build-distribute-coffer-images.sh build
+  jh.byun@100.123.168.66`.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1185,10 +1201,10 @@ promotion while ADR 0006 remains blocked.
   globals, internal HTTPS, the sole external port 443 frontend, catalog URLs,
   three-member Galera/RabbitMQ quorums, seven protected logs, and zero Coffer
   state all pass.
-- Exact next action: Commit the validated image harness, then invoke only its
-  `build` action through `jh.byun@100.123.168.66`. Do not begin companion
-  preparation unless all three controllers return identical image IDs and
-  the root-only completion marker passes.
+- Exact next action: Commit the isolated Docker SDK correction, then resume
+  only the image `build` action through `jh.byun@100.123.168.66`. Do not begin
+  companion preparation unless all three controllers return identical image
+  IDs and the root-only completion marker passes.
 - First file or command: Run
   `poc/kolla-ha/build-distribute-coffer-images.sh build
   jh.byun@100.123.168.66`.
