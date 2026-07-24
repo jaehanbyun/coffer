@@ -1,0 +1,12 @@
+---
+- name: Configure Coffer
+  ansible.builtin.import_tasks: config.yml
+
+- name: Check Coffer containers
+  ansible.builtin.import_tasks: check-containers.yml
+
+- name: Run the repeat-safe Coffer bootstrap container
+  ansible.builtin.import_tasks: bootstrap_service.yml
+
+- name: Flush Coffer handlers after successful bootstrap
+  ansible.builtin.meta: flush_handlers

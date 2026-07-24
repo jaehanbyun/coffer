@@ -1,0 +1,54 @@
+---
+- name: Ensure Coffer controller-side observability directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0750"
+  loop:
+    - "{{ node_custom_config }}/fluentd/input"
+    - "{{ node_custom_config }}/cron"
+    - "{{ node_custom_config }}/prometheus/prometheus.yml.d"
+  delegate_to: localhost
+  run_once: true
+  become: "{{ coffer_config_controller_become }}"
+
+- name: Install the Coffer Fluentd input
+  ansible.builtin.template:
+    src: "fluentd-input.conf.j2"
+    dest: "{{ node_custom_config }}/fluentd/input/15-coffer.conf"
+    mode: "0640"
+  delegate_to: localhost
+  run_once: true
+  become: "{{ coffer_config_controller_become }}"
+
+- name: Install the Coffer-aware Kolla logrotate override
+  ansible.builtin.copy:
+    src: "cron-logrotate-global.conf.j2"
+    dest: "{{ node_custom_config }}/cron/cron-logrotate-global.conf"
+    mode: "0640"
+  delegate_to: localhost
+  run_once: true
+  become: "{{ coffer_config_controller_become }}"
+
+- name: Install or remove the Coffer Prometheus scrape input
+  ansible.builtin.template:
+    src: "prometheus-coffer.yml.j2"
+    dest: >-
+      {{ node_custom_config
+      }}/prometheus/prometheus.yml.d/15-coffer.yml
+    mode: "0640"
+  delegate_to: localhost
+  run_once: true
+  become: "{{ coffer_config_controller_become }}"
+  when: coffer_enable_metrics | bool
+
+- name: Remove the disabled Coffer Prometheus scrape input
+  ansible.builtin.file:
+    path: >-
+      {{ node_custom_config
+      }}/prometheus/prometheus.yml.d/15-coffer.yml
+    state: absent
+  delegate_to: localhost
+  run_once: true
+  become: "{{ coffer_config_controller_become }}"
+  when: not coffer_enable_metrics | bool

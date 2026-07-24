@@ -1,0 +1,231 @@
+---
+- name: Precheck Coffer inventory groups
+  ansible.builtin.import_role:
+    name: service-precheck
+  vars:
+    service_precheck_services: "{{ coffer_services }}"
+    service_name: "{{ project_name }}"
+
+- name: Require a supported Coffer deployment profile
+  ansible.builtin.assert:
+    that:
+      - coffer_deployment_profile in ['production', 'isolated-lab']
+    fail_msg: >-
+      coffer_deployment_profile must be production or isolated-lab.
+
+- name: Require nonempty enabled Coffer service groups
+  vars:
+    service: "{{ item.value }}"
+  ansible.builtin.assert:
+    that:
+      - groups[service.group] | length > 0
+    fail_msg: >-
+      Enabled Coffer service {{ item.key }} has no host in
+      inventory group {{ service.group }}.
+  loop: "{{ query('dict', coffer_services) }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when: service.enabled | bool
+
+- name: Validate the fixed Coffer port and endpoint contract
+  ansible.builtin.assert:
+    that:
+      - >-
+        [coffer_api_port | int, coffer_edge_port | int,
+         coffer_registry_port | int] | unique | length == 3
+      - coffer_api_port | int >= 1024
+      - coffer_edge_port | int >= 1024
+      - coffer_registry_port | int >= 1024
+      - coffer_api_port | int <= 65535
+      - coffer_edge_port | int <= 65535
+      - coffer_registry_port | int <= 65535
+      - coffer_token_realm is match('^https://[^/@]+(:[0-9]+)?/auth/token$')
+      - coffer_rgw_endpoint is match('^https://[^/@]+(:[0-9]+)?/?$')
+      - coffer_rgw_bucket | length > 0
+      - coffer_rgw_bucket is match('^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$')
+      - coffer_token_key_id | length > 0
+      - >-
+        not coffer_rgw_encrypt | bool or
+        coffer_rgw_kms_key_id | length > 0
+    fail_msg: >-
+      Coffer ports, token realm, or RGW endpoint/bucket are invalid.
+
+- name: Require the sole-ingress HAProxy model
+  ansible.builtin.assert:
+    that:
+      - >-
+        not
+        (coffer_services['coffer-api'].haproxy.coffer_api.external | bool)
+      - >-
+        not
+        (coffer_services['coffer-registry'].haproxy.coffer_registry.external
+         | bool)
+      - >-
+        coffer_services['coffer-edge'].haproxy.coffer_edge_external.external
+        | bool
+      - >-
+        coffer_services['coffer-edge'].haproxy.coffer_edge_external.external_fqdn
+        == coffer_external_fqdn
+    fail_msg: >-
+      Only coffer-edge may define an external HAProxy frontend.
+
+- name: Require verified TLS for the current companion-role contract
+  ansible.builtin.assert:
+    that:
+      - kolla_enable_tls_external | bool
+      - kolla_enable_tls_internal | bool
+      - coffer_enable_tls_backend | bool
+      - kolla_verify_tls_backend | bool
+      - coffer_backend_cacert | length > 0
+      - not coffer_rgw_skip_verify | bool
+    fail_msg: >-
+      Coffer Stage 3 requires external, internal, and verified backend TLS.
+
+- name: Require production single external frontend
+  ansible.builtin.assert:
+    that:
+      - haproxy_single_external_frontend | bool
+      - coffer_edge_public_port | int == 443
+    fail_msg: >-
+      The production Coffer profile requires Kolla's TLS single external
+      frontend on port 443.
+  when: coffer_deployment_profile == 'production'
+
+- name: Refuse an unresolved reconciliation identity
+  ansible.builtin.assert:
+    that:
+      - not coffer_enable_reconcile | bool
+    fail_msg: >-
+      coffer-reconcile cannot be enabled until an accepted authenticated
+      private-Distribution credential provider is implemented.
+
+- name: Inspect required owner-controlled Coffer secrets
+  vars:
+    coffer_required_secret_paths:
+      - "{{ coffer_database_password_file }}"
+      - "{{ coffer_keystone_password_file }}"
+      - "{{ coffer_signing_key_file }}"
+      - "{{ coffer_distribution_http_secret_file }}"
+      - "{{ coffer_rgw_access_key_file }}"
+      - "{{ coffer_rgw_secret_key_file }}"
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  delegate_to: localhost
+  run_once: true
+  register: coffer_secret_stats
+  loop: "{{ coffer_required_secret_paths }}"
+  loop_control:
+    label: "{{ item | basename }}"
+  no_log: true
+
+- name: Enforce owner-only Coffer secret sources
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+      - item.stat.isreg
+      - item.stat.uid == coffer_secret_owner_uid | int
+      - item.stat.mode == coffer_secret_file_mode
+      - item.stat.size > 0
+    fail_msg: >-
+      A required Coffer secret source is missing, empty, not a regular file,
+      has the wrong owner, or is not mode 0600.
+  loop: "{{ coffer_secret_stats.results }}"
+  loop_control:
+    label: "{{ item.item | basename }}"
+  delegate_to: localhost
+  run_once: true
+  no_log: true
+
+- name: Inspect required public trust inputs
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  delegate_to: localhost
+  run_once: true
+  register: coffer_public_input_stats
+  loop:
+    - "{{ coffer_jwks_file }}"
+    - "{{ coffer_rgw_cacert }}"
+    - "{{ coffer_backend_cacert }}"
+    - "{{ coffer_backend_tls_cert }}"
+    - "{{ coffer_backend_tls_key }}"
+  loop_control:
+    label: "{{ item | basename }}"
+
+- name: Require public trust and backend TLS inputs
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+      - item.stat.isreg
+      - item.stat.size > 0
+    fail_msg: >-
+      A required Coffer public trust or backend TLS input is missing or empty.
+  loop: "{{ coffer_public_input_stats.results }}"
+  loop_control:
+    label: "{{ item.item | basename }}"
+  delegate_to: localhost
+  run_once: true
+
+- name: Validate the signing private key without exposing it
+  ansible.builtin.command:
+    argv:
+      - openssl
+      - pkey
+      - -in
+      - "{{ coffer_signing_key_file }}"
+      - -check
+      - -noout
+  changed_when: false
+  delegate_to: localhost
+  run_once: true
+  no_log: true
+
+- name: Validate the public JWKS document
+  vars:
+    coffer_jwks_document: "{{ lookup('file', coffer_jwks_file) | from_json }}"
+  ansible.builtin.assert:
+    that:
+      - coffer_jwks_document is mapping
+      - coffer_jwks_document['keys'] is defined
+      - coffer_jwks_document['keys'] | length >= 1
+      - >-
+        coffer_jwks_document['keys'] |
+        selectattr('kty', 'equalto', 'RSA') |
+        list | length >= 1
+      - >-
+        coffer_jwks_document['keys'] |
+        selectattr('kid', 'equalto', coffer_token_key_id) |
+        list | length >= 1
+    fail_msg: Coffer JWKS must contain at least one RSA public key.
+  delegate_to: localhost
+  run_once: true
+
+- name: Get existing Coffer container facts
+  become: true
+  kolla_container_facts:
+    action: get_containers
+    container_engine: "{{ kolla_container_engine }}"
+    name:
+      - coffer_api
+      - coffer_edge
+      - coffer_registry
+  check_mode: false
+  register: coffer_container_facts
+
+- name: Require free backend ports before first start
+  vars:
+    service: "{{ item.value }}"
+  ansible.builtin.wait_for:
+    host: "{{ api_interface_address }}"
+    port: "{{ service.port }}"
+    connect_timeout: 1
+    timeout: 1
+    state: stopped
+  loop: "{{ query('dict', coffer_services) }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when:
+    - service.enabled | bool
+    - service.port is defined
+    - inventory_hostname in groups[service.group]
+    - >-
+      coffer_container_facts.containers[service.container_name] is not defined

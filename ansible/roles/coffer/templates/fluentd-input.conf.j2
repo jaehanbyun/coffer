@@ -1,0 +1,11 @@
+<source>
+  @type tail
+  path /var/log/kolla/coffer/*.log,/var/log/kolla/coffer-registry/*.log
+  pos_file /var/run/fluentd/coffer.pos
+  tag kolla.*
+  ignore_repeated_permission_error true
+  enable_watch_timer {{ coffer_fluentd_enable_watch_timer }}
+  <parse>
+    @type none
+  </parse>
+</source>

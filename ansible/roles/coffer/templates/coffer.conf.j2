@@ -1,0 +1,97 @@
+[DEFAULT]
+debug = {{ openstack_logging_debug }}
+use_stderr = false
+use_json = true
+log_dir = /var/log/kolla/coffer
+log_file = /var/log/kolla/coffer/{{ service_name }}.log
+
+[database]
+connection = mysql+pymysql://{{ coffer_database_user }}:{{ lookup('file', coffer_database_password_file) | trim }}@{{ coffer_database_address }}/{{ coffer_database_name }}{{ '?ssl_ca=' ~ openstack_cacert if coffer_database_enable_tls_internal | bool }}
+connection_recycle_time = {{ database_connection_recycle_time }}
+max_pool_size = {{ database_max_pool_size }}
+max_retries = -1
+
+{% if service_name == 'coffer-api' %}
+[api]
+bind_host = {{ api_interface_address }}
+bind_port = {{ coffer_api_port }}
+workers = {{ coffer_api_workers }}
+threads = {{ coffer_api_threads }}
+timeout_seconds = {{ coffer_api_timeout_seconds }}
+graceful_timeout_seconds = 30
+keepalive_seconds = 5
+tls_certfile = /etc/coffer/api.crt
+tls_keyfile = /etc/coffer/api.key
+
+[token]
+enabled = true
+issuer = {{ coffer_token_issuer }}
+service = {{ coffer_token_service }}
+private_key_file = /etc/coffer/signing-key.pem
+key_id = {{ coffer_token_key_id }}
+lifetime_seconds = {{ coffer_token_lifetime_seconds }}
+
+[keystone]
+auth_url = {{ keystone_internal_url }}/v3
+{%     if openstack_cacert %}
+cafile = {{ openstack_cacert }}
+{%     endif %}
+insecure = false
+timeout = 10
+
+[keystone_authtoken]
+www_authenticate_uri = {{ keystone_public_url }}
+auth_url = {{ keystone_internal_url }}
+auth_type = password
+project_domain_id = {{ default_project_domain_id }}
+user_domain_id = {{ default_user_domain_id }}
+project_name = service
+username = {{ coffer_keystone_user }}
+password = {{ lookup('file', coffer_keystone_password_file) | trim }}
+service_type = oci-registry
+region_name = {{ openstack_region_name }}
+service_token_roles = service
+service_token_roles_required = true
+delay_auth_decision = false
+{%     if openstack_cacert %}
+cafile = {{ openstack_cacert }}
+{%     endif %}
+
+[observability]
+metrics_enabled = {{ coffer_enable_metrics | bool }}
+{% elif service_name == 'coffer-edge' %}
+[edge]
+bind_host = {{ api_interface_address }}
+bind_port = {{ coffer_edge_port }}
+workers = {{ coffer_edge_workers }}
+threads = {{ coffer_edge_threads }}
+timeout_seconds = {{ coffer_edge_timeout_seconds }}
+graceful_timeout_seconds = 30
+keepalive_seconds = 5
+tls_certfile = /etc/coffer/edge.crt
+tls_keyfile = /etc/coffer/edge.key
+api_upstream_url = {{ coffer_api_internal_origin }}
+registry_upstream_url = {{ coffer_registry_internal_origin }}
+api_cafile = /etc/coffer/backend-ca.crt
+registry_cafile = /etc/coffer/backend-ca.crt
+allow_insecure_http = false
+api_upstream_timeout_seconds = {{ coffer_api_upstream_timeout_seconds }}
+registry_upstream_timeout_seconds = {{ coffer_registry_upstream_timeout_seconds }}
+jwks_file = /etc/coffer/jwks.json
+token_realm = {{ coffer_token_realm }}
+
+[token]
+issuer = {{ coffer_token_issuer }}
+service = {{ coffer_token_service }}
+{% elif service_name == 'coffer-reconcile' %}
+[reconciliation]
+mode = {{ coffer_reconcile_mode }}
+upstream_url = {{ coffer_registry_internal_origin }}
+cafile = /etc/coffer/registry-ca.crt
+allow_insecure_http = false
+timeout_seconds = {{ coffer_reconcile_timeout_seconds }}
+lease_seconds = {{ coffer_reconcile_lease_seconds }}
+batch_limit = {{ coffer_reconcile_batch_limit }}
+max_pages_per_cycle = {{ coffer_reconcile_max_pages_per_cycle }}
+interval_seconds = {{ coffer_reconcile_interval_seconds }}
+{% endif %}

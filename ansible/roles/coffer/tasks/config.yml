@@ -1,0 +1,239 @@
+---
+- name: Ensure Coffer service configuration directories exist
+  ansible.builtin.file:
+    path: "{{ node_config_directory }}/{{ item.key }}"
+    state: directory
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0770"
+  become: true
+  loop: >-
+    {{
+      coffer_services |
+      select_services_enabled_and_mapped_to_host |
+      dict2items
+    }}
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Ensure the Coffer bootstrap configuration directory exists
+  ansible.builtin.file:
+    path: "{{ node_config_directory }}/coffer-bootstrap"
+    state: directory
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0770"
+  become: true
+  when: inventory_hostname in groups['coffer-api']
+
+- name: Render Coffer Kolla config.json contracts
+  ansible.builtin.template:
+    src: "{{ coffer_source_root }}/docker/config/{{ item.key }}.json.j2"
+    dest: "{{ node_config_directory }}/{{ item.key }}/config.json"
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0660"
+  become: true
+  loop: >-
+    {{
+      coffer_services |
+      select_services_enabled_and_mapped_to_host |
+      dict2items
+    }}
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Render the Coffer bootstrap config.json contract
+  ansible.builtin.template:
+    src: "{{ coffer_source_root }}/docker/config/coffer-bootstrap.json.j2"
+    dest: "{{ node_config_directory }}/coffer-bootstrap/config.json"
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0660"
+  become: true
+  when: inventory_hostname in groups['coffer-api']
+
+- name: Render per-process Coffer configuration
+  vars:
+    service_name: "{{ item.key }}"
+  ansible.builtin.template:
+    src: "coffer.conf.j2"
+    dest: "{{ node_config_directory }}/{{ item.key }}/coffer.conf"
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0600"
+  become: true
+  loop: >-
+    {{
+      coffer_services |
+      dict2items |
+      rejectattr('key', 'equalto', 'coffer-registry') |
+      selectattr('value.enabled') |
+      selectattr('value.group', 'in', group_names) |
+      list
+    }}
+  loop_control:
+    label: "{{ item.key }}"
+  no_log: true
+
+- name: Render the bootstrap-only Coffer configuration
+  vars:
+    service_name: "coffer-bootstrap"
+  ansible.builtin.template:
+    src: "coffer.conf.j2"
+    dest: "{{ node_config_directory }}/coffer-bootstrap/coffer.conf"
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0600"
+  become: true
+  when: inventory_hostname in groups['coffer-api']
+  no_log: true
+
+- name: Render the private Distribution configuration
+  ansible.builtin.template:
+    src: "registry-config.yml.j2"
+    dest: "{{ node_config_directory }}/coffer-registry/config.yml"
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0600"
+  become: true
+  when: inventory_hostname in groups['coffer-registry']
+  no_log: true
+
+- name: Copy the API signing key to its sole recipient
+  ansible.builtin.copy:
+    src: "{{ coffer_signing_key_file }}"
+    dest: "{{ node_config_directory }}/coffer-api/signing-key.pem"
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0600"
+  become: true
+  when: inventory_hostname in groups['coffer-api']
+  no_log: true
+
+- name: Copy public JWKS only to edge and registry
+  ansible.builtin.copy:
+    src: "{{ coffer_jwks_file }}"
+    dest: "{{ node_config_directory }}/{{ item }}/jwks.json"
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0644"
+  become: true
+  loop:
+    - coffer-edge
+    - coffer-registry
+  when: >-
+    inventory_hostname in
+    groups[coffer_services[item].group]
+
+- name: Copy verified upstream CA material to edge
+  ansible.builtin.copy:
+    src: "{{ coffer_backend_cacert }}"
+    dest: "{{ node_config_directory }}/coffer-edge/backend-ca.crt"
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0644"
+  become: true
+  when: inventory_hostname in groups['coffer-edge']
+
+- name: Copy verified registry CA material to the reconciler
+  ansible.builtin.copy:
+    src: "{{ coffer_backend_cacert }}"
+    dest: "{{ node_config_directory }}/coffer-reconcile/registry-ca.crt"
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0644"
+  become: true
+  when:
+    - coffer_enable_reconcile | bool
+    - inventory_hostname in groups['coffer-reconcile']
+
+- name: Copy verified RGW CA material only to Distribution
+  ansible.builtin.copy:
+    src: "{{ coffer_rgw_cacert }}"
+    dest: "{{ node_config_directory }}/coffer-registry/rgw-ca.crt"
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0644"
+  become: true
+  when: inventory_hostname in groups['coffer-registry']
+
+- name: Copy backend TLS certificates to listener processes
+  vars:
+    certificate_names:
+      coffer-api: "api.crt"
+      coffer-edge: "edge.crt"
+      coffer-registry: "registry.crt"
+  ansible.builtin.copy:
+    src: "{{ coffer_backend_tls_cert }}"
+    dest: >-
+      {{ node_config_directory }}/{{ item.key
+      }}/{{ certificate_names[item.key] }}
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0644"
+  become: true
+  loop: >-
+    {{
+      coffer_services |
+      select_services_enabled_and_mapped_to_host |
+      dict2items |
+      selectattr('value.port', 'defined') |
+      list
+    }}
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Copy backend TLS private keys to listener processes
+  vars:
+    private_key_names:
+      coffer-api: "api.key"
+      coffer-edge: "edge.key"
+      coffer-registry: "registry.key"
+  ansible.builtin.copy:
+    src: "{{ coffer_backend_tls_key }}"
+    dest: >-
+      {{ node_config_directory }}/{{ item.key
+      }}/{{ private_key_names[item.key] }}
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0600"
+  become: true
+  loop: >-
+    {{
+      coffer_services |
+      select_services_enabled_and_mapped_to_host |
+      dict2items |
+      selectattr('value.port', 'defined') |
+      list
+    }}
+  loop_control:
+    label: "{{ item.key }}"
+  no_log: true
+
+- name: Copy Kolla CA bundles into Coffer containers
+  ansible.builtin.import_role:
+    name: service-cert-copy
+  vars:
+    project_services: "{{ coffer_services }}"
+    kolla_copy_backend_tls_files: false
+
+- name: Install Coffer observability inputs on the controller
+  ansible.builtin.import_tasks: observability.yml
+  when: coffer_manage_observability_overrides | bool
+
+- name: Restore strict Coffer configuration directory ownership and modes
+  ansible.builtin.file:
+    path: "{{ node_config_directory }}/{{ item.key }}"
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0770"
+  become: true
+  loop: >-
+    {{
+      coffer_services |
+      select_services_enabled_and_mapped_to_host |
+      dict2items
+    }}
+  loop_control:
+    label: "{{ item.key }}"

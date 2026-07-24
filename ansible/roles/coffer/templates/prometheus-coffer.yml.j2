@@ -1,0 +1,7 @@
+scrape_configs:
+  - job_name: coffer
+    scheme: {{ internal_protocol }}
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - {{ (coffer_internal_fqdn | put_address_in_context('url')) ~ ':' ~ coffer_api_port }}

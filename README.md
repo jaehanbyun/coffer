@@ -25,6 +25,13 @@ The service type is a project proposal and is not currently registered in the Op
 - Single-region Ceph RGW storage through the upstream S3 driver
 - Private project-scoped repositories with bounded soft quotas
 - Falcon WSGI control API served by a standard external WSGI process
+- Accepted five-role Kolla deployment topology with one non-bypassable Coffer
+  edge
+- Product `coffer-api`, `coffer-edge`, `coffer-bootstrap`, and
+  `coffer-reconcile` commands packaged in one non-root Coffer image contract,
+  with a separate non-root unmodified Distribution wrapper
+- Operator-local Kolla-Ansible companion role with bounded local and isolated
+  Linux lifecycle evidence; official-base and full AIO evidence remain open
 
 ## Current Implementation
 
@@ -37,6 +44,41 @@ The API currently supports:
 - `GET /v1/repositories/{repository_id}`
 
 This is testable scaffolding, not a production endpoint. Unit and disposable fixtures opt into ephemeral SQLite schema bootstrap, while normal control and reconciliation processes require the exact Alembic revision. The Keystone tests use `AuthTokenFixture`, and the Distribution v3.1.1 fixture is blocked from production promotion by ADR 0006.
+
+Stage 2 adds installed product entry points, closed edge dispatch, verified
+backend TLS, repeat-safe packaged Alembic bootstrap, Kolla
+`Dockerfile.j2`/`config.json` contracts, and a disposable local image harness.
+The ARM64 harness passes non-root execution, owner/mode and custom-CA
+injection, private Distribution access, authenticated blob/manifest
+publication through the edge, all-service restart with digest preservation,
+log hygiene, and exact cleanup:
+
+```bash
+make -C poc/kolla-runtime verify
+```
+
+This is Kolla runtime-contract evidence, not a Kolla-Ansible deployment. No
+public Kolla 2026.1 base image was available for the final-template build, and
+the retained Coffer/Distribution-wrapper vulnerability reports contain
+Critical and High findings. The artifacts therefore remain blocked from
+production promotion.
+
+Stage 3 adds the Coffer-owned Kolla-Ansible wrapper, custom playbook, and
+companion role. The exact pinned Kolla contract passes disabled and negative
+prechecks, database plus repeat-safe bootstrap ordering, proposed
+`oci-registry` catalog registration, edge-only HAProxy routing with verified
+backend TLS, per-process secret recipients, configuration validation, and the
+normal deploy/reconfigure/pull/upgrade/stop lifecycle:
+
+```bash
+make -C poc/kolla-ansible-role verify
+```
+
+The 48-check local contract and a cleaned-up, autostart-disabled x86_64 Linux
+VM run both pass. This is operator-local role/lifecycle evidence, not a full
+Kolla AIO deployment or tenant OCI acceptance test. Stage 4 still owns
+two-project client behavior, restart persistence through the deployed stack,
+and complete AIO idempotency.
 
 Run the isolated authenticated registry contract with:
 
@@ -99,6 +141,9 @@ Do not place Keystone, database, signing, or cache secrets in the repository. Th
 
 - [Product discovery](docs/product-discovery.md)
 - [MVP architecture baseline](docs/architecture/mvp-baseline.md)
+- [Accepted Kolla deployment topology](docs/architecture/kolla-deployment-topology.md)
+- [Local Kolla runtime contract harness](poc/kolla-runtime/README.md)
+- [Operator-local Kolla-Ansible role contract](poc/kolla-ansible-role/README.md)
 - [OpenStack registry landscape](docs/research/openstack-registry-landscape.md)
 - [M0 upstream compatibility](docs/research/m0-upstream-compatibility.md)
 - [M1 framework selection](docs/research/m1-framework-selection.md)
@@ -112,6 +157,7 @@ Do not place Keystone, database, signing, or cache secrets in the repository. Th
 - [Proposed ADR 0011: pinned Distribution storage inventory](docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md)
 - [Proposed ADR 0012: transactional empty-ledger inventory import](docs/adrs/0012-import-existing-content-into-empty-quota-ledger.md)
 - [Proposed ADR 0013: explicit authentication for live comparison](docs/adrs/0013-require-explicit-authentication-for-live-comparison.md)
+- [Accepted ADR 0014: Kolla deployment topology](docs/adrs/0014-fix-kolla-deployment-topology.md)
 - [Real Keystone and Ceph RGW PoC runbook](docs/runbooks/real-keystone-rgw-poc.md)
 - [Quota schema and reconciliation operator boundary](docs/runbooks/quota-schema-reconciliation.md)
 - [Existing-content inventory operator boundary](docs/runbooks/existing-content-inventory.md)
@@ -128,3 +174,6 @@ Do not place Keystone, database, signing, or cache secrets in the repository. Th
 - [Completed read-only post-import comparison plan](docs/exec-plans/0010-post-import-ledger-comparison.md)
 - [Completed authenticated live inventory comparison plan](docs/exec-plans/0011-authenticated-live-inventory-comparison.md)
 - [Completed synthetic inventory scale characterization plan](docs/exec-plans/0012-synthetic-inventory-scale-characterization.md)
+- [Completed Stage 1 Kolla deployment-topology plan](docs/exec-plans/0013-kolla-deployment-topology.md)
+- [Completed Stage 2 Kolla runtime-images plan](docs/exec-plans/0014-kolla-runtime-images.md)
+- [Completed Stage 3 Kolla-Ansible operator-role plan](docs/exec-plans/0015-kolla-ansible-operator-role.md)

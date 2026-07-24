@@ -1,0 +1,4 @@
+---
+- name: Pull Coffer images
+  ansible.builtin.import_role:
+    name: service-images-pull

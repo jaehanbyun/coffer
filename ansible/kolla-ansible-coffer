@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source_root="$(cd "${script_directory}/.." && pwd)"
+
+if ! kolla_ansible_binary="$(command -v kolla-ansible)"; then
+    echo "kolla-ansible is not installed or not on PATH" >&2
+    exit 69
+fi
+
+kolla_ansible_python="${KOLLA_ANSIBLE_PYTHON:-$(
+    dirname "${kolla_ansible_binary}"
+)/python3}"
+if [[ ! -x "${kolla_ansible_python}" ]]; then
+    kolla_ansible_python="python3"
+fi
+
+kolla_ansible_data_path="$(
+    "${kolla_ansible_python}" -c \
+        'from kolla_ansible import utils; print(utils.get_data_files_path("ansible"))'
+)"
+
+if ! test -d "${kolla_ansible_data_path}/roles"; then
+    echo "Kolla-Ansible role data path is invalid" >&2
+    exit 78
+fi
+
+export ANSIBLE_LIBRARY="${kolla_ansible_data_path}/library${ANSIBLE_LIBRARY:+:${ANSIBLE_LIBRARY}}"
+export ANSIBLE_ACTION_PLUGINS="${kolla_ansible_data_path}/action_plugins${ANSIBLE_ACTION_PLUGINS:+:${ANSIBLE_ACTION_PLUGINS}}"
+export ANSIBLE_FILTER_PLUGINS="${kolla_ansible_data_path}/filter_plugins${ANSIBLE_FILTER_PLUGINS:+:${ANSIBLE_FILTER_PLUGINS}}"
+export ANSIBLE_ROLES_PATH="${script_directory}/roles:${kolla_ansible_data_path}/roles${ANSIBLE_ROLES_PATH:+:${ANSIBLE_ROLES_PATH}}"
+
+if (($# == 0)); then
+    exec "${kolla_ansible_binary}" --help
+fi
+
+action="$1"
+shift
+case "${action}" in
+    -h|--help|--version|help|complete)
+        exec "${kolla_ansible_binary}" "${action}" "$@"
+        ;;
+    check|deploy|genconfig|prechecks|pull|reconfigure|stop|upgrade|validate-config)
+        ;;
+    *)
+        echo "unsupported Coffer Kolla action: ${action}" >&2
+        exit 64
+        ;;
+esac
+
+exec "${kolla_ansible_binary}" \
+    "${action}" \
+    -p "${script_directory}/coffer.yml" \
+    -e "coffer_kolla_ansible_data_path=${kolla_ansible_data_path}" \
+    -e "coffer_source_root=${source_root}" \
+    "$@"

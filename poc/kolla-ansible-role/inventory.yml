@@ -1,0 +1,38 @@
+---
+all:
+  hosts:
+    coffer-stage3-contract:
+      ansible_connection: local
+      api_interface: en0
+      api_address_family: ipv4
+  children:
+    coffer:
+      children:
+        coffer-api:
+        coffer-edge:
+        coffer-registry:
+        coffer-reconcile:
+    coffer-api:
+      hosts:
+        coffer-stage3-contract:
+    coffer-edge:
+      hosts:
+        coffer-stage3-contract:
+    coffer-registry:
+      hosts:
+        coffer-stage3-contract:
+    coffer-reconcile:
+      hosts:
+        coffer-stage3-contract:
+    loadbalancer:
+      hosts:
+        coffer-stage3-contract:
+    tls-backend:
+      hosts:
+        coffer-stage3-contract:
+    fluentd:
+    cron:
+    prometheus:
+    mariadb:
+      hosts:
+        coffer-stage3-contract:

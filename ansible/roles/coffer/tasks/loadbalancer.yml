@@ -1,0 +1,8 @@
+---
+- name: Configure HAProxy and ProxySQL for Coffer
+  ansible.builtin.import_role:
+    name: loadbalancer-config
+  vars:
+    project_services: "{{ coffer_services }}"
+  tags: always
+  no_log: true

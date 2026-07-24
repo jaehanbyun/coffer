@@ -1,0 +1,87 @@
+---
+- name: Get running Coffer container facts for config validation
+  become: true
+  kolla_container_facts:
+    action: get_containers
+    container_engine: "{{ kolla_container_engine }}"
+    name:
+      - coffer_api
+      - coffer_edge
+      - coffer_registry
+      - coffer_reconcile
+  register: coffer_config_validation_facts
+
+- name: Validate Coffer application configurations in running containers
+  vars:
+    validation:
+      coffer-api:
+        container: coffer_api
+        component: api
+      coffer-edge:
+        container: coffer_edge
+        component: edge
+      coffer-reconcile:
+        container: coffer_reconcile
+        component: reconcile
+  ansible.builtin.command:
+    argv:
+      - "{{ kolla_container_engine }}"
+      - exec
+      - "{{ item.value.container }}"
+      - coffer-config-validate
+      - --component
+      - "{{ item.value.component }}"
+      - --config-file
+      - /etc/coffer/coffer.conf
+  loop: "{{ validation | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  changed_when: false
+  when:
+    - coffer_config_validation_facts.containers[item.value.container] is defined
+  no_log: true
+
+- name: Validate the bootstrap database configuration through the API image
+  ansible.builtin.command:
+    argv:
+      - "{{ kolla_container_engine }}"
+      - exec
+      - coffer_api
+      - coffer-config-validate
+      - --component
+      - bootstrap
+      - --config-file
+      - /etc/coffer/coffer.conf
+  changed_when: false
+  when:
+    - coffer_config_validation_facts.containers.coffer_api is defined
+  no_log: true
+
+- name: Read the rendered private Distribution configuration
+  ansible.builtin.slurp:
+    src: "{{ node_config_directory }}/coffer-registry/config.yml"
+  register: coffer_registry_rendered_config
+  when: inventory_hostname in groups['coffer-registry']
+  no_log: true
+
+- name: Validate the private Distribution configuration structure
+  vars:
+    registry_config: >-
+      {{
+        coffer_registry_rendered_config.content |
+        b64decode |
+        from_yaml
+      }}
+  ansible.builtin.assert:
+    that:
+      - registry_config.version == 0.1
+      - registry_config.auth.token.realm == coffer_token_realm
+      - registry_config.auth.token.jwks == '/etc/coffer-registry/jwks.json'
+      - registry_config.storage.s3.regionendpoint == coffer_rgw_endpoint
+      - registry_config.storage.s3.bucket == coffer_rgw_bucket
+      - registry_config.storage.redirect.disable | bool
+      - registry_config.http.tls.certificate is defined
+      - registry_config.http.tls.key is defined
+    fail_msg: The rendered Coffer Distribution configuration is invalid.
+  when: inventory_hostname in groups['coffer-registry']
+  no_log: true

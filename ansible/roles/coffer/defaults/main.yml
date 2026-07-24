@@ -1,0 +1,400 @@
+---
+# Coffer remains an operator-local companion service until the role contract
+# and Stage 4 AIO behavior have passed. The custom playbook supplies this gate
+# before the role is selected.
+enable_coffer: false
+
+####################
+# Deployment profile
+####################
+coffer_deployment_profile: "production"
+coffer_enable_reconcile: false
+coffer_enable_metrics: false
+coffer_manage_observability_overrides: true
+coffer_config_controller_become: false
+coffer_fluentd_enable_watch_timer: >-
+  {{ fluentd_enable_watch_timer | default('false') }}
+
+####################
+# Endpoints and ports
+####################
+coffer_api_port: "8787"
+coffer_edge_port: "8788"
+coffer_registry_port: "8789"
+coffer_api_external: false
+coffer_registry_external: false
+coffer_edge_public_port: >-
+  {{
+    haproxy_single_external_frontend_public_port
+    if haproxy_single_external_frontend | bool
+    else coffer_edge_port
+  }}
+
+coffer_internal_fqdn: "{{ kolla_internal_fqdn }}"
+coffer_external_fqdn: "{{ kolla_external_fqdn }}"
+coffer_internal_origin: >-
+  {{
+    coffer_internal_fqdn |
+    kolla_url(internal_protocol, coffer_edge_port)
+  }}
+coffer_external_origin: >-
+  {{
+    coffer_external_fqdn |
+    kolla_url(public_protocol, coffer_edge_public_port)
+  }}
+coffer_api_internal_origin: >-
+  {{
+    coffer_internal_fqdn |
+    kolla_url(internal_protocol, coffer_api_port)
+  }}
+coffer_registry_internal_origin: >-
+  {{
+    coffer_internal_fqdn |
+    kolla_url(internal_protocol, coffer_registry_port)
+  }}
+coffer_internal_endpoint: "{{ coffer_internal_origin }}/v1"
+coffer_public_endpoint: "{{ coffer_external_origin }}/v1"
+coffer_admin_endpoint: "{{ coffer_internal_endpoint }}"
+coffer_token_realm: "{{ coffer_external_origin }}/auth/token"
+
+####################
+# Images
+####################
+coffer_tag: "{{ openstack_tag }}"
+coffer_image: "{{ docker_image_url }}coffer"
+coffer_image_full: "{{ coffer_image }}:{{ coffer_tag }}"
+coffer_registry_image: "{{ docker_image_url }}coffer-registry"
+coffer_registry_image_full: "{{ coffer_registry_image }}:{{ coffer_tag }}"
+
+####################
+# TLS
+####################
+coffer_enable_tls_backend: "{{ kolla_enable_tls_backend | bool }}"
+coffer_backend_tls_cert: "{{ kolla_tls_backend_cert }}"
+coffer_backend_tls_key: "{{ kolla_tls_backend_key }}"
+coffer_backend_cacert: "{{ openstack_cacert }}"
+coffer_rgw_cacert: "{{ node_custom_config }}/coffer/certs/rgw-ca.crt"
+
+####################
+# Owner-controlled inputs
+####################
+# These paths contain no values in inventory. Secret values are read only by
+# no_log tasks and are copied or rendered into per-process mode-0600 files.
+coffer_secret_source_dir: "{{ node_custom_config }}/coffer/secrets"
+coffer_public_source_dir: "{{ node_custom_config }}/coffer/public"
+coffer_database_password_file: >-
+  {{ coffer_secret_source_dir }}/database-password
+coffer_keystone_password_file: >-
+  {{ coffer_secret_source_dir }}/keystone-service-password
+coffer_signing_key_file: "{{ coffer_secret_source_dir }}/signing-key.pem"
+coffer_distribution_http_secret_file: >-
+  {{ coffer_secret_source_dir }}/distribution-http-secret
+coffer_rgw_access_key_file: "{{ coffer_secret_source_dir }}/rgw-access-key"
+coffer_rgw_secret_key_file: "{{ coffer_secret_source_dir }}/rgw-secret-key"
+coffer_jwks_file: "{{ coffer_public_source_dir }}/jwks.json"
+coffer_secret_owner_uid: 0
+coffer_secret_file_mode: "0600"
+
+####################
+# Database
+####################
+coffer_database_name: "coffer"
+coffer_database_user: >-
+  {%- if use_preconfigured_databases | bool and use_common_mariadb_user | bool -%}
+  {{ database_user }}
+  {%- else -%}
+  coffer
+  {%- endif -%}
+coffer_database_address: >-
+  {{ database_address | put_address_in_context('url') }}:{{ database_port }}
+coffer_database_enable_tls_internal: >-
+  {{ database_enable_tls_internal | bool }}
+coffer_database_shard_root_user: >-
+  {%- if enable_proxysql | bool -%}
+  root_shard_{{ coffer_database_shard_id }}
+  {%- else -%}
+  {{ database_user }}
+  {%- endif -%}
+coffer_database_shard_id: "{{ mariadb_default_database_shard_id | int }}"
+coffer_database_shard:
+  users:
+    - user: "{{ coffer_database_user }}"
+      password: >-
+        {{ lookup('file', coffer_database_password_file) | trim }}
+      shard_id: "{{ coffer_database_shard_id }}"
+  rules:
+    - schema: "{{ coffer_database_name }}"
+      shard_id: "{{ coffer_database_shard_id }}"
+    - user: "{{ coffer_database_user }}"
+      shard_id: "{{ coffer_database_shard_id }}"
+
+####################
+# Keystone
+####################
+coffer_keystone_user: "coffer"
+openstack_coffer_auth: "{{ openstack_auth }}"
+coffer_ks_services:
+  - name: "coffer"
+    type: "oci-registry"
+    description: "OpenStack-native OCI Registry service"
+    endpoints:
+      - interface: "internal"
+        url: "{{ coffer_internal_endpoint }}"
+      - interface: "public"
+        url: "{{ coffer_public_endpoint }}"
+      - interface: "admin"
+        url: "{{ coffer_admin_endpoint }}"
+coffer_ks_users:
+  - project: "service"
+    user: "{{ coffer_keystone_user }}"
+    password: >-
+      {{ lookup('file', coffer_keystone_password_file) | trim }}
+    role: "admin"
+coffer_ks_roles: []
+
+####################
+# Registry storage and auth
+####################
+coffer_token_issuer: "coffer"
+coffer_token_service: "coffer-registry"
+coffer_token_key_id: ""
+coffer_token_lifetime_seconds: 300
+
+coffer_rgw_region: "us-east-1"
+coffer_rgw_endpoint: ""
+coffer_rgw_bucket: ""
+coffer_rgw_rootdirectory: "/distribution"
+coffer_rgw_force_path_style: true
+coffer_rgw_skip_verify: false
+coffer_rgw_encrypt: false
+coffer_rgw_kms_key_id: ""
+coffer_registry_delete_enabled: true
+
+####################
+# Runtime sizing
+####################
+coffer_api_workers: "{{ openstack_service_workers }}"
+coffer_api_threads: 4
+coffer_edge_workers: "{{ openstack_service_workers }}"
+coffer_edge_threads: 8
+coffer_api_timeout_seconds: 30
+coffer_edge_timeout_seconds: 300
+coffer_api_upstream_timeout_seconds: 30
+coffer_registry_upstream_timeout_seconds: 300
+
+coffer_reconcile_mode: "periodic"
+coffer_reconcile_timeout_seconds: 10
+coffer_reconcile_batch_limit: 10
+coffer_reconcile_max_pages_per_cycle: 100
+coffer_reconcile_lease_seconds: 120
+coffer_reconcile_interval_seconds: 60
+
+####################
+# Container health
+####################
+coffer_api_enable_healthchecks: "{{ enable_container_healthchecks }}"
+coffer_edge_enable_healthchecks: "{{ enable_container_healthchecks }}"
+coffer_registry_enable_healthchecks: "{{ enable_container_healthchecks }}"
+coffer_reconcile_enable_healthchecks: "{{ enable_container_healthchecks }}"
+
+coffer_api_healthcheck_test:
+  - "CMD-SHELL"
+  - >-
+    healthcheck_curl {{
+    'https' if coffer_enable_tls_backend | bool else 'http'
+    }}://{{ api_interface_address | put_address_in_context('url')
+    }}:{{ coffer_api_port }}/healthz
+coffer_edge_healthcheck_test:
+  - "CMD-SHELL"
+  - "healthcheck_listen coffer-edge {{ coffer_edge_port }}"
+coffer_registry_healthcheck_test:
+  - "CMD-SHELL"
+  - "healthcheck_listen registry {{ coffer_registry_port }}"
+coffer_reconcile_healthcheck_test:
+  - "CMD-SHELL"
+  - >-
+    test -r /proc/1/cmdline &&
+    grep -aq coffer-reconcile /proc/1/cmdline
+
+coffer_api_healthcheck:
+  interval: "{{ default_container_healthcheck_interval }}"
+  retries: "{{ default_container_healthcheck_retries }}"
+  start_period: "{{ default_container_healthcheck_start_period }}"
+  test: >-
+    {% if coffer_api_enable_healthchecks | bool
+    %}{{ coffer_api_healthcheck_test }}{% else %}NONE{% endif %}
+  timeout: "{{ default_container_healthcheck_timeout }}"
+coffer_edge_healthcheck:
+  interval: "{{ default_container_healthcheck_interval }}"
+  retries: "{{ default_container_healthcheck_retries }}"
+  start_period: "{{ default_container_healthcheck_start_period }}"
+  test: >-
+    {% if coffer_edge_enable_healthchecks | bool
+    %}{{ coffer_edge_healthcheck_test }}{% else %}NONE{% endif %}
+  timeout: "{{ default_container_healthcheck_timeout }}"
+coffer_registry_healthcheck:
+  interval: "{{ default_container_healthcheck_interval }}"
+  retries: "{{ default_container_healthcheck_retries }}"
+  start_period: "{{ default_container_healthcheck_start_period }}"
+  test: >-
+    {% if coffer_registry_enable_healthchecks | bool
+    %}{{ coffer_registry_healthcheck_test }}{% else %}NONE{% endif %}
+  timeout: "{{ default_container_healthcheck_timeout }}"
+coffer_reconcile_healthcheck:
+  interval: "{{ default_container_healthcheck_interval }}"
+  retries: "{{ default_container_healthcheck_retries }}"
+  start_period: "{{ default_container_healthcheck_start_period }}"
+  test: >-
+    {% if coffer_reconcile_enable_healthchecks | bool
+    %}{{ coffer_reconcile_healthcheck_test }}{% else %}NONE{% endif %}
+  timeout: "{{ default_container_healthcheck_timeout }}"
+
+####################
+# Volumes and dimensions
+####################
+coffer_dimensions: "{{ default_container_dimensions }}"
+coffer_registry_dimensions: "{{ default_container_dimensions }}"
+coffer_extra_volumes: "{{ default_extra_volumes }}"
+coffer_api_extra_volumes: "{{ coffer_extra_volumes }}"
+coffer_edge_extra_volumes: "{{ coffer_extra_volumes }}"
+coffer_registry_extra_volumes: "{{ coffer_extra_volumes }}"
+coffer_reconcile_extra_volumes: "{{ coffer_extra_volumes }}"
+coffer_bootstrap_extra_volumes: "{{ coffer_extra_volumes }}"
+
+coffer_api_default_volumes:
+  - >-
+    {{ node_config_directory }}/coffer-api/:
+    {{- container_config_directory }}/:ro
+  - "/etc/localtime:/etc/localtime:ro"
+  - "kolla_logs:/var/log/kolla/"
+coffer_edge_default_volumes:
+  - >-
+    {{ node_config_directory }}/coffer-edge/:
+    {{- container_config_directory }}/:ro
+  - "/etc/localtime:/etc/localtime:ro"
+  - "kolla_logs:/var/log/kolla/"
+coffer_registry_default_volumes:
+  - >-
+    {{ node_config_directory }}/coffer-registry/:
+    {{- container_config_directory }}/:ro
+  - "/etc/localtime:/etc/localtime:ro"
+  - "kolla_logs:/var/log/kolla/"
+coffer_reconcile_default_volumes:
+  - >-
+    {{ node_config_directory }}/coffer-reconcile/:
+    {{- container_config_directory }}/:ro
+  - "/etc/localtime:/etc/localtime:ro"
+  - "kolla_logs:/var/log/kolla/"
+coffer_bootstrap_default_volumes:
+  - >-
+    {{ node_config_directory }}/coffer-bootstrap/:
+    {{- container_config_directory }}/:ro
+  - "/etc/localtime:/etc/localtime:ro"
+  - "kolla_logs:/var/log/kolla/"
+
+####################
+# Kolla service model
+####################
+coffer_services:
+  coffer-api:
+    container_name: "coffer_api"
+    group: "coffer-api"
+    port: "{{ coffer_api_port }}"
+    image: "{{ coffer_image_full }}"
+    enabled: true
+    volumes: >-
+      {{ coffer_api_default_volumes + coffer_api_extra_volumes }}
+    dimensions: "{{ coffer_dimensions }}"
+    healthcheck: "{{ coffer_api_healthcheck }}"
+    haproxy:
+      coffer_api:
+        enabled: "{{ enable_coffer }}"
+        mode: "http"
+        external: "{{ coffer_api_external }}"
+        port: "{{ coffer_api_port }}"
+        listen_port: "{{ coffer_api_port }}"
+        tls_backend: "{{ coffer_enable_tls_backend }}"
+        backend_http_extra:
+          - "option httpchk GET /healthz"
+          - "http-check expect status 200"
+  coffer-edge:
+    container_name: "coffer_edge"
+    group: "coffer-edge"
+    port: "{{ coffer_edge_port }}"
+    image: "{{ coffer_image_full }}"
+    enabled: true
+    volumes: >-
+      {{ coffer_edge_default_volumes + coffer_edge_extra_volumes }}
+    dimensions: "{{ coffer_dimensions }}"
+    healthcheck: "{{ coffer_edge_healthcheck }}"
+    haproxy:
+      coffer_edge:
+        enabled: "{{ enable_coffer }}"
+        mode: "http"
+        external: false
+        port: "{{ coffer_edge_port }}"
+        listen_port: "{{ coffer_edge_port }}"
+        tls_backend: "{{ coffer_enable_tls_backend }}"
+        backend_http_extra:
+          - "option httpchk GET /v2/"
+          - "http-check expect status 401"
+      coffer_edge_external:
+        enabled: "{{ enable_coffer }}"
+        mode: "http"
+        external: true
+        external_fqdn: "{{ coffer_external_fqdn }}"
+        port: "{{ coffer_edge_public_port }}"
+        listen_port: "{{ coffer_edge_port }}"
+        tls_backend: "{{ coffer_enable_tls_backend }}"
+        backend_http_extra:
+          - "option httpchk GET /v2/"
+          - "http-check expect status 401"
+  coffer-registry:
+    container_name: "coffer_registry"
+    group: "coffer-registry"
+    port: "{{ coffer_registry_port }}"
+    image: "{{ coffer_registry_image_full }}"
+    enabled: true
+    volumes: >-
+      {{ coffer_registry_default_volumes + coffer_registry_extra_volumes }}
+    dimensions: "{{ coffer_registry_dimensions }}"
+    healthcheck: "{{ coffer_registry_healthcheck }}"
+    haproxy:
+      coffer_registry:
+        enabled: "{{ enable_coffer }}"
+        mode: "http"
+        external: "{{ coffer_registry_external }}"
+        port: "{{ coffer_registry_port }}"
+        listen_port: "{{ coffer_registry_port }}"
+        tls_backend: "{{ coffer_enable_tls_backend }}"
+        backend_http_extra:
+          - "option httpchk GET /v2/"
+          - "http-check expect status 401"
+  coffer-reconcile:
+    container_name: "coffer_reconcile"
+    group: "coffer-reconcile"
+    image: "{{ coffer_image_full }}"
+    enabled: "{{ coffer_enable_reconcile }}"
+    volumes: >-
+      {{
+        coffer_reconcile_default_volumes +
+        coffer_reconcile_extra_volumes
+      }}
+    dimensions: "{{ coffer_dimensions }}"
+    healthcheck: "{{ coffer_reconcile_healthcheck }}"
+
+coffer_bootstrap_service:
+  container_name: "bootstrap_coffer"
+  group: "coffer-api"
+  image: "{{ coffer_image_full }}"
+  enabled: true
+  volumes: >-
+    {{ coffer_bootstrap_default_volumes + coffer_bootstrap_extra_volumes }}
+  dimensions: "{{ coffer_dimensions }}"
+  one_shot: true
+
+coffer_processes: >-
+  {{
+    coffer_services |
+    combine({'coffer-bootstrap': coffer_bootstrap_service})
+  }}

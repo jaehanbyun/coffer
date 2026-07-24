@@ -1,14 +1,17 @@
 # Coffer Handoff
 
-- Updated: 2026-07-23
-- Status: plan 0012 complete and ready for atomic publication; no active execution plan
-- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`
+- Updated: 2026-07-24
+- Status: plan 0015 complete; no active execution plan
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: none
 
 ## Current Objective
 
-Publish the completed deterministic synthetic inventory scale characterization as one atomic commit. Production capacity, provider selection, credentials, endpoints, deployment, maintenance authorization, backup/rollback, admission cutover, Galera policy, and restart-correct metric aggregation remain outside authorization or unproven.
+Plan 0015 is complete. The Coffer-owned companion Kolla-Ansible role and
+bounded lifecycle evidence are closed; Stage 4 tenant OCI behavior, full AIO,
+production identities, publication, and upstream work remain out of scope
+until separately authorized.
 
 ## Completed
 
@@ -148,6 +151,19 @@ Publish the completed deterministic synthetic inventory scale characterization a
 - The `bb00` single-host VM is the M3-A functional RGW target. Its rotational directory-backed OSD proves compatibility, TLS, persistence, and failure behavior only; it is not HA, performance, or physical-failure-domain evidence.
 - Immutable OpenStack IDs are validated but not reformatted at storage or authorization boundaries; compact 32-hex and hyphenated UUID spellings are both syntactically accepted namespace forms, but the exact Keystone project ID remains the authority key.
 - The integration broker's private CA and SSH loopback tunnel are disposable protocol-test scaffolding, not a production endpoint topology. Distribution receives only the public JWKS; all private keys and finite client credentials are removed after each run.
+- Accepted ADR 0014 fixes five Kolla roles: private `coffer-api`, sole-ingress
+  `coffer-edge`, unmodified private `coffer-registry`, listenerless
+  `coffer-reconcile`, and one-shot `coffer-bootstrap`. HAProxy owns
+  VIP/FQDN/TLS/load balancing; the edge owns closed path dispatch and manifest
+  admission.
+- Preferred Barbican-backed secrets are materialized by an owner-controlled
+  pre-deploy step into per-process read-only files; runtime hot paths do not
+  fetch secrets. Alembic runs only in the one-shot bootstrap, and incompatible
+  production rollback restores the approved database backup rather than
+  blindly downgrading.
+- `bb00` is a shared KVM host, not the Kolla target. A later plan must create a
+  separately named isolated VM and must keep the bootstrap image registry
+  independent from the tenant Coffer registry.
 
 ## Changed Files
 
@@ -173,6 +189,20 @@ Publish the completed deterministic synthetic inventory scale characterization a
 - Unified control schema: `src/coffer/schema.py`, repository/quota/runner validation, Alembic revision `0003` and unified metadata, focused migration tests, explicit fixture bootstraps, `poc/quota-sql/`, ADR 0010, schema/architecture/runbook updates, active plan 0007, and this handoff.
 - Existing-content inventory: `src/coffer/inventory.py`, `tests/test_inventory.py`, installed CLI metadata, `poc/inventory/`, `docs/research/m3-existing-content-inventory.md`, proposed ADR 0011, `docs/runbooks/existing-content-inventory.md`, architecture/README/quota-runbook/ADR 0009 updates, completed plan 0008, and this handoff.
 - Transactional inventory import: `src/coffer/quota_import.py`, `migrations/versions/0004_inventory_import.py`, quota/schema metadata, `tests/test_quota_import.py`, migration tests, the shared-SQL fixture, proposed ADR 0012, inventory/quota/architecture documentation, completed plan 0009, and this handoff.
+- Kolla topology Stage 1: `README.md`,
+  `docs/adrs/0014-fix-kolla-deployment-topology.md`,
+  `docs/architecture/kolla-deployment-topology.md`,
+  `docs/architecture/mvp-baseline.md`,
+  `docs/exec-plans/0013-kolla-deployment-topology.md`, and this handoff.
+- Kolla runtime/images Stage 2: packaged migrations, `src/coffer/runtime.py`,
+  `src/coffer/api_runner.py`, `src/coffer/edge_runner.py`, the closed proxy and
+  configuration changes, focused tests, `docker/`, `poc/kolla-runtime/`,
+  `etc/coffer.conf.sample`, README/topology updates, completed plan 0014, and
+  this handoff.
+- Kolla-Ansible Stage 3 local contract: `ansible/` companion wrapper,
+  playbook, role and exact pin; `poc/kolla-ansible-role/` lifecycle harness;
+  `src/coffer/config_validator.py`, its installed entry point and focused
+  tests; active plan 0015; and this handoff.
 
 ## Verification
 
@@ -260,11 +290,187 @@ Publish the completed deterministic synthetic inventory scale characterization a
 - Plan 0012's non-installed harness and two focused tests generate deterministic unique-descriptor artifacts, matching disposable authority, aggregate-only phase metrics, exact SQL statement/probe counts, and zero temporary-state residue. The fixed Make target runs 100, 1,000, and 5,000 manifest profiles.
 - The first local Python 3.13 scale run completed all profiles. At 5,000 manifests the artifact was 4.71 MB, import took 3.642 seconds/15,032 statements, exact comparison took 2.085 seconds/11 statements/24.87 MB peak traced Python allocation, and the live core repeated 11 SQL statements plus exactly 5,000 zero-latency in-process probes in 1.968 seconds. Growth was approximately linear in this bounded SQLite topology; it is not a production capacity result.
 - Plan 0012 final regression passed with 201 tests on each of Python 3.11.14, 3.12.2, and 3.13.14; lock, compile, Alembic head, four installed CLIs, Go, 58 Bash/ShellCheck files, six Compose models, 55 Make dry-runs, 58 Markdown files, 33 local links, 99 external links, private-key/JWT scans, project-owned Gitleaks over 222 files, and diff checks all pass.
+- Activated plan 0013 and completed a secret-safe read-only inventory through
+  the user-supplied direct Tailscale SSH address. It reaches `bb00`; the legacy
+  alias points to an unavailable LAN address. `bb00` is a shared Ubuntu 24.04
+  x86_64 KVM host with substantial free capacity but no Kolla/Ansible install,
+  active host HAProxy on ports 80/443, a separate Harbor 2.14 deployment,
+  17 running VM domains, and the existing autostart-disabled
+  `coffer-rgw-poc`. No remote state or secret-bearing content was read or
+  changed, and direct host deployment is excluded.
+- Accepted ADR 0014 and completed plan 0013. The deployable contract is
+  `coffer-api` on private service port 8787, sole-ingress `coffer-edge` on
+  8788, unmodified private Distribution as `coffer-registry` on 8789,
+  listenerless `coffer-reconcile`, and one-shot `coffer-bootstrap`.
+- Fixed the Kolla endpoint, TLS, HAProxy, secret-recipient, Barbican
+  materialization, Alembic/rollback, isolated-lab, and independent bootstrap
+  registry boundaries in `docs/architecture/kolla-deployment-topology.md`.
+  Stage 1 changed documentation only; no image, role, VM, identity, credential,
+  or deployment was created.
+- Plan 0013 final documentation verification passed: 61 Markdown files and 40
+  local links, four rendered and visually inspected Mermaid diagrams, four
+  Kolla primary URLs with HTTP 200, changed-file Gitleaks and
+  private-key/JWT/access-key/SSH-target scans, `git diff --check`, and manual
+  scoped diff review.
+- Plan 0013 corrected three non-destructive local failures: one combined patch
+  was rejected atomically on a line-wrap mismatch, an `rg` expression needed
+  `--` before a leading-hyphen pattern, and one Mermaid label needed
+  punctuation simplified. The corrected checks passed and the supplied SSH
+  user/address is not retained in project documentation.
+- Plan 0014 fixed the image strategy against pinned Kolla `stable/2026.1`
+  source: final artifacts are `openstack-base` Jinja templates with
+  service-level `USER`, while a pinned-script contract image supplies honest
+  local evidence because no public 2026.1 base reference was available.
+  Distribution remains unmodified and will use its official release binary
+  with an architecture-specific checksum rather than the blocked runtime
+  image.
+- Plan 0014 installed the complete Alembic environment in the Python wheel and
+  added repeat-safe `coffer-bootstrap` plus `coffer-api` on private port 8787.
+  Thirty-three focused tests, wheel-content inspection, Alembic head, installed
+  help, compile, lock, and diff checks pass.
+- Plan 0014 added `coffer-edge` on 8788 with separate verified API/Distribution
+  origins, exact non-bypassable manifest admission, closed operational/unknown
+  paths, deterministic 503 transport closure, and bounded streaming. Fifty-six
+  focused tests pass, including CA trust, hostname mismatch, untrusted TLS,
+  both routed backends, JWKS/schema startup, CLI help, compile, and diff checks.
+- Plan 0014 added Kolla Jinja artifacts, read-only per-role configuration
+  examples, and a pinned-script local contract harness. Kolla
+  `stable/2026.1` lists and renders both images; the ARM64 local application
+  and Distribution builds, installed command helps, exact Distribution v3.1.1
+  checksum, and version check pass.
+- The first Stage 2 live run stopped only at Docker Scout's rejection of an
+  absolute archive reference after it indexed the image. Exact cleanup and
+  Podman shutdown passed; the harness now uses the documented repository-local
+  archive reference for the bounded rerun.
+- The corrected scanner run reached the live edge and exposed a strict
+  certificate failure: the Python 3.13 image's OpenSSL requires Authority Key
+  Identifier, which the disposable leaf certificates lacked. The generator
+  now emits matching CA/leaf SKI and AKI extensions; all failed runs removed
+  exact runtime resources and stopped Podman.
+- The next strict-TLS run passed service health, API readiness, the edge
+  challenge, non-root UID, copied configuration owner/mode, read-only source
+  configuration, custom CA installation, private Distribution exposure, and
+  empty reconciliation. Its authenticated blob finalize correctly failed
+  because Distribution received zero bytes. Direct curl `--data-binary`
+  reproduced the failure and disproved the initial curl-config hypothesis.
+  A one-run bounded diagnostic proved curl uploaded 37 bytes and edge
+  forwarded declared/actual totals of 37/37. The actual defect was the
+  client's default `application/x-www-form-urlencoded` media type:
+  Distribution's Go form/query handling consumed the body before blob
+  finalization. The harness now sets `application/octet-stream`; temporary
+  proxy/debug instrumentation was removed. It still verifies source digest and
+  curl byte count, ignores ambient curlrc, and keeps bearer material only in a
+  mode-0600 config file. Named secret-safe assertions, Bash parsing,
+  ShellCheck, cleanup, and Podman shutdown pass.
+- The corrected default Stage 2 run passed end to end. Both ARM64 contract
+  images rebuilt; all five process-role contracts ran non-root; Kolla
+  owner/mode, read-only source configuration, custom CA, private Distribution,
+  API readiness, edge challenge, authenticated blob/manifest, all-service
+  restart with digest preservation, repeat-safe bootstrap, reconciliation,
+  log hygiene, exact cleanup, and Podman shutdown passed. The failure summary
+  is absent.
+- Saved SBOM evidence records 261 Coffer packages and 293 Distribution-wrapper
+  packages. The current bounded scan reports Coffer at 1 Critical/4 High and
+  the wrapper at 9 Critical/12 High, so functional completion does not clear
+  the production image gate.
+- Plan 0014 final verification passed with 222 tests on each of Python
+  3.11.14, 3.12.13, and 3.13.14; lock, compilation, Alembic head, seven
+  installed CLIs, wheel assets, Go 1.25.3 format/test/vet, 58 Bash/ShellCheck
+  files, six Compose models, every PoC Make target dry-run, pinned Kolla list
+  and render, ten config JSON renders, 65 Markdown files, 42 local links,
+  Gitleaks over 252 project-owned files, explicit key/JWT patterns, cleanup,
+  and diff checks passed.
+- The final matrix corrected four local command problems without weakening
+  acceptance: shared-venv collisions from parallel `uv`, wrong Go module and
+  old host toolchain selection, missing Docker/source context in isolated
+  Kolla invocation, and a Gitleaks false positive on a literal API container
+  name. All authoritative checks were rerun with corrected commands. A
+  separate byte-identity helper for moved migrations also lacked `set -e`;
+  its output was rejected, and actual diffs confirmed only docstrings/future
+  annotations while the full migration tests and wheel inspection passed.
+- Plan 0015 pins the official Kolla-Ansible `stable/2026.1` source at commit
+  `cec5b77ddc0af37e9b9a8df92f7458ae014fb5dc` in the ignored disposable
+  checkout `work/kolla-ansible-stage3`. Current custom-playbook CLI,
+  representative service, database/Keystone/bootstrap, HAProxy, logging,
+  Prometheus, handlers, and precheck/container/pull/stop contracts were
+  inspected without changing upstream source.
+- The Stage 3 integration strategy is a Coffer-owned wrapper, custom playbook,
+  and companion role. The wrapper discovers the installed Kolla data path
+  and exposes its pinned roles/modules/action plugins/filters; the normal
+  Kolla lifecycle action is passed through the custom playbook. Coffer reuses
+  the generic Kolla contracts rather than copying or reimplementing them.
+- A fresh read-only capacity check found 64 logical CPUs, about 251.5 GiB
+  total RAM with about 125.6 GiB available, about 896 GiB free in the
+  XFS-backed Coffer pool, and 18 running domains with 82 allocated vCPUs and
+  244 GiB maximum guest memory. `coffer-rgw-poc` remains running,
+  autostart-disabled, with eight vCPUs and 24 GiB RAM. No VM or host state was
+  changed. One command containing an accidental autostart-changing clause
+  was rejected before execution; the corrected read-only query confirmed the
+  existing setting is unchanged.
+- The Stage 3 companion role now implements the accepted five-process model,
+  owner-only secret inputs, database plus repeat-safe bootstrap ordering,
+  proposed `oci-registry` catalog registration, verified-TLS HAProxy with
+  edge-only external routing, observability extension inputs, configuration
+  validation, handlers, and every required lifecycle action.
+- `make -C poc/kolla-ansible-role verify` passed 48 isolated checks: seven
+  lifecycle syntax checks, disabled no-op, six fail-closed prechecks,
+  bootstrap-failure rollout blocking, database/bootstrap/process ordering,
+  Keystone service/endpoints, HAProxy TLS/routing, secret recipients,
+  config validation, idempotent reconfigure/pull/stop, and exact generated
+  state cleanup. Production-profile Ansible lint, Jinja/YAML parsing, Python
+  compilation, and 19 focused product tests also pass.
+- Executable contract testing corrected a JWKS field/method collision,
+  macOS-only network-fact incompatibility in the harness, standalone
+  Fluentd/logrotate defaults and raw-template handling, and the stop variable
+  normally injected by the Kolla CLI. One sandboxed readiness wait was
+  interrupted cleanly and rerun with bounded loopback access; no VM, host,
+  identity, credential, publication, commit, or push was performed.
+- The isolated Linux contract passed on a separately named
+  `coffer-kolla-stage3` Ubuntu 24.04 x86_64 VM with eight vCPUs, 24 GiB RAM,
+  120 GiB root overlay, a static default-NAT address, and autostart disabled.
+  Upstream Kolla Linux address filtering plus precheck/deploy/reconfigure/
+  pull/upgrade/stop passed; bootstrap preceded process start, materialized
+  sensitive configs were mode 0600, and remote root/user temporary state was
+  removed.
+- The validation VM was destroyed and undefined after evidence collection,
+  and its exact seed/root/base volumes plus temporary known-host files were
+  deleted. The final audit found no Stage 3 domain or volume residue, retained
+  18 original domains, kept `coffer-rgw-poc` running with autostart disabled,
+  and found about 125 GiB available RAM and 878 GiB free in `/srv/nfs`.
+- Bounded failures were cleanup-safe: an unsupported cross-pool backing path
+  failed before domain creation; public-key selection required one exact VM
+  recreation using only the jump account's already allowed public keys; and
+  the remote contract corrected Linux temp ownership plus base-role directory
+  prerequisites before passing. No existing VM, DHCP entry, host service,
+  identity, credential, published artifact, commit, or push changed.
+- Plan 0015 final regression passed with 232 tests on each Python 3.11.14,
+  3.12.2, and 3.13.14; offline lock, compile, Alembic head, eight CLI helps,
+  Go format/test/vet, six Compose models, 58 Make dry-runs, production-profile
+  Ansible lint, Jinja and 25 YAML parses, 61 Bash/ShellCheck files, the
+  48-check local role contract, and the isolated Linux lifecycle all pass.
+- Final documentation and security checks passed over 65 Markdown files,
+  44 local links, and 299 existing project-owned Gitleaks inputs. Explicit
+  private-key, JWT-shaped, supplied SSH-target, Stage 3 residue, and diff
+  checks pass. The wrapper now has an exact action-order contract and refuses
+  destructive or unrelated Kolla actions.
+- Stage 3 changed `ansible/`, `poc/kolla-ansible-role/`,
+  `src/coffer/config_validator.py`, `tests/test_config_validator.py`,
+  `pyproject.toml`, README, architecture, plan 0015, and this handoff. The
+  inherited uncommitted Stage 1/2 work remains preserved; no commit or push
+  was requested or performed.
 
 ## Blockers and Risks
 
 - Project hooks must be reviewed and trusted in Codex before they run.
 - Local memories are experimental and must never replace checked-in project state.
+- Stages 1 and 2 provide topology plus local runtime/image-contract evidence,
+  while completed Stage 3 adds executable operator-local role/lifecycle and
+  isolated Linux evidence. None of these constitutes a full Kolla AIO tenant
+  OCI acceptance test or production deployment.
+- `bb00` is a shared virtualization host with occupied host 80/443 and unrelated
+  HAProxy/Harbor/VM workloads. Direct installation and implicit reuse are
+  excluded; later Kolla work requires a separately named isolated VM and
+  explicit address/storage allocation.
 - Coffer's product scope and architecture baseline are accepted for the PoC; empirical PoC failures may amend them through new ADR evidence.
 - The real identity, storage, integrated token path, repeated clean run, GC dry-run, same-VM Distribution shared state, Barbican SSE-KMS, bounded quota admission, shared-SQL schema, exact-digest reconciliation, and database-backed multi-worker claims are complete. Production promotion still requires existing-data rollout/backups, authenticated TLS reconciliation in the integrated RGW topology, production scheduling/metric aggregation, and separate-host/load-balancer HA.
 - `POOL_NO_REDUNDANCY` is intentionally retained as an honest warning for the one-OSD functional lab. No durability, HA, performance, or physical-failure-domain conclusion may be drawn from it.
@@ -286,10 +492,12 @@ Publish the completed deterministic synthetic inventory scale characterization a
 
 ## Exact Next Action
 
-Stage only the plan 0012 file set, run cached-diff and staged Gitleaks checks,
-commit once as `test: characterize inventory scale`, verify the GitHub account,
-and atomically push from remote head `b45fa32`.
+None in Stage 3. If the user authorizes Stage 4, create a new execution plan
+for a full Kolla AIO deployment and two-project tenant OCI acceptance path
+before provisioning any new validation target.
 
 ## After This Work Package
 
-Production credential delivery and admission-cutover design, production scheduler/Galera and restart-correct observability policy, separate-host/load-balancer HA, native Referrers, and destructive GC remain distinct future work packages. Plan 0012 measures only deterministic disposable state and an injected in-process probe; it must not access production, provision identities, infer customer capacity, or enable admission.
+Plan 0015 covers only the operator-local Kolla-Ansible role and its bounded
+lifecycle evidence. Full AIO tenant OCI behavior, multinode/HA, production
+promotion, and upstream work remain later independent packages.

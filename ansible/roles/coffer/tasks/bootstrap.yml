@@ -1,0 +1,52 @@
+---
+- name: Create the Coffer database
+  become: true
+  kolla_toolbox:
+    container_engine: "{{ kolla_container_engine }}"
+    module_name: mysql_db
+    module_args:
+      ca_cert: >-
+        {{
+          openstack_cacert
+          if database_enable_tls_internal | bool
+          else omit
+        }}
+      login_host: "{{ database_address }}"
+      login_port: "{{ database_port }}"
+      login_user: "{{ coffer_database_shard_root_user }}"
+      login_password: "{{ database_password }}"
+      name: "{{ coffer_database_name }}"
+  run_once: true
+  delegate_to: "{{ groups['coffer-api'][0] }}"
+  when: not use_preconfigured_databases | bool
+  no_log: true
+
+- name: Create the Coffer database user and permissions
+  become: true
+  kolla_toolbox:
+    container_engine: "{{ kolla_container_engine }}"
+    module_name: mysql_user
+    module_args:
+      ca_cert: >-
+        {{
+          openstack_cacert
+          if database_enable_tls_internal | bool
+          else omit
+        }}
+      login_host: "{{ database_address }}"
+      login_port: "{{ database_port }}"
+      login_user: "{{ coffer_database_shard_root_user }}"
+      login_password: "{{ database_password }}"
+      name: "{{ coffer_database_user }}"
+      password: >-
+        {{ lookup('file', coffer_database_password_file) | trim }}
+      host: "%"
+      priv: "{{ coffer_database_name }}.*:ALL"
+      append_privs: "yes"
+  run_once: true
+  delegate_to: "{{ groups['coffer-api'][0] }}"
+  when: not use_preconfigured_databases | bool
+  no_log: true
+
+- name: Run the Coffer bootstrap container
+  ansible.builtin.import_tasks: bootstrap_service.yml

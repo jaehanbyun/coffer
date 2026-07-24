@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+while (($#)); do
+    case "$1" in
+        -H|-S|-n)
+            shift
+            ;;
+        -u)
+            shift
+            (($#)) || exit 64
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -*)
+            shift
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+(($#)) || exit 64
+exec "$@"

@@ -1,0 +1,61 @@
+version: 0.1
+
+log:
+  level: info
+  formatter: json
+  fields:
+    service: coffer-registry
+
+auth:
+  token:
+    realm: {{ coffer_token_realm | to_json }}
+    service: {{ coffer_token_service | to_json }}
+    issuer: {{ coffer_token_issuer | to_json }}
+    jwks: /etc/coffer-registry/jwks.json
+    signingalgorithms: [RS256]
+
+storage:
+  delete:
+    enabled: {{ coffer_registry_delete_enabled | bool | lower }}
+  redirect:
+    disable: true
+  s3:
+    accesskey: {{ lookup('file', coffer_rgw_access_key_file) | trim | to_json }}
+    secretkey: {{ lookup('file', coffer_rgw_secret_key_file) | trim | to_json }}
+    region: {{ coffer_rgw_region | to_json }}
+    regionendpoint: {{ coffer_rgw_endpoint | to_json }}
+    forcepathstyle: {{ coffer_rgw_force_path_style | bool | lower }}
+    bucket: {{ coffer_rgw_bucket | to_json }}
+    rootdirectory: {{ coffer_rgw_rootdirectory | to_json }}
+    secure: true
+    skipverify: {{ coffer_rgw_skip_verify | bool | lower }}
+    v4auth: true
+{% if coffer_rgw_encrypt | bool %}
+    encrypt: true
+    keyid: {{ coffer_rgw_kms_key_id | to_json }}
+    multipartcopythresholdsize: 0
+    multipartcopychunksize: 5242880
+    multipartcopymaxconcurrency: 4
+{% endif %}
+  maintenance:
+    uploadpurging:
+      enabled: true
+      age: 24h
+      interval: 1h
+      dryrun: false
+
+http:
+  addr: {{ (api_interface_address | put_address_in_context('url')) ~ ':' ~ coffer_registry_port }}
+  secret: {{ lookup('file', coffer_distribution_http_secret_file) | trim | to_json }}
+  relativeurls: true
+  tls:
+    certificate: /etc/coffer-registry/registry.crt
+    key: /etc/coffer-registry/registry.key
+  headers:
+    X-Content-Type-Options: [nosniff]
+
+health:
+  storagedriver:
+    enabled: true
+    interval: 10s
+    threshold: 3

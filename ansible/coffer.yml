@@ -1,0 +1,146 @@
+---
+- name: Load pinned Kolla-Ansible defaults
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Load Kolla group defaults without overriding CLI globals
+      ansible.builtin.include_vars:
+        dir: "{{ coffer_kolla_ansible_data_path }}/group_vars/all"
+        extensions:
+          - yml
+      tags: always
+
+- name: Gather facts for Coffer target hosts
+  hosts: all
+  gather_facts: false
+  serial: '{{ kolla_serial | default("0") }}'
+  tasks:
+    - name: Gather facts
+      ansible.builtin.setup:
+        filter: "{{ kolla_ansible_setup_filter }}"
+        gather_subset: "{{ kolla_ansible_setup_gather_subset }}"
+      when: not ansible_facts
+      tags: always
+
+- name: Group hosts for the requested Kolla action
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Group hosts by Kolla action
+      ansible.builtin.group_by:
+        key: "kolla_action_{{ kolla_action }}"
+      changed_when: false
+
+  tags: always
+
+- name: Configure the Kolla load balancer for Coffer
+  hosts: loadbalancer
+  gather_facts: false
+  serial: '{{ kolla_serial | default("0") }}'
+  tasks:
+    - name: Render Coffer HAProxy and ProxySQL inputs
+      ansible.builtin.include_role:
+        name: coffer
+        tasks_from: loadbalancer
+      when:
+        - enable_coffer | bool
+        - enable_haproxy | bool
+        - kolla_action in ['deploy', 'reconfigure', 'upgrade', 'config']
+
+    - name: Reconcile load balancer containers
+      ansible.builtin.include_role:
+        name: loadbalancer
+        tasks_from: check-containers
+      when:
+        - enable_coffer | bool
+        - enable_haproxy | bool
+        - kolla_action in ['deploy', 'reconfigure', 'upgrade']
+  tags:
+    - coffer
+    - haproxy
+    - loadbalancer
+
+- name: Apply the operator-local Coffer role
+  hosts:
+    - coffer-api
+    - coffer-edge
+    - coffer-registry
+    - coffer-reconcile
+  gather_facts: false
+  serial: '{{ kolla_serial | default("0") }}'
+  roles:
+    - role: coffer
+      when: enable_coffer | bool
+      tags:
+        - coffer
+
+- name: Reconfigure Fluentd for Coffer file logs
+  hosts: fluentd
+  gather_facts: false
+  tasks:
+    - name: Render Fluentd after installing Coffer input
+      ansible.builtin.include_role:
+        name: fluentd
+        tasks_from: config
+      when:
+        - enable_coffer | bool
+        - kolla_action in ['deploy', 'reconfigure', 'upgrade', 'config']
+
+    - name: Reconcile Fluentd container
+      ansible.builtin.include_role:
+        name: fluentd
+        tasks_from: check-containers
+      when:
+        - enable_coffer | bool
+        - kolla_action in ['deploy', 'reconfigure', 'upgrade']
+  tags:
+    - coffer
+    - fluentd
+
+- name: Reconfigure Kolla log rotation for Coffer
+  hosts: cron
+  gather_facts: false
+  tasks:
+    - name: Render cron after installing Coffer logrotate input
+      ansible.builtin.include_role:
+        name: cron
+        tasks_from: config
+      when:
+        - enable_coffer | bool
+        - kolla_action in ['deploy', 'reconfigure', 'upgrade', 'config']
+
+    - name: Reconcile cron container
+      ansible.builtin.include_role:
+        name: cron
+        tasks_from: check-containers
+      when:
+        - enable_coffer | bool
+        - kolla_action in ['deploy', 'reconfigure', 'upgrade']
+  tags:
+    - coffer
+    - cron
+
+- name: Reconfigure Prometheus for optional Coffer metrics
+  hosts: prometheus
+  gather_facts: false
+  tasks:
+    - name: Render Prometheus after installing Coffer scrape input
+      ansible.builtin.include_role:
+        name: prometheus
+        tasks_from: config
+      when:
+        - enable_coffer | bool
+        - coffer_enable_metrics | bool
+        - kolla_action in ['deploy', 'reconfigure', 'upgrade', 'config']
+
+    - name: Reconcile Prometheus containers
+      ansible.builtin.include_role:
+        name: prometheus
+        tasks_from: check-containers
+      when:
+        - enable_coffer | bool
+        - coffer_enable_metrics | bool
+        - kolla_action in ['deploy', 'reconfigure', 'upgrade']
+  tags:
+    - coffer
+    - prometheus
