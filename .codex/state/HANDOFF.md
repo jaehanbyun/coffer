@@ -1131,6 +1131,33 @@ marker-idempotent replay passed.
   validation, then implement a bounded overlapping-key rotation with
   old/new-token evidence across all replicas, maximum-lifetime retirement,
   exact rollback material, log/secret hygiene, and final tenant acceptance.
+- Added guarded `preflight|status|run|rollback` signing-key actions.
+  Controller-1 retains root-only original/new RSA material and markers; only
+  public overlapping/new-only JWKS is distributed. Each Kolla phase is
+  serial-one, stays on the accepted update image, uses a mode-0600 overlay, and
+  scans owner-only logs.
+- Forward rotation deploys old+new trust, captures an old live tenant token,
+  switches all API signers, and tests both keys at all three direct edges and
+  registries. After the old token's full 300-second lifetime plus guard, it
+  deploys new-only trust and requires a fresh new token to succeed and a
+  still-current synthetic old-key token to fail.
+- Edge verification uses an authenticated malformed manifest: 400 proves a
+  trusted token reached validation without upstream/quota mutation, while 401
+  proves retired-key denial. Distribution uses only HEAD against the retained
+  digest. All token/bearer/expiry files are root-only and removed.
+- Persistent globals may change only the token key ID; the temporary overlay
+  may additionally retain the update image. The reverse action restores
+  overlap, switches back, waits the new-token lifetime, and restores old-only
+  trust from root-only original material.
+- Sixty-one focused tests, Bash/ShellCheck, four refusal/forbidden contracts,
+  scoped Gitleaks, and diff checks pass. Live mutation-free preflight confirms
+  all three signers and six verifier recipients use old-only
+  `stage5-20260724`, tenant service is healthy, and rotation state is absent.
+- Exact next action: commit the guarded key-rotation harness and invoke only
+  `poc/kolla-ha/run-coffer-key-rotation.sh run
+  jh.byun@100.123.168.66`; require overlap, signer switch, old-token continuity,
+  full-lifetime retirement, per-replica outcomes, zero token residue, final
+  acceptance, and idempotent replay before image rollback.
 
 ## Plan 0017 Completion
 
@@ -1716,11 +1743,12 @@ marker-idempotent replay passed.
 
 ## Exact Next Action
 
-Read the deployed Coffer signing-key/JWKS inputs, token issuer/verifier code,
-and accepted Stage 4 token tests without printing key material. Then implement
-a guarded Stage 5 overlapping-key rotation harness with old/new token evidence
-across every edge/Distribution replica, maximum-lifetime retirement, rollback
-material, and full secret/log/tenant gates.
+Commit the guarded key-rotation harness, then invoke only
+`poc/kolla-ha/run-coffer-key-rotation.sh run
+jh.byun@100.123.168.66`. Require serial old+new trust, signer switch,
+old/new-token acceptance across every replica, retirement only after the full
+old-token lifetime, new success/old denial, no token or temporary overlay
+residue, and complete tenant/service/log/RGW gates.
 
 ## After This Work Package
 

@@ -2039,6 +2039,44 @@ promotion while ADR 0006 remains blocked.
   public key only after its maximum token lifetime, prove old-token rejection
   and new-token success, and keep an exact rollback path.
 
+### 2026-07-25 — Overlapping signing-key rotation harness validated
+
+- Completed locally: Added guarded `preflight|status|run|rollback` actions.
+  Controller-1 retains root-only original/new RSA material and phase markers;
+  only public old+new or new-only JWKS reaches edge and Distribution. Every
+  Kolla phase uses `kolla_serial=1`, the already accepted update image, an
+  owner-only temporary globals overlay, and secret-scanned owner-only logs.
+- Forward phases: Deploy the overlapping JWKS while the old signer remains,
+  mint an old-key tenant token, switch all API signers to the new key, and
+  prove old/new tokens across every direct edge and Distribution replica.
+  After the recorded old token's full 300-second lifetime plus a two-second
+  guard, deploy new-only JWKS and prove a fresh live new token succeeds while a
+  still-time-valid synthetic old-key token is rejected.
+- Non-mutating edge proof: Each edge verifier receives an authenticated
+  intentionally malformed manifest. A trusted key reaches bounded manifest
+  validation and returns 400; an unknown retired key returns 401 before any
+  quota or upstream mutation. Distribution receives only HEAD against the
+  retained accepted digest.
+- Durable and rollback boundary: Persistent globals change only
+  `coffer_token_key_id`; the temporary overlay may additionally retain the
+  accepted update image. Original private/public material stays root-only.
+  The reverse action restores overlap, switches the signer back, waits out the
+  new-token lifetime, retires the new public key, and restores old-only trust.
+- Availability and hygiene: The outer harness continuously runs accepted
+  manifest/blob/project-B path probes throughout Kolla changes and the bounded
+  lifetime wait. Token responses, bearer configs, and expiry metadata are
+  owner-only and deleted before completion. Final gates include all nine
+  containers, tenant/quota/log hygiene, HAProxy, and external RGW.
+- Verification: Sixty-one focused token/runtime tests, Bash syntax, ShellCheck,
+  four refusal/forbidden-command contracts, scoped Gitleaks, and diff checks
+  pass. Live mutation-free preflight reports all three API signers and six
+  verifier recipients on old-only `stage5-20260724`, full tenant service, and
+  no rotation state.
+- Next exact action: Commit the guarded key-rotation harness, invoke only its
+  `run` action, and require overlap, signer transition, old-token continuity,
+  full-lifetime retirement, per-replica new/old outcomes, zero token residue,
+  owner-only evidence, and metadata-idempotent replay before image rollback.
+
 ## Verification
 
 | Check | Command or method | Result |

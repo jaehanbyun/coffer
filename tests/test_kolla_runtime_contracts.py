@@ -380,6 +380,51 @@ def test_multinode_reconciler_fencing_uses_separate_bounded_workers() -> None:
         assert "rm -rf" not in script
 
 
+def test_multinode_key_rotation_overlaps_and_retires_every_replica() -> None:
+    outer = (
+        ROOT / "poc" / "kolla-ha" / "run-coffer-key-rotation.sh"
+    ).read_text(encoding="utf-8")
+    guest = (
+        ROOT / "poc" / "kolla-ha" / "guest-run-coffer-key-rotation.sh"
+    ).read_text(encoding="utf-8")
+
+    assert "{preflight|status|run|rollback}" in outer
+    assert "{preflight|status|run|rollback}" in guest
+    assert "path-status" in outer
+    assert "run-coffer-companion-lifecycle.sh" in outer
+    assert "stage5-20260724" in guest
+    assert "stage5-20260725" in guest
+    assert "overlap-jwks.json" in guest
+    assert "kolla_serial=1" in guest
+    assert '\"${entrypoint}\" upgrade' in guest
+    assert "coffer-stage5-key-rotation-globals.yml" in guest
+    assert "key-rotation globals changed outside the admitted fields" in guest
+    assert "persistent globals changed outside the token key ID" in guest
+    assert 'run_upgrade overlap "${current_kid}"' in guest
+    assert 'run_upgrade signer "${new_kid}"' in guest
+    assert 'run_upgrade retire "${new_kid}"' in guest
+    assert 'probe_token old 200 400' in guest
+    assert 'probe_token new 200 400' in guest
+    assert 'probe_token synthetic-old 401 401' in guest
+    assert "while test \"$(date +%s)\" -le" in guest
+    assert "runtime_state" in guest
+    assert "for address in \"${addresses[@]}\"" in guest
+    assert "rollback-overlap" in guest
+    assert "rollback-signer" in guest
+    assert "rollback-retire" in guest
+    assert "remove_tokens" in guest
+    assert "token_root" in guest
+    assert "root:root:700" in guest
+    assert "root:root:600" in guest
+    for script in (outer, guest):
+        assert "docker stop" not in script
+        assert "docker restart" not in script
+        assert "docker rm" not in script
+        assert "docker image rm" not in script
+        assert "virsh" not in script
+        assert "rm -rf" not in script
+
+
 def test_multinode_service_fault_targets_only_controller_three_containers() -> (
     None
 ):
