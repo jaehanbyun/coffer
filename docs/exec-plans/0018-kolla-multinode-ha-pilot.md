@@ -863,6 +863,35 @@ promotion while ADR 0006 remains blocked.
   deploy marker absent, audit exact partial state, and recover Kolla before
   beginning any Coffer deployment.
 
+### 2026-07-24 — Kolla deploy passed service gates but failed log-secret gate
+
+- Service result: Kolla deploy completed with `failed=0` and `unreachable=0`.
+  All 36 containers were running/healthy, internal and external VIPs each had
+  exactly one owner, Kolla check and trusted Keystone probes passed, and
+  external RGW remained fully healthy.
+- Security failure: Independent log acceptance found the raw RabbitMQ cluster
+  cookie and a derived Basic Authorization value in upstream Ansible item
+  output under root-only `prechecks.log` and `deploy.log`. The cookie was not
+  disclosed. A redacted-context diagnostic did expose the Basic token, so the
+  disposable monitoring password is treated as compromised and requires
+  rotation.
+- Recovery: Verified and removed the exact deploy success marker, then
+  atomically sanitized only the two affected root-only logs. A full scan now
+  rejects every raw, URL-encoded, or base64-encoded generated value and all
+  Basic/Bearer Authorization tokens across the lifecycle logs. Running
+  services were unchanged.
+- Correction: Every Kolla and deploy-check execution now sets
+  `ANSIBLE_NO_LOG=True`. A mandatory post-run credential scan executes before
+  recap or marker creation and fails closed on known or derived credential
+  material.
+- Evidence: Bash syntax, ShellCheck, Gitleaks, effective Ansible no-log
+  configuration, sanitized existing-log scan, absent deploy marker, and diff
+  checks pass.
+- Next exact action: Commit the log guard, rotate only the disposable
+  `rabbitmq_monitoring_password` without displaying or retaining either value,
+  and rerun only `deploy`. Do not accept the Kolla baseline or begin Coffer
+  deployment until the new root-only logs and full control plane pass.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -882,7 +911,7 @@ promotion while ADR 0006 remains blocked.
 | Storage VM fault | exact storage-3 power loss, degraded reads, full recovery | passed; 5 outage reads and independent 3-node recovery |
 | Kolla controller preflight | pinned inventory/globals and three clean controller guests | passed mutation-free; external RGW remains healthy |
 | Kolla prepare harness | owner/recipient boundaries, pinned tooling, secrets, stop gate | passed live and independently audited; runtime/VIPs remain absent |
-| Kolla lifecycle harness | phase allowlist, ordering, timeouts, logs, markers, status, storage boundary | passed; bootstrap/prechecks/pull independently accepted, deploy pending |
+| Kolla lifecycle harness | phase allowlist, ordering, timeouts, logs, markers, status, storage boundary | deploy services passed; log-secret gate failed, corrected guard and credential rotation pending |
 | Kolla/Galera/Coffer baseline | multinode deploy and health acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | pending |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -920,10 +949,12 @@ promotion while ADR 0006 remains blocked.
   inventory and clean-state preflight pass without mutation. Controller
   preparation and its independent recipient/secret/tooling/no-runtime audit
   pass; Kolla bootstrap has not run and both Kolla VIPs remain absent.
-- Exact next action: Invoke and independently accept only the lifecycle
-  runner's `deploy` phase.
+- Exact next action: Preserve the lifecycle log guard, rotate only the exposed
+  disposable monitoring password, then rerun and independently accept only
+  the lifecycle runner's `deploy` phase.
 - First file or command:
-  `poc/kolla-ha/run-kolla-lifecycle.sh deploy
+  `git commit` for the log guard, followed by the bounded owner-only password
+  rotation and `poc/kolla-ha/run-kolla-lifecycle.sh deploy
   jh.byun@100.123.168.66`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production

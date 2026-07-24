@@ -360,6 +360,28 @@ signed Distribution v3.1.1 binary.
   `poc/kolla-ha/run-kolla-lifecycle.sh deploy
   jh.byun@100.123.168.66`. On failure, do not create a deploy marker or start
   Coffer; audit the exact Kolla partial state and recover the baseline first.
+- The Kolla deploy itself completed with `failed=0` and `unreachable=0` on
+  all controllers. All 36 containers were running/healthy, both VIPs had one
+  owner, Kolla check and trusted internal/external Keystone probes passed, and
+  external RGW remained healthy.
+- Independent secret acceptance then failed: upstream Ansible item output put
+  the raw RabbitMQ cluster cookie and a derived Basic Authorization credential
+  into root-only `prechecks.log` and `deploy.log`. The cookie was never
+  disclosed, but a redacted-context diagnostic exposed the Basic token, so the
+  disposable RabbitMQ monitoring password must be rotated.
+- Verified the exact deploy marker, removed it, and atomically sanitized only
+  the affected root-only logs. Across all lifecycle logs, raw, URL-encoded,
+  base64-encoded generated values and Basic/Bearer Authorization tokens are
+  now absent. Services were not changed and remain running.
+- Added `ANSIBLE_NO_LOG=True` to every Kolla/check execution and a mandatory
+  post-run scan that rejects raw, URL/base64-derived generated credentials or
+  Authorization tokens before recap or marker creation. Bash syntax,
+  ShellCheck, Gitleaks, effective Ansible config, existing-log scan, and diff
+  checks pass.
+- Exact next action: commit the lifecycle log guard locally, rotate only the
+  disposable `rabbitmq_monitoring_password` without printing or retaining its
+  old/new value, then rerun only `deploy`. Do not restore the deploy marker
+  until the new log scan and full control-plane acceptance pass.
 
 ## Plan 0017 Completion
 

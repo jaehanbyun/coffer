@@ -259,6 +259,41 @@ write_marker() {
     trap - EXIT
 }
 
+verify_log_secret_free() {
+    local log="$1"
+
+    "${venv}/bin/python3" - "${passwords}" "${log}" <<'PY'
+from pathlib import Path
+import base64
+import re
+import sys
+import urllib.parse
+
+import yaml
+
+passwords_path = Path(sys.argv[1])
+log_path = Path(sys.argv[2])
+document = yaml.safe_load(passwords_path.read_text(encoding="utf-8"))
+data = log_path.read_bytes()
+for value in document.values():
+    if not isinstance(value, str) or len(value) < 8:
+        continue
+    encoded = value.encode()
+    candidates = {
+        encoded,
+        urllib.parse.quote(value, safe="").encode(),
+        base64.b64encode(encoded),
+    }
+    if any(candidate in data for candidate in candidates):
+        raise SystemExit("generated credential found in lifecycle log")
+if re.search(
+    rb"Authorization ['\"](?:Basic|Bearer) [A-Za-z0-9+/=._-]+",
+    data,
+):
+    raise SystemExit("authorization credential found in lifecycle log")
+PY
+}
+
 run_kolla() {
     local phase="$1"
     local timeout_seconds="$2"
@@ -273,6 +308,7 @@ run_kolla() {
         LC_ALL=C.UTF-8 \
         LANG=C.UTF-8 \
         ANSIBLE_NOCOLOR=1 \
+        ANSIBLE_NO_LOG=True \
         ANSIBLE_COLLECTIONS_PATH=/home/ubuntu/.ansible/collections:/usr/share/ansible/collections \
         timeout --signal=INT --kill-after=120 "${timeout_seconds}" \
         "${venv}/bin/kolla-ansible" \
@@ -288,6 +324,7 @@ run_kolla() {
             "${phase}" "${rc}" "${log}" >&2
         return "${rc}"
     fi
+    verify_log_secret_free "${log}"
     awk '
         /^PLAY RECAP/ {capture = 1; next}
         capture && NF {print "kolla_recap " $0}
@@ -306,6 +343,7 @@ run_deploy_check() {
         LC_ALL=C.UTF-8 \
         LANG=C.UTF-8 \
         ANSIBLE_NOCOLOR=1 \
+        ANSIBLE_NO_LOG=True \
         ANSIBLE_COLLECTIONS_PATH=/home/ubuntu/.ansible/collections:/usr/share/ansible/collections \
         timeout --signal=INT --kill-after=120 1800 \
         "${venv}/bin/kolla-ansible" check \
@@ -320,6 +358,7 @@ run_deploy_check() {
             "${rc}" "${log}" >&2
         return "${rc}"
     fi
+    verify_log_secret_free "${log}"
 }
 
 if test "${action}" = status; then
