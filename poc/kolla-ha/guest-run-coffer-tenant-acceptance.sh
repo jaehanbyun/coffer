@@ -150,7 +150,7 @@ REMOTE
 }
 
 control_snapshot() {
-    docker exec -i coffer_api /usr/local/bin/python3 - \
+    docker exec -i coffer_api /var/lib/kolla/venv/bin/python3 - \
         "${identity_state}" "${repository_name}" <<'PY'
 from pathlib import Path
 import json
@@ -333,7 +333,7 @@ set_quota_limit() {
     local project_a_id
 
     project_a_id="$(jq -er '.project_a.project_id' "${identity_state}")"
-    docker exec -i coffer_api /usr/local/bin/python3 - \
+    docker exec -i coffer_api /var/lib/kolla/venv/bin/python3 - \
         "${project_a_id}" "${limit}" <<'PY'
 import sys
 
@@ -357,7 +357,7 @@ quota_snapshot() {
     local project_a_id
 
     project_a_id="$(jq -er '.project_a.project_id' "${identity_state}")"
-    docker exec -i coffer_api /usr/local/bin/python3 - \
+    docker exec -i coffer_api /var/lib/kolla/venv/bin/python3 - \
         "${project_a_id}" <<'PY'
 import json
 import sys
