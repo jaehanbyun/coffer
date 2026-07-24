@@ -611,6 +611,37 @@ promotion while ADR 0006 remains blocked.
   require full 3-MON/3-OSD/3-RGW/clean-PG recovery. Do not combine this with
   any controller or ingress-host failure.
 
+### 2026-07-24 — Exact storage-3 VM fault harness validated
+
+- Completed: Added an independent libvirt remote helper, primary-node Ceph
+  audit, and local lifecycle wrapper for only
+  `coffer-rgw-ha-stage5-storage-3`.
+- Libvirt boundary: Before any action, the helper verifies the exact persistent
+  domain name, disabled autostart, no managed save, 4 vCPUs, 8 GiB memory,
+  root/OSD/seed filenames, two exact MAC/network pairs, and the running state
+  of all other five Stage 5 domains. The fault is one exact `virsh destroy`
+  power-off simulation; restoration is one exact `virsh start`. No undefine,
+  storage, network, or other-domain mutation exists.
+- Ceph boundary: During outage the audit requires only storage-1/2 in MON
+  quorum, two of three OSDs up while all remain in, two RGWs, both ingress
+  pairs, zero inactive PGs, `HEALTH_WARN`, one VIP owner, and five sentinel
+  reads. Recovery requires quorum 3, three up/in OSDs, three RGWs, both
+  ingress pairs, only clean PGs, `HEALTH_OK`, and the accepted sentinel.
+- Recovery boundary: The wrapper marks the fault before power-off. Its EXIT
+  trap starts the exact target, waits for its management SSH, attempts the
+  complete healthy Ceph gate, and removes both temporary audit helpers.
+- Evidence: Bash syntax, ShellCheck, Python compilation, target refusals,
+  AST allowlist checks, forbidden-command scans, Gitleaks, and diff checks
+  pass. Live mutation-free preflight validates the exact libvirt XML and five
+  other running domains; the healthy Ceph and sentinel gates pass; helpers are
+  absent afterward.
+- Safety: `virsh destroy` and `virsh start` have not been invoked by this
+  harness.
+- Next exact action: Commit the VM-fault harness locally, then invoke
+  `poc/kolla-ha/test-ceph-storage-vm-failover.sh
+  jh.byun@100.123.168.66` once. Independently audit full recovery before any
+  controller/Kolla mutation.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -627,6 +658,7 @@ promotion while ADR 0006 remains blocked.
 | RGW HA endpoint | 3 RGWs, 2 ingress pairs, one VIP owner, backend/frontend TLS, idempotency | passed; 5 pools/129 clean PGs, zero users |
 | S3 fixture | owner-only identities, denials, persistent sentinel, idempotency | passed twice; digest retained, no secondary residue |
 | RGW daemon faults | storage-3 RGW and active ingress pair, reads, restoration | passed; 10 fault-window reads and full independent recovery |
+| Storage VM fault harness | exact XML/target, degraded/recovered Ceph gates, EXIT restore | passed locally and live; power-loss invocation pending |
 | Kolla/Galera/Coffer baseline | multinode deploy and health acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | pending |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -658,10 +690,13 @@ promotion while ADR 0006 remains blocked.
   OSD baseline plus three-RGW/two-ingress TLS endpoint are healthy. The two
   owner-limited S3 identities and buckets are provisioned; the deterministic
   private sentinel passed two identical baseline round trips and ten reads
-  across one RGW and one active-ingress fault. All services are restored.
-- Exact next action: Add and locally validate the exact storage-3 whole-VM
-  failure/recovery harness with sentinel and quorum gates.
-- First file or command: `poc/kolla-ha/test-ceph-storage-vm-failover.sh`.
+  across one RGW and one active-ingress fault. All services are restored. The
+  exact storage-3 VM fault harness passed mutation-free live preflight.
+- Exact next action: Commit and invoke the storage-3 power-loss/recovery
+  harness, then independently verify complete recovery.
+- First file or command: `git commit` for the VM-fault checkpoint, followed by
+  `poc/kolla-ha/test-ceph-storage-vm-failover.sh
+  jh.byun@100.123.168.66`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

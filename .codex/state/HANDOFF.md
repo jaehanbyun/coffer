@@ -188,6 +188,23 @@ signed Distribution v3.1.1 binary.
   sentinel reads while it is off, then full 3-MON/3-OSD/3-RGW clean recovery
   after starting the same domain. Do not fault an ingress or controller VM in
   that phase.
+- Added that exact VM-fault harness. It validates storage-3's persistent XML,
+  disabled autostart, CPU/memory, three disk filenames, two MAC/network pairs,
+  and all other five running domains. Its only libvirt mutations are exact
+  `destroy` and `start`; there is no undefine, storage, network, OSD, or
+  unrelated-domain mutation.
+- The outage gate requires two-MON quorum, 2/3 OSDs up and 3/3 in, two RGWs,
+  both ingress pairs, no inactive PGs, one VIP owner, and five sentinel reads.
+  Recovery requires full quorum, 3/3 up/in OSDs, three RGWs, clean PGs,
+  `HEALTH_OK`, and the accepted digest. An EXIT trap starts the target and
+  attempts the same recovery after any failure.
+- Static checks and a mutation-free live preflight pass. The exact domain and
+  five other VMs are running, healthy Ceph/sentinel gates pass, and temporary
+  helpers are absent. No power-off/start action has run.
+- Exact next action: commit and invoke
+  `poc/kolla-ha/test-ceph-storage-vm-failover.sh
+  jh.byun@100.123.168.66`, then independently audit complete recovery before
+  controller/Kolla work.
 
 ## Plan 0017 Completion
 

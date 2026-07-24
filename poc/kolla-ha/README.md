@@ -142,3 +142,20 @@ read-only round trips, and restores both ingress pairs. An exit trap attempts
 full exact-service restoration on every failure. This phase does not stop an
 OSD, MON, MGR, VM, network, or host service outside the Ceph-managed RGW and
 ingress allowlists.
+
+After daemon-level recovery passes, exercise one exact storage VM power-loss
+boundary:
+
+```text
+poc/kolla-ha/test-ceph-storage-vm-failover.sh <ssh-target>
+```
+
+This phase validates the complete libvirt XML and autostart-disabled state of
+storage-3, then uses `virsh destroy` only as an abrupt power-off simulation.
+It never undefines the domain or removes storage. While storage-3 is off,
+acceptance requires two-MON quorum, two of three OSDs up, two RGWs, both
+ingress pairs, no inactive PG, one VIP owner, and five private sentinel reads.
+The same domain is then started and must return to three-MON quorum, three
+up/in OSDs, three RGWs, clean PGs, and `HEALTH_OK`. An exit trap starts the
+exact target and attempts the same recovery gate after any intermediate
+failure.
