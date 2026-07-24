@@ -137,8 +137,11 @@ def test_multinode_tenant_acceptance_is_owner_local_and_fail_closed() -> None:
     assert "{preflight|accept|status}" in guest
     assert "run-coffer-tenant-fixture.sh" in outer
     assert 'phase_rc="$?"' in outer
+    assert "accepted.complete" in outer
     assert "checkpoint=control-tokens" in guest
     assert "checkpoint=repository" in guest
+    assert "checkpoint=quota-open" in guest
+    assert "checkpoint=owner-full" in guest
     assert "checkpoint=token-a" in guest
     assert 'if test "${action}" != quota-denial' in guest
     assert "quota_error_code=" in guest

@@ -1150,8 +1150,11 @@ else
 fi
 
 set_quota_limit 2147483648
+printf 'coffer_tenant_acceptance checkpoint=quota-open limit=2147483648\n'
 prepare_client_state
+printf 'coffer_tenant_acceptance checkpoint=owner-full state=starting\n'
 client_evidence="$(run_owner_client accept)"
+printf 'coffer_tenant_acceptance checkpoint=owner-full state=passed\n'
 verify_owner_client_clean
 printf '%s\n' "${client_evidence}" >"${temporary_root}/client-evidence.json"
 jq -e '

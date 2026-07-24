@@ -51,6 +51,12 @@ if test "${phase_rc}" -ne 0; then
 fi
 
 if test "${action}" = accept; then
+    if ! ssh "${ssh_options[@]}" "ubuntu@${controller}" \
+        sudo test -s \
+        /home/ubuntu/coffer-stage5/tenant-acceptance/accepted.complete; then
+        echo "tenant acceptance phase returned without its completion marker" >&2
+        exit 1
+    fi
     ssh "${ssh_options[@]}" "ubuntu@${controller}" \
         sudo env LC_ALL=C.UTF-8 LANG=C.UTF-8 bash -s -- status \
         <"${harness}/guest-run-coffer-tenant-acceptance.sh"
