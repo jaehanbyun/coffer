@@ -1848,6 +1848,35 @@ promotion while ADR 0006 remains blocked.
   marker without invoking Ansible, then repeat status and full tenant/service
   acceptance before implementing the real-Galera concurrency probe.
 
+### 2026-07-25 — Serial rolling upgrade accepted
+
+- Completed: Preserved the bounded correction in `772b23f` and resumed the
+  exact upgrade. The guest reported `resume=postcheck`, performed no second
+  Ansible invocation, accepted current=0/updated=3 on its first convergence
+  attempt, and atomically wrote the upgrade completion marker.
+- Availability: The outer harness passed one probe while the guest was active
+  and three total external path probes. Every probe retained the accepted
+  manifest and blob with project-B returning 401, and every disposable client
+  artifact was removed. The complete final tenant gate retained the quota,
+  repository digest, isolation, and all-node runtime-log hygiene.
+- Final state: All three API/edge pairs are healthy on the recorded update
+  image, all three Distribution replicas are healthy on the unchanged image,
+  all eighteen HAProxy sockets and the external RGW HA boundary pass, and the
+  persistent `coffer-globals.yml` still selects the original deployment tag.
+  The temporary overlay is absent. The rolling directory, owner marker,
+  upgrade log, and upgrade completion marker have exact root-only ownership
+  and modes.
+- Verification: The resumed command exited zero with probes=3, during=1,
+  serial=1. An independent aggregate audit reconfirmed the three healthy
+  controller states, unchanged persistent globals, absent temporary overlay,
+  and owner-only evidence. No image was removed, retagged, or published.
+- Next exact action: Inspect the accepted shared-SQL concurrency fixtures and
+  real deployed database configuration, then add a bounded real-Galera
+  transaction harness. It must prove one-winner concurrent reservation,
+  exercise the installed three-attempt retry on an actual retryable Galera
+  conflict, restore exact quota/row state, retain tenant service, and leave no
+  helper or credential residue before compatible rollback.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1883,7 +1912,7 @@ promotion while ADR 0006 remains blocked.
 | Galera member fault | controller-3 pause, size-2 writes, exact unpause/rejoin | passed; 3/3 quota write/read/restore probes, size-3 recovery, idempotent replay |
 | Tenant credential renewal | two-phase finite replacement, data continuity, residue, replay | passed; 2 credentials, digest/isolation retained, owner-only metadata stable |
 | Fault and recovery matrix | Galera concurrency/retry and reconciler faults plus restore checks | pending |
-| Upgrade, key rotation, rollback | bounded rolling rehearsals | pending |
+| Upgrade, key rotation, rollback | bounded rolling rehearsals | upgrade passed; key overlap and rollback pending |
 | Cleanup and repository regression | exact remote/local residue and focused checks | pending |
 
 ## Failures, Blockers, and Risks

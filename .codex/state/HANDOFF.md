@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0018 active; rolling update converged, postcheck resume pending
+- Status: plan 0018 active; serial rolling upgrade accepted
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -1014,6 +1014,22 @@ marker-idempotent replay passed.
   `upgrade` action once to resume only postchecks and write its marker, then
   repeat `status` plus full tenant/service acceptance before the real-Galera
   concurrency probe.
+- Preserved the correction in `772b23f` and resumed the exact upgrade. It
+  detected current=0/updated=3, printed `resume=postcheck`, skipped Ansible,
+  passed the first bounded convergence check, and wrote the owner-only upgrade
+  marker.
+- One in-flight and three total external path probes passed. Final companion,
+  tenant, quota, digest, project-isolation, runtime-log, HAProxy, and external
+  RGW gates all passed. The final result was probes=3, during=1, serial=1.
+- Independent audit confirms three healthy updated API/edge pairs, three
+  healthy unchanged Distribution replicas, unchanged persistent Coffer
+  globals, no temporary overlay, and exact root-only rolling owner/log/marker
+  evidence. No image was removed, retagged, or published.
+- Exact next action: inspect the accepted shared-SQL concurrency fixtures and
+  deployed database contract, then add a bounded real-Galera transaction
+  harness proving one-winner concurrent reservation plus one actual
+  retryable-conflict recovery with exact quota/row restoration and zero
+  helper/credential residue.
 
 ## Plan 0017 Completion
 
@@ -1599,11 +1615,11 @@ marker-idempotent replay passed.
 
 ## Exact Next Action
 
-Commit the bounded rolling postcheck correction, then invoke only
-`poc/kolla-ha/run-coffer-rolling-update.sh upgrade
-jh.byun@100.123.168.66`. It must detect current=0/updated=3, skip Ansible,
-wait for exact health, write the owner-only upgrade marker, and pass final
-tenant, service, secret, log, RGW, and residue gates.
+Read `tests/test_quota_shared_sql.py`, `tests/test_quota.py`, and
+`src/coffer/quota.py`, then implement a guarded Stage 5 real-Galera
+concurrency/retry harness. It must use only temporary allowlisted rows, prove
+one-winner admission and an actual installed retry, restore exact state in an
+EXIT/finally path, and require full tenant/Galera health before and after.
 
 ## After This Work Package
 
