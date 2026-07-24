@@ -454,6 +454,8 @@ temporary_files=(
     "${client_root}/bearer-b.curl"
     "${client_root}/quota-manifest.json"
     "${client_root}/quota-response.json"
+    "${client_root}/quota-config.json"
+    "${client_root}/quota-layer.bin"
     "${client_root}/docker-a/config.json"
     "${client_root}/docker-b/config.json"
     "${client_root}/project-b-pull.log"
@@ -589,19 +591,102 @@ if test "${action}" != quota-denial; then
     printf 'coffer_tenant_owner checkpoint=token-b state=ready\n' >&2
 fi
 
+location_url() {
+    local location="$1"
+
+    case "${location}" in
+        "${registry_url}"/*)
+            printf '%s\n' "${location}"
+            ;;
+        /*)
+            printf '%s%s\n' "${registry_url}" "${location}"
+            ;;
+        *)
+            echo "registry upload location changed origin" >&2
+            return 1
+            ;;
+    esac
+}
+
+upload_complete_blob() {
+    local blob_path="$1"
+    local blob_digest="$2"
+    local upload_status
+    local upload_location
+    local upload_url
+    local separator
+
+    upload_status="$(
+        curl --disable --silent --show-error \
+            --config "${client_root}/bearer-a.curl" \
+            --cacert "${ca}" \
+            --output /dev/null \
+            --dump-header "${client_root}/upload.headers" \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Length: 0' \
+            "${registry_url}/v2/${repository}/blobs/uploads/"
+    )"
+    test "${upload_status}" = 202
+    upload_location="$(
+        awk -F': ' '
+            tolower($1) == "location" {
+                gsub("\r", "", $2)
+                print $2
+            }
+        ' "${client_root}/upload.headers"
+    )"
+    upload_url="$(location_url "${upload_location}")"
+    case "${upload_url}" in
+        *\?*) separator='&' ;;
+        *) separator='?' ;;
+    esac
+    upload_status="$(
+        curl --disable --silent --show-error \
+            --config "${client_root}/bearer-a.curl" \
+            --cacert "${ca}" \
+            --output /dev/null \
+            --write-out '%{http_code}' \
+            --request PUT \
+            --header 'Content-Type: application/octet-stream' \
+            --data-binary "@${blob_path}" \
+            "${upload_url}${separator}digest=${blob_digest}"
+    )"
+    test "${upload_status}" = 201
+}
+
 if test "${action}" = quota-denial; then
-    jq -n '{
+    printf '{}\n' >"${client_root}/quota-config.json"
+    printf 'coffer-stage5-quota-denial-layer\n' \
+        >"${client_root}/quota-layer.bin"
+    quota_config_digest="sha256:$(
+        sha256sum "${client_root}/quota-config.json" | awk '{print $1}'
+    )"
+    quota_layer_digest="sha256:$(
+        sha256sum "${client_root}/quota-layer.bin" | awk '{print $1}'
+    )"
+    quota_config_size="$(wc -c <"${client_root}/quota-config.json")"
+    quota_layer_size="$(wc -c <"${client_root}/quota-layer.bin")"
+    upload_complete_blob \
+        "${client_root}/quota-config.json" "${quota_config_digest}"
+    upload_complete_blob \
+        "${client_root}/quota-layer.bin" "${quota_layer_digest}"
+    jq -n \
+        --arg config_digest "${quota_config_digest}" \
+        --arg layer_digest "${quota_layer_digest}" \
+        --argjson config_size "${quota_config_size}" \
+        --argjson layer_size "${quota_layer_size}" '{
       schemaVersion: 2,
       mediaType: "application/vnd.oci.image.manifest.v1+json",
       config: {
         mediaType: "application/vnd.oci.image.config.v1+json",
-        digest: ("sha256:" + ("0" * 64)),
-        size: 64
+        digest: $config_digest,
+        size: $config_size
       },
       layers: [{
         mediaType: "application/vnd.oci.image.layer.v1.tar",
-        digest: ("sha256:" + ("1" * 64)),
-        size: 1024
+        digest: $layer_digest,
+        size: $layer_size
       }]
     }' >"${client_root}/quota-manifest.json"
     quota_status="$(
@@ -721,23 +806,6 @@ PY
     blob_digest="sha256:$(
         sha256sum "${client_root}/blob.bin" | awk '{print $1}'
     )"
-
-    location_url() {
-        local location="$1"
-
-        case "${location}" in
-            "${registry_url}"/*)
-                printf '%s\n' "${location}"
-                ;;
-            /*)
-                printf '%s%s\n' "${registry_url}" "${location}"
-                ;;
-            *)
-                echo "registry upload location changed origin" >&2
-                return 1
-                ;;
-        esac
-    }
 
     upload_status="$(
         curl --disable --silent --show-error \

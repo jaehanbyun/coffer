@@ -150,6 +150,9 @@ def test_multinode_tenant_acceptance_is_owner_local_and_fail_closed() -> None:
     assert "docker_ca_created" in guest
     assert "project logical quota exceeded" in guest
     assert "test \"${quota_status}\" = 429" in guest
+    assert "upload_complete_blob" in guest
+    assert "quota_config_digest" in guest
+    assert "quota_layer_digest" in guest
     assert "set_quota_limit 2147483648" in guest
     assert guest.count("--request PATCH") == 1
     assert "for part in 1 2" in guest
