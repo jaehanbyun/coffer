@@ -519,6 +519,7 @@ getent ahostsv4 "${registry_name}" |
 install -d -o root -g root -m 0755 "${docker_ca}"
 install -o root -g root -m 0644 "${ca}" "${docker_ca}/ca.crt"
 docker_ca_created=1
+printf 'coffer_tenant_owner checkpoint=network-boundary state=ready\n' >&2
 
 project_a_id="$(jq -er '.project_a.project_id' "${state}")"
 project_b_id="$(jq -er '.project_b.project_id' "${state}")"
@@ -577,12 +578,16 @@ make_basic_config "${credential_b_id}" "${secret_b}" \
     "${client_root}/basic-b.curl"
 request_registry_token \
     "${client_root}/basic-a.curl" "${client_root}/registry-a.json"
-request_registry_token \
-    "${client_root}/basic-b.curl" "${client_root}/registry-b.json"
 make_bearer_config \
     "${client_root}/registry-a.json" "${client_root}/bearer-a.curl"
-make_bearer_config \
-    "${client_root}/registry-b.json" "${client_root}/bearer-b.curl"
+printf 'coffer_tenant_owner checkpoint=token-a state=ready\n' >&2
+if test "${action}" != quota-denial; then
+    request_registry_token \
+        "${client_root}/basic-b.curl" "${client_root}/registry-b.json"
+    make_bearer_config \
+        "${client_root}/registry-b.json" "${client_root}/bearer-b.curl"
+    printf 'coffer_tenant_owner checkpoint=token-b state=ready\n' >&2
+fi
 
 if test "${action}" = quota-denial; then
     jq -n '{
@@ -610,6 +615,8 @@ if test "${action}" = quota-denial; then
             --data-binary "@${client_root}/quota-manifest.json" \
             "${registry_url}/v2/${repository}/manifests/quota-denied"
     )"
+    printf 'coffer_tenant_owner checkpoint=quota-response status=%s\n' \
+        "${quota_status}" >&2
     test "${quota_status}" = 429
     jq -e '
       .errors == [{
