@@ -1758,10 +1758,15 @@ promotion while ADR 0006 remains blocked.
 - Verification: Bash syntax, ShellCheck, eleven focused runtime-contract
   tests, diff checks, scoped Gitleaks, exact three-node image inspection, and
   current-runtime health/ID checks pass.
-- Next exact action: Commit the correction, then resume only the update-image
-  `build`. Validate the existing image and embedded source, replace the empty
-  marker with its exact ID, prove no rebuild/runtime change, and replay status
-  idempotently.
+- First corrected resume: `9dedfed` fixed the path and status propagation, but
+  the remove-on-exit validation container lacked `-i`; Python received no
+  embedded verifier and returned an empty snapshot. A direct read-only run
+  proves both installed source hashes and the attempt bound are exact, and
+  current runtime remains unchanged.
+- Next exact action: Commit the isolated stdin-attachment correction, then
+  resume only the update-image `build`. Validate the existing image and
+  embedded source, replace the empty marker with its exact ID, prove no
+  rebuild/runtime change, and replay status idempotently.
 
 ## Verification
 

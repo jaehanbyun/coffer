@@ -158,7 +158,7 @@ metadata="$(
 )"
 [[ "${metadata}" =~ ^sha256:[0-9a-f]{64}\ amd64\ linux\ coffer$ ]]
 snapshot="$(
-    docker run --rm --pull=never \
+    docker run --rm --pull=never -i \
         --entrypoint /var/lib/kolla/venv/bin/python3 \
         "${image}" - "${quota_sha256}" "${quota_import_sha256}" <<'PY'
 from pathlib import Path

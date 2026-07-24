@@ -945,7 +945,14 @@ marker-idempotent replay passed.
   an empty ID, validates the already distributed image and embedded source,
   then atomically replaces that marker. Any other malformed marker fails
   closed.
-- Exact next action: commit the partial-state correction locally, then resume
+- Preserved that correction in `9dedfed`. Its first resume again failed before
+  marker repair: `docker run` launched the correct Python, but omitted `-i`,
+  so the embedded verifier received no stdin and returned an empty snapshot.
+  Independent direct inspection confirms both installed module hashes and the
+  three-attempt bound are exact; all current containers remain unchanged.
+- Added only stdin attachment to the no-network, remove-on-exit validation
+  container. Exact hash validation still occurs inside the built image.
+- Exact next action: commit this isolated validator correction, then resume
   only the same update-image `build`. It must not rebuild or transfer an
   already identical image; require source validation, a nonempty exact image
   ID, unchanged runtime, and idempotent replay.
