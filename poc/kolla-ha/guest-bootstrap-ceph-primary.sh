@@ -69,8 +69,7 @@ EOF
         --mon-ip "${primary_address}" \
         --cluster-network "${storage_network}" \
         --skip-dashboard \
-        --skip-monitoring-stack \
-        --skip-prepare-host
+        --skip-monitoring-stack
     cleanup
     trap - EXIT
 fi

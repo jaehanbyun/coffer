@@ -339,6 +339,28 @@ promotion while ADR 0006 remains blocked.
   If it fails, inspect aggregate cluster/host/daemon state and do not proceed
   to OSD work.
 
+### 2026-07-24 — First MON bootstrap failed safely
+
+- Failure: The first control-plane invocation installed the exact
+  `cephadm 20.2.2-1noble` package and pulled the digest-pinned Ceph image, but
+  failed before creating the initial MON with
+  `RuntimeError: Please call get_version first`.
+- Root cause: Tentacle's `command_bootstrap` is excluded from the top-level
+  container-engine check because normal bootstrap calls `prepare-host`, which
+  initializes the Podman version. The harness passed `--skip-prepare-host`, so
+  both paths were skipped and `supports_split_cgroups` read an uninitialized
+  version.
+- Safety evidence: cephadm's automatic non-OSD cleanup completed. All three
+  `/dev/vdb` devices remain signature-free and absent from LVM; all three
+  nodes have zero Ceph containers, FSID data directories, Ceph configuration,
+  admin keyrings, and cephadm authorization markers.
+- Correction: Removed only `--skip-prepare-host`. The nodes are already
+  explicitly prepared, so normal bootstrap now performs the upstream
+  prerequisite and container-engine checks while retaining the dashboard,
+  monitoring, OSD, and RGW exclusions.
+- Next exact action: Validate and commit the correction, rerun the empty-state
+  assertions, then invoke the same exact control bootstrap once.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -377,11 +399,13 @@ promotion while ADR 0006 remains blocked.
 
 ## Handoff
 
-- Current state: Active; all six guests are ready, the three storage nodes are
-  prepared with empty OSD devices, and the MON/MGR-only harness is validated.
-- Exact next action: Commit and invoke the MON/MGR-only bootstrap once, then
-  stop for aggregate quorum/daemon/zero-OSD verification.
-- First file or command: `git diff --check`.
+- Current state: Active; the first MON bootstrap failed before daemon creation
+  and cleaned itself up. The exact container-engine initialization correction
+  awaits validation and retry.
+- Exact next action: Validate and commit the `--skip-prepare-host` removal,
+  recheck the empty cluster state, then invoke the control bootstrap once.
+- First file or command: `bash -n
+  poc/kolla-ha/guest-bootstrap-ceph-primary.sh`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an
