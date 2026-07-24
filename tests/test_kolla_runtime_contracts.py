@@ -146,6 +146,8 @@ def test_multinode_tenant_acceptance_is_owner_local_and_fail_closed() -> None:
     assert "checkpoint=docker-push" in guest
     assert "checkpoint=resumable-finalize" in guest
     assert guest.count("sudo -u ubuntu ssh -n") == 4
+    assert ". + {acceptance: $evidence[0]}" in guest
+    assert ".acceptance.manifest_digest" in guest
     assert "checkpoint=token-a" in guest
     assert 'if test "${action}" != quota-denial' in guest
     assert "quota_error_code=" in guest

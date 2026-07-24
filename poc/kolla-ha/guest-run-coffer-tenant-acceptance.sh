@@ -926,8 +926,8 @@ PY
     exit 0
 fi
 
-expected_manifest="$(jq -er '.manifest_digest' "${state}")"
-expected_blob="$(jq -er '.resumable_blob_digest' "${state}")"
+expected_manifest="$(jq -er '.acceptance.manifest_digest' "${state}")"
+expected_blob="$(jq -er '.acceptance.resumable_blob_digest' "${state}")"
 manifest_status="$(
     curl --disable --silent --show-error \
         --config "${client_root}/bearer-a.curl" \
@@ -1088,7 +1088,7 @@ require_accepted_boundary() {
     prepare_client_state
     jq \
         --slurpfile evidence "${evidence_file}" \
-        '. + $evidence[0]' "${temporary_root}/client.json" \
+        '. + {acceptance: $evidence[0]}' "${temporary_root}/client.json" \
         >"${temporary_root}/client-status.json"
     mv -f \
         "${temporary_root}/client-status.json" \
