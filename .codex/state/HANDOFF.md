@@ -174,6 +174,20 @@ signed Distribution v3.1.1 binary.
   jh.byun@100.123.168.66`, then independently verify restored daemons, exactly
   one VIP owner, clean PGs, health, sentinel digest, and no temporary helpers
   before any whole-VM fault.
+- Preserved the daemon-fault harness in local commit `094b597` and ran the
+  complete matrix. Storage-3's RGW stopped with two surviving backends and five
+  successful sentinel reads, then restored to three and `HEALTH_OK`.
+  Storage-1's active Keepalived/HAProxy pair stopped, the VIP moved to
+  storage-2, and five more sentinel reads passed before both pairs restored.
+- Independent recovery confirms three RGWs, two HAProxy, two Keepalived,
+  exactly one VIP owner, zero inactive PGs, `HEALTH_OK`, the accepted sentinel
+  digest, no fault/audit helpers, and no credential directory on storage-2/3.
+- Exact next action: implement and validate
+  `poc/kolla-ha/test-ceph-storage-vm-failover.sh` for only the
+  autostart-disabled storage-3 domain. Prove two-node Ceph/RGW availability and
+  sentinel reads while it is off, then full 3-MON/3-OSD/3-RGW clean recovery
+  after starting the same domain. Do not fault an ingress or controller VM in
+  that phase.
 
 ## Plan 0017 Completion
 

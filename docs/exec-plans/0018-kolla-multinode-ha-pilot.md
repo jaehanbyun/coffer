@@ -587,6 +587,30 @@ promotion while ADR 0006 remains blocked.
   health, sentinel, and temporary-file restoration before considering a whole
   storage-VM fault.
 
+### 2026-07-24 — RGW and ingress daemon failures recovered
+
+- Completed: Preserved the exact daemon-fault harness in local commit
+  `094b597` and ran its complete sequence through the direct `bb00` address.
+- RGW evidence: The storage-3 RGW stopped while exactly two RGWs remained
+  running. Five consecutive read-only sentinel round trips passed through the
+  VIP with the accepted digest. The exact replica restarted, the running count
+  returned to three, and Ceph returned to `HEALTH_OK`.
+- Ingress evidence: Storage-1 was the active VIP owner. Its exact Keepalived
+  and HAProxy daemons stopped while one complete pair survived on storage-2.
+  The VIP moved to storage-2 and five consecutive sentinel round trips passed.
+  Both pairs then returned to service.
+- Independent recovery audit: Three RGWs, two HAProxy, and two Keepalived
+  daemons are running; exactly one node owns the VIP; all PGs are active and
+  clean; Ceph is `HEALTH_OK`; and the sentinel retains its 4-MiB size and
+  accepted digest. Fault and audit helpers are absent, and storage-2/3 retain
+  no credential directory.
+- Next exact action: Add a separate exact-target whole-VM fault harness for
+  storage-3. It must verify the target is the declared autostart-disabled
+  domain, shut down only that domain, prove two-MON quorum/two OSDs/two RGWs
+  and sentinel reads through the unchanged VIP, start the same domain, and
+  require full 3-MON/3-OSD/3-RGW/clean-PG recovery. Do not combine this with
+  any controller or ingress-host failure.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -602,7 +626,7 @@ promotion while ADR 0006 remains blocked.
 | Ceph replicated OSDs | exact devices, 3 up/in OSDs, host CRUSH domain, size/min 3/2, idempotency | passed; `HEALTH_OK` |
 | RGW HA endpoint | 3 RGWs, 2 ingress pairs, one VIP owner, backend/frontend TLS, idempotency | passed; 5 pools/129 clean PGs, zero users |
 | S3 fixture | owner-only identities, denials, persistent sentinel, idempotency | passed twice; digest retained, no secondary residue |
-| RGW daemon-fault harness | exact names, read-only sentinel, EXIT restoration, live preflight | passed locally and live; fault invocation pending |
+| RGW daemon faults | storage-3 RGW and active ingress pair, reads, restoration | passed; 10 fault-window reads and full independent recovery |
 | Kolla/Galera/Coffer baseline | multinode deploy and health acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | pending |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -633,13 +657,11 @@ promotion while ADR 0006 remains blocked.
 - Current state: Active; the Ceph control plane and exact three-host replicated
   OSD baseline plus three-RGW/two-ingress TLS endpoint are healthy. The two
   owner-limited S3 identities and buckets are provisioned; the deterministic
-  private sentinel passed two identical round trips. The exact daemon-level
-  fault harness passed live preflight without stopping a service.
-- Exact next action: Commit and invoke the daemon-level RGW and active-ingress
-  failure matrix, then independently verify complete recovery.
-- First file or command: `git commit` for the exact fault harness checkpoint,
-  followed by `poc/kolla-ha/test-ceph-rgw-failover.sh
-  jh.byun@100.123.168.66`.
+  private sentinel passed two identical baseline round trips and ten reads
+  across one RGW and one active-ingress fault. All services are restored.
+- Exact next action: Add and locally validate the exact storage-3 whole-VM
+  failure/recovery harness with sentinel and quorum gates.
+- First file or command: `poc/kolla-ha/test-ceph-storage-vm-failover.sh`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an
