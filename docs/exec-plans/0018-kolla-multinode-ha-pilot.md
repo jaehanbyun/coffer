@@ -1913,6 +1913,36 @@ promotion while ADR 0006 remains blocked.
   isolation, three-node Galera health, owner-only evidence, and idempotent
   replay before compatible rollback.
 
+### 2026-07-25 — Real-Galera quota concurrency and retry accepted
+
+- Completed: Preserved the guarded harness in `8cb9a22` and ran it once
+  through the deployed update image. Two independent `QuotaStore` instances
+  reached the same Galera-backed quota row concurrently; the exact result was
+  one admitted reservation and one quota denial with no over-admission.
+- Real retry evidence: A separate transaction retained the allowlisted quota
+  row lock long enough for the deployed writer's one-second session timeout.
+  SQLAlchemy observed MySQL error 1205 from the actual database path, the
+  installed Coffer decorator emitted exactly one `set_limit` attempt-2 record,
+  and that second whole transaction committed after the lock was released.
+  No exception was patched, wrapped, or synthesized.
+- Recovery: Child-first cleanup removed every allowlisted claim, manifest,
+  descriptor edge, reservation, descriptor, and project quota. An independent
+  helper preflight reported aggregate residue zero. The ordinary tenant
+  database write/read/restore probe then passed with its original limit, and
+  the accepted manifest/blob, project-B denial, log hygiene, external RGW,
+  three-node Primary/Synced Galera, and all ProxySQL routes remained healthy.
+- Evidence and replay: Root-only owner/completion markers were written only
+  after the final gates. Repeating `run` executed no transaction probe,
+  reported `idempotent=yes`, reconfirmed residue zero and full tenant/Galera
+  health, and retained identical inode, size, timestamp, owner, group, and
+  mode metadata for both markers.
+- Next exact action: Inspect the deployed reconciler topology and the accepted
+  multi-worker claim/fencing fixtures. Then add a bounded separate-worker
+  Galera harness that creates only allowlisted stale reservations, proves
+  disjoint claims and fencing/lease recovery across controller replicas,
+  restores all rows, and retains tenant service before signing-key overlap or
+  rollback.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1947,7 +1977,7 @@ promotion while ADR 0006 remains blocked.
 | Kolla HAProxy fault | active-owner stop, paired VIP movement, tenant probes, restore | passed; VIP moved controller-3 to controller-2, 3/3 bounded probes, idempotent replay |
 | Galera member fault | controller-3 pause, size-2 writes, exact unpause/rejoin | passed; 3/3 quota write/read/restore probes, size-3 recovery, idempotent replay |
 | Tenant credential renewal | two-phase finite replacement, data continuity, residue, replay | passed; 2 credentials, digest/isolation retained, owner-only metadata stable |
-| Fault and recovery matrix | Galera concurrency/retry and reconciler faults plus restore checks | pending |
+| Fault and recovery matrix | Galera concurrency/retry and reconciler faults plus restore checks | Galera concurrency/retry passed; reconciler pending |
 | Upgrade, key rotation, rollback | bounded rolling rehearsals | upgrade passed; key overlap and rollback pending |
 | Cleanup and repository regression | exact remote/local residue and focused checks | pending |
 

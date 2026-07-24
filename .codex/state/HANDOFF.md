@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0018 active; serial rolling upgrade accepted
+- Status: plan 0018 active; real-Galera quota concurrency/retry accepted
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -1051,6 +1051,23 @@ marker-idempotent replay passed.
   jh.byun@100.123.168.66`, and require the exact 1-admitted/1-denied,
   retry-code-1205/attempt-2, residue-zero result plus final tenant and
   three-node Galera health before compatible rollback.
+- Preserved the harness in `8cb9a22` and ran it. Two independent installed
+  stores returned exactly one admitted and one denied reservation against the
+  shared 150-byte limit. A real MySQL 1205 then occurred through the deployed
+  database path; the installed decorator emitted exactly one `set_limit`
+  attempt-2 retry and committed that second transaction.
+- Child-first cleanup and an independent helper preflight reported aggregate
+  synthetic-row residue zero. The ordinary tenant database write/read/restore,
+  manifest/blob, project-B denial, runtime-log, external RGW, Galera size-3
+  Primary/Synced, and all ProxySQL route gates passed afterward.
+- Root-only owner/completion markers were written only after final acceptance.
+  An idempotent replay ran no transaction probe, reconfirmed residue zero and
+  all health gates, and retained identical inode/size/timestamp/ownership/mode
+  metadata for both markers.
+- Exact next action: inspect the deployed reconciler topology and accepted
+  multi-worker claim/fencing fixtures, then implement a bounded separate-worker
+  Galera harness using only allowlisted stale reservations, exact claim/lease
+  fencing, child-first cleanup, and final tenant/Galera health gates.
 
 ## Plan 0017 Completion
 
@@ -1636,12 +1653,11 @@ marker-idempotent replay passed.
 
 ## Exact Next Action
 
-Commit the guarded real-Galera transaction harness, then invoke only
-`poc/kolla-ha/test-coffer-galera-transactions.sh run
-jh.byun@100.123.168.66`. Require exact one-winner reservation, a real MySQL
-1205 followed by installed attempt 2 success, aggregate row residue zero,
-three-node Galera/ProxySQL health, retained tenant digest/isolation, and
-owner-only marker evidence.
+Read `tests/test_quota_reconciliation.py`,
+`poc/quota-sql/verify_shared_sql.py`, and the deployed reconciler process
+contract. Then implement a guarded Stage 5 separate-worker claim/fencing
+harness with allowlisted stale reservations, disjoint claims, stale-token
+denial, lease recovery, exact row cleanup, and full tenant/Galera gates.
 
 ## After This Work Package
 
