@@ -107,7 +107,9 @@ def database_url(args: argparse.Namespace, password: str) -> URL:
 
 def migration_config(repository_root: Path, url: URL) -> Config:
     config = Config(str(repository_root / "alembic.ini"))
-    config.set_main_option("script_location", str(repository_root / "migrations"))
+    config.set_main_option(
+        "script_location", str(repository_root / "src/coffer/migrations")
+    )
     config.set_main_option(
         "sqlalchemy.url", url.render_as_string(hide_password=False).replace("%", "%%")
     )

@@ -13,7 +13,37 @@ from oslo_policy import opts as policy_opts
 API_GROUP = cfg.OptGroup("api")
 API_OPTS = [
     cfg.StrOpt("bind_host", default="127.0.0.1"),
-    cfg.PortOpt("bind_port", default=8080),
+    cfg.PortOpt("bind_port", default=8787),
+    cfg.IntOpt("workers", default=2, min=1, max=128),
+    cfg.IntOpt("threads", default=4, min=1, max=256),
+    cfg.IntOpt("timeout_seconds", default=30, min=1, max=3600),
+    cfg.IntOpt("graceful_timeout_seconds", default=30, min=1, max=3600),
+    cfg.IntOpt("keepalive_seconds", default=5, min=1, max=300),
+    cfg.StrOpt("tls_certfile"),
+    cfg.StrOpt("tls_keyfile"),
+]
+EDGE_GROUP = cfg.OptGroup("edge")
+EDGE_OPTS = [
+    cfg.StrOpt("bind_host", default="127.0.0.1"),
+    cfg.PortOpt("bind_port", default=8788),
+    cfg.IntOpt("workers", default=2, min=1, max=128),
+    cfg.IntOpt("threads", default=8, min=1, max=256),
+    cfg.IntOpt("timeout_seconds", default=300, min=1, max=3600),
+    cfg.IntOpt("graceful_timeout_seconds", default=30, min=1, max=3600),
+    cfg.IntOpt("keepalive_seconds", default=5, min=1, max=300),
+    cfg.StrOpt("tls_certfile"),
+    cfg.StrOpt("tls_keyfile"),
+    cfg.URIOpt("api_upstream_url"),
+    cfg.URIOpt("registry_upstream_url"),
+    cfg.StrOpt("api_cafile"),
+    cfg.StrOpt("registry_cafile"),
+    cfg.BoolOpt("allow_insecure_http", default=False),
+    cfg.FloatOpt("api_upstream_timeout_seconds", default=30.0, min=0.1, max=300.0),
+    cfg.FloatOpt(
+        "registry_upstream_timeout_seconds", default=300.0, min=0.1, max=3600.0
+    ),
+    cfg.StrOpt("jwks_file"),
+    cfg.URIOpt("token_realm"),
 ]
 KEYSTONE_GROUP = cfg.OptGroup("keystone")
 KEYSTONE_OPTS = [
@@ -59,6 +89,9 @@ def new_config() -> cfg.ConfigOpts:
     api_group = deepcopy(API_GROUP)
     conf.register_group(api_group)
     conf.register_opts(deepcopy(API_OPTS), group=api_group)
+    edge_group = deepcopy(EDGE_GROUP)
+    conf.register_group(edge_group)
+    conf.register_opts(deepcopy(EDGE_OPTS), group=edge_group)
     keystone_group = deepcopy(KEYSTONE_GROUP)
     conf.register_group(keystone_group)
     conf.register_opts(deepcopy(KEYSTONE_OPTS), group=keystone_group)

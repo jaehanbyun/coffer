@@ -1,0 +1,50 @@
+# Coffer uses one locked application image for API, edge, reconciliation, and
+# bootstrap. Deploy each role with only the sections and secret files it owns.
+# Supply [database] connection through an owner-restricted deployment config.
+
+[api]
+bind_host = 0.0.0.0
+bind_port = 8787
+workers = 2
+threads = 4
+timeout_seconds = 30
+graceful_timeout_seconds = 30
+keepalive_seconds = 5
+tls_certfile = /etc/coffer/api.crt
+tls_keyfile = /etc/coffer/api.key
+
+[edge]
+bind_host = 0.0.0.0
+bind_port = 8788
+workers = 2
+threads = 8
+timeout_seconds = 300
+graceful_timeout_seconds = 30
+keepalive_seconds = 5
+tls_certfile = /etc/coffer/edge.crt
+tls_keyfile = /etc/coffer/edge.key
+api_upstream_url = https://coffer-api.internal:8787
+registry_upstream_url = https://coffer-registry.internal:8789
+api_cafile = /etc/coffer/backend-ca.crt
+registry_cafile = /etc/coffer/backend-ca.crt
+allow_insecure_http = false
+jwks_file = /etc/coffer/jwks.json
+token_realm = https://registry.example/auth/token
+
+[token]
+enabled = true
+issuer = coffer
+service = coffer-registry
+private_key_file = /etc/coffer/signing-key.pem
+# key_id must match the active public JWKS entry.
+
+[keystone]
+auth_url = https://keystone.internal:5000/v3
+# cafile = /etc/coffer/keystone-ca.crt
+insecure = false
+
+[reconciliation]
+mode = once
+upstream_url = https://coffer-registry.internal:8789
+cafile = /etc/coffer/registry-ca.crt
+allow_insecure_http = false

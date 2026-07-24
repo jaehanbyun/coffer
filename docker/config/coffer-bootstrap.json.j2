@@ -1,0 +1,18 @@
+{
+    "command": "coffer-bootstrap --config-file /etc/coffer/coffer.conf",
+    "config_files": [
+        {
+            "source": "{{ container_config_directory }}/coffer.conf",
+            "dest": "/etc/coffer/coffer.conf",
+            "owner": "coffer",
+            "perm": "0600"
+        }
+    ],
+    "permissions": [
+        {
+            "path": "/var/log/kolla/coffer",
+            "owner": "coffer:coffer",
+            "recurse": true
+        }
+    ]
+}

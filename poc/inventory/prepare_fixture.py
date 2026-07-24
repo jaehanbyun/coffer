@@ -101,7 +101,9 @@ class RegistryClient:
 
 def migration_config(repository_root: Path, database_url: str) -> Config:
     config = Config(str(repository_root / "alembic.ini"))
-    config.set_main_option("script_location", str(repository_root / "migrations"))
+    config.set_main_option(
+        "script_location", str(repository_root / "src/coffer/migrations")
+    )
     config.set_main_option("sqlalchemy.url", database_url)
     return config
 

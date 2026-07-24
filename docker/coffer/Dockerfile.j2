@@ -1,0 +1,26 @@
+FROM {{ namespace }}/{{ image_prefix }}openstack-base:{{ tag }}
+
+{% block labels %}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}" \
+      org.opencontainers.image.title="Coffer OCI Registry service" \
+      org.opencontainers.image.source="https://github.com/jaehanbyun/coffer"
+{% endblock %}
+
+{% block coffer_header %}{% endblock %}
+
+{% import "macros.j2" as macros with context %}
+
+{{ macros.configure_user(name='coffer') }}
+
+ADD coffer-archive /coffer-source
+
+RUN ln -s /coffer-source/* /coffer \
+    && {{ macros.install_pip(['/coffer[mariadb,postgresql]'], constraints=false) }} \
+    && mkdir -p /etc/coffer /var/log/kolla/coffer \
+    && chown -R coffer:coffer /etc/coffer /var/log/kolla/coffer \
+    && chmod 0750 /etc/coffer /var/log/kolla/coffer
+
+{% block coffer_footer %}{% endblock %}
+{% block footer %}{% endblock %}
+
+USER coffer

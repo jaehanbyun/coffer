@@ -80,11 +80,7 @@ def build_application(
     )
 
 
-def create_application() -> Any:
-    config_file = os.environ.get("COFFER_CONFIG_FILE")
-    config_files: Sequence[str] | None = [config_file] if config_file else None
-    conf = parse_config(args=[], default_config_files=config_files)
-    setup_logging(conf)
+def build_product_application(conf: cfg.ConfigOpts) -> Any:
     store = RepositoryStore(conf.database.connection)
     enforcer = create_enforcer(conf)
     metrics = CofferMetrics()
@@ -115,3 +111,11 @@ def create_application() -> Any:
         enforcer=enforcer,
         metrics=metrics,
     )
+
+
+def create_application() -> Any:
+    config_file = os.environ.get("COFFER_CONFIG_FILE")
+    config_files: Sequence[str] | None = [config_file] if config_file else None
+    conf = parse_config(args=[], default_config_files=config_files)
+    setup_logging(conf)
+    return build_product_application(conf)

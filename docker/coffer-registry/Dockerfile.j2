@@ -1,0 +1,49 @@
+FROM {{ namespace }}/{{ image_prefix }}base:{{ tag }}
+
+{% block labels %}
+LABEL maintainer="{{ maintainer }}" name="{{ image_name }}" build-date="{{ build_date }}" \
+      org.opencontainers.image.title="Coffer Distribution data plane" \
+      org.opencontainers.image.version="3.1.1" \
+      org.opencontainers.image.source="https://github.com/distribution/distribution"
+{% endblock %}
+
+{% block coffer_registry_header %}{% endblock %}
+
+{% import "macros.j2" as macros with context %}
+
+{% set registry_release_arch = {
+    'x86_64': 'amd64',
+    'aarch64': 'arm64'
+}.get(base_arch) %}
+{% set registry_release_sha256 = {
+    'x86_64': '6f330a3ba9ea1d23a6ee189f449d792595240585bb2f159123d76ac594f70dd8',
+    'aarch64': '8167316d2b4a57e10d44f8c8a3c75fea5f3ec1c71872760bb903e5e8e52e9ad6'
+}.get(base_arch) %}
+{% if not registry_release_arch or not registry_release_sha256 %}
+{{ raise_error("Coffer registry supports only x86_64 and aarch64 release artifacts") }}
+{% endif %}
+
+{{ macros.configure_user(name='registry') }}
+{{ macros.install_packages(['curl', 'tar']) }}
+
+RUN mkdir -p /tmp/registry-release \
+    && curl --proto '=https' --tlsv1.2 --location --fail --silent --show-error \
+       "https://github.com/distribution/distribution/releases/download/v3.1.1/registry_3.1.1_linux_{{ registry_release_arch }}.tar.gz" \
+       --output /tmp/registry-release.tar.gz \
+    && echo "{{ registry_release_sha256 }}  /tmp/registry-release.tar.gz" \
+       | sha256sum --check --strict \
+    && tar -xzf /tmp/registry-release.tar.gz -C /tmp/registry-release \
+    && install -o root -g root -m 0755 /tmp/registry-release/registry \
+       /usr/local/bin/registry \
+    && rm -rf /tmp/registry-release /tmp/registry-release.tar.gz \
+    && mkdir -p /etc/coffer-registry /var/lib/registry \
+       /var/log/kolla/coffer-registry \
+    && chown -R registry:registry /etc/coffer-registry /var/lib/registry \
+       /var/log/kolla/coffer-registry \
+    && chmod 0750 /etc/coffer-registry /var/lib/registry \
+       /var/log/kolla/coffer-registry
+
+{% block coffer_registry_footer %}{% endblock %}
+{% block footer %}{% endblock %}
+
+USER registry

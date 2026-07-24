@@ -1,3 +1,5 @@
+"""Alembic environment installed with the Coffer package."""
+
 from __future__ import annotations
 
 from logging.config import fileConfig

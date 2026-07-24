@@ -17,7 +17,11 @@ from coffer.quota_admission import (
     RegistryTokenVerifier,
     build_manifest_admission_application,
 )
-from coffer.registry_proxy import HTTPManifestUpstream, RegistryEdgeProxy
+from coffer.registry_proxy import (
+    HTTPManifestUpstream,
+    RegistryEdgeProxy,
+    UpstreamOrigin,
+)
 from coffer.token_api import build_token_application
 from coffer.tokens import TokenIssuer
 
@@ -94,16 +98,23 @@ authorizer = RegistryScopeAuthorizer(repositories, create_enforcer(conf))
 token_application = build_token_application(
     FixtureAuthenticator(), authorizer, issuer
 )
+registry_origin = UpstreamOrigin.from_url(
+    os.environ["COFFER_QUOTA_UPSTREAM"],
+    label="quota fixture registry",
+    timeout_seconds=60.0,
+    allow_insecure_http=True,
+    allow_non_loopback_fixture=True,
+)
 manifest_application = build_manifest_admission_application(
     RegistryTokenVerifier(
         issuer.jwks(), issuer=issuer.issuer, service=issuer.service
     ),
     ManifestAdmissionService(repositories, quotas),
-    HTTPManifestUpstream(os.environ["COFFER_QUOTA_UPSTREAM"]),
+    HTTPManifestUpstream(registry_origin),
     token_realm="http://edge:5000/auth/token",
 )
 registry_application = RegistryEdgeProxy(
-    manifest_application, os.environ["COFFER_QUOTA_UPSTREAM"]
+    manifest_application, registry_origin
 )
 
 

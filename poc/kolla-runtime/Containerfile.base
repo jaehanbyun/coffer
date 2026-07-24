@@ -1,0 +1,69 @@
+FROM python:3.13.14-slim-bookworm@sha256:9d7f287598e1a5a978c015ee176d8216435aaf335ed69ac3c38dd1bbb10e8d64
+
+ARG KOLLA_COMMIT=686c6d13dc1c31092b22c6c481e16a7329e935ea
+
+LABEL io.coffer.stage2="true" \
+      io.coffer.kolla.commit="${KOLLA_COMMIT}"
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       bash ca-certificates curl dumb-init iproute2 procps sudo \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 53000 kolla \
+    && groupadd --gid 53002 coffer \
+    && groupadd --gid 53003 registry \
+    && useradd --uid 53002 --gid 53002 --groups kolla \
+       --home-dir /var/lib/coffer --create-home --shell /usr/sbin/nologin coffer \
+    && useradd --uid 53003 --gid 53003 --groups kolla \
+       --home-dir /var/lib/registry --create-home --shell /usr/sbin/nologin registry \
+    && mkdir -p /tmp/kolla-base \
+    && curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
+       "https://raw.githubusercontent.com/openstack/kolla/${KOLLA_COMMIT}/docker/base/start.sh" \
+       --output /tmp/kolla-base/kolla_start \
+    && curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
+       "https://raw.githubusercontent.com/openstack/kolla/${KOLLA_COMMIT}/docker/base/set_configs.py" \
+       --output /tmp/kolla-base/kolla_set_configs \
+    && curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
+       "https://raw.githubusercontent.com/openstack/kolla/${KOLLA_COMMIT}/docker/base/copy_cacerts.sh" \
+       --output /tmp/kolla-base/kolla_copy_cacerts \
+    && curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
+       "https://raw.githubusercontent.com/openstack/kolla/${KOLLA_COMMIT}/docker/base/install_projects.sh" \
+       --output /tmp/kolla-base/kolla_install_projects \
+    && curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
+       "https://raw.githubusercontent.com/openstack/kolla/${KOLLA_COMMIT}/docker/base/healthcheck_listen" \
+       --output /tmp/kolla-base/healthcheck_listen \
+    && curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
+       "https://raw.githubusercontent.com/openstack/kolla/${KOLLA_COMMIT}/docker/base/sudoers" \
+       --output /tmp/kolla-base/sudoers \
+    && echo "ce152f134d718419ddeab59ac39e3d71689ced6725b8be5ec4051fefeee00f7f  /tmp/kolla-base/kolla_start" \
+       | sha256sum --check --strict \
+    && echo "a4b58122fb8e4a4f028ea58cfab216805b92fc9b912a38a9f938a486fc0629cb  /tmp/kolla-base/kolla_set_configs" \
+       | sha256sum --check --strict \
+    && echo "29ce84cc406a33c1f59baee5fc17ae515533362d5484094d5484f92b22bec9f2  /tmp/kolla-base/kolla_copy_cacerts" \
+       | sha256sum --check --strict \
+    && echo "75cb5efcc0f5a62363d5e91deef9c24c02d4091fa1b8254af5b17ca02224d8b4  /tmp/kolla-base/kolla_install_projects" \
+       | sha256sum --check --strict \
+    && echo "715632d476da4c5d9d73dfd1bcc63542cc6851dd3ebf6f311d83b82e420a1009  /tmp/kolla-base/healthcheck_listen" \
+       | sha256sum --check --strict \
+    && echo "2ac9feaa8b7700a483acada5f5ed5421ce4a0a1d98db4914b9561caa188a4f7e  /tmp/kolla-base/sudoers" \
+       | sha256sum --check --strict \
+    && install -o root -g root -m 0755 /tmp/kolla-base/kolla_start \
+       /usr/local/bin/kolla_start \
+    && install -o root -g root -m 0755 /tmp/kolla-base/kolla_set_configs \
+       /usr/local/bin/kolla_set_configs \
+    && install -o root -g root -m 0755 /tmp/kolla-base/kolla_copy_cacerts \
+       /usr/local/bin/kolla_copy_cacerts \
+    && install -o root -g root -m 0755 /tmp/kolla-base/kolla_install_projects \
+       /usr/local/bin/kolla_install_projects \
+    && install -o root -g root -m 0755 /tmp/kolla-base/healthcheck_listen \
+       /usr/local/bin/healthcheck_listen \
+    && install -o root -g root -m 0440 /tmp/kolla-base/sudoers /etc/sudoers \
+    && rm -rf /tmp/kolla-base \
+    && mkdir -p /etc/kolla/defaults /var/log/kolla \
+    && touch /usr/local/bin/kolla_extend_start \
+    && chmod 0644 /usr/local/bin/kolla_extend_start \
+    && chown root:kolla /var/log/kolla \
+    && chmod 2775 /var/log/kolla
+
+ENTRYPOINT ["dumb-init", "--single-child", "--"]
+CMD ["kolla_start"]

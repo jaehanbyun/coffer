@@ -1,0 +1,31 @@
+FROM localhost/coffer-stage2-base:2026.1
+
+ARG DISTRIBUTION_VERSION=3.1.1
+ARG DISTRIBUTION_ARCH
+ARG DISTRIBUTION_SHA256
+
+LABEL io.coffer.stage2="true" \
+      org.opencontainers.image.title="Coffer Stage 2 Distribution wrapper" \
+      org.opencontainers.image.version="${DISTRIBUTION_VERSION}" \
+      org.opencontainers.image.source="https://github.com/distribution/distribution"
+
+RUN test -n "${DISTRIBUTION_ARCH}" \
+    && test -n "${DISTRIBUTION_SHA256}" \
+    && mkdir -p /tmp/registry-release \
+    && curl --proto '=https' --tlsv1.2 --location --fail --silent --show-error \
+       "https://github.com/distribution/distribution/releases/download/v${DISTRIBUTION_VERSION}/registry_${DISTRIBUTION_VERSION}_linux_${DISTRIBUTION_ARCH}.tar.gz" \
+       --output /tmp/registry-release.tar.gz \
+    && echo "${DISTRIBUTION_SHA256}  /tmp/registry-release.tar.gz" \
+       | sha256sum --check --strict \
+    && tar -xzf /tmp/registry-release.tar.gz -C /tmp/registry-release \
+    && install -o root -g root -m 0755 /tmp/registry-release/registry \
+       /usr/local/bin/registry \
+    && rm -rf /tmp/registry-release /tmp/registry-release.tar.gz \
+    && mkdir -p /etc/coffer-registry /var/lib/registry \
+       /var/log/kolla/coffer-registry \
+    && chown -R registry:registry /etc/coffer-registry /var/lib/registry \
+       /var/log/kolla/coffer-registry \
+    && chmod 0750 /etc/coffer-registry /var/lib/registry \
+       /var/log/kolla/coffer-registry
+
+USER registry

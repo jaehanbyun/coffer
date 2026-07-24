@@ -1,4 +1,4 @@
-bind = "127.0.0.1:8080"
+bind = "127.0.0.1:8787"
 workers = 2
 worker_class = "gthread"
 threads = 4

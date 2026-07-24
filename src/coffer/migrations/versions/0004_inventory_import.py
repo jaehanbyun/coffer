@@ -5,6 +5,8 @@ Revises: 0003_repository_metadata
 Create Date: 2026-07-23
 """
 
+from __future__ import annotations
+
 from typing import Sequence, Union
 
 from alembic import op

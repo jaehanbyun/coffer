@@ -1,4 +1,4 @@
-"""Create or adopt repository control metadata.
+"""Create or safely adopt repository control metadata.
 
 Revision ID: 0003_repository_metadata
 Revises: 0002_reconciliation_claims

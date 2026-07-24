@@ -14,7 +14,7 @@ Before a production rollout, operators must separately provide a tested backup a
 
 | Concern | Authority | Fail-safe behavior |
 |---|---|---|
-| Repository and quota schema | Checked-in Alembic revisions under `migrations/` | Coffer startup rejects missing, unversioned, drifted, or unexpected schema |
+| Repository and quota schema | Installed Alembic revisions under `src/coffer/migrations/` | Coffer startup rejects missing, unversioned, drifted, or unexpected schema |
 | Repository identity | Coffer control database | Missing or invalid authority makes the probe indeterminate |
 | Manifest presence | Exact private Distribution digest endpoint | Only one matching digest header on 200 proves presence; exact 404 proves absence |
 | Work ownership and mutation | Expiring shared-SQL claim, opaque fencing token, and reservation version | Expired/reassigned claims and stale versions cannot apply observations |

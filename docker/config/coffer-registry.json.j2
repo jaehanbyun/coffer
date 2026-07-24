@@ -1,0 +1,53 @@
+{
+    "command": "registry serve /etc/coffer-registry/config.yml",
+    "config_files": [
+        {
+            "source": "{{ container_config_directory }}/config.yml",
+            "dest": "/etc/coffer-registry/config.yml",
+            "owner": "registry",
+            "perm": "0600"
+        },
+        {
+            "source": "{{ container_config_directory }}/jwks.json",
+            "dest": "/etc/coffer-registry/jwks.json",
+            "owner": "registry",
+            "perm": "0644"
+        },
+        {
+            "source": "{{ container_config_directory }}/registry.crt",
+            "dest": "/etc/coffer-registry/registry.crt",
+            "owner": "registry",
+            "perm": "0644"
+        },
+        {
+            "source": "{{ container_config_directory }}/registry.key",
+            "dest": "/etc/coffer-registry/registry.key",
+            "owner": "registry",
+            "perm": "0600"
+        },
+        {
+            "source": "{{ container_config_directory }}/rgw-ca.crt",
+            "dest": "/etc/coffer-registry/rgw-ca.crt",
+            "owner": "registry",
+            "perm": "0644"
+        }{% if kolla_copy_ca_into_containers | bool %},
+        {
+            "source": "{{ container_config_directory }}/ca-certificates",
+            "dest": "/var/lib/kolla/share/ca-certificates",
+            "owner": "root",
+            "perm": "0644"
+        }{% endif %}
+    ],
+    "permissions": [
+        {
+            "path": "/var/lib/registry",
+            "owner": "registry:registry",
+            "recurse": true
+        },
+        {
+            "path": "/var/log/kolla/coffer-registry",
+            "owner": "registry:registry",
+            "recurse": true
+        }
+    ]
+}

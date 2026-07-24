@@ -1,0 +1,18 @@
+# Pass this file to Kolla stable/2026.1 with:
+#   kolla-build --config-file /path/to/this-file \
+#     --docker-dir /path/to/coffer/docker '^(coffer|coffer-registry)$'
+#
+# Replace the source reference with an immutable reviewed commit before build.
+
+[coffer]
+type = git
+location = https://github.com/jaehanbyun/coffer.git
+reference = REPLACE_WITH_IMMUTABLE_COMMIT
+
+[coffer-user]
+uid = 53002
+gid = 53002
+
+[registry-user]
+uid = 53003
+gid = 53003

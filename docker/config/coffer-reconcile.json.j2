@@ -1,0 +1,30 @@
+{
+    "command": "coffer-reconcile --config-file /etc/coffer/coffer.conf",
+    "config_files": [
+        {
+            "source": "{{ container_config_directory }}/coffer.conf",
+            "dest": "/etc/coffer/coffer.conf",
+            "owner": "coffer",
+            "perm": "0600"
+        },
+        {
+            "source": "{{ container_config_directory }}/registry-ca.crt",
+            "dest": "/etc/coffer/registry-ca.crt",
+            "owner": "coffer",
+            "perm": "0644"
+        }{% if kolla_copy_ca_into_containers | bool %},
+        {
+            "source": "{{ container_config_directory }}/ca-certificates",
+            "dest": "/var/lib/kolla/share/ca-certificates",
+            "owner": "root",
+            "perm": "0644"
+        }{% endif %}
+    ],
+    "permissions": [
+        {
+            "path": "/var/log/kolla/coffer",
+            "owner": "coffer:coffer",
+            "recurse": true
+        }
+    ]
+}

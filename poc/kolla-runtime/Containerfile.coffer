@@ -1,0 +1,15 @@
+FROM localhost/coffer-stage2-base:2026.1
+
+LABEL io.coffer.stage2="true" \
+      org.opencontainers.image.title="Coffer Stage 2 Kolla contract image" \
+      org.opencontainers.image.source="https://github.com/jaehanbyun/coffer"
+
+COPY pyproject.toml README.md /coffer/
+COPY src /coffer/src
+
+RUN python3 -m pip --no-cache-dir install '/coffer[mariadb,postgresql]' \
+    && mkdir -p /etc/coffer /var/log/kolla/coffer \
+    && chown -R coffer:coffer /etc/coffer /var/log/kolla/coffer \
+    && chmod 0750 /etc/coffer /var/log/kolla/coffer
+
+USER coffer

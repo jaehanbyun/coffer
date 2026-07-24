@@ -28,10 +28,14 @@ dependencies = [
 ]
 
 [project.scripts]
+coffer-api = "coffer.api_runner:main"
 coffer-inventory-verify = "coffer.inventory:main"
 coffer-import-inventory = "coffer.quota_import:main"
 coffer-verify-inventory-import = "coffer.quota_import_verification:main"
 coffer-reconcile = "coffer.reconciliation_runner:main"
+coffer-bootstrap = "coffer.bootstrap:main"
+coffer-config-validate = "coffer.config_validator:main"
+coffer-edge = "coffer.edge_runner:main"
 
 [project.optional-dependencies]
 mariadb = [
@@ -53,3 +57,6 @@ testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"coffer.migrations" = ["script.py.mako"]
