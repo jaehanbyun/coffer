@@ -212,33 +212,24 @@ require_marker() {
 
 create_globals() {
     local image="$1"
+    local staged="${temporary_globals}.tmp.$$"
 
     test ! -e "${temporary_globals}"
-    awk -v replacement="coffer_image_full: \"${image}\"" '
-        $0 == "coffer_image_full: \"localhost/coffer:stage5\"" {
-            print replacement
-            replacements += 1
-            next
-        }
-        {print}
-        END {
-            if (replacements != 1) {
-                exit 1
-            }
-        }
-    ' "${coffer_globals}" >"${temporary_globals}"
-    chown root:root "${temporary_globals}"
-    chmod 0600 "${temporary_globals}"
-    "${venv}/bin/python3" - \
-        "${coffer_globals}" "${temporary_globals}" "${image}" <<'PY'
+    test ! -e "${staged}"
+    if ! "${venv}/bin/python3" - \
+        "${coffer_globals}" "${staged}" "${image}" <<'PY'
 from pathlib import Path
 import sys
 
 import yaml
 
-original = yaml.safe_load(Path(sys.argv[1]).read_text(encoding="utf-8"))
-updated = yaml.safe_load(Path(sys.argv[2]).read_text(encoding="utf-8"))
+source = Path(sys.argv[1])
+output = Path(sys.argv[2])
 expected_image = sys.argv[3]
+original = yaml.safe_load(source.read_text(encoding="utf-8"))
+updated = dict(original)
+updated["coffer_image_full"] = expected_image
+output.write_text(yaml.safe_dump(updated, sort_keys=False), encoding="utf-8")
 changed = {
     key
     for key in set(original) | set(updated)
@@ -254,6 +245,13 @@ if changed != expected_changed:
 if updated["coffer_image_full"] != expected_image:
     raise SystemExit("rolling globals selected an unexpected Coffer image")
 PY
+    then
+        rm -f -- "${staged}"
+        return 1
+    fi
+    chown root:root "${staged}"
+    chmod 0600 "${staged}"
+    mv -- "${staged}" "${temporary_globals}"
 }
 
 verify_log() {

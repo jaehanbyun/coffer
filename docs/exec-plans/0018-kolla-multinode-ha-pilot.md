@@ -2254,6 +2254,28 @@ promotion while ADR 0006 remains blocked.
   only `run-coffer-rolling-update.sh rollback`, preserving tenant service and
   new-key trust while restoring the original compatible Coffer image.
 
+### 2026-07-25 — First compatible image rollback failed before Kolla
+
+- Failure: Mutation-free rolling status passed at exactly three updated
+  API/edge pairs. The rollback then failed before creating a log or invoking
+  Kolla because its overlay builder matched one exact quoted YAML line.
+  Key-rotation's safe YAML rewrite retained the same image value without
+  quotes, so the textual match wrote a partial overlay and rejected it.
+- Safety evidence: Both surrounding tenant probes passed. The upgrade marker
+  remains valid, no rollback marker/log exists, all three API/edge pairs
+  remain on the update image, new signer/new-only JWKS state is unchanged,
+  and all services are healthy. The only residue is the exact owner-only
+  `/run/coffer-stage5-rolling-globals.yml`; it contains the same parsed
+  configuration as persistent globals and was never passed to Kolla.
+- Correction: Overlay creation now parses YAML, changes only
+  `coffer_image_full`, verifies the exact changed-key set, writes an
+  owner-only staged path, and atomically renames it. A failed build removes
+  only its uniquely named staged path and cannot leave the admitted overlay.
+- Next exact action: Validate and commit the structured overlay correction.
+  Verify the failed overlay's owner, mode, and parsed equality to persistent
+  globals, remove only that exact disposable residue, rerun rolling status,
+  then invoke only compatible image `rollback`.
+
 ## Verification
 
 | Check | Command or method | Result |

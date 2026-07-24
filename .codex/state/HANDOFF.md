@@ -1764,15 +1764,14 @@ residue is absent, and replay preserved completion-marker metadata.
 
 ## Exact Next Action
 
-Run mutation-free
-`poc/kolla-ha/run-coffer-rolling-update.sh status
-jh.byun@100.123.168.66`, then inspect its temporary-globals construction
-against the persistent new signing-key ID. If the status is exactly three
-updated API/edge pairs with the accepted upgrade marker and no temporary
-overlay, invoke only the guarded `rollback` action. Require continuous tenant
-paths, serial-one convergence to the original compatible Coffer image,
-new-key/new-only-JWKS preservation, full final gates, and
-metadata-idempotent rollback replay.
+Validate and commit the structured rolling-overlay correction. On
+controller-1, verify the failed exact
+`/run/coffer-stage5-rolling-globals.yml` is root-only and parses identically
+to persistent globals, then remove only that disposable overlay. Rerun
+mutation-free rolling status and invoke only the guarded `rollback` action.
+Require continuous tenant paths, serial-one convergence to the original
+compatible Coffer image, new-key/new-only-JWKS preservation, full final
+gates, and metadata-idempotent rollback replay.
 
 ## After This Work Package
 

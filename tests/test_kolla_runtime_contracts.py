@@ -204,6 +204,9 @@ def test_multinode_rolling_update_is_serial_and_has_exact_rollback() -> None:
     assert "kolla_serial=1" in guest
     assert '\"${entrypoint}\" upgrade' in guest
     assert "coffer-stage5-rolling-globals.yml" in guest
+    assert 'local staged="${temporary_globals}.tmp.$$"' in guest
+    assert "yaml.safe_dump(updated, sort_keys=False)" in guest
+    assert 'mv -- "${staged}" "${temporary_globals}"' in guest
     assert 'changed != expected_changed' in guest
     assert "rolling globals changed outside the Coffer image" in guest
     assert "current=0 updated=3" in guest
