@@ -1759,16 +1759,17 @@ marker-idempotent replay passed.
 
 ## Exact Next Action
 
-Validate and commit the key-rotation external-owner root-curl correction,
+Validate and commit the exact unmarked signer/retirement phase-resume
+correction,
 then invoke only
 `poc/kolla-ha/run-coffer-key-rotation.sh run
-jh.byun@100.123.168.66`. The audited live boundary is old signers with
-old+new verifier trust on all three replicas, no overlap marker, one
-owner-only failed Basic-auth config but no response or bearer token, and no
-temporary globals overlay. The resume must clear that exact label residue,
-perform token exchange only from the sole external VIP owner, then finish
-signer switch, old/new-token acceptance, full-lifetime retirement, new
-success/old denial, residue cleanup, and complete service/log/RGW gates.
+jh.byun@100.123.168.66`. The audited live boundary is new signers with
+old+new verifier trust on all three replicas, a completed overlap marker but
+no signer marker, persistent globals still naming the old key, the four
+owner-only old-token files, and no temporary globals overlay. The resume must
+adopt only that exact state, update persistent configuration, prove retained
+old and fresh new tokens, finish full-lifetime retirement, new success/old
+denial, residue cleanup, and complete service/log/RGW gates.
 
 ## After This Work Package
 

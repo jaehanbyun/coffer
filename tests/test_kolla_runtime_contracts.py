@@ -398,8 +398,11 @@ def test_multinode_key_rotation_overlaps_and_retires_every_replica() -> None:
     assert "from coffer.tokens import" not in guest
     assert 'if test ! -e "${prepared_marker}"' in guest
     assert "wait_runtime_state" in guest
+    assert "seq 1 180" in guest
     assert "resume=adopted" in guest
     assert "refusing an unknown unmarked overlap state" in guest
+    assert "refusing an unknown unmarked signer state" in guest
+    assert "refusing an unknown unmarked retirement state" in guest
     assert "discover_external_owner" in guest
     assert "owner_kolla_ca" in guest
     assert "sudo curl --disable" in guest

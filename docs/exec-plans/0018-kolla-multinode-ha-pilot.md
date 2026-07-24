@@ -2152,6 +2152,28 @@ promotion while ADR 0006 remains blocked.
   and signer markers, full old-token lifetime, old-key retirement, and all
   final tenant/service/storage gates.
 
+### 2026-07-25 — Signer deployment converged before its marker
+
+- Failure: Owner-routed old-token exchange passed and the overlap marker was
+  written. The serial signer Kolla phase then completed with zero failed or
+  unreachable hosts, but its bounded post-deploy state wait ended before
+  writing the persistent key ID or signer marker. One tenant request returned
+  503 during the serial change and passed on the admitted second attempt.
+- Safety evidence: All three API replicas now use the new signer and all six
+  verifiers retain old+new trust. The source private key matches only the new
+  JWK, persistent globals still name the old key, the temporary overlay is
+  absent, and only the four owner-only old-token artifacts exist. Both Kolla
+  phase logs have zero failed or unreachable hosts and all nine containers
+  are healthy.
+- Correction: The signer and retirement phases may now adopt only their exact
+  unmarked applied states, using private/public key matching plus all-replica
+  runtime assertions. Unknown states fail closed. Runtime convergence remains
+  bounded but allows six minutes for slow serial container health transitions.
+- Next exact action: Validate and commit this phase-resume correction, then
+  resume only key-rotation `run`. It must adopt the exact new-signer/overlap
+  state, update the persistent key ID, prove the retained old token and a new
+  token, wait out the old token, retire old trust, and clear all residue.
+
 ## Verification
 
 | Check | Command or method | Result |

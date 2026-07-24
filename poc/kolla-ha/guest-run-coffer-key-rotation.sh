@@ -448,7 +448,7 @@ wait_runtime_state() {
     local attempt
     local snapshot
 
-    for attempt in $(seq 1 60); do
+    for attempt in $(seq 1 180); do
         if snapshot="$(runtime_state "${expected_kid}" "${expected_jwks}" 2>/dev/null)"; then
             printf '%s\n' "${snapshot}"
             printf 'coffer_key_rotation_runtime state=converged attempt=%s\n' \
@@ -767,10 +767,24 @@ if test ! -e "${overlap_marker}"; then
 fi
 
 if test ! -e "${signer_marker}"; then
-    install_private_key "${new_root}/signing-key.pem"
-    run_upgrade signer "${new_kid}"
+    if private_matches_jwks \
+        "${secret_root}/signing-key.pem" \
+        "${new_root}/jwks.json" "${new_kid}"; then
+        test "$(jwks_kids "${public_root}/jwks.json")" = \
+            "${current_kid},${new_kid}"
+        wait_runtime_state "${new_kid}" "${current_kid},${new_kid}"
+        printf 'coffer_key_rotation phase=signer resume=adopted\n'
+    elif private_matches_jwks \
+        "${secret_root}/signing-key.pem" \
+        "${original_root}/jwks.json" "${current_kid}"; then
+        install_private_key "${new_root}/signing-key.pem"
+        run_upgrade signer "${new_kid}"
+        wait_runtime_state "${new_kid}" "${current_kid},${new_kid}"
+    else
+        echo "refusing an unknown unmarked signer state" >&2
+        exit 1
+    fi
     update_persistent_kid "${new_kid}"
-    wait_runtime_state "${new_kid}" "${current_kid},${new_kid}"
     issue_token new "${new_kid}"
     probe_token old 200 400
     probe_token new 200 400
@@ -783,9 +797,22 @@ if test ! -e "${retired_marker}"; then
     while test "$(date +%s)" -le "$((expiry + 2))"; do
         sleep 5
     done
-    install_public_jwks "${new_root}/jwks.json"
-    run_upgrade retire "${new_kid}"
-    wait_runtime_state "${new_kid}" "${new_kid}"
+    source_kids="$(jwks_kids "${public_root}/jwks.json")"
+    case "${source_kids}" in
+        "${current_kid},${new_kid}")
+            install_public_jwks "${new_root}/jwks.json"
+            run_upgrade retire "${new_kid}"
+            wait_runtime_state "${new_kid}" "${new_kid}"
+            ;;
+        "${new_kid}")
+            wait_runtime_state "${new_kid}" "${new_kid}"
+            printf 'coffer_key_rotation phase=retire resume=adopted\n'
+            ;;
+        *)
+            echo "refusing an unknown unmarked retirement state" >&2
+            exit 1
+            ;;
+    esac
     issue_token retired-new "${new_kid}"
     make_synthetic_old_token
     probe_token retired-new 200 400
