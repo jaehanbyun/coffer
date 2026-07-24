@@ -1519,6 +1519,49 @@ promotion while ADR 0006 remains blocked.
   and service logs against tenant secrets, and remove all owner-client
   material before writing its marker.
 
+### 2026-07-24 — Two-project tenant OCI acceptance accepted
+
+- Completed: Added and committed the separately guarded
+  `preflight|accept|status` tenant acceptance. It created one exact project-A
+  control-plane repository, proved one-byte quota rejection with HTTP 429,
+  raised the limit to 2 GiB, pushed and pulled the existing functional Coffer
+  image with Docker through external port 443, denied project B, and committed
+  a deterministic 2-MiB blob through two separate PATCH requests.
+- Persistence and hygiene: Independent status returns manifest 200,
+  resumable-blob 200, and project-B 401. Quota has positive used bytes,
+  zero reserved bytes, and remains below its limit. The owner-local hosts,
+  CA, auth, secret, and tenant-image state is absent after every attempt. All
+  nine runtime logs pass the tenant password/application-secret,
+  private-key, Authorization, and JWT scan.
+- Failure corrections: The first probe used the wrong in-container Python
+  path; the second tried to expose a host-only secret file to the container;
+  both stopped before control/data mutation. A wrapper rc mask was closed
+  with an explicit marker gate. Distribution required real descriptor blobs
+  before quota admission could be distinguished from
+  `MANIFEST_BLOB_UNKNOWN`. A streamed guest was then truncated by nested SSH
+  stdin consumption, fixed with `ssh -n` only on input-free calls. The final
+  status fixes preserve the repository object under an `acceptance` evidence
+  namespace and send explicit manifest media-type negotiation. All owner
+  cleanup gates passed after every bounded failure.
+- Idempotency: Repeated `accept` returned `idempotent=yes`; repository,
+  quota-denial marker, evidence, and accepted-marker inode, size, timestamp,
+  owner, and mode were identical before and after. The same public digest,
+  isolation, quota, log, owner-residue, companion, and external-RGW status
+  gates passed twice.
+- Verification: Bash syntax, ShellCheck, five embedded Python compilations,
+  seven focused runtime/tenant tests, refusal tests, changed/new-file
+  Gitleaks, diff checks, clean preflight, quota rejection, full acceptance,
+  independent status, and repeated acceptance pass.
+- Remaining in the baseline task: Prove authenticated data availability while
+  one API, edge, and Distribution replica is stopped and restored; this also
+  supplies the outstanding replica-distribution evidence.
+- Next exact action: Add and locally validate an exact single-service replica
+  fault harness for controller-3. It must stop only one allowlisted Coffer
+  container at a time, run a fault-compatible tenant digest/isolation probe
+  through the surviving external path, restore the same container to healthy,
+  and retain an EXIT recovery trap. Do not stop HAProxy, Galera, or a whole
+  controller in this phase.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1547,7 +1590,7 @@ promotion while ADR 0006 remains blocked.
 | Coffer companion preparation | inventory, inputs, direct RGW transfer, rollback, idempotency, absent runtime | passed; complete marker and integrated ready gate accepted |
 | Coffer HA baseline | companion deploy and replicated service acceptance | passed; 9 healthy replicas, 18 sockets, full TLS/routing and log-hygiene gates |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | passed for daemon and storage-VM loss |
-| OCI and isolation | two-project clients through sole external edge | pending |
+| OCI and isolation | two-project clients through sole external edge | passed; quota 429/success, Docker push/pull, two-part upload, project-B denial, digest/log/residue gates |
 | Fault and recovery matrix | allowlisted per-replica failures and restore checks | pending |
 | Upgrade, key rotation, rollback | bounded rolling rehearsals | pending |
 | Cleanup and repository regression | exact remote/local residue and focused checks | pending |
@@ -1597,14 +1640,12 @@ promotion while ADR 0006 remains blocked.
   root-only deploy marker. Repeated deploy is metadata-idempotent, and the
   nine-container runtime log hygiene gate passes without retained audit
   residue.
-- Exact next action: Implement the bounded two-project Stage 5 tenant
-  acceptance `accept` phase with owner-local OCI traffic, quota denial and
-  success, project isolation, resumable upload, digest evidence, service/client
-  log hygiene, and zero owner-client residue.
-- First file or command: Extend
-  `poc/kolla-ha/guest-run-coffer-tenant-fixture.sh` with the exact control,
-  quota, temporary owner-client, evidence, and marker contracts; commit and
-  validate the new phase before invoking repository or OCI mutations.
+- Exact next action: Implement the controller-3-only API, edge, and
+  Distribution replica stop/probe/healthy-restore cycle.
+- First file or command: Add a fault-compatible read-only tenant data probe
+  that does not require all nine replicas, then use it from a new exact
+  `poc/kolla-ha/test-coffer-service-failover.sh`; commit and preflight before
+  any container stop.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

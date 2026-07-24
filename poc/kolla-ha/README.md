@@ -416,3 +416,31 @@ Controller-2/3 retain no client material. Repeated prepare validates the same
 identities without rotating them. `cleanup` removes the exact credentials,
 users, and projects from the recorded immutable IDs; it is reserved for the
 final fixture teardown after dependent acceptance and fault phases.
+
+Run tenant OCI acceptance only after that finite fixture is prepared:
+
+```text
+poc/kolla-ha/run-coffer-tenant-acceptance.sh preflight <ssh-target>
+poc/kolla-ha/run-coffer-tenant-acceptance.sh accept <ssh-target>
+poc/kolla-ha/run-coffer-tenant-acceptance.sh status <ssh-target>
+```
+
+The clean preflight requires zero target repository and quota rows plus zero
+client residue. `accept` creates or resumes exactly one project-A repository.
+It first sets a one-byte logical quota, uploads two small valid descriptors,
+and requires manifest admission to return OCI `TOOMANYREQUESTS` with HTTP
+429. It then raises the quota to 2 GiB, tags the already present functional
+Coffer image, and runs Docker push and pull through the sole external port
+443 frontend on the unique VIP owner.
+
+The same owner-local client requires project-B Docker pull/push and direct
+tag/blob requests to fail, then uploads a deterministic 2-MiB blob with two
+separate PATCH requests and a final digest commit. Its temporary
+`/etc/hosts` entry, Docker CA directory, auth files, secret copy, and tenant
+image tags are restored or removed by an EXIT trap. Completion also requires
+zero reserved quota, retained manifest/blob digests, exact control-plane
+isolation, and a nine-container runtime-log scan against both tenant
+passwords, both application credential secrets, private-key, Authorization,
+and JWT patterns. Repository/evidence/markers stay root-only on controller-1
+for the later fault matrix. Repeated `accept` performs the read-only boundary
+and does not replace them.

@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; tenant identities prepared, OCI acceptance next
+- Status: plan 0018 active; tenant OCI accepted, service replica faults next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -781,6 +781,30 @@ private-port denial, idempotent replay, and all-node runtime log hygiene.
   use it to create one project-A repository, prove quota 429 and success,
   Docker push/pull, resumable upload, project-B denial, digest persistence,
   all-node tenant-secret log hygiene, and zero external-owner client residue.
+- Added the tenant OCI acceptance in `c3e5fb2`, with bounded corrections
+  through `c2e7357`. The clean preflight passed before repository or quota
+  mutation. One exact project-A repository now has a 2-GiB quota, positive
+  committed usage, and zero reserved usage.
+- The live acceptance proved exact OCI quota 429 with real descriptor blobs,
+  Docker push/pull through the external VIP, project-B Docker and direct API
+  denial, and a deterministic 2-MiB upload across two PATCH requests. Status
+  returns manifest 200, resumable blob 200, and project-B 401.
+- Every owner-local attempt restored `/etc/hosts`, removed the Docker CA/auth
+  tree, deleted the secret copy and tenant image tags, and left no client
+  directory. All nine Coffer logs pass tenant password/application-secret,
+  private-key, Authorization, and JWT scans.
+- Bounded failures corrected only demonstrated causes: Kolla venv path,
+  host/container identity-file separation, explicit outer rc/marker handling,
+  valid quota descriptors, nested SSH stdin isolation, evidence namespacing,
+  and manifest media negotiation. No failed status was accepted as complete.
+- Independent status and repeated `accept` pass. The latter returns
+  `idempotent=yes`; repository, quota marker, evidence, and accepted-marker
+  metadata remain inode/size/timestamp/owner/mode identical.
+- Exact next action: add and commit a controller-3-only API, edge, and
+  Distribution replica stop/probe/restore harness. Its tenant data probe must
+  tolerate exactly one missing replica while retaining public digest,
+  project-B denial, quota, owner cleanup, log hygiene, and full post-restore
+  health.
 
 ## Plan 0017 Completion
 
@@ -1366,12 +1390,12 @@ private-port denial, idempotent replay, and all-node runtime log hygiene.
 
 ## Exact Next Action
 
-Extend `poc/kolla-ha/guest-run-coffer-tenant-fixture.sh` and its outer wrapper
-with a separately guarded `accept` action. Commit and locally validate exact
-repository/control, quota 429/success, temporary owner-local DNS/CA/client,
-Docker push/pull, resumable upload, project-B denial, aggregate evidence,
-tenant-secret log scan, rollback, and marker contracts before invoking any OCI
-or repository mutation.
+Add and locally validate a controller-3-only Coffer service replica fault
+harness. First add a read-only tenant data/isolation probe that can run with
+exactly one API, edge, or Distribution replica unavailable. The fault harness
+must stop only the named container, invoke that probe, restore and require the
+same container healthy, and carry an EXIT recovery trap. Commit and preflight
+the allowlist before stopping any container.
 
 ## After This Work Package
 
