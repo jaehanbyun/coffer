@@ -507,7 +507,7 @@ issue_token() {
     # shellcheck disable=SC2024
     sudo -u ubuntu ssh "${ssh_options[@]}" \
         "ubuntu@${external_owner_address}" \
-        curl --disable --fail --silent --show-error \
+        sudo curl --disable --fail --silent --show-error \
         --retry 5 --retry-all-errors --retry-delay 2 --retry-max-time 30 \
         --config - \
         --cacert "${owner_kolla_ca}" \

@@ -402,6 +402,7 @@ def test_multinode_key_rotation_overlaps_and_retires_every_replica() -> None:
     assert "refusing an unknown unmarked overlap state" in guest
     assert "discover_external_owner" in guest
     assert "owner_kolla_ca" in guest
+    assert "sudo curl --disable" in guest
     assert "--retry-all-errors" in guest
     assert "kolla_serial=1" in guest
     assert '\"${entrypoint}\" upgrade' in guest

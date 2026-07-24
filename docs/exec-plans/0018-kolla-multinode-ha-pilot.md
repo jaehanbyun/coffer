@@ -2141,6 +2141,12 @@ promotion while ADR 0006 remains blocked.
   existing controller SSH trust. It writes no credential on the owner,
   retries only the external request for at most 30 seconds, and removes every
   exact label file on a failed exchange.
+- Follow-up correction: The first owner-routed attempt used the unprivileged
+  SSH user for curl. Although the selected CA file itself is public, its Kolla
+  parent directory is root-restricted, so curl returned error 77. The remote
+  request now uses only the existing passwordless root curl boundary. An
+  independent audit confirms the failed attempt removed all token files,
+  retained only the prepared marker, and left no temporary globals overlay.
 - Next exact action: Validate and commit the owner-client correction, then
   resume only key-rotation `run`. Require no token residue, complete overlap
   and signer markers, full old-token lifetime, old-key retirement, and all

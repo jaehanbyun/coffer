@@ -1759,7 +1759,7 @@ marker-idempotent replay passed.
 
 ## Exact Next Action
 
-Validate and commit the key-rotation external-owner token-client correction,
+Validate and commit the key-rotation external-owner root-curl correction,
 then invoke only
 `poc/kolla-ha/run-coffer-key-rotation.sh run
 jh.byun@100.123.168.66`. The audited live boundary is old signers with
