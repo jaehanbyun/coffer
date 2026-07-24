@@ -531,15 +531,30 @@ classify_predeploy_or_partial_boundary() {
         boundary_state=prechecked
         return 0
     fi
-    test "${total_containers}" -eq 0
-    test "${total_running}" -eq 0
-    test "${total_healthy}" -eq 0
-    test "${total_unhealthy}" -eq 0
-    test "${total_bootstrap}" -eq 0
-    test "${total_listeners}" -eq 9
-    test "${total_configs}" -eq 12
-    probe_database_and_catalog partial
-    boundary_state=deploy-partial
+    if test "${total_containers}" -eq 0 &&
+        test "${total_running}" -eq 0 &&
+        test "${total_healthy}" -eq 0 &&
+        test "${total_unhealthy}" -eq 0 &&
+        test "${total_bootstrap}" -eq 0 &&
+        test "${total_listeners}" -eq 9 &&
+        test "${total_configs}" -eq 12; then
+        probe_database_and_catalog partial
+        boundary_state=deploy-partial
+        return 0
+    fi
+    if test "${total_containers}" -eq 9 &&
+        test "${total_running}" -eq 9 &&
+        test "${total_healthy}" -eq 9 &&
+        test "${total_unhealthy}" -eq 0 &&
+        test "${total_bootstrap}" -le 1 &&
+        test "${total_listeners}" -eq 18 &&
+        test "${total_configs}" -eq 12; then
+        probe_database_and_catalog deployed
+        probe_service_endpoints
+        boundary_state=deploy-candidate
+        return 0
+    fi
+    return 1
 }
 
 require_deployed_boundary() {
@@ -549,7 +564,7 @@ require_deployed_boundary() {
     test "${total_healthy}" -eq 9
     test "${total_unhealthy}" -eq 0
     test "${total_bootstrap}" -le 1
-    test "${total_listeners}" -eq 9
+    test "${total_listeners}" -eq 18
     test "${total_configs}" -eq 12
     probe_database_and_catalog deployed
     probe_service_endpoints
@@ -675,7 +690,9 @@ case "${action}" in
             exit 0
         fi
         classify_predeploy_or_partial_boundary
-        run_companion deploy 7200
+        if test "${boundary_state}" != deploy-candidate; then
+            run_companion deploy 7200
+        fi
         run_companion_check
         require_deployed_boundary
         write_marker deploy

@@ -1387,6 +1387,30 @@ promotion while ADR 0006 remains blocked.
   jh.byun@100.123.168.66`, require lifecycle status `deploy-partial`, then
   resume only the guarded companion deploy action.
 
+### 2026-07-24 — Deploy recovered; listener acceptance corrected
+
+- Completed: Preserved the bootstrap CA/operator-source repair in commit
+  `fa99e3a`. The exact two-file overlay passed, lifecycle status classified
+  the remote state as `deploy-partial`, and the resumed Ansible deploy plus
+  Kolla check completed with zero failed or unreachable hosts.
+- Runtime evidence: Three API, three edge, and three private Distribution
+  containers are running and healthy. The migration/bootstrap step returned
+  successfully, and no reconciler or bootstrap container remains running.
+  External Ceph/RGW remains fully healthy.
+- Acceptance failure: The deploy marker was correctly withheld because the
+  harness expected nine listeners total. Production HAProxy uses nonlocal VIP
+  binds on all three controllers in addition to each node's three service
+  backends, yielding six sockets per node and an exact total of 18.
+- Correction: Admit only the exact healthy candidate with nine containers,
+  18 listeners, twelve configs, no unhealthy/reconciler process, migration
+  head, and complete catalog/TLS/routing probes. For this candidate, rerun
+  Kolla check and all acceptance probes without replaying the already
+  successful deploy before writing the marker.
+- Next exact action: Validate and locally commit this listener/candidate
+  correction, run read-only lifecycle status to exercise the remaining
+  schema/catalog/TLS/bypass probes, then resume deploy only to create its
+  marker after the same full gate passes.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1459,16 +1483,14 @@ promotion while ADR 0006 remains blocked.
   three-host groups, production globals, controller-1-only secret/public
   inputs, verified backend/RGW TLS, and durable owner/input/completion markers
   pass both integrated ready and repeated metadata-idempotency checks. The
-  failed first deploy now has an exact resumable partial state: no Coffer
-  container or migration table, but twelve rendered configs, nine HAProxy
-  listeners, and the database/catalog identities. The deploy marker is absent.
-- Exact next action: Commit the bootstrap-CA and exact-resume repair, prepare
-  the separate operator source, require lifecycle status `deploy-partial`,
-  then resume only companion deploy. Do not proceed to tenant or fault tests
-  until the deploy marker and all post-deploy gates pass.
-- First file or command: Stage the bootstrap CA fix, its focused test, the
-  operator-source/lifecycle correction, this plan, README, and HANDOFF; commit
-  the atomic repair, then invoke only operator-source `prepare`.
+  recovered deploy has nine healthy service containers, twelve configs, 18
+  backend/frontend listeners, and no deploy marker until the corrected
+  acceptance completes.
+- Exact next action: Commit the 18-listener/healthy-candidate correction and
+  run read-only lifecycle status. If all schema/catalog/TLS/routing probes
+  pass, resume deploy only to rerun Kolla check and write the marker.
+- First file or command: Stage the guest lifecycle correction, this plan, and
+  HANDOFF; inspect and commit that atomic acceptance fix.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

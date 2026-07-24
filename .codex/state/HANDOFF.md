@@ -690,6 +690,22 @@ signed Distribution v3.1.1 binary.
 - Exact next action: commit the bootstrap CA, operator-source, and exact-resume
   correction locally. Invoke only operator-source `prepare`, require lifecycle
   `status` to classify `deploy-partial`, then resume only companion `deploy`.
+- Preserved that repair in local commit `fa99e3a`. The operator-source
+  transaction created the exact two-file overlay without changing the clean
+  published source or images, and lifecycle status accepted the exact
+  `deploy-partial` state.
+- The resumed Ansible deploy and Kolla check both passed. All three recaps
+  have zero failures/unreachable hosts, and nine Coffer service containers are
+  running and healthy. Acceptance withheld the deploy marker because its
+  listener expectation counted only nine service backends; production
+  HAProxy also binds three nonlocal VIP frontends on every controller, so the
+  observed exact total is 18.
+- Correction: accept only the exact 9-container/18-listener/12-config healthy
+  deploy candidate, rerun Kolla check plus schema/catalog/TLS/routing probes,
+  and write the marker without unnecessarily replaying the successful deploy.
+- Exact next action: validate and locally commit this listener/candidate
+  correction, run lifecycle status to exercise every remaining post-deploy
+  probe, then resume deploy only to write the marker after the same gates pass.
 
 ## Plan 0017 Completion
 
@@ -1275,11 +1291,10 @@ signed Distribution v3.1.1 binary.
 
 ## Exact Next Action
 
-Commit the bootstrap CA propagation fix, focused tests, exact operator-source
-preparation, and partial-state resume gates. Then prepare only that operator
-source through `jh.byun@100.123.168.66`, require lifecycle status
-`deploy-partial`, and resume only deploy. Keep the marker absent until all
-replica, schema/catalog, TLS/routing, log, and RGW gates pass.
+Commit the exact 18-listener and healthy deploy-candidate correction, then run
+read-only lifecycle status through `jh.byun@100.123.168.66`. If all remaining
+schema/catalog/TLS/routing probes pass, resume deploy only to rerun Kolla check
+and write the marker without replaying the successful Ansible deploy.
 
 ## After This Work Package
 
