@@ -150,10 +150,13 @@ REMOTE
 }
 
 control_snapshot() {
+    local project_a
+    local project_b
+
+    project_a="$(jq -er '.project_a.project_id' "${identity_state}")"
+    project_b="$(jq -er '.project_b.project_id' "${identity_state}")"
     docker exec -i coffer_api /var/lib/kolla/venv/bin/python3 - \
-        "${identity_state}" "${repository_name}" <<'PY'
-from pathlib import Path
-import json
+        "${repository_name}" "${project_a}" "${project_b}" <<'PY'
 import sys
 
 from coffer.config import parse_config
@@ -161,10 +164,9 @@ from coffer.db import RepositoryStore
 from coffer.quota import QuotaNotConfigured, QuotaStore
 
 
-state = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-repository_name = sys.argv[2]
-project_a = state["project_a"]["project_id"]
-project_b = state["project_b"]["project_id"]
+repository_name = sys.argv[1]
+project_a = sys.argv[2]
+project_b = sys.argv[3]
 configuration = parse_config(
     args=["--config-file", "/etc/coffer/coffer.conf"]
 )
