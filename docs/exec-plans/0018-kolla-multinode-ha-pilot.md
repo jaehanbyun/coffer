@@ -2101,6 +2101,29 @@ promotion while ADR 0006 remains blocked.
   switch the signer, preserve old-token service, wait the full lifetime, retire
   old trust, and pass all replica/residue/final gates.
 
+### 2026-07-25 — Overlap deployment converged before its marker
+
+- Failure: The corrected run generated valid owner-only material and completed
+  the serial overlap Kolla phase with zero failed or unreachable Ansible
+  hosts. Its immediate post-deploy runtime assertion nevertheless exited
+  before writing the overlap marker while container health was still
+  converging.
+- Safety evidence: An independent aggregate audit found the exact recoverable
+  boundary: the source and all six edge/Distribution recipients have only the
+  expected old+new JWKS, all three API signers remain on the old key, all nine
+  containers are healthy, the persistent key ID remains old, no token exists,
+  and the temporary globals overlay is absent. Tenant manifest/blob reads and
+  project isolation continued to pass throughout and after the run.
+- Correction: Mutation phases now wait a bounded two minutes for all three
+  replicas to converge. An unmarked overlap phase may adopt only the exact
+  old-signer/old+new-verifier state; an unknown JWKS state fails closed. The
+  resumed phase still mints and verifies the old token before it records the
+  marker.
+- Next exact action: Validate and commit this convergence/adoption correction,
+  then rerun only key-rotation `run` from the audited exact overlap state.
+  Require the remaining signer, lifetime, retirement, residue, and final
+  acceptance gates before compatible image rollback.
+
 ## Verification
 
 | Check | Command or method | Result |

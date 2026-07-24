@@ -397,6 +397,9 @@ def test_multinode_key_rotation_overlaps_and_retires_every_replica() -> None:
     assert "overlap-jwks.json" in guest
     assert "from coffer.tokens import" not in guest
     assert 'if test ! -e "${prepared_marker}"' in guest
+    assert "wait_runtime_state" in guest
+    assert "resume=adopted" in guest
+    assert "refusing an unknown unmarked overlap state" in guest
     assert "kolla_serial=1" in guest
     assert '\"${entrypoint}\" upgrade' in guest
     assert "coffer-stage5-key-rotation-globals.yml" in guest

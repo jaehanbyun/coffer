@@ -442,6 +442,26 @@ REMOTE
     done
 }
 
+wait_runtime_state() {
+    local expected_kid="$1"
+    local expected_jwks="$2"
+    local attempt
+    local snapshot
+
+    for attempt in $(seq 1 60); do
+        if snapshot="$(runtime_state "${expected_kid}" "${expected_jwks}" 2>/dev/null)"; then
+            printf '%s\n' "${snapshot}"
+            printf 'coffer_key_rotation_runtime state=converged attempt=%s\n' \
+                "${attempt}"
+            return 0
+        fi
+        sleep 2
+    done
+    printf 'Coffer key-rotation runtime did not converge: signer=%s jwks=%s\n' \
+        "${expected_kid}" "${expected_jwks}" >&2
+    return 1
+}
+
 issue_token() {
     local label="$1"
     local expected_kid="$2"
@@ -657,12 +677,12 @@ if test "${action}" = rollback; then
     fi
     install_public_jwks "${new_root}/overlap-jwks.json"
     run_upgrade rollback-overlap "${new_kid}"
-    runtime_state "${new_kid}" "${current_kid},${new_kid}"
+    wait_runtime_state "${new_kid}" "${current_kid},${new_kid}"
     issue_token rollback-new "${new_kid}"
     install_private_key "${original_root}/signing-key.pem"
     run_upgrade rollback-signer "${current_kid}"
     update_persistent_kid "${current_kid}"
-    runtime_state "${current_kid}" "${current_kid},${new_kid}"
+    wait_runtime_state "${current_kid}" "${current_kid},${new_kid}"
     issue_token rollback-old "${current_kid}"
     probe_token rollback-new 200 400
     probe_token rollback-old 200 400
@@ -672,7 +692,7 @@ if test "${action}" = rollback; then
     done
     install_public_jwks "${original_root}/jwks.json"
     run_upgrade rollback-retire "${current_kid}"
-    runtime_state "${current_kid}" "${current_kid}"
+    wait_runtime_state "${current_kid}" "${current_kid}"
     remove_tokens
     write_marker "${rollback_marker}" "signer=${current_kid} jwks=${current_kid}"
     printf 'coffer_key_rotation phase=rollback result=passed signer=%s\n' \
@@ -692,9 +712,22 @@ if test -e "${complete_marker}"; then
 fi
 
 if test ! -e "${overlap_marker}"; then
-    install_public_jwks "${new_root}/overlap-jwks.json"
-    run_upgrade overlap "${current_kid}"
-    runtime_state "${current_kid}" "${current_kid},${new_kid}"
+    source_kids="$(jwks_kids "${public_root}/jwks.json")"
+    case "${source_kids}" in
+        "${current_kid}")
+            install_public_jwks "${new_root}/overlap-jwks.json"
+            run_upgrade overlap "${current_kid}"
+            wait_runtime_state "${current_kid}" "${current_kid},${new_kid}"
+            ;;
+        "${current_kid},${new_kid}")
+            wait_runtime_state "${current_kid}" "${current_kid},${new_kid}"
+            printf 'coffer_key_rotation phase=overlap resume=adopted\n'
+            ;;
+        *)
+            echo "refusing an unknown unmarked overlap state" >&2
+            exit 1
+            ;;
+    esac
     issue_token old "${current_kid}"
     write_marker "${overlap_marker}" \
         "signer=${current_kid} jwks=${current_kid},${new_kid}"
@@ -704,7 +737,7 @@ if test ! -e "${signer_marker}"; then
     install_private_key "${new_root}/signing-key.pem"
     run_upgrade signer "${new_kid}"
     update_persistent_kid "${new_kid}"
-    runtime_state "${new_kid}" "${current_kid},${new_kid}"
+    wait_runtime_state "${new_kid}" "${current_kid},${new_kid}"
     issue_token new "${new_kid}"
     probe_token old 200 400
     probe_token new 200 400
@@ -719,7 +752,7 @@ if test ! -e "${retired_marker}"; then
     done
     install_public_jwks "${new_root}/jwks.json"
     run_upgrade retire "${new_kid}"
-    runtime_state "${new_kid}" "${new_kid}"
+    wait_runtime_state "${new_kid}" "${new_kid}"
     issue_token retired-new "${new_kid}"
     make_synthetic_old_token
     probe_token retired-new 200 400

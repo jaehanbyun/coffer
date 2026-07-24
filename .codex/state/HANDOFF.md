@@ -1759,12 +1759,14 @@ marker-idempotent replay passed.
 
 ## Exact Next Action
 
-Commit the key-material preparation-resume correction, then invoke only
+Validate and commit the key-rotation runtime-convergence and exact overlap
+adoption correction, then invoke only
 `poc/kolla-ha/run-coffer-key-rotation.sh run
-jh.byun@100.123.168.66` from the exact owner-only partial state. Require serial
-old+new trust, signer switch, old/new-token acceptance across every replica,
-retirement only after the full old-token lifetime, new success/old denial, no
-token or temporary overlay residue, and complete service/log/RGW gates.
+jh.byun@100.123.168.66`. The audited live boundary is old signers with
+old+new verifier trust on all three replicas, no overlap marker, no tokens, and
+no temporary globals overlay. The resume must adopt only that exact state,
+then finish signer switch, old/new-token acceptance, full-lifetime retirement,
+new success/old denial, residue cleanup, and complete service/log/RGW gates.
 
 ## After This Work Package
 
