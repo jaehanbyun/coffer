@@ -321,6 +321,22 @@ signed Distribution v3.1.1 binary.
   only
   `poc/kolla-ha/run-kolla-lifecycle.sh bootstrap
   jh.byun@100.123.168.66`.
+- Preserved the correction in local commit `bb34850` and resumed only
+  `bootstrap`. It completed with all three controllers at `failed=0` and
+  `unreachable=0`; controller-1 changed 16 tasks and controller-2/3 changed
+  17 each.
+- Independent acceptance confirms Docker installed and active `3/3`, zero
+  containers, zero images, zero internal/external VIP owners, an exact
+  root-only bootstrap marker and log, unchanged root-only passwords, and no
+  prechecks/pull/deploy marker. Lifecycle status reports only `bootstrap`
+  complete.
+- The external storage audit still reports three-MON quorum, three up/in OSDs,
+  three RGWs, two ingress pairs, zero inactive/unclean PGs, and `HEALTH_OK`.
+- Exact next action: invoke only
+  `poc/kolla-ha/run-kolla-lifecycle.sh prechecks
+  jh.byun@100.123.168.66`. If it fails, retain and inspect only the redacted
+  root-only prechecks log, verify the success marker absent, and do not pull
+  images.
 
 ## Plan 0017 Completion
 
