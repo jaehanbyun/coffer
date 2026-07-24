@@ -867,7 +867,7 @@ case "${action}" in
         test "$(stat -c '%U:%G:%a' "${production_profile_marker}")" = \
             root:root:600
         test "$(cat "${production_profile_marker}")" = \
-            coffer-stage5-production-profile-v2
+            coffer-stage5-production-profile-v3
         run_kolla reconfigure 7200 reconfigure
         collect_status
         test "${status_docker}" -eq 3

@@ -295,6 +295,7 @@ def validate_ready(
         "kolla_enable_tls_internal": True,
         "kolla_enable_tls_external": True,
         "haproxy_single_external_frontend": True,
+        "openstack_cacert": "/etc/ssl/certs/ca-certificates.crt",
     }
     for name, value in required_globals.items():
         if globals_document.get(name) is not value:

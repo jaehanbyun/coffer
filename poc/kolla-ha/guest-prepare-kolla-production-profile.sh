@@ -20,8 +20,9 @@ proxysql_ca="${certificate_root}/proxysql-ca.pem"
 proxysql_certificate="${certificate_root}/proxysql-cert.pem"
 proxysql_key="${certificate_root}/proxysql-key.pem"
 marker="/home/ubuntu/coffer-stage5/production-profile.prepared"
-legacy_marker_value="coffer-stage5-production-profile-v1"
-marker_value="coffer-stage5-production-profile-v2"
+legacy_marker_value_v1="coffer-stage5-production-profile-v1"
+legacy_marker_value_v2="coffer-stage5-production-profile-v2"
+marker_value="coffer-stage5-production-profile-v3"
 expected_containers=(
     cron
     fluentd
@@ -159,7 +160,7 @@ if state == "clean":
         raise SystemExit("single external frontend is unexpectedly enabled")
     if "haproxy_single_external_frontend_public_port" in document:
         raise SystemExit("single frontend port is unexpectedly explicit")
-elif state == "prepared":
+elif state in {"prepared-v2", "prepared"}:
     expected_profile = {
         "kolla_enable_tls_internal": True,
         "haproxy_single_external_frontend": True,
@@ -168,6 +169,13 @@ elif state == "prepared":
     for name, value in expected_profile.items():
         if document.get(name) != value:
             raise SystemExit(f"production profile mismatch: {name}")
+    if state == "prepared":
+        if document.get("openstack_cacert") != (
+            "/etc/ssl/certs/ca-certificates.crt"
+        ):
+            raise SystemExit("OpenStack container CA bundle path is missing")
+    elif "openstack_cacert" in document:
+        raise SystemExit("v2 profile unexpectedly has an OpenStack CA path")
 else:
     raise SystemExit("unknown globals validation state")
 PY
@@ -231,8 +239,8 @@ validate_prepared() {
 
 validate_legacy_prepared() {
     test "$(stat -c '%U:%G:%a' "${marker}")" = root:root:600
-    test "$(cat "${marker}")" = "${legacy_marker_value}"
-    validate_globals prepared
+    test "$(cat "${marker}")" = "${legacy_marker_value_v1}"
+    validate_globals prepared-v2
     validate_certificate "${internal_certificate}" ip 192.168.252.10
     validate_certificate "${external_certificate}" ip 192.168.254.10
     validate_certificate \
@@ -240,6 +248,25 @@ validate_legacy_prepared() {
     test ! -e "${proxysql_ca}"
     test ! -e "${proxysql_certificate}"
     test ! -e "${proxysql_key}"
+}
+
+validate_intermediate_prepared() {
+    test "$(stat -c '%U:%G:%a' "${marker}")" = root:root:600
+    test "$(cat "${marker}")" = "${legacy_marker_value_v2}"
+    validate_globals prepared-v2
+    validate_certificate "${internal_certificate}" ip 192.168.252.10
+    validate_certificate "${external_certificate}" ip 192.168.254.10
+    validate_certificate \
+        "${external_certificate}" hostname registry.coffer.stage5
+    test "$(stat -c '%U:%G:%a' "${proxysql_ca}")" = root:root:644
+    test "$(stat -c '%U:%G:%a' "${proxysql_certificate}")" = \
+        root:root:644
+    test "$(stat -c '%U:%G:%a' "${proxysql_key}")" = root:root:600
+    cmp --silent "${root_ca}" "${proxysql_ca}"
+    openssl verify \
+        -CAfile "${proxysql_ca}" \
+        -verify_ip 192.168.252.10 \
+        "${proxysql_certificate}" >/dev/null
 }
 
 runtime_before="$(runtime_snapshot)"
@@ -252,9 +279,14 @@ if test "${action}" = status; then
                 validate_prepared
                 profile_state=prepared
                 ;;
-            "${legacy_marker_value}")
+            "${legacy_marker_value_v1}")
                 validate_legacy_prepared
                 echo "Kolla production profile requires ProxySQL TLS inputs" >&2
+                exit 78
+                ;;
+            "${legacy_marker_value_v2}")
+                validate_intermediate_prepared
+                echo "Kolla production profile requires a container CA path" >&2
                 exit 78
                 ;;
             *)
@@ -282,9 +314,13 @@ if test -e "${marker}"; then
                 "${runtime_before}"
             exit 0
             ;;
-        "${legacy_marker_value}")
+        "${legacy_marker_value_v1}")
             validate_legacy_prepared
-            starting_state=legacy
+            starting_state=legacy-v1
+            ;;
+        "${legacy_marker_value_v2}")
+            validate_intermediate_prepared
+            starting_state=legacy-v2
             ;;
         *)
             echo "refusing an unknown production-profile marker" >&2
@@ -303,18 +339,27 @@ cleanup_temporary() {
 }
 
 rollback_profile() {
-    rm -f -- \
-        "${proxysql_ca}" \
-        "${proxysql_certificate}" \
-        "${proxysql_key}"
+    install -o root -g root -m 0644 \
+        "${temporary}/globals.original" "${globals}"
     if test "${starting_state}" = clean; then
-        install -o root -g root -m 0644 \
-            "${temporary}/globals.original" "${globals}"
         install -o root -g root -m 0600 \
             "${temporary}/external.original" "${external_certificate}"
-        rm -f -- "${internal_certificate}" "${marker}"
+        rm -f -- \
+            "${internal_certificate}" \
+            "${proxysql_ca}" \
+            "${proxysql_certificate}" \
+            "${proxysql_key}" \
+            "${marker}"
+    elif test "${starting_state}" = legacy-v1; then
+        rm -f -- \
+            "${proxysql_ca}" \
+            "${proxysql_certificate}" \
+            "${proxysql_key}"
+        printf '%s\n' "${legacy_marker_value_v1}" >"${marker}"
+        chown root:root "${marker}"
+        chmod 0600 "${marker}"
     else
-        printf '%s\n' "${legacy_marker_value}" >"${marker}"
+        printf '%s\n' "${legacy_marker_value_v2}" >"${marker}"
         chown root:root "${marker}"
         chmod 0600 "${marker}"
     fi
@@ -332,13 +377,17 @@ finish() {
 }
 trap finish EXIT
 
+install -o root -g root -m 0644 "${globals}" \
+    "${temporary}/globals.original"
 if test "${starting_state}" = clean; then
-    install -o root -g root -m 0644 "${globals}" \
-        "${temporary}/globals.original"
     install -o root -g root -m 0600 "${external_certificate}" \
         "${temporary}/external.original"
+fi
 
-    python3 - "${globals}" "${temporary}/globals.prepared" <<'PY'
+python3 - \
+    "${globals}" \
+    "${temporary}/globals.prepared" \
+    "${starting_state}" <<'PY'
 from pathlib import Path
 import sys
 
@@ -347,37 +396,47 @@ import yaml
 
 source = Path(sys.argv[1])
 destination = Path(sys.argv[2])
+starting_state = sys.argv[3]
 text = source.read_text(encoding="utf-8")
-if text.count("kolla_enable_tls_internal: false") != 1:
-    raise SystemExit("expected one disabled internal TLS setting")
-if "haproxy_single_external_frontend:" in text:
-    raise SystemExit("single external frontend is already explicit")
-prepared = text.replace(
-    "kolla_enable_tls_internal: false",
-    "kolla_enable_tls_internal: true",
-)
-prepared += (
-    '\nhaproxy_single_external_frontend: true\n'
-    'haproxy_single_external_frontend_public_port: "443"\n'
-)
 before = yaml.safe_load(text)
+if starting_state == "clean":
+    if text.count("kolla_enable_tls_internal: false") != 1:
+        raise SystemExit("expected one disabled internal TLS setting")
+    if "haproxy_single_external_frontend:" in text:
+        raise SystemExit("single external frontend is already explicit")
+    prepared = text.replace(
+        "kolla_enable_tls_internal: false",
+        "kolla_enable_tls_internal: true",
+    )
+    prepared += (
+        '\nhaproxy_single_external_frontend: true\n'
+        'haproxy_single_external_frontend_public_port: "443"\n'
+    )
+else:
+    prepared = text
+if "openstack_cacert:" in prepared:
+    raise SystemExit("OpenStack CA bundle path is already explicit")
+prepared += 'openstack_cacert: "/etc/ssl/certs/ca-certificates.crt"\n'
 after = yaml.safe_load(prepared)
 changed = {
     key
     for key in before.keys() | after.keys()
     if before.get(key) != after.get(key)
 }
-expected = {
-    "kolla_enable_tls_internal",
-    "haproxy_single_external_frontend",
-    "haproxy_single_external_frontend_public_port",
-}
+expected = {"openstack_cacert"}
+if starting_state == "clean":
+    expected.update(
+        {
+            "kolla_enable_tls_internal",
+            "haproxy_single_external_frontend",
+            "haproxy_single_external_frontend_public_port",
+        }
+    )
 if changed != expected:
     raise SystemExit("Kolla globals mutation exceeded the allowlist")
 destination.write_text(prepared, encoding="utf-8")
 PY
-    chmod 0644 "${temporary}/globals.prepared"
-fi
+chmod 0644 "${temporary}/globals.prepared"
 
 generate_leaf() {
     local name="$1"
@@ -420,19 +479,21 @@ if test "${starting_state}" = clean; then
     generate_leaf \
         external 192.168.254.10 \
         "IP:192.168.254.10,DNS:registry.coffer.stage5"
-else
+elif test "${starting_state}" = legacy-v1; then
     openssl x509 -in "${internal_certificate}" \
         -out "${temporary}/internal.crt"
     openssl pkey -in "${internal_certificate}" \
         -out "${temporary}/internal.key"
 fi
 
-install -o root -g root -m 0644 \
-    "${root_ca}" "${temporary}/proxysql-ca.pem"
-install -o root -g root -m 0644 \
-    "${temporary}/internal.crt" "${temporary}/proxysql-cert.pem"
-install -o root -g root -m 0600 \
-    "${temporary}/internal.key" "${temporary}/proxysql-key.pem"
+if test "${starting_state}" != legacy-v2; then
+    install -o root -g root -m 0644 \
+        "${root_ca}" "${temporary}/proxysql-ca.pem"
+    install -o root -g root -m 0644 \
+        "${temporary}/internal.crt" "${temporary}/proxysql-cert.pem"
+    install -o root -g root -m 0600 \
+        "${temporary}/internal.key" "${temporary}/proxysql-key.pem"
+fi
 
 openssl verify \
     -CAfile "${root_ca}" \
@@ -454,10 +515,12 @@ openssl verify \
             printf '%s' "${external_certificate}"
         fi
     )" >/dev/null
-openssl verify \
-    -CAfile "${temporary}/proxysql-ca.pem" \
-    -verify_ip 192.168.252.10 \
-    "${temporary}/proxysql-cert.pem" >/dev/null
+if test "${starting_state}" != legacy-v2; then
+    openssl verify \
+        -CAfile "${temporary}/proxysql-ca.pem" \
+        -verify_ip 192.168.252.10 \
+        "${temporary}/proxysql-cert.pem" >/dev/null
+fi
 
 changed=1
 if test "${starting_state}" = clean; then
@@ -465,15 +528,17 @@ if test "${starting_state}" = clean; then
         "${temporary}/internal.pem" "${internal_certificate}"
     install -o root -g root -m 0600 \
         "${temporary}/external.pem" "${external_certificate}"
-    install -o root -g root -m 0644 \
-        "${temporary}/globals.prepared" "${globals}"
 fi
 install -o root -g root -m 0644 \
-    "${temporary}/proxysql-ca.pem" "${proxysql_ca}"
-install -o root -g root -m 0644 \
-    "${temporary}/proxysql-cert.pem" "${proxysql_certificate}"
-install -o root -g root -m 0600 \
-    "${temporary}/proxysql-key.pem" "${proxysql_key}"
+    "${temporary}/globals.prepared" "${globals}"
+if test "${starting_state}" != legacy-v2; then
+    install -o root -g root -m 0644 \
+        "${temporary}/proxysql-ca.pem" "${proxysql_ca}"
+    install -o root -g root -m 0644 \
+        "${temporary}/proxysql-cert.pem" "${proxysql_certificate}"
+    install -o root -g root -m 0600 \
+        "${temporary}/proxysql-key.pem" "${proxysql_key}"
+fi
 printf '%s\n' "${marker_value}" >"${marker}"
 chown root:root "${marker}"
 chmod 0600 "${marker}"
