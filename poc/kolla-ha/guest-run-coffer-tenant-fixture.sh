@@ -4,13 +4,13 @@ set -Eeuo pipefail
 umask 077
 
 if [[ "$#" -ne 1 ]]; then
-    echo "usage: $0 {preflight|prepare|status|cleanup}" >&2
+    echo "usage: $0 {preflight|prepare|renew-preflight|renew|status|cleanup}" >&2
     exit 64
 fi
 
 action="$1"
 case "${action}" in
-    preflight|prepare|status|cleanup)
+    preflight|prepare|renew-preflight|renew|status|cleanup)
         ;;
     *)
         echo "refusing an unknown Coffer tenant fixture action" >&2
@@ -23,7 +23,9 @@ state_root="/home/ubuntu/coffer-stage5"
 fixture_root="${state_root}/tenant-fixture"
 identity_state="${fixture_root}/identities.json"
 prepared_marker="${fixture_root}/prepared.complete"
+renewed_marker="${fixture_root}/renewed.complete"
 marker_value="coffer-stage5-tenant-fixture-v1"
+renewed_marker_value="coffer-stage5-tenant-credential-renewal-v1"
 passwords="/etc/kolla/passwords.yml"
 deployment_key="/home/ubuntu/.ssh/coffer-stage5-kolla"
 known_hosts="/home/ubuntu/.ssh/coffer-stage5-known_hosts"
@@ -99,7 +101,7 @@ run_identity_action() {
     local rc
 
     case "${identity_action}" in
-        preflight|prepare|status|cleanup)
+        preflight|prepare|renew-status|renew-stage|renew-finalize|status|cleanup)
             ;;
         *)
             echo "refusing an unknown identity action" >&2
@@ -110,7 +112,7 @@ run_identity_action() {
     test ! -e "${toolbox_state}"
     materialize_admin_password
     case "${identity_action}" in
-        status|cleanup)
+        renew-status|renew-stage|renew-finalize|status|cleanup)
             test "$(stat -c '%U:%G:%a' "${identity_state}")" = root:root:600
             install -o root -g root -m 0600 \
                 "${identity_state}" "${toolbox_state}"
@@ -157,6 +159,10 @@ USER_NAMES = {
 APPLICATION_CREDENTIAL_NAMES = {
     "project_a": "coffer-stage5-credential-a",
     "project_b": "coffer-stage5-credential-b",
+}
+RENEWED_APPLICATION_CREDENTIAL_NAMES = {
+    "project_a": "coffer-stage5-credential-a-renewal-1",
+    "project_b": "coffer-stage5-credential-b-renewal-1",
 }
 
 
@@ -276,16 +282,25 @@ def cleanup(connection: Connection, state: dict[str, Any]) -> None:
             connection.identity.delete_project(project_id, ignore_missing=True)
 
 
-def load_state() -> dict[str, Any]:
+def load_state(*, allow_pending_retire: bool = False) -> dict[str, Any]:
     if not STATE_PATH.is_file() or STATE_PATH.stat().st_mode & 0o077:
         raise RuntimeError("tenant identity state is absent or not owner-only")
     state = json.loads(STATE_PATH.read_text(encoding="utf-8"))
-    if set(state) != {"expires_at", "project_a", "project_b"}:
+    expected = {"expires_at", "project_a", "project_b"}
+    if allow_pending_retire:
+        expected.add("pending_retire")
+    if set(state) != expected:
         raise RuntimeError("tenant identity state shape changed")
     return state
 
 
-def validate_state(connection: Connection, state: dict[str, Any]) -> None:
+def validate_state(
+    connection: Connection,
+    state: dict[str, Any],
+    *,
+    allow_pending_retire: bool = False,
+    allow_missing_retired: bool = False,
+) -> None:
     expires_at = datetime.strptime(
         state["expires_at"], "%Y-%m-%dT%H:%M:%S"
     ).replace(tzinfo=UTC)
@@ -293,6 +308,7 @@ def validate_state(connection: Connection, state: dict[str, Any]) -> None:
         raise RuntimeError("tenant application credentials expired")
     domain = connection.identity.find_domain("default", ignore_missing=False)
     member = connection.identity.find_role("member", ignore_missing=False)
+    credential_ids_by_fixture: dict[str, set[str]] = {}
     for fixture_name in ("project_a", "project_b"):
         fixture = state[fixture_name]
         project = connection.identity.get_project(fixture["project_id"])
@@ -313,21 +329,54 @@ def validate_state(connection: Connection, state: dict[str, Any]) -> None:
         )
         if len(assignments) != 1:
             raise RuntimeError("tenant member assignment changed")
-        credentials = list(
+        named_credentials = list(
             connection.identity.application_credentials(
                 user=user.id,
-                name=APPLICATION_CREDENTIAL_NAMES[fixture_name],
+                name=fixture["application_credential_name"],
             )
         )
         if (
-            len(credentials) != 1
-            or credentials[0].id != fixture["application_credential_id"]
+            len(named_credentials) != 1
+            or named_credentials[0].id != fixture["application_credential_id"]
         ):
             raise RuntimeError("tenant application credential changed")
+        credentials = list(
+            connection.identity.application_credentials(user=user.id)
+        )
+        expected_credential_counts = (
+            {1, 2}
+            if allow_pending_retire and allow_missing_retired
+            else {2}
+            if allow_pending_retire
+            else {1}
+        )
+        if len(credentials) not in expected_credential_counts:
+            raise RuntimeError("tenant application credential count changed")
+        credential_ids_by_fixture[fixture_name] = {
+            credential.id for credential in credentials
+        }
         application_credential_connection(
             fixture["application_credential_id"],
             fixture["application_credential_secret"],
         ).authorize()
+    if allow_pending_retire:
+        pending = state["pending_retire"]
+        if set(pending) != {"project_a", "project_b"}:
+            raise RuntimeError("tenant pending credential shape changed")
+        for fixture_name in ("project_a", "project_b"):
+            retired = pending[fixture_name]
+            if set(retired) != {"application_credential_id"}:
+                raise RuntimeError("tenant retired credential shape changed")
+            if retired["application_credential_id"] == state[fixture_name][
+                "application_credential_id"
+            ]:
+                raise RuntimeError("tenant credential renewal did not rotate")
+            if (
+                not allow_missing_retired
+                and retired["application_credential_id"]
+                not in credential_ids_by_fixture[fixture_name]
+            ):
+                raise RuntimeError("tenant retired credential disappeared")
 
 
 def preflight() -> None:
@@ -439,6 +488,130 @@ def status() -> None:
     )
 
 
+def renew_stage() -> None:
+    connection = admin_connection()
+    state = load_state()
+    validate_state(connection, state)
+    member = connection.identity.find_role("member", ignore_missing=False)
+    expires_at = (datetime.now(UTC) + timedelta(hours=12)).strftime(
+        "%Y-%m-%dT%H:%M:%S"
+    )
+    original_state = json.loads(json.dumps(state))
+    created: list[tuple[str, str]] = []
+    try:
+        state["pending_retire"] = {}
+        for fixture_name in ("project_a", "project_b"):
+            fixture = state[fixture_name]
+            user = connection.identity.get_user(fixture["user_id"])
+            existing_credentials = list(
+                connection.identity.application_credentials(user=user.id)
+            )
+            if (
+                len(existing_credentials) != 1
+                or existing_credentials[0].id
+                != fixture["application_credential_id"]
+            ):
+                raise RuntimeError(
+                    "refusing credential renewal from non-exact state"
+                )
+            state["pending_retire"][fixture_name] = {
+                "application_credential_id": fixture[
+                    "application_credential_id"
+                ],
+            }
+            scoped = user_connection(
+                username=fixture["username"],
+                password=fixture["user_password"],
+                user_domain_id=fixture["user_domain_id"],
+                project_id=fixture["project_id"],
+            )
+            scoped.authorize()
+            credential = scoped.identity.create_application_credential(
+                user,
+                RENEWED_APPLICATION_CREDENTIAL_NAMES[fixture_name],
+                expires_at=expires_at,
+                roles=[{"id": member.id}],
+                unrestricted=False,
+            )
+            if not credential.id or not credential.secret:
+                raise RuntimeError(
+                    "Keystone omitted renewed application credential material"
+                )
+            created.append((user.id, credential.id))
+            fixture.update(
+                {
+                    "application_credential_id": credential.id,
+                    "application_credential_name": credential.name,
+                    "application_credential_secret": credential.secret,
+                }
+            )
+            application_credential_connection(
+                credential.id,
+                credential.secret,
+            ).authorize()
+        state["expires_at"] = expires_at
+        validate_state(
+            connection,
+            state,
+            allow_pending_retire=True,
+        )
+        write_state(state)
+    except Exception:
+        for user_id, credential_id in reversed(created):
+            connection.identity.delete_application_credential(
+                user_id,
+                credential_id,
+                ignore_missing=True,
+            )
+        write_state(original_state)
+        raise
+    print(
+        f"coffer_tenant_identity state=renewal-staged projects=2 users=2 "
+        f"credentials=4 expires_at={expires_at}"
+    )
+
+
+def renew_status() -> None:
+    connection = admin_connection()
+    state = load_state(allow_pending_retire=True)
+    validate_state(
+        connection,
+        state,
+        allow_pending_retire=True,
+        allow_missing_retired=True,
+    )
+    print(
+        f"coffer_tenant_identity state=renewal-staged projects=2 users=2 "
+        f"expires_at={state['expires_at']} mutation=none"
+    )
+
+
+def renew_finalize() -> None:
+    connection = admin_connection()
+    state = load_state(allow_pending_retire=True)
+    validate_state(
+        connection,
+        state,
+        allow_pending_retire=True,
+        allow_missing_retired=True,
+    )
+    pending = state["pending_retire"]
+    for fixture_name in ("project_a", "project_b"):
+        fixture = state[fixture_name]
+        connection.identity.delete_application_credential(
+            fixture["user_id"],
+            pending[fixture_name]["application_credential_id"],
+            ignore_missing=True,
+        )
+    del state["pending_retire"]
+    validate_state(connection, state)
+    write_state(state)
+    print(
+        f"coffer_tenant_identity state=renewed projects=2 users=2 "
+        f"credentials=2 expires_at={state['expires_at']}"
+    )
+
+
 def remove() -> None:
     connection = admin_connection()
     state = load_state()
@@ -456,6 +629,12 @@ if ACTION == "preflight":
     preflight()
 elif ACTION == "prepare":
     prepare()
+elif ACTION == "renew-status":
+    renew_status()
+elif ACTION == "renew-stage":
+    renew_stage()
+elif ACTION == "renew-finalize":
+    renew_finalize()
 elif ACTION == "status":
     status()
 elif ACTION == "cleanup":
@@ -474,6 +653,14 @@ PY
 
     case "${identity_action}" in
         prepare)
+            test "$(stat -c '%U:%G:%a' "${toolbox_state}")" = root:root:600
+            install -o root -g root -m 0600 \
+                "${toolbox_state}" "${identity_state}"
+            ;;
+        renew-status)
+            test "$(stat -c '%U:%G:%a' "${toolbox_state}")" = root:root:600
+            ;;
+        renew-stage|renew-finalize)
             test "$(stat -c '%U:%G:%a' "${toolbox_state}")" = root:root:600
             install -o root -g root -m 0600 \
                 "${toolbox_state}" "${identity_state}"
@@ -587,9 +774,23 @@ write_marker() {
     mv -f -- "${temporary}" "${prepared_marker}"
 }
 
+write_renewed_marker() {
+    local temporary="${renewed_marker}.tmp.$$"
+
+    printf '%s\n' "${renewed_marker_value}" >"${temporary}"
+    chown root:root "${temporary}"
+    chmod 0600 "${temporary}"
+    mv -f -- "${temporary}" "${renewed_marker}"
+}
+
 require_marker() {
     test "$(stat -c '%U:%G:%a' "${prepared_marker}")" = root:root:600
     test "$(cat "${prepared_marker}")" = "${marker_value}"
+}
+
+require_renewed_marker() {
+    test "$(stat -c '%U:%G:%a' "${renewed_marker}")" = root:root:600
+    test "$(cat "${renewed_marker}")" = "${renewed_marker_value}"
 }
 
 require_clean_boundary() {
@@ -598,11 +799,35 @@ require_clean_boundary() {
     verify_client_boundary
 }
 
-require_prepared_boundary() {
+require_fixture_boundary() {
     test "$(stat -c '%U:%G:%a' "${fixture_root}")" = root:root:700
     require_marker
-    run_identity_action status
     verify_client_boundary
+}
+
+require_prepared_boundary() {
+    require_fixture_boundary
+    run_identity_action status
+}
+
+has_pending_renewal() {
+    /home/ubuntu/coffer-stage5/venv/bin/python3 - \
+        "${identity_state}" <<'PY'
+from pathlib import Path
+import json
+import sys
+
+path = Path(sys.argv[1])
+if not path.is_file() or path.stat().st_mode & 0o077:
+    raise SystemExit(2)
+state = json.loads(path.read_text(encoding="utf-8"))
+base = {"expires_at", "project_a", "project_b"}
+if set(state) == base | {"pending_retire"}:
+    raise SystemExit(0)
+if set(state) == base:
+    raise SystemExit(1)
+raise SystemExit(2)
+PY
 }
 
 if test "${action}" = preflight; then
@@ -614,6 +839,19 @@ fi
 if test "${action}" = status; then
     require_prepared_boundary
     printf 'coffer_tenant_fixture state=prepared identities=2 credentials=2\n'
+    exit 0
+fi
+
+if test "${action}" = renew-preflight; then
+    require_fixture_boundary
+    test ! -e "${renewed_marker}"
+    if has_pending_renewal; then
+        run_identity_action renew-status
+    else
+        test "$?" -eq 1
+        run_identity_action status
+    fi
+    printf 'coffer_tenant_fixture state=prepared renewal=ready mutation=none\n'
     exit 0
 fi
 
@@ -652,9 +890,30 @@ case "${action}" in
         require_prepared_boundary
         trap cleanup_transfers EXIT
         ;;
+    renew)
+        if test -e "${renewed_marker}"; then
+            require_prepared_boundary
+            require_renewed_marker
+            printf 'coffer_tenant_fixture phase=renew result=passed idempotent=yes\n'
+            exit 0
+        fi
+        require_fixture_boundary
+        if has_pending_renewal; then
+            printf 'coffer_tenant_fixture phase=renew state=resuming-finalize\n'
+        else
+            test "$?" -eq 1
+            run_identity_action status
+            run_identity_action renew-stage
+        fi
+        run_identity_action renew-finalize
+        write_renewed_marker
+        require_prepared_boundary
+        require_renewed_marker
+        ;;
     cleanup)
         require_prepared_boundary
         run_identity_action cleanup
+        rm -f -- "${renewed_marker}"
         rm -f -- "${prepared_marker}"
         rmdir -- "${fixture_root}"
         require_clean_boundary

@@ -394,6 +394,8 @@ companion boundary is accepted:
 ```text
 poc/kolla-ha/run-coffer-tenant-fixture.sh preflight <ssh-target>
 poc/kolla-ha/run-coffer-tenant-fixture.sh prepare <ssh-target>
+poc/kolla-ha/run-coffer-tenant-fixture.sh renew-preflight <ssh-target>
+poc/kolla-ha/run-coffer-tenant-fixture.sh renew <ssh-target>
 poc/kolla-ha/run-coffer-tenant-fixture.sh status <ssh-target>
 poc/kolla-ha/run-coffer-tenant-fixture.sh cleanup <ssh-target>
 ```
@@ -416,6 +418,15 @@ Controller-2/3 retain no client material. Repeated prepare validates the same
 identities without rotating them. `cleanup` removes the exact credentials,
 users, and projects from the recorded immutable IDs; it is reserved for the
 final fixture teardown after dependent acceptance and fault phases.
+
+`renew-preflight` is read-only and admits renewal only from the exact
+two-project/two-user/two-credential state. `renew` preserves the project and
+user IDs: it creates and authenticates two fresh twelve-hour credentials,
+atomically records their owner-only state together with the two retiring IDs,
+then deletes only those retiring credentials and atomically finalizes the
+state. A mode-0600 completion marker makes the accepted renewal idempotent.
+An interrupted finalization retains enough state for an exact retry; unknown
+or additional credentials fail closed.
 
 Run tenant OCI acceptance only after that finite fixture is prepared:
 

@@ -1673,6 +1673,32 @@ promotion while ADR 0006 remains blocked.
   add an exact real-Galera concurrent/deadlock probe that restores all rows
   and quota values before enabling separate-host reconciler workers.
 
+### 2026-07-25 — Tenant credential renewal harness validated
+
+- Completed locally: Added an exact, two-phase application-credential renewal
+  path for the accepted tenant fixture. It preserves both Keystone project
+  and user IDs, creates and authenticates two fresh twelve-hour credentials,
+  atomically stages their owner-only state with the two retiring IDs, deletes
+  only those retiring credentials, and atomically finalizes the state.
+- Recovery and idempotency: A staged `pending_retire` state can resume exact
+  finalization after interruption. Unknown additional credentials fail
+  closed. A root-only mode-0600 renewal marker prevents an accepted rotation
+  from replaying, while the normal status path continues to prove exactly two
+  credentials.
+- Verification: Bash syntax, ShellCheck, embedded Python compilation, ten
+  focused runtime-contract tests, diff checks, and scoped Gitleaks pass. The
+  live mutation-free `renew-preflight` confirms two projects, two users, two
+  credentials expiring at `2026-07-25T05:20:30`, the accepted external owner,
+  and zero transfer/client residue.
+- Safety: No project, user, role, credential, repository, quota, object,
+  runtime, or secret state changed during preflight.
+- Next exact action: Commit the validated renewal harness locally, then invoke
+  only `poc/kolla-ha/run-coffer-tenant-fixture.sh renew
+  jh.byun@100.123.168.66`. Prove the project IDs and accepted digest/isolation
+  are unchanged, exactly two renewed credentials remain, state/marker
+  recipients stay owner-only, replay is metadata-idempotent, and no transfer
+  or client residue exists before returning to Galera concurrency.
+
 ## Verification
 
 | Check | Command or method | Result |

@@ -97,13 +97,17 @@ def test_multinode_tenant_fixture_is_finite_and_exactly_bounded() -> None:
         / "guest-run-coffer-tenant-fixture.sh"
     ).read_text(encoding="utf-8")
 
-    assert "{preflight|prepare|status|cleanup}" in outer
-    assert "{preflight|prepare|status|cleanup}" in guest
+    expected_actions = (
+        "{preflight|prepare|renew-preflight|renew|status|cleanup}"
+    )
+    assert expected_actions in outer
+    assert expected_actions in guest
     assert "run-coffer-companion-lifecycle.sh" in outer
     assert 'timedelta(hours=12)' in guest
     assert guest.count('"coffer-stage5-project-') == 2
     assert guest.count('"coffer-stage5-user-') == 2
-    assert guest.count('"coffer-stage5-credential-') == 2
+    assert guest.count('"coffer-stage5-credential-') == 4
+    assert guest.count("-renewal-1") == 2
     assert "unrestricted=False" in guest
     assert "docker exec --user root -i kolla_toolbox" in guest
     assert 'AUTH_URL = "https://192.168.252.10:5000/v3"' in guest
@@ -116,6 +120,22 @@ def test_multinode_tenant_fixture_is_finite_and_exactly_bounded() -> None:
     assert "delete_application_credential" in guest
     assert "delete_user" in guest
     assert "delete_project" in guest
+    assert (
+        "preflight|prepare|renew-status|renew-stage|renew-finalize|status|cleanup"
+        in guest
+    )
+    assert "pending_retire" in guest
+    assert "renewal-staged" in guest
+    assert "renewed.complete" in guest
+    assert "coffer-stage5-tenant-credential-renewal-v1" in guest
+    assert guest.index("run_identity_action renew-stage") < guest.index(
+        "run_identity_action renew-finalize"
+    )
+    assert guest.index("run_identity_action renew-finalize") < guest.rindex(
+        "write_renewed_marker"
+    )
+    assert "refusing credential renewal from non-exact state" in guest
+    assert "credentials=4" in guest
     assert "dns=override-required" in guest
     assert 'grep -F -- "${registry_name}" /etc/hosts' in guest
     assert "rm -rf" not in guest

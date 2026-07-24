@@ -3,14 +3,14 @@
 set -Eeuo pipefail
 
 if [[ "$#" -ne 2 ]]; then
-    echo "usage: $0 {preflight|prepare|status|cleanup} <ssh-target>" >&2
+    echo "usage: $0 {preflight|prepare|renew-preflight|renew|status|cleanup} <ssh-target>" >&2
     exit 64
 fi
 
 action="$1"
 ssh_target="$2"
 case "${action}" in
-    preflight|prepare|status|cleanup)
+    preflight|prepare|renew-preflight|renew|status|cleanup)
         ;;
     *)
         echo "refusing an unknown Coffer tenant fixture action" >&2
@@ -43,7 +43,7 @@ ssh "${ssh_options[@]}" "ubuntu@${controller}" \
     <"${harness}/guest-run-coffer-tenant-fixture.sh"
 
 case "${action}" in
-    prepare)
+    prepare|renew)
         ssh "${ssh_options[@]}" "ubuntu@${controller}" \
             sudo env LC_ALL=C.UTF-8 LANG=C.UTF-8 bash -s -- status \
             <"${harness}/guest-run-coffer-tenant-fixture.sh"

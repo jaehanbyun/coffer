@@ -1,7 +1,7 @@
 # Coffer Handoff
 
-- Updated: 2026-07-24
-- Status: plan 0018 active; Galera member fault accepted, concurrency/retry next
+- Updated: 2026-07-25
+- Status: plan 0018 active; tenant credential renewal preflight passed
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -876,9 +876,23 @@ marker-idempotent replay passed.
   Coffer/RGW gates, and zero owner-client residue.
 - The controller-1-only mode-0600 marker is metadata-stable; repeated `run`
   skipped the pause as `idempotent=yes`.
-- Exact next action: inspect the existing quota transaction retry helper and
-  shared-SQL deadlock tests, then add a real-Galera bounded concurrent/deadlock
-  probe with exact row/value restoration before reconciler workers.
+- Added a two-phase tenant application-credential renewal path without
+  changing project IDs, user IDs, roles, or repository namespaces. It stages
+  two fresh finite credentials, authenticates them, atomically records the
+  replacement plus retiring IDs, then retires only the old credentials and
+  atomically finalizes the owner-only state. Interrupted finalization is
+  resumable and unknown additional credentials fail closed.
+- Bash syntax, ShellCheck, embedded Python compilation, ten focused runtime
+  contract tests, diff checks, and scoped Gitleaks pass. The live
+  `renew-preflight` is mutation-free and confirms the exact two-project,
+  two-user, two-credential state, the accepted external owner/client boundary,
+  and expiry `2026-07-25T05:20:30`.
+- Exact next action: commit the renewal harness locally, then invoke only
+  `poc/kolla-ha/run-coffer-tenant-fixture.sh renew
+  jh.byun@100.123.168.66`. Verify exactly two renewed finite credentials,
+  unchanged tenant project IDs and accepted repository digest/isolation,
+  owner-only marker/state, metadata-idempotent replay, and zero transfer/client
+  residue before resuming Galera concurrency work.
 
 ## Plan 0017 Completion
 
@@ -1464,12 +1478,11 @@ marker-idempotent replay passed.
 
 ## Exact Next Action
 
-Inspect `src/coffer/quota.py` and the accepted shared-SQL deadlock tests to
-identify the production retry surface. Then add and locally validate a
-bounded real-Galera concurrency probe that creates only exact temporary rows,
-forces or observes one deadlock/serialization retry through the deployed
-application code, restores all rows and the 2-GiB tenant quota, and leaves the
-three-node Primary/Synced topology healthy before reconciler tests.
+Commit the validated tenant credential renewal harness, invoke its exact
+`renew` action through `jh.byun@100.123.168.66`, and close the identity,
+accepted-digest/isolation, owner-only state, idempotent-replay, and residue
+gates. Then return to the real-Galera concurrency probe with the renewed
+finite credentials.
 
 ## After This Work Package
 
