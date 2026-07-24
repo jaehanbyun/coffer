@@ -1982,6 +1982,31 @@ promotion while ADR 0006 remains blocked.
   owner-only evidence, and metadata-idempotent replay before signing-key
   overlap.
 
+### 2026-07-25 — First reconciler run failed safely on cursor precision
+
+- Failure: Preserved the initial harness in `b5b954a`. Its first `run` created
+  the root-only owner marker and three allowlisted reservations, but both
+  workers returned empty claim batches. The bounded retry also remained empty,
+  so the harness stopped before lease/fence work or completion-marker creation.
+- Root cause: The application cursor retained microseconds while the migrated
+  MariaDB `updated_at` column stores whole seconds. Reservations created in the
+  same database second were therefore truncated to a value earlier than the
+  cursor and correctly excluded by `after`.
+- Recovery evidence: The EXIT trap removed every allowlisted row and local
+  worker output. Independent preflight reports aggregate residue zero; the
+  owner marker alone records an exact resumable partial state. No tenant row,
+  service, identity, credential, object, or container changed.
+- Correction: The helper now records a whole-second cursor, crosses the next
+  wall-clock second before inserting any candidate, and then creates the
+  reservations. A bounded owned diagnostic returned claims 2+1 across
+  controller-1 and controller-2 and removed all rows afterward.
+- Verification: Python compilation, fourteen focused runtime-contract tests,
+  diff checks, and the exact two-controller diagnostic pass.
+- Next exact action: Commit the cursor-precision correction, rerun only the
+  owned-partial `run`, and require cleanup-before-resume, disjoint 2+1 or
+  bounded-equivalent claims, actual lease recovery/fencing, final residue
+  zero, complete acceptance, and idempotent replay.
+
 ## Verification
 
 | Check | Command or method | Result |

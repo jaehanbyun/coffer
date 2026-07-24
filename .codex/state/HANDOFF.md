@@ -1091,6 +1091,25 @@ marker-idempotent replay passed.
   jh.byun@100.123.168.66`; require disjoint claims, actual lease recovery,
   stale-token denial, exact cleanup, final tenant/Galera health, and
   idempotent marker replay.
+- Preserved that harness in `b5b954a`. The first `run` created only the
+  root-only owner marker and three allowlisted reservations, then both workers
+  returned safe empty batches. The bounded retry exhausted and completion was
+  withheld before lease/fence work.
+- MariaDB stores this migrated `updated_at` at whole-second precision, while
+  the application cursor retained microseconds. Same-second candidate
+  timestamps were truncated earlier than the cursor and excluded by `after`.
+- The EXIT trap removed every allowlisted row and local worker output.
+  Independent preflight reports residue zero; the owner-only running marker is
+  the sole partial-state evidence. Tenant, service, identity, object, and
+  container state are unchanged.
+- Corrected setup to record a whole-second cursor and cross the next clock
+  second before candidate insertion. Python compilation, fourteen focused
+  tests, diff checks, and an owned two-controller diagnostic pass with exact
+  claims 2+1 followed by cleanup.
+- Exact next action: commit the cursor-precision correction and rerun only the
+  owned-partial reconciler `run`; require cleanup-before-resume, disjoint
+  claims, real lease expiry and fencing, residue zero, final tenant/Galera
+  acceptance, and idempotent replay.
 
 ## Plan 0017 Completion
 
@@ -1676,12 +1695,12 @@ marker-idempotent replay passed.
 
 ## Exact Next Action
 
-Commit the guarded reconciler fencing harness, then invoke only
+Commit the reconciler cursor-precision correction, then invoke only
 `poc/kolla-ha/test-coffer-reconciler-fencing.sh run
-jh.byun@100.123.168.66`. Require disjoint controller-1/controller-2 claims,
-actual two-second lease recovery, stale-token denial, aggregate row residue
-zero, retained tenant digest/isolation, healthy Galera/ProxySQL, and owner-only
-marker evidence.
+jh.byun@100.123.168.66` from its owner-only partial state. It must clean before
+resume, produce disjoint controller-1/controller-2 claims, recover the actual
+two-second lease, deny the stale token, leave aggregate row residue zero, and
+pass tenant/Galera plus owner-only marker gates.
 
 ## After This Work Package
 

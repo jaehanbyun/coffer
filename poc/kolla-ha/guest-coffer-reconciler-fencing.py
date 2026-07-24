@@ -124,9 +124,17 @@ def parse_cursor(value: str) -> ReconciliationCursor:
     return ReconciliationCursor(timestamp, ZERO_RESERVATION_ID)
 
 
+def cursor_before_next_database_second() -> datetime:
+    cursor = datetime.now(UTC).replace(microsecond=0)
+    next_second = cursor + timedelta(seconds=1)
+    while datetime.now(UTC) <= next_second:
+        time.sleep(0.05)
+    return cursor
+
+
 def setup_claims(store: QuotaStore) -> str:
     store.set_limit(CLAIM_PROJECT, 1000)
-    cursor = datetime.now(UTC)
+    cursor = cursor_before_next_database_second()
     for index, repository_id in enumerate(CLAIM_REPOSITORIES):
         manifest = Descriptor(digest(f"stage5-claim-{index}"), 10)
         store.reserve(
@@ -200,7 +208,7 @@ def finish_claims(store: QuotaStore) -> None:
 
 def setup_abandon(store: QuotaStore) -> str:
     store.set_limit(ABANDON_PROJECT, 1000)
-    cursor = datetime.now(UTC)
+    cursor = cursor_before_next_database_second()
     manifest = Descriptor(digest("stage5-abandoned-claim"), 10)
     store.reserve(
         project_id=ABANDON_PROJECT,

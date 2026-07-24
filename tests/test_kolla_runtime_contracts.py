@@ -363,6 +363,7 @@ def test_multinode_reconciler_fencing_uses_separate_bounded_workers() -> None:
     assert "MAX_TRANSACTION_ATTEMPTS != 3" in helper
     assert "ReconciliationCursor" in helper
     assert "after=parse_cursor(cursor)" in helper
+    assert "cursor_before_next_database_second" in helper
     assert "timedelta(seconds=2)" in helper
     assert "StaleReconciliationClaim" in helper
     assert "an abandoned claim token crossed the fence" in helper
