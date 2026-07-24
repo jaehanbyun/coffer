@@ -68,7 +68,7 @@ test "$(systemctl is-active docker)" = active
 for container in coffer_api coffer_edge coffer_registry; do
     test "$(docker inspect -f '{{.State.Running}}' "${container}")" = true
     test "$(docker inspect -f '{{.State.Health.Status}}' "${container}")" = healthy
-    test "$(docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' "${container}")" = unless-stopped
+    test "$(docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' "${container}")" = no
 done
 printf 'host=%s containers=3 running=3 healthy=3\n' "${expected_hostname}"
 REMOTE

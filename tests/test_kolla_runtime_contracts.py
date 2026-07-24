@@ -199,7 +199,10 @@ def test_multinode_service_fault_targets_only_controller_three_containers() -> (
     assert "for convergence_attempt in 1 2 3" in script
     assert "trap restore_current EXIT" in script
     assert 'temporary="${marker}.tmp.$$"' in script
-    assert "unless-stopped" in script
+    assert (
+        "'{{.HostConfig.RestartPolicy.Name}}' \"${container}\")\" = no"
+        in script
+    )
     assert "docker rm" not in script
     assert "virsh" not in script
     assert "rm -rf" not in script
