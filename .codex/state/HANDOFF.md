@@ -274,6 +274,34 @@ signed Distribution v3.1.1 binary.
   `status` actions, retain owner-only logs, bound each action, and recheck
   external RGW health. Do not invoke `bootstrap-servers` until that harness is
   committed and its refusal/allowlist contracts pass.
+- Added and validated that phase-selectable lifecycle harness. Each mutating
+  phase is independently bounded and locked, requires the preceding
+  root-only success marker, replaces an owner-only controller-1 log, and
+  creates its marker only after phase-specific postconditions. Only
+  `prechecks` receives `--use-test-images`.
+- The first read-only status attempt exposed two harness defects before any
+  Kolla operation: `ssh -n` suppressed the nested audit script, and the empty
+  result reached unsafe arithmetic. Bash then unexpectedly continued and
+  created only `lifecycle/status.complete` plus empty lifecycle/log
+  directories. Exact content, ownership, and sole-file/empty-directory state
+  were verified; that marker and those two empty directories were removed.
+  Docker, Kolla state, containers, images, and VIPs remained absent, and RGW
+  stayed healthy before and after.
+- Status can no longer name a marker, snapshot shape and numeric fields fail
+  closed, and the nested script receives stdin normally. The corrected
+  read-only status reports no completed phases, Docker `0/3`, zero images,
+  containers, and VIPs; a separate residue assertion confirms no lifecycle
+  directory was created. Unknown local and remote actions return 64 without
+  state creation.
+- Bash syntax, ShellCheck, exact phase/timeout checks, forbidden-mutation
+  scans, Gitleaks, diff checks, the corrected live status, and external RGW
+  before/after audits pass.
+- Exact next action: commit the validated lifecycle harness locally, then
+  invoke only
+  `poc/kolla-ha/run-kolla-lifecycle.sh bootstrap
+  jh.byun@100.123.168.66`. On failure, retain the owner-only remote log,
+  verify no success marker, audit exact partial runtime state and external
+  RGW, then correct and resume only `bootstrap`.
 
 ## Plan 0017 Completion
 

@@ -763,6 +763,39 @@ promotion while ADR 0006 remains blocked.
   `status`, retain owner-only phase logs, bound execution, and recheck the
   external RGW. Do not run `bootstrap-servers` before the harness is committed.
 
+### 2026-07-24 — Resumable Kolla lifecycle harness validated
+
+- Completed: Added separate `status`, `bootstrap`, `prechecks`, `pull`, and
+  `deploy` actions. Mutating phases take one non-blocking lock, require the
+  preceding root-only commit marker, run with hard phase timeouts, replace
+  owner-only logs on controller-1, and create a marker only after their
+  postconditions pass. Only `prechecks` receives `--use-test-images`.
+- Storage boundary: The local wrapper runs the existing healthy Ceph/RGW
+  audit before and after each phase. A failed Kolla phase retains its remote
+  log without printing it and cannot suppress the post-phase storage audit.
+- Failure and recovery: The first intended read-only status attempt used
+  `ssh -n`, so the nested controller script produced an empty snapshot.
+  Unsafe arithmetic then caused Bash to continue past the status branch and
+  create only `lifecycle/status.complete` and two empty directories. Exact
+  marker content/mode and sole-file state were verified before removing only
+  that marker and the empty directories. Docker, Kolla runtime, images,
+  containers, and VIPs remained absent; RGW was healthy on both boundaries.
+- Correction: Nested snapshot stdin is now enabled; exact one-line host and
+  numeric-field validation occurs before arithmetic; and marker paths admit
+  only the four mutating phases, making a status marker structurally
+  impossible. The corrected live status reports no completed phases, Docker
+  `0/3`, and zero images, containers, or VIPs, then leaves no lifecycle/log
+  directory.
+- Evidence: Bash syntax, ShellCheck, missing/unknown/option-shaped local
+  refusal, live remote unknown-action refusal, exact command/timeout checks,
+  forbidden-mutation scans, Gitleaks, diff checks, corrected live status, and
+  external RGW before/after audits pass.
+- Next exact action: Commit this lifecycle harness locally, then invoke only
+  `poc/kolla-ha/run-kolla-lifecycle.sh bootstrap
+  jh.byun@100.123.168.66`. If bootstrap fails, inspect its owner-only log
+  without disclosing secrets, prove the marker absent, audit exact partial
+  runtime state and RGW, and resume only that phase after a scoped correction.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -782,6 +815,7 @@ promotion while ADR 0006 remains blocked.
 | Storage VM fault | exact storage-3 power loss, degraded reads, full recovery | passed; 5 outage reads and independent 3-node recovery |
 | Kolla controller preflight | pinned inventory/globals and three clean controller guests | passed mutation-free; external RGW remains healthy |
 | Kolla prepare harness | owner/recipient boundaries, pinned tooling, secrets, stop gate | passed live and independently audited; runtime/VIPs remain absent |
+| Kolla lifecycle harness | phase allowlist, ordering, timeouts, logs, markers, status, storage boundary | passed static/refusal/live read-only checks; bootstrap pending |
 | Kolla/Galera/Coffer baseline | multinode deploy and health acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | pending |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -819,12 +853,12 @@ promotion while ADR 0006 remains blocked.
   inventory and clean-state preflight pass without mutation. Controller
   preparation and its independent recipient/secret/tooling/no-runtime audit
   pass; Kolla bootstrap has not run and both Kolla VIPs remain absent.
-- Exact next action: Add and validate the bounded phase-selectable Kolla
-  lifecycle runner without invoking it.
+- Exact next action: Preserve the validated lifecycle runner as a local commit
+  and invoke only its `bootstrap` phase.
 - First file or command:
-  `poc/kolla-ha/run-kolla-lifecycle.sh status
-  jh.byun@100.123.168.66` after the new runner passes static refusal and
-  allowlist review.
+  `git commit` for the lifecycle checkpoint, followed by
+  `poc/kolla-ha/run-kolla-lifecycle.sh bootstrap
+  jh.byun@100.123.168.66`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

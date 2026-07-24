@@ -193,3 +193,22 @@ external-VIP certificate. A final Ansible ping must reach all three
 controllers from controller-1. Public-key and config transfer files are
 removed. This phase does not run `bootstrap-servers`, install Docker on the
 secondary controllers, assign either Kolla VIP, or start a container.
+
+Run the Kolla control-plane lifecycle as separately resumable phases:
+
+```text
+poc/kolla-ha/run-kolla-lifecycle.sh status <ssh-target>
+poc/kolla-ha/run-kolla-lifecycle.sh bootstrap <ssh-target>
+poc/kolla-ha/run-kolla-lifecycle.sh prechecks <ssh-target>
+poc/kolla-ha/run-kolla-lifecycle.sh pull <ssh-target>
+poc/kolla-ha/run-kolla-lifecycle.sh deploy <ssh-target>
+```
+
+Only `prechecks` receives Kolla's `--use-test-images` exception. Every
+mutating phase requires the preceding success marker, takes a non-blocking
+single-run lock, has a hard timeout, and replaces an owner-only phase log on
+controller-1. Failed phases retain their log but do not create a completion
+marker, so the same phase can be diagnosed and resumed. The wrapper proves the
+external Ceph/RGW HA endpoint healthy before and after every phase. `status`
+only reads the exact three controllers and reports aggregate Docker, image,
+container, VIP, and phase-marker state without creating lifecycle state.
