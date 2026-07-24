@@ -189,6 +189,8 @@ def admin_connection() -> Connection:
         project_name=auth["project_name"],
         user_domain_name=auth["user_domain_name"],
         project_domain_name=auth["project_domain_name"],
+        interface="internal",
+        region_name="RegionOne",
         verify=CA_PATH,
     )
 
@@ -208,6 +210,8 @@ def user_connection(
         user_domain_id=user_domain_id,
         project_id=project_id,
         project_domain_id=user_domain_id,
+        interface="internal",
+        region_name="RegionOne",
         verify=CA_PATH,
     )
 
@@ -218,6 +222,8 @@ def application_credential_connection(identifier: str, secret: str) -> Connectio
         auth_url=AUTH_URL,
         application_credential_id=identifier,
         application_credential_secret=secret,
+        interface="internal",
+        region_name="RegionOne",
         verify=CA_PATH,
     )
 
