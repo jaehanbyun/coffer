@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; libvirt lifecycle harness awaits create
+- Status: plan 0018 active; six guests ready, Ceph HA preparation is next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -10,9 +10,9 @@
 
 Plan 0018 is active to complete the disposable Kolla multinode and HA pilot.
 The read-only `bb00` refresh, preferred six-guest topology, immutable Ubuntu
-image pin, provision preflight, and exact-target libvirt lifecycle harness are
-complete. Every live capacity and collision gate passes with the configured
-safety margins. Create and destroy are implemented but have not been invoked.
+image pin, exact-target lifecycle harness, VM create, and guest readiness
+checks are complete. Three controller and three storage guests are running on
+dedicated autostart-disabled networks; every domain is autostart-disabled.
 Stage 5 requires replicated
 Kolla/Coffer/Galera and an independent external RGW HA failure domain; a
 controller-only pilot against the retained one-node RGW is partial evidence
@@ -28,8 +28,8 @@ signed Distribution v3.1.1 binary.
   exit gates for three-controller Galera/HAProxy, replicated Coffer services,
   independent external RGW HA, replica loss, fencing, key overlap, rolling
   upgrade, compatible rollback, cleanup, and repository regression.
-- No Stage 5 remote inspection, VM, identity, credential, network, storage, or
-  service mutation has occurred; only read-only inventory commands ran.
+- At activation, no Stage 5 remote mutation had occurred; the later bullets
+  record the exact guest provisioning milestone.
 - The current snapshot has 123.8 GiB available RAM, no swap, 876.5 GiB
   filesystem space, 18 running domains, 82 allocated vCPUs, and no Stage 5
   names. The retained one-node RGW remains running with autostart disabled.
@@ -47,10 +47,17 @@ signed Distribution v3.1.1 binary.
   verified image download, autostart-disabled resources, exact destroy, and
   partial-create rollback. Local executable contracts and remote read-only
   status pass; all six domains, sixteen volumes, and three networks are absent.
-- Exact next action: locally commit this lifecycle harness, rerun preflight and
-  status, then invoke `poc/kolla-ha/provision.sh create bb00` once. If create
-  fails, inspect only aggregate error/status evidence and confirm rollback
-  before changing the harness.
+- Local commit `5326093` preserved that harness. One exact create completed:
+  six domains, sixteen volumes, and three dedicated networks now exist.
+  Actual domain and network metadata confirms every autostart setting is off.
+- `verify-guests.sh` confirms cloud-init, x86_64, vCPU/memory/root/OSD shape,
+  fixed management/storage addresses, qemu guest agent, and controller-only
+  external NICs across all six guests. The shared host retained about 119 GiB
+  available RAM and 876 GiB free storage after first boot.
+- Exact next action: implement the bounded storage preparation phase using the
+  existing pinned Ceph Tentacle download pattern, configure only planned
+  hostname resolution, and prove `/dev/vdb` is empty on each storage guest
+  before any Ceph bootstrap.
 
 ## Plan 0017 Completion
 

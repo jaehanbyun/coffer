@@ -600,7 +600,7 @@ def status(document: dict[str, Any]) -> dict[str, Any]:
                 "state": (
                     virsh("domstate", name).stdout.strip() if exists else None
                 ),
-                "autostart": (
+                "autostart_disabled": (
                     "disable"
                     in virsh("dominfo", name).stdout.lower()
                     if exists

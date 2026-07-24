@@ -112,7 +112,7 @@ promotion while ADR 0006 remains blocked.
 
 - [x] Refresh the shared-host inventory read-only and select a topology,
       address plan, capacity budget, failure domains, and stop conditions.
-- [ ] Add the secret-safe Stage 5 host-audit and exact provision/destroy
+- [x] Add the secret-safe Stage 5 host-audit and exact provision/destroy
       harnesses, then prove dry-run and negative-target behavior locally.
 - [ ] Provision the isolated storage and controller guests, bootstrap external
       Ceph/RGW HA and Kolla multinode, and record only aggregate health facts.
@@ -257,6 +257,35 @@ promotion while ADR 0006 remains blocked.
   `provision.sh create bb00` once. On any failure, verify its automatic
   rollback with read-only status before making a correction.
 
+### 2026-07-24 — Six isolated Stage 5 guests provisioned
+
+- Completed: Preserved the lifecycle harness in local commit `5326093`, reran
+  clean preflight/status, and invoked the exact create action once. It
+  downloaded and verified the pinned Ubuntu image, defined three dedicated
+  networks, created one shared base plus fifteen guest volumes, and started
+  three controller and three storage guests.
+- Evidence: All six domains are running with autostart disabled; all three
+  networks are active with autostart disabled on the exact `virbr252` through
+  `virbr254` bridges. Controllers report 8 vCPUs, about 16 GiB RAM, and one
+  disk. Storage guests report 4 vCPUs, about 8 GiB RAM, and separate root/OSD
+  disks. Every guest completed cloud-init, has the planned management/storage
+  addresses, active qemu guest agent, correct external-NIC shape, and x86_64
+  architecture.
+- Host safety: After first boot the shared host still reported about 119 GiB
+  available RAM and 876 GiB free under `/srv/nfs`; no shared-host port was
+  bound. The retained `coffer-rgw-poc` and all unrelated resources were
+  untouched.
+- Correction: The first status JSON named the Boolean
+  `autostart` while its value meant “disabled.” Renamed it to
+  `autostart_disabled` and verified it is true for every domain.
+- Changed files: Added `poc/kolla-ha/verify-guests.sh`; corrected the status
+  schema field; updated README, this plan, and `HANDOFF.md`.
+- Next exact action: Reuse the pinned Ceph Tentacle inputs and safe cephadm
+  download pattern from `poc/rgw/`, then add a three-node storage preparation
+  and Ceph/RGW HA bootstrap harness. Its first executable phase must only
+  install prerequisites, establish planned hostname resolution, and verify
+  that `/dev/vdb` is the sole empty OSD candidate on each storage guest.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -264,8 +293,9 @@ promotion while ADR 0006 remains blocked.
 | Published Stage 4/image baseline | local and remote Git commit equality | passed at `4f1ff7d` |
 | Host capacity and namespace | bounded read-only Stage 5 audit | passed |
 | Mutation-free provision preflight | schema, budget, namespace, network, and image gates | passed |
-| Libvirt lifecycle safety | allowlists, exact destroy, partial rollback, remote clean status | passed; create not invoked |
-| Provision/destroy target safety | local dry-run and negative-target tests | pending |
+| Libvirt lifecycle safety | allowlists, exact destroy, partial rollback, remote status | passed; exact create completed |
+| Guest provisioning and readiness | exact status, autostart, cloud-init, NIC, disk, and resource checks | passed |
+| Provision/destroy target safety | local allowlist, rollback, and negative-target tests | passed |
 | Kolla/Galera/Coffer baseline | multinode deploy and health acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | pending |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -293,11 +323,11 @@ promotion while ADR 0006 remains blocked.
 
 ## Handoff
 
-- Current state: Active; read-only inventory and the preferred six-guest
-  topology are complete. No Stage 5 remote mutation has occurred.
-- Exact next action: Preserve the paired lifecycle harness in a local atomic
-  commit, rerun clean preflight/status, then invoke the exact create action.
-- First file or command: `git diff --check`.
+- Current state: Active; all six autostart-disabled guests are running and
+  readiness-verified on three dedicated autostart-disabled networks.
+- Exact next action: Add the bounded storage-node preparation phase and verify
+  the three empty `/dev/vdb` OSD candidates before Ceph bootstrap.
+- First file or command: `poc/kolla-ha/prepare-storage.sh`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an

@@ -59,3 +59,14 @@ or a domain/pool prefix query as a deletion target.
 The current preflight requires all declared names, MAC addresses, networks,
 volumes, and subnets to be free while leaving at least 40 GiB host memory and
 250 GiB storage available after the complete six-guest budget.
+
+After create, verify cloud-init, resources, disk shape, fixed addresses,
+external-interface shape, and the guest agent through the jump host:
+
+```text
+poc/kolla-ha/verify-guests.sh <ssh-target>
+```
+
+This verification stores only guest host keys under ignored `work/` and emits
+aggregate host/resource readiness. It does not read guest credentials or
+configuration contents.
