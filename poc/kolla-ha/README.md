@@ -465,6 +465,26 @@ state. A mode-0600 completion marker makes the accepted renewal idempotent.
 An interrupted finalization retains enough state for an exact retry; unknown
 or additional credentials fail closed.
 
+Final teardown preserves the dependency order:
+
+```text
+poc/kolla-ha/run-coffer-tenant-fixture.sh cleanup <ssh-target>
+poc/kolla-ha/run-coffer-companion-lifecycle.sh stop <ssh-target>
+poc/kolla-ha/cleanup-ceph-s3.sh status <ssh-target>
+poc/kolla-ha/cleanup-ceph-s3.sh cleanup <ssh-target>
+poc/kolla-ha/provision.sh destroy <ssh-target>
+```
+
+The companion `stop` action is idempotent and stops only the nine Coffer
+process containers; it retains Kolla, Keystone, Galera, HAProxy, configuration,
+and catalog state until the disposable guests are removed. S3 cleanup refuses
+to run unless that stopped boundary is proven. It validates the two root-only
+credential records against the live RGW users, requires the exact two-bucket
+ownership and an otherwise empty RGW namespace, purges only those buckets,
+removes only those users and `/etc/coffer-stage5-rgw`, and proves the
+three-RGW/two-ingress cluster remains healthy. The final libvirt destroy is
+still a separately approved destructive operation.
+
 Run tenant OCI acceptance only after that finite fixture is prepared:
 
 ```text

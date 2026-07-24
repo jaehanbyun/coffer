@@ -4,13 +4,13 @@ set -Eeuo pipefail
 umask 077
 
 if [[ "$#" -ne 1 ]]; then
-    echo "usage: $0 {status|prechecks|deploy}" >&2
+    echo "usage: $0 {status|prechecks|deploy|stop}" >&2
     exit 64
 fi
 
 action="$1"
 case "${action}" in
-    status|prechecks|deploy)
+    status|prechecks|deploy|stop)
         ;;
     *)
         echo "refusing an unknown Coffer companion lifecycle action" >&2
@@ -117,7 +117,7 @@ ssh_options=(
 
 marker_path() {
     case "$1" in
-        prechecks|deploy)
+        prechecks|deploy|stop)
             ;;
         *)
             echo "refusing a non-companion marker" >&2
@@ -678,6 +678,18 @@ require_deployed_boundary() {
     verify_runtime_logs_secret_free
 }
 
+require_stopped_boundary() {
+    collect_nodes
+    test "${total_containers}" -eq 9
+    test "${total_running}" -eq 0
+    test "${total_healthy}" -eq 0
+    test "${total_unhealthy}" -eq 9
+    test "${total_bootstrap}" -le 1
+    test "${total_listeners}" -eq 9
+    test "${total_configs}" -eq 12
+    probe_database_and_catalog deployed
+}
+
 run_companion() {
     local phase="$1"
     local timeout_seconds="$2"
@@ -748,7 +760,13 @@ run_companion_check() {
 }
 
 if test "${action}" = status; then
-    if test -e "$(marker_path deploy)"; then
+    if test -e "$(marker_path stop)"; then
+        require_marker prechecks
+        require_marker deploy
+        require_marker stop
+        require_stopped_boundary
+        state=stopped
+    elif test -e "$(marker_path deploy)"; then
         require_marker prechecks
         require_marker deploy
         require_deployed_boundary
@@ -802,6 +820,20 @@ case "${action}" in
         run_companion_check
         require_deployed_boundary
         write_marker deploy
+        ;;
+    stop)
+        require_marker prechecks
+        require_marker deploy
+        if test -e "$(marker_path stop)"; then
+            require_marker stop
+            require_stopped_boundary
+            printf 'coffer_companion_lifecycle phase=stop result=passed idempotent=yes\n'
+            exit 0
+        fi
+        require_deployed_boundary
+        run_companion stop 1800
+        require_stopped_boundary
+        write_marker stop
         ;;
 esac
 

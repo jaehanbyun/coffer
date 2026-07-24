@@ -3,14 +3,14 @@
 set -Eeuo pipefail
 
 if [[ "$#" -ne 2 ]]; then
-    echo "usage: $0 {status|prechecks|deploy} <ssh-target>" >&2
+    echo "usage: $0 {status|prechecks|deploy|stop} <ssh-target>" >&2
     exit 64
 fi
 
 action="$1"
 ssh_target="$2"
 case "${action}" in
-    status|prechecks|deploy)
+    status|prechecks|deploy|stop)
         ;;
     *)
         echo "refusing an unknown Coffer companion lifecycle action" >&2
@@ -63,7 +63,7 @@ boundary_rc=0
 if test "${action}" = prechecks; then
     "${harness}/prepare-coffer-companion.sh" status "${ssh_target}" ||
         boundary_rc="$?"
-elif test "${action}" = deploy; then
+elif test "${action}" = deploy || test "${action}" = stop; then
     ssh "${ssh_options[@]}" "ubuntu@${controller}" \
         sudo env LC_ALL=C.UTF-8 LANG=C.UTF-8 bash -s -- status \
         <"${harness}/guest-run-coffer-companion-lifecycle.sh" ||

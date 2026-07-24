@@ -2406,6 +2406,36 @@ promotion while ADR 0006 remains blocked.
   users, remove only `/etc/coffer-stage5-rgw`, prove zero RGW users/buckets
   while Ceph remains healthy, and make no Ceph service or libvirt mutation.
 
+### 2026-07-25 — Exact teardown dependencies and S3 cleanup guarded
+
+- Completed: Added an idempotent companion `stop` phase and an exact
+  `status|cleanup` S3 fixture harness. The required order is tenant identity
+  cleanup while Keystone is available, Coffer-only stop, S3 bucket/user
+  cleanup while Ceph is available, then exact libvirt destroy.
+- S3 safety contract: The cleanup admits only the two owner-state files,
+  users, and buckets created by this pilot. It compares the stored keys to the
+  live RGW identities without printing them, verifies exact bucket ownership,
+  refuses any additional user or bucket, purges only those two buckets,
+  removes only those two users and `/etc/coffer-stage5-rgw`, and leaves Ceph
+  services and disks untouched.
+- Coffer stop contract: The existing companion Kolla role stops only the nine
+  Coffer process containers. A root-only completion marker and exact stopped
+  boundary make replay idempotent while Kolla, Keystone, Galera, HAProxy,
+  catalog, configuration, and external RGW remain available.
+- Evidence: Bash parsing, warning-or-higher ShellCheck, target refusal, six
+  static destructive-surface assertions, and diff checks pass. Live
+  mutation-free status reports the deployed Coffer boundary, `HEALTH_OK`,
+  three RGWs, two ingress backends, exactly two users/two buckets, and no
+  secondary-node credential directory. A live `cleanup` attempt in the
+  deployed state returned nonzero at the stopped-state guard before the
+  storage cleanup script ran; state remains unchanged.
+- Safety: No identity, credential, bucket, object, container, service, guest,
+  volume, network, or remote file was changed by this milestone.
+- Next exact action: Add a top-level teardown preflight and post-destroy audit
+  that composes the accepted tenant cleanup, companion stop, S3 cleanup, and
+  exact libvirt destroy actions. Validate dependency order, refusal paths, and
+  an unchanged live preflight before requesting destructive execution.
+
 ## Verification
 
 | Check | Command or method | Result |
