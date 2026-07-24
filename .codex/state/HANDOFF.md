@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-24
-- Status: plan 0018 active; RGW HA harness validated, invocation is next
+- Status: plan 0018 active; RGW HA endpoint healthy, S3 fixture phase is next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -132,6 +132,15 @@ signed Distribution v3.1.1 binary.
 - Exact next action: commit and invoke the RGW HA harness once, then verify
   three RGWs, two ingress pairs, one VIP owner, TLS, healthy 3/2 pools, and
   zero S3 users.
+- Preserved the harness in local commit `1f0e6e9` and invoked it. Three RGWs,
+  two HAProxy, two Keepalived, and exactly one VIP owner are running. Backend
+  and frontend TLS pass; untrusted and plaintext paths fail; the Mac-to-`bb00`
+  tunneled VIP path returns the expected S3 response.
+- All five pools remain size/minimum 3/2, all 129 PGs are clean, health is OK,
+  and user count is zero. A second invocation retained the same state.
+- Exact next action: implement a separate S3 fixture phase with owner-only
+  registry/denial credentials, one bucket per identity, isolation denials, and
+  a persistent known-digest sentinel for later replica-loss tests.
 
 ## Plan 0017 Completion
 

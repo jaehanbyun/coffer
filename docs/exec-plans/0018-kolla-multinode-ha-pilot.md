@@ -478,6 +478,29 @@ promotion while ADR 0006 remains blocked.
   `poc/kolla-ha/bootstrap-ceph-rgw.sh bb00` once. On failure, retain aggregate
   service/VIP/TLS/health evidence and do not create an S3 identity.
 
+### 2026-07-24 — Three-RGW redundant TLS endpoint complete
+
+- Completed: Preserved the RGW HA harness in local commit `1f0e6e9` and
+  invoked it. RGW runs on storage-1/2/3 over verified backend TLS; HAProxy and
+  Keepalived run on storage-1/2; exactly one host owns
+  `192.168.253.30:8443`.
+- TLS evidence: Each backend passed hostname verification with the cephadm
+  public root CA. The VIP passed the owner-only lab CA from both storage-1 and
+  an independent Mac-to-`bb00` tunnel, while an untrusted client and plaintext
+  HTTP on the TLS port failed. The exported public CA contains no private key
+  and remains ignored under `work/kolla-ha/`.
+- Storage evidence: Five RGW/system pools retain size/minimum 3/2, all 129 PGs
+  are active and clean, and cluster health is `HEALTH_OK`.
+- Identity boundary: `radosgw-admin user list` remains empty. No S3 user,
+  access key, bucket, or object was created by this phase.
+- Idempotency: A second complete invocation retained three RGWs, two ingress
+  pairs, one VIP owner, the same owner-only certificate set, zero users, and
+  healthy storage without adding a service.
+- Next exact action: Add a separate least-privilege S3 fixture phase. Create
+  owner-only registry and denial identities with one bucket each, prove
+  anonymous/cross-owner/extra-bucket denial, and retain a known-digest private
+  sentinel for later replica-loss tests without printing credentials.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -489,8 +512,9 @@ promotion while ADR 0006 remains blocked.
 | Guest provisioning and readiness | exact status, autostart, cloud-init, NIC, disk, and resource checks | passed |
 | Provision/destroy target safety | local allowlist, rollback, and negative-target tests | passed |
 | Storage preparation | pinned inputs, hostname map, chrony, empty OSD devices | passed |
-| Ceph control plane | exact hosts, 3-MON quorum, 2 MGRs, key recipients, zero OSD/RGW | passed; only expected `TOO_FEW_OSDS` remains |
+| Ceph control plane | exact hosts, 3-MON quorum, 2 MGRs, key recipients, zero OSD/RGW | passed at the zero-OSD checkpoint |
 | Ceph replicated OSDs | exact devices, 3 up/in OSDs, host CRUSH domain, size/min 3/2, idempotency | passed; `HEALTH_OK` |
+| RGW HA endpoint | 3 RGWs, 2 ingress pairs, one VIP owner, backend/frontend TLS, idempotency | passed; 5 pools/129 clean PGs, zero users |
 | Kolla/Galera/Coffer baseline | multinode deploy and health acceptance | pending |
 | External RGW HA | quorum, TLS endpoint, object and replica-loss acceptance | pending |
 | OCI and isolation | two-project clients through sole external edge | pending |
@@ -519,11 +543,11 @@ promotion while ADR 0006 remains blocked.
 ## Handoff
 
 - Current state: Active; the Ceph control plane and exact three-host replicated
-  OSD baseline are healthy, and the RGW HA harness is locally validated. No
-  RGW or ingress service exists yet.
-- Exact next action: Commit and invoke the RGW HA harness once, then stop for
-  aggregate daemon/VIP/backend/frontend TLS/pool/health/user verification.
-- First file or command: `git diff --check`.
+  OSD baseline plus three-RGW/two-ingress TLS endpoint are healthy. No S3 user
+  or bucket exists.
+- Exact next action: Implement and locally validate the isolated S3 fixture
+  phase with owner-only credentials and persistent sentinel evidence.
+- First file or command: `poc/kolla-ha/provision-ceph-s3.sh`.
 - Questions requiring user input: None for read-only inventory and local
   harness work. Ask before expanding to a different substrate, production
   credentials/data, a private Distribution fork, external publication, or an
