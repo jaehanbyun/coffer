@@ -1,18 +1,18 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0018 complete; Stage 5 multinode/HA pilot accepted and removed
+- Status: plan 0019 active; Stage 6 production promotion started
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
-- Active execution plan: none
+- Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
 
 ## Current Objective
 
-Plan 0018 is complete. The disposable three-controller Kolla/Galera/HAProxy
-and independent three-storage-node Ceph/RGW topology passed tenant OCI,
-isolation, quota, replica loss, VIP movement, database-member loss,
-concurrent retry, worker fencing, signing-key overlap, rolling update, and
-compatible rollback acceptance.
+Plan 0019 is active. Stage 6 is converting the completed Stage 5 HA pilot into
+a fail-closed production-candidate operator baseline. The first workstream
+qualifies only signed stable Distribution and Ceph/RGW inputs; maintenance
+identity, data protection/cutover, observability, controlled GC, and load may
+progress independently before they converge in a fresh Kolla multinode pilot.
 
 The approved teardown removed every exact Stage 5 identity, credential,
 bucket, object namespace, guest, volume, and network. Repeated status reports
@@ -21,10 +21,28 @@ zero Stage 5 residue and a complete marker. Before/after signatures preserve
 volumes, host containers/services, and the running autostart-disabled
 `coffer-rgw-poc`.
 
-Post-destroy regression passes 251 tests, 52 role-contract checks, dependency
-lock, compilation, shell, Go, structured-document/link, Gitleaks, and diff
-gates. There is no active execution plan. ADR 0006 still blocks production
-promotion of the signed Distribution v3.1.1 artifact.
+Stage 5 remains complete at clean commit `610b576`. Post-destroy regression
+passes 251 tests, 52 role-contract checks, dependency lock, compilation, shell,
+Go, structured-document/link, Gitleaks, and diff gates. ADR 0006 still blocks
+signed Distribution v3.1.1, and released Ceph Tentacle v20.2.2 still blocks
+encrypted zero-byte moves. Ceph PR 69277 merged the required encrypted-copy
+backport to the protected `tentacle` branch on 2026-07-22, but no stable point
+release contains it yet.
+
+## Plan 0019 Activation
+
+- Recovered the clean Stage 5 boundary at `610b576`; no empty or duplicate
+  Stage 5 checkpoint is required.
+- Activated `docs/exec-plans/0019-stage6-production-promotion.md` with explicit
+  dependency, maintenance-identity, data-protection/cutover, observability, GC,
+  load/soak, production-candidate pilot, teardown, and release-evidence gates.
+- Official release metadata checked on 2026-07-25 still reports signed
+  Distribution v3.1.1 and Ceph Tentacle v20.2.2 as the stable inputs.
+- Ceph PR 69277 is merged to protected branch `tentacle` at merge commit
+  `c6fc9801f55e24152f0e934b2ddc3e5cda33d63e`. It is an actionable upstream
+  release signal, not released production evidence.
+- Stage 6 will not recreate the six-VM lab until cheaper dependency, identity,
+  and data-protection qualification gates pass.
 
 ## Plan 0018 Activation
 
@@ -1751,13 +1769,13 @@ promotion of the signed Distribution v3.1.1 artifact.
 
 ## Exact Next Action
 
-No action remains in plan 0018. Before Stage 6, create a fresh execution plan.
-The leading next decision is selection and qualification of a supported
-vulnerability-cleared Distribution release/image; production reconciliation
-identity and existing-data backup/restore/cutover remain separate gates.
+Add `poc/production-images/check_upstream_readiness.py` with fixture-driven unit
+tests. It must distinguish signed stable releases from merged-but-unreleased
+fixes and report `blocked`, `candidate-released`, or `candidate-qualified`
+without downloading/building artifacts or mutating infrastructure.
 
 ## After This Work Package
 
-Stage 5 is closed. The signed Distribution v3.1.1 input remains
-production-blocked, so Stage 6 must begin with image/release remediation
-rather than production deployment or official upstream promotion.
+Stage 6 converges only after released dependency, identity, data-protection,
+observability, GC, and load gates pass. Official Kolla upstream/governance
+work remains a later stage.
