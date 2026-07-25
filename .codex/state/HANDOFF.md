@@ -54,6 +54,18 @@ release contains it yet.
   fix ancestry.
 - All 261 Python tests, 52 companion-role contract checks, compilation, live
   metadata classification, and diff checks pass.
+- Added `docs/research/stage6-maintenance-identity.md`. It records that the
+  installed reconciler has verified TLS but no Bearer provider, is disabled by
+  default and throughout Stage 5, and therefore has no authenticated live
+  Distribution evidence.
+- The recommended but unaccepted boundary is a dedicated maintenance service
+  user, `service` plus `registry_maintenance` roles, finite access-rule
+  application credential, internal Coffer broker that emits one pull-only
+  repository JWT from server-resolved SQL authority, and a private mTLS
+  HAProxy frontend. The signer remains API-only and the public edge must deny
+  `/v1/internal/`.
+- No credential, role, endpoint, ACL, certificate, secret recipient, policy,
+  or runtime setting changed.
 
 ## Plan 0018 Activation
 
@@ -1780,11 +1792,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Create `docs/research/stage6-maintenance-identity.md`. Inventory the existing
-reconciliation/live-comparison authentication seams and compare expiring
-Keystone application credentials, service credentials, and private mTLS for
-least privilege, rotation, revocation, audit, Barbican materialization, and
-Kolla ownership. Do not create or deliver a credential or accept an ADR.
+Obtain user approval or rejection of the recommended cross-project maintenance
+identity boundary. If approved, first create proposed ADR
+`docs/adrs/0015-use-expiring-maintenance-identity.md` and define its pure local
+policy, short-lived pull-token, stale-claim/session, edge-denial, and secret
+safety tests before implementing any credential or Kolla recipient.
 
 ## After This Work Package
 

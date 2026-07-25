@@ -193,6 +193,39 @@ operator-local release.
   materialization, and Kolla ownership. Do not create or deliver any
   credential and do not accept an ADR yet.
 
+### 2026-07-25 — Maintenance identity candidates researched
+
+- Completed: Documented the exact implemented authentication boundary.
+  `AuthenticatedManifestProbe` is provider-ready, while the installed
+  reconciler creates a verified-TLS probe with no Authorization header.
+  `coffer_enable_reconcile` is false by default and remained false in Stage 5;
+  Stage 5 proved shared-Galera claim/fencing behavior, not an authenticated
+  Distribution HEAD.
+- Recommendation requiring approval: Use a separate maintenance service user
+  with `service` plus a proposed `registry_maintenance` role and a finite,
+  restricted, access-rule-bearing Keystone application credential. An
+  internal-only Coffer broker should resolve authority from SQL and issue one
+  short-lived pull-only, one-repository JWT. A dedicated HAProxy mTLS frontend
+  should provide workload/path defense in depth; it is not authorization.
+- Rejected directions: Per-project credential fan-out as the global default;
+  reuse of the current admin-assigned API middleware password; service/system
+  tokens as implicit Distribution authority; giving the signing key to
+  `coffer-reconcile`; and adding a separate authorization proxy.
+- Security boundaries: The public edge must deny `/v1/internal/`; the
+  maintenance credential and per-replica client key go only to approved
+  workers; Coffer API retains the signer; failures remain indeterminate; and
+  tokens never enter SQL, config, disk cache, environment, arguments, metrics,
+  logs, or evidence.
+- Changed files: Added
+  `docs/research/stage6-maintenance-identity.md`; updated this plan and
+  `HANDOFF.md`. No credential, role, endpoint, ACL, certificate, secret
+  recipient, policy, or runtime setting changed.
+- Next exact action requiring user approval: Accept or reject the recommended
+  cross-project maintenance authority, dedicated role/user, access-rule
+  application credential, and private mTLS frontend. If accepted, first create
+  proposed ADR `docs/adrs/0015-use-expiring-maintenance-identity.md`; keep it
+  proposed until pure policy/token/edge-denial tests pass.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -206,6 +239,8 @@ operator-local release.
 | Live upstream classifier | `make -C poc/production-images check-upstream` | passed; valid `blocked` result |
 | Full Python regression | `uv run pytest -q` | passed; 261 |
 | Kolla companion-role regression | `make -C poc/kolla-ansible-role verify` | passed; 52 |
+| Maintenance identity code/config inventory | Focused inspection of live comparison, reconciliation runner/probe, WSGI, Kolla config, secrets, and Stage 5 inputs | passed |
+| Maintenance identity primary sources | Current Keystone, keystonemiddleware, Barbican, and Distribution specifications | passed |
 
 ## Failures, Blockers, and Risks
 
@@ -224,14 +259,16 @@ operator-local release.
 
 ## Handoff
 
-- Current state: Stage 5 is complete and committed. Stage 6 is active; the
-  deterministic classifier confirms both current stable dependencies remain
-  blocked while Ceph's required fix has reached the protected stable branch.
-- Exact next action: Research the production maintenance-identity contract
-  without choosing or creating a credential.
-- First file or command:
-  `docs/research/stage6-maintenance-identity.md`.
-- Questions requiring user input: None for read-only identity research and a
-  proposed decision. Ask before accepting a security-boundary ADR, creating or
-  delivering credentials, branch-based live qualification, destructive GC,
-  external publication, or production deployment.
+- Current state: Stage 5 is complete and committed. Stage 6 has a deterministic
+  upstream release gate and a documented maintenance-identity recommendation.
+  Current stable dependencies remain blocked; no security boundary changed.
+- Exact next action: Obtain approval or rejection of the recommended
+  maintenance identity boundary. If approved, create proposed ADR 0015 and its
+  pure local policy/token/edge-denial acceptance plan before implementation.
+- First file after approval:
+  `docs/adrs/0015-use-expiring-maintenance-identity.md`.
+- Questions requiring user input: Approve or reject the dedicated maintenance
+  service user, `registry_maintenance` role, restricted finite application
+  credential, internal Coffer token broker, and private mTLS frontend. Separate
+  approval remains required for real credential creation/delivery, destructive
+  GC, external publication, or production deployment.
