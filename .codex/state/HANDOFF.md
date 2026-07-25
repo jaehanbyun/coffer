@@ -6,7 +6,8 @@
   complete; raw OCI and five real-client execution boundaries complete;
   telemetry, deterministic plan, and fixture orchestrator complete; runtime
   manifest, control/token/quota protocol core, and owner-only control CLI
-  complete; checkpointed profile/ramp executor complete; fault executor next
+  complete; checkpointed profile/ramp and recovery-first fault executors
+  complete; live telemetry collector next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -520,6 +521,17 @@ release contains it yet.
   broader load matrix passes 136 tests and all 828 Python tests pass. Profile
   entries are now source-hashed `contract-only`; the runtime manifest remains
   `ready=false` with nine unqualified executors.
+- Added the serial recovery-first fault executor for all ten compiled windows.
+  Exact binary/source/plan/target hashes, bounded non-secret adapter selectors,
+  one active lock, full observation windows, replayable action checkpoints,
+  recovery deadlines, fixed output, and zero temporary residue are enforced.
+- Ambiguous inject, observe failure, interruption, and a lost process after
+  injection recover then verify before returning failure. Successful rollback
+  ends `failed-recovered` without output; failed/deadline recovery remains
+  fail-closed. Sixteen local-executable tests pass. Fault steps are now
+  source-hashed `contract-only`; live telemetry is the last missing schedule
+  executor. The broader load matrix passes 152 tests and all 844 Python tests
+  pass.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2327,11 +2339,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add the serial owner-only fault executor under `poc/load-soak/fault/`. Bind
-each compiled fault window to exact preflight/inject/observe/recover/verify
-commands and target evidence, enforce one active fault, process/time/output
-bounds, recovery deadlines, and interruption-safe rollback using local
-executable fakes only.
+Add the owner-only live telemetry collector under
+`poc/load-soak/collector/`. Fetch exact direct Prometheus targets and native
+HAProxy/MariaDB/Ceph surfaces over verified TLS, bind each
+before/during/after window to the compiled plan, cap samples/series/labels,
+emit the existing canonical telemetry bundle, and prove transport behavior
+with local TLS fakes only.
 
 ## After This Work Package
 

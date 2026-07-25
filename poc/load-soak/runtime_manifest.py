@@ -123,6 +123,16 @@ def _contract_hashes() -> dict[str, str]:
                 if path.is_file()
             ]
         ),
+        "fault": _source_hash(
+            [
+                DIRECTORY / "profile" / "run.py",
+                *[
+                    path
+                    for path in (DIRECTORY / "fault").rglob("*.py")
+                    if path.is_file()
+                ],
+            ]
+        ),
         "telemetry-collector": _source_hash([DIRECTORY / "telemetry.py"]),
     }
 
@@ -199,7 +209,7 @@ def build_manifest(
             timeout_seconds = duration_seconds + 600
         elif step.kind == "fault":
             executor = "fault"
-            disposition = "missing"
+            disposition = "contract-only"
             input_contract = "coffer.load-fault-invocation/v1"
             output_contract = "coffer.load-fault-result/v1"
             timeout_seconds = (

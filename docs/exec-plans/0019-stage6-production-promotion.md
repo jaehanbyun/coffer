@@ -1805,6 +1805,50 @@ operator-local release.
   one active fault, process/time/output bounds, recovery deadlines, and
   interruption-safe rollback using local executable fakes only.
 
+### 2026-07-25 — Serial recovery-first fault executor completed
+
+- Invocation/target boundary: Added the exact owner-only fault invocation for
+  all ten compiled serial windows. It binds the disposable source class, plan
+  step, action binary and source-contract hashes, target-evidence hash, and
+  distinct state/lock/output/work paths. Each fault has one fixed adapter class
+  and a bounded owner-only list of non-secret selectors whose canonical hash,
+  ownership hash, and topology hash are verified but not retained raw.
+- State machine: Every run holds one nonblocking lock and advances
+  `preflight -> inject -> full window -> observe -> recover -> verify` through
+  a replay-validated hash-chain checkpoint. Success requires the exact five
+  actions, exact window, bounded combined recovery evidence, zero unexpected
+  errors, and no failure phase.
+- Ambiguous/lost execution: Inject failure is conservatively treated as
+  active. Observe failure, `KeyboardInterrupt`, or a process disappearing
+  after injection checkpoints a fixed failure and performs recover then
+  verify. A later invocation with an injected/observed/recovered checkpoint
+  also recovers first. Successful rollback ends `failed-recovered` without
+  output; recovery failure retains the actionable checkpoint; a missed
+  recovery deadline is terminal and can never be promoted.
+- Process/file safety: Actions receive only one owner-only generated
+  invocation path. The shared profile subprocess boundary provides no shell or
+  stdin, minimal environment, independent process groups, finite timeout,
+  live 4-KiB stdout/stderr bounds, fixed output, termination escalation, and
+  exact temporary cleanup. Action results contain only fixed phase/fault,
+  timing, status, and target-evidence hash fields.
+- Qualification boundary: Runtime source evidence for `fault` includes both
+  the fault executor and shared subprocess implementation. All ten fault steps
+  are now `contract-only`; the runtime manifest remains `ready=false` with
+  nine gaps because executable SHA and pilot evidence are unqualified. The
+  live telemetry collector is the last missing schedule executor.
+- Verification: Sixteen fault tests with actual local action executables cover
+  full window/success/idempotence, observe failure rollback, lost-process
+  recovery, ambiguous inject, deadline failure, hash-chain tamper, exact
+  binary/plan/target/adapter/step/source/path refusal, fixed CLI behavior, and
+  zero temporary residue. The broader load matrix passes 152 tests; all 844
+  Python tests and compilation pass.
+- Next exact action: Add the owner-only live telemetry collector beginning
+  under `poc/load-soak/collector/`. Fetch the exact direct Prometheus targets
+  and native HAProxy/MariaDB/Ceph surfaces over verified TLS, bind each
+  before/during/after window to the compiled plan, cap samples/series/labels,
+  emit the existing canonical telemetry bundle, and prove transport behavior
+  with local TLS fakes only.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1913,6 +1957,9 @@ operator-local release.
 | Owner-only profile/ramp executor | `uv run pytest -q tests/test_load_profile_run.py` | passed; 15 |
 | Broader load matrix after profile executor | profile, plan, orchestrator, runtime manifest, state machine, and evidence tests | passed; 136 |
 | Full Python regression after profile executor | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 828 collected |
+| Serial recovery-first fault executor | `uv run pytest -q tests/test_load_fault_run.py` | passed; 16 |
+| Broader load matrix after fault executor | fault, profile, plan, orchestrator, runtime manifest, state machine, and evidence tests | passed; 152 |
+| Full Python regression after fault executor | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 844 collected |
 
 ## Failures, Blockers, and Risks
 
@@ -1943,11 +1990,12 @@ operator-local release.
   Real RGW lifecycle evidence and current stable dependencies remain blocked;
   no real identity, credential, certificate, endpoint, or remote state
   changed.
-- Exact next action: Add the serial owner-only fault executor under
-  `poc/load-soak/fault/`. Bind each compiled fault window to exact
-  preflight/inject/observe/recover/verify commands and target evidence, enforce
-  one active fault, process/time/output bounds, recovery deadlines, and
-  interruption-safe rollback using local executable fakes only.
+- Exact next action: Add the owner-only live telemetry collector under
+  `poc/load-soak/collector/`. Fetch exact direct Prometheus targets and native
+  HAProxy/MariaDB/Ceph surfaces over verified TLS, bind each
+  before/during/after window to the compiled plan, cap samples/series/labels,
+  emit the existing canonical telemetry bundle, and prove transport behavior
+  with local TLS fakes only.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

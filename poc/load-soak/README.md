@@ -103,16 +103,25 @@ limited to one child per wave to avoid fixed-tag races. Local executable
 fixtures remain explicitly synthetic; both-architecture pilot execution is
 still required.
 
+`fault/run.py` is the serial owner-only runtime contract for all ten fault
+windows. It binds a compiled fault step, hashed action binary/source, bounded
+non-secret adapter selectors, and owner-only target/state/lock/output paths.
+Each fault executes preflight, inject, the full observation window, recover,
+and verify under one lock. An ambiguous inject, interruption, lost process,
+action failure, or recovery deadline can only end in retryable recovery state
+or `failed-recovered`; it can never produce success evidence. Local action
+fixtures remain explicitly synthetic.
+
 `runtime_manifest.py` maps every schedule entry and operation to the current
 runtime capability baseline. It binds a canonical owner-only compiled plan,
 qualified readiness file, exact client pins, checked-in runner source hashes,
 target class, per-step input/output schemas, timeout, cleanup owner, verified
 TLS, and owner-only requirements. Current client/raw paths are only
-`contract-only`; the profile executor and standalone control, token, and
-quota-contention operations are also `contract-only`; fault and live telemetry
-executors remain missing. No executable has qualified binary evidence, so
-every executable SHA remains null and the manifest always reports
-`ready=false` with explicit gaps.
+`contract-only`; the profile and fault executors plus standalone control,
+token, and quota-contention operations are also `contract-only`; the live
+telemetry collector remains missing. No executable has qualified binary
+evidence, so every executable SHA remains null and the manifest always
+reports `ready=false` with explicit gaps.
 
 `control/` adds the verified-TLS protocol core for finite Keystone
 application-credential token acquisition, Coffer repository control probing,
