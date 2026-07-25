@@ -43,10 +43,10 @@ FIXED_FAILURES = frozenset(
         "output-unavailable",
     }
 )
-MISSING_OPERATIONS = {
-    "control": "control-executor",
-    "quota-contention": "quota-contention-executor",
-    "token": "token-only-executor",
+CONTROL_OPERATIONS = {
+    "control",
+    "quota-contention",
+    "token",
 }
 
 
@@ -109,6 +109,13 @@ def _contract_hashes() -> dict[str, str]:
             for client in ("docker", "nerdctl", "oras", "podman", "skopeo")
         },
         "raw-oci": _source_hash(go_paths),
+        "control-load": _source_hash(
+            [
+                path
+                for path in (DIRECTORY / "control").rglob("*.go")
+                if path.is_file()
+            ]
+        ),
         "telemetry-collector": _source_hash([DIRECTORY / "telemetry.py"]),
     }
 
@@ -217,16 +224,17 @@ def build_manifest(
     operations: list[dict[str, Any]] = []
     raw_hash = contract_hashes["raw-oci"]
     for operation in topology["operations"]:
-        gap = MISSING_OPERATIONS.get(operation)
-        disposition = "missing" if gap else "contract-only"
-        if gap:
-            gaps.add(gap)
+        owner = (
+            "control-load"
+            if operation in CONTROL_OPERATIONS
+            else "raw-oci"
+        )
         operations.append(
             {
-                "contract_sha256": None if gap else raw_hash,
-                "disposition": disposition,
+                "contract_sha256": contract_hashes.get(owner, raw_hash),
+                "disposition": "contract-only",
                 "operation": operation,
-                "owner": gap or "raw-oci",
+                "owner": owner,
             }
         )
     manifest = {

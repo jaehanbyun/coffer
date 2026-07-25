@@ -102,5 +102,12 @@ control, token, and quota-contention operations are missing. No executable has
 qualified binary evidence, so every executable SHA remains null and the
 manifest always reports `ready=false` with explicit gaps.
 
+`control/` adds the verified-TLS protocol core for finite Keystone
+application-credential token acquisition, Coffer repository control probing,
+standalone registry-token acquisition, and concurrent 201/429 quota admission
+with independent cleanup of every owner-created manifest digest. It retains
+only fixed aggregates and is still contract-only until its owner-only
+executable boundary and real runtime qualification exist.
+
 Live execution remains gated on a fresh disposable Stage 6 pilot and qualified
 stable dependencies.

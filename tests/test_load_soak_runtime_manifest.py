@@ -129,13 +129,10 @@ def test_current_runtime_manifest_exposes_every_gap_without_claiming_ready() -> 
             "client-oras",
             "client-podman",
             "client-skopeo",
-            "control-executor",
             "fault",
             "profile-load",
-            "quota-contention-executor",
             "raw-oci",
             "telemetry-collector",
-            "token-only-executor",
         ]
     )
     assert all(
@@ -162,8 +159,9 @@ def test_current_runtime_manifest_exposes_every_gap_without_claiming_ready() -> 
     }
     assert set(operations) == set(TOPOLOGY["operations"])
     for name in ("control", "quota-contention", "token"):
-        assert operations[name]["disposition"] == "missing"
-        assert operations[name]["contract_sha256"] is None
+        assert operations[name]["disposition"] == "contract-only"
+        assert operations[name]["owner"] == "control-load"
+        assert operations[name]["contract_sha256"].startswith("sha256:")
     for name in set(operations) - {
         "control",
         "quota-contention",

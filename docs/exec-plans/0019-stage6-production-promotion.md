@@ -1674,6 +1674,46 @@ operator-local release.
   requests, concurrent quota-manifest admission, verified TLS, secret-safe
   aggregates, cancellation, and cleanup using local TLS fakes only.
 
+### 2026-07-25 — Control, token, and quota protocol core completed
+
+- Transport: Added a standalone Go 1.25 standard-library module requiring
+  explicit HTTPS Keystone/control/registry origins, an explicit CA pool,
+  TLS 1.2 or newer, no ambient proxy or redirect, finite timeout, and bounded
+  concurrency. Invalid origin, route, service, credential, or configuration
+  fails before a request.
+- Identity/control: The core obtains one Keystone token using the exact
+  application-credential method and bounded response, then probes the
+  project-scoped repository collection with `X-Auth-Token`. The credential
+  provider is injected and its JSON buffer is overwritten after use.
+- Registry token: A separate Basic application-credential request uses an
+  exact encoded service and canonical project-scoped repository pull/push
+  scope. Only a bounded successful token document is accepted.
+- Quota contention: Two through sixty-four distinct bounded manifests publish
+  concurrently. Exact expected 201 and 429 counts are mandatory; every 201
+  requires the locally calculated digest. All owner-created digests are
+  deleted under an independent bounded cleanup context before outcome
+  acceptance, including mismatch, primary failure, or caller cancellation.
+- Evidence: Only sorted fixed operation/result/count/duration aggregates are
+  retained. Credential, token, project/repository, manifest, digest, URL, and
+  cleanup identities are absent. Authentication, dependency, protocol, quota,
+  cleanup, and cancellation failures remain distinct.
+- Runtime manifest: `control`, standalone `token`, and `quota-contention`
+  changed from missing to `contract-only` under one source-hashed
+  `control-load` owner. The total runtime gap set drops from twelve to nine;
+  no executable SHA or qualified runtime claim was added.
+- Verification: Four Go top-level tests pass with the race detector and
+  `go vet`; fourteen runtime-manifest tests still pass. Local TLS covers the
+  success path, untrusted CA, redirect, cancellation, count mismatch, required
+  cleanup, cleanup failure, invalid configuration, and secret-safe evidence.
+  No external endpoint, credential, registry, workload, or infrastructure was
+  used.
+- Full regression: All 813 Python tests remain passing after the control core.
+- Next exact action: Add `poc/load-soak/control/cmd/coffer-control-load/main.go`
+  plus an owner-only invocation loader. Bind exact CA, application credential,
+  readiness, manifests, output, target class, timeouts, expected quota counts,
+  and binary/source evidence; atomically emit canonical aggregates and prove
+  unsafe-file, interruption, failure, and residue behavior with local TLS.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1772,6 +1812,9 @@ operator-local release.
 | Full regression after fixture orchestrator | `uv run pytest -q` | passed; 799 |
 | Fail-closed runtime capability manifest | `uv run pytest -q tests/test_load_soak_runtime_manifest.py` | passed; 14 |
 | Full regression after runtime manifest | `uv run pytest -q` | passed; 813 |
+| Control/token/quota local TLS core | pinned Go 1.25.3 `go test -race -count=1 ./...`; `go vet ./...` in `poc/load-soak/control` | passed; 4 top-level tests |
+| Runtime manifest after control core | `uv run pytest -q tests/test_load_soak_runtime_manifest.py` | passed; 14; runtime gaps 9 |
+| Full Python regression after control core | `uv run pytest -q` | passed; 813 |
 
 ## Failures, Blockers, and Risks
 
@@ -1802,10 +1845,10 @@ operator-local release.
   Real RGW lifecycle evidence and current stable dependencies remain blocked;
   no real identity, credential, certificate, endpoint, or remote state
   changed.
-- Exact next action: Add the bounded owner-only control/token/quota driver
-  contract under `poc/load-soak/control/`. Prove finite Keystone and registry
-  token paths, repository control, concurrent quota admission, verified TLS,
-  cancellation, cleanup, and secret-safe aggregates with local TLS fakes only.
+- Exact next action: Add the owner-only
+  `coffer-control-load` executable/invocation boundary. Bind exact CA,
+  credential, readiness, manifest, output, target, timeout, expected quota,
+  and source evidence; use local TLS only.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates
