@@ -1155,6 +1155,38 @@ operator-local release.
   concurrency/fault seams, metrics, limits, and existing Stage 5 evidence,
   then fix a bounded disposable load/soak matrix before implementing it.
 
+### 2026-07-25 — Load, soak, and fault baseline researched
+
+- Inventory: Stage 5 already proves serial Docker push/pull, a two-part
+  resumable upload, quota denial, isolation, replica/VIP/Galera/RGW faults,
+  concurrent quota transactions, claim fencing, and key rotation. It does not
+  sustain load through faults, measure latency/saturation, or exercise ORAS
+  and containerd/nerdctl.
+- Client and protocol boundary: Real Docker, Podman, Skopeo, ORAS, and
+  containerd/nerdctl compatibility surrounds a deterministic raw OCI driver
+  that owns concurrency, content generation, chunked/resumed uploads,
+  cross-mounts, indexes, artifacts, quota contention, and exact digest checks.
+- Profiles: Fixed smoke, qualification, and two-hour soak profiles plus a
+  saturation ramp. Hard transfer ceilings, 30% resource headroom, 70% queue/
+  pool limits, no growing backlog, and one measured higher point prevent an
+  untested capacity claim.
+- Gates: Initial p95/p99 control, manifest, finalize, and first-byte latency
+  limits now close the pending ADR 0016 load input. Fault windows cover one
+  API/edge/registry/RGW/ingress/Galera replica, HAProxy VIP ownership, KMS
+  outage, reconciler claim abandonment, and rolling restart under load.
+- Evidence: Versioned bounded aggregates bind exact releases/configuration,
+  phases, faults, latency/status/retry buckets, transferred bytes, resource
+  limits, quota/Galera/claim invariants, Prometheus reset/staleness, inventory,
+  leak scans, and zero residue. Tenant/object/credential/request identities
+  and raw payload/log data are forbidden.
+- Scope: Research only. No load, credential, registry, SQL, RGW, KMS, Kolla,
+  container, VM, network, or remote resource changed.
+- Next exact action: Add `poc/load-soak/topology.json` and
+  `poc/load-soak/state_machine.py`. Prove exact profiles, phases, content and
+  client matrices, ramp/latency/resource gates, fault order/outcomes,
+  canonical evidence, secret safety, and zero residue without network,
+  subprocess, credential, database, registry, or infrastructure access.
+
 ## Verification
 
 | Check | Command or method | Result |

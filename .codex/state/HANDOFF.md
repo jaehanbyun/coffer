@@ -301,6 +301,14 @@ release contains it yet.
   ShellCheck, compilation, diff, and the live exact-image fixture pass. No
   S3/RGW, SQL, KMS, Keystone, Kolla, credential, or remote host was used; ADR
   0017 remains proposed for the production RGW boundary.
+- Added `docs/research/stage6-load-soak.md`. It separates real-client
+  compatibility from a deterministic raw OCI concurrency driver and fixes
+  exact content shapes, smoke/qualification/two-hour soak profiles, a measured
+  saturation ramp, latency/resource gates, serial fault windows, Galera/quota
+  invariants, bounded evidence, and secret/residue rules.
+- Existing Stage 5 evidence is reusable for functional fault contracts but
+  does not claim sustained load, latency, capacity, ORAS, or
+  containerd/nerdctl compatibility. No load or external mutation occurred.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2108,11 +2116,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `docs/research/stage6-load-soak.md`. Inventory the accepted clients,
-request/upload shapes, private-TLS/shared-SQL/RGW topology, contention and
-fault seams, available metrics, saturation limits, and Stage 5 evidence.
-Define one bounded disposable load/soak matrix and its pass/fail evidence
-before implementation.
+Add `poc/load-soak/topology.json` and `poc/load-soak/state_machine.py`. Prove
+the exact profiles, phases, content/client matrices, ramp/latency/resource
+gates, serial fault windows and recovery outcomes, canonical evidence,
+secret safety, and zero residue without network, subprocess, credential,
+database, registry, or infrastructure access.
 
 ## After This Work Package
 
