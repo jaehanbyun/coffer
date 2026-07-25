@@ -1,8 +1,8 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; maintenance Kolla fixture contract complete;
-  disposable lifecycle harness design next
+- Status: plan 0019 active; disposable maintenance lifecycle contract fixed;
+  pure state-machine harness next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -118,6 +118,18 @@ release contains it yet.
   matrix passes 115; the pinned Kolla companion role passes 68 checks.
   Compilation and diff checks pass. No real identity, credential, certificate,
   Barbican object, endpoint, remote service, or reconciliation setting changed.
+- Added `poc/maintenance-identity/README.md`. The disposable lifecycle now has
+  immutable-ID resource and workload/generation allowlists, exact finite
+  Keystone/access-rule and project-private Barbican contracts, per-workload
+  mTLS mapping, owner-only atomic state/evidence, generation-overlap rotation,
+  bounded failure tests, and reverse-dependency teardown. Prefix deletion,
+  lost-state mutation, broader roles, in-place rotation, and retained secret
+  values are explicitly refused.
+- The lifecycle contract changed no identity, role, assignment, credential,
+  secret, certificate, mapping, endpoint, session, remote file, or
+  infrastructure resource. The user authorized autonomous milestone commits
+  and pushes; the previously accumulated 134 commits were published to
+  `jaehanbyun/coffer` `main` under the verified `jaehanbyun` account.
 
 ## Plan 0018 Activation
 
@@ -1844,10 +1856,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Create `poc/maintenance-identity/README.md` defining an abort-safe disposable
-create/rotate/revoke/teardown harness with exact identity, certificate,
-Barbican, endpoint, log-scan, and residue allowlists. Do not execute it or
-create any external resource in that local design milestone.
+Add `poc/maintenance-identity/topology.json`,
+`poc/maintenance-identity/state_machine.py`, and fixture-driven tests for pure
+topology, transition, exact-ownership, cleanup-plan, and redacted-evidence
+validation. Do not call OpenStack, Barbican, SSH, Ansible, Kolla, or any other
+external service.
 
 ## After This Work Package
 

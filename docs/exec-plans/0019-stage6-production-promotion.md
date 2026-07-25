@@ -396,6 +396,34 @@ operator-local release.
   creating an identity, secret, certificate, Barbican object, or remote
   resource.
 
+### 2026-07-25 — Disposable maintenance lifecycle contract fixed
+
+- Completed: Added `poc/maintenance-identity/README.md` with immutable-ID
+  ownership, exact resource/workload/generation allowlists, finite
+  application-credential and access-rule requirements, project-private
+  Barbican recipients, per-workload mTLS identity, owner-only state/evidence,
+  and noninteractive lifecycle actions.
+- Abort and teardown boundary: Every mutation must follow recorded immutable
+  IDs, atomic transitions, a single-invocation lock, and reverse-dependency
+  cleanup. Prefix/wildcard deletion, lost-state mutation, broader roles,
+  in-place rotation, and secret-bearing retained output are refused. Teardown
+  closes workers/sessions and mappings before credentials, materializations,
+  Barbican consumers/secrets, assignments, user/project, and an owned
+  unreferenced role.
+- Failure and rotation boundary: The contract requires generation overlap,
+  measured cache/token drain, old-generation rejection, Keystone/Barbican/
+  HAProxy/API/Distribution failure closure, replica survival, log/residue
+  scans, and unchanged unrelated-resource signatures.
+- Scope: This milestone created no identity, role, assignment, application
+  credential, Barbican secret, certificate, endpoint, mapping, SQL session,
+  remote file, or infrastructure resource.
+- Changed files: `poc/maintenance-identity/README.md`, this plan, and
+  `.codex/state/HANDOFF.md`.
+- Next exact action: Add `poc/maintenance-identity/topology.json`,
+  `state_machine.py`, and fixture-driven tests. Implement only pure topology,
+  state-transition, exact-ownership, cleanup-plan, and redacted-evidence
+  validation; do not call OpenStack, Barbican, SSH, Ansible, or Kolla.
+
 ## Verification
 
 | Check | Command or method | Result |
