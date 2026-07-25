@@ -109,11 +109,7 @@ def _client_pin(
     return checked
 
 
-def load_pins(path: Path) -> dict[str, Any]:
-    try:
-        payload = path.read_bytes()
-    except OSError as error:
-        raise ClientContractError("client pins are unavailable") from error
+def parse_pins(payload: bytes) -> dict[str, Any]:
     if not payload or len(payload) > MAX_CREDENTIAL_BYTES or b"\x00" in payload:
         raise ClientContractError("client pins size is invalid")
     try:
@@ -148,6 +144,14 @@ def load_pins(path: Path) -> dict[str, Any]:
         "pins_hash": _canonical_hash(document),
         "schema": PINS_SCHEMA,
     }
+
+
+def load_pins(path: Path) -> dict[str, Any]:
+    try:
+        payload = path.read_bytes()
+    except OSError as error:
+        raise ClientContractError("client pins are unavailable") from error
+    return parse_pins(payload)
 
 
 def _regular_file(
@@ -257,7 +261,7 @@ def _binary_digest(path: Path) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
-def _validate_invocation(
+def validate_invocation(
     value: object,
     pins: Mapping[str, Any],
 ) -> dict[str, Any]:
@@ -872,7 +876,7 @@ def qualify_client(
     *,
     pins: Mapping[str, Any],
 ) -> dict[str, Any]:
-    invocation = _validate_invocation(invocation_document, pins)
+    invocation = validate_invocation(invocation_document, pins)
     work_root = Path(invocation["work_root"])
     _owner_directory(work_root)
     binary = Path(invocation["binary"])

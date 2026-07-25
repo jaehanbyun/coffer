@@ -1501,6 +1501,40 @@ operator-local release.
   failures only; and test interruption/output/residue behavior with the same
   executable seam before qualifying real client binaries or images.
 
+### 2026-07-25 — Owner-only real-client execution boundary completed
+
+- Invocation: Added the exact `coffer.load-client-run/v1` file contract around
+  the five client adapters. The invocation, pins, and upstream readiness files
+  must be absolute, owner-matched, single-link, mode-0600 regular files; their
+  raw SHA-256 bindings, every nested client path, work root, and output path
+  are pairwise distinct.
+- Release fence: Overall, Distribution, and Ceph readiness must all be
+  `candidate-qualified`. The accepted baselines, newer stable versions,
+  verified Distribution commit, Tentacle series, merged/in-release Ceph
+  encrypted-copy fix, exact fix identity, revisions, publication metadata,
+  and empty reason sets cannot be weakened.
+- Output and failure boundary: The output parent must already be owner-owned
+  mode 0700 and any existing output mode 0600. A successful run fsyncs and
+  atomically replaces one canonical mode-0600 execution document containing
+  only pins/readiness hashes and the bounded adapter result. CLI output and
+  every failure category are fixed.
+- Interruption: SIGINT, timeout, output overflow, command failure, and unsafe
+  input/output paths terminate or clean owned client state. They leave no
+  result or temporary client session and retain no command output, endpoint,
+  repository, path, credential, or secret.
+- Verification: Nine runner tests plus seventeen adapter tests pass locally.
+  The runner matrix covers canonical success, blocked readiness, pins drift,
+  unsafe mode/symlink/path alias, command failure cleanup, SIGINT child
+  termination, exact fixed output, and zero generated residue. Compilation and
+  diff checks pass. No real binary, daemon, containerd, registry, network,
+  credential, or remote infrastructure was used.
+- Full regression: All 728 Python tests pass after the owner-only runner.
+- Next exact action: Add `poc/load-soak/telemetry.py` as a no-network canonical
+  evidence adapter. Bind exact before/during/after Prometheus query snapshots,
+  Galera/RGW/quota/reconciliation/host resource inputs, restart/stale-series
+  windows, and owner-only output; reject missing targets, unbounded labels,
+  invariant drift, or secret-like evidence before a live collector exists.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1589,6 +1623,8 @@ operator-local release.
 | Artifact/referrers and abandoned uploads | `env -u GOROOT mise x go@1.25.3 -- go test -race -count=1 ./...` in `poc/load-soak/driver` | passed; 42 driver plus 2 command tests |
 | Five real-client adapter contracts | `uv run pytest -q tests/test_load_client_contract.py` | passed; 17 |
 | Full regression after real-client adapters | `uv run pytest -q` | passed; 719 |
+| Owner-only real-client runner | `uv run pytest -q tests/test_load_client_run.py` | passed; 9 |
+| Full regression after owner-only client runner | `uv run pytest -q` | passed; 728 |
 
 ## Failures, Blockers, and Risks
 
@@ -1619,10 +1655,10 @@ operator-local release.
   Real RGW lifecycle evidence and current stable dependencies remain blocked;
   no real identity, credential, certificate, endpoint, or remote state
   changed.
-- Exact next action: Add `poc/load-soak/clients/run.py` with owner-only
-  invocation/pins/readiness/output files, canonical atomic result emission,
-  fixed failures, and bounded interruption/residue tests over the completed
-  five-client execution seam.
+- Exact next action: Add `poc/load-soak/telemetry.py` with exact
+  before/during/after Prometheus, Galera, RGW, quota, reconciliation, and host
+  resource snapshot contracts. Produce only canonical secret-safe evidence
+  locally; do not add a network collector until the release gate qualifies.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

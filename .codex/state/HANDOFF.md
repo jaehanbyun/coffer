@@ -3,7 +3,8 @@
 - Updated: 2026-07-25
 - Status: plan 0019 active; local production observability, disposable
   filesystem GC/restore, load model/lifecycle, and canonical evidence verifier
-  complete; raw OCI and five real-client contracts complete; client CLI next
+  complete; raw OCI and five real-client execution boundaries complete;
+  telemetry adapter next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -445,6 +446,15 @@ release contains it yet.
   or remote target changed.
 - Full Python regression passes 719 tests after the real-client adapter
   boundary and bounded subprocess implementation.
+- Added the owner-only client runner. Exact invocation/pins/readiness hashes,
+  owner/mode/link/path boundaries, qualified Distribution/Ceph release
+  predicates, canonical atomic mode-0600 output, fixed errors, and zero
+  interruption/failure residue are enforced before a real target can run.
+- Nine runner plus seventeen adapter tests pass. They include blocked
+  readiness, pins drift, unsafe mode/symlink/path alias, command failure,
+  SIGINT child termination, canonical output, and zero generated state. No
+  real binary, daemon, registry, credential, network, or remote state changed.
+- Full Python regression passes 728 tests after the owner-only runner.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2252,11 +2262,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/load-soak/clients/run.py` as an owner-only executable. Load exact
-invocation, pins, qualified readiness, credential, CA, and output files;
-invoke the completed adapter seam; atomically write one canonical mode-0600
-result with fixed failures; and prove interruption plus zero temporary residue
-using local executable fakes before any real client qualification.
+Add `poc/load-soak/telemetry.py` with exact before/during/after Prometheus,
+Galera, RGW, quota, reconciliation, and host resource snapshot contracts.
+Emit canonical secret-safe evidence locally and keep the live collector
+release-gated.
 
 ## After This Work Package
 

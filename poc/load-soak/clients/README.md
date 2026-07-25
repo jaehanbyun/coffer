@@ -42,3 +42,28 @@ credential transport, clean environment, version/digest parsing, failure
 cleanup, input ownership, and zero generated residue. They do not prove a real
 client binary, Docker daemon CA installation, containerd service, registry, or
 network. Those remain release-gated disposable-pilot work.
+
+## Owner-only runner
+
+`run.py` accepts only:
+
+```text
+python run.py --invocation /absolute/owner-only/invocation.json
+```
+
+The mode-0600 `coffer.load-client-run/v1` document contains the in-memory
+client invocation plus absolute `pins_file`, `readiness_file`, and
+`output_file` paths and the exact raw SHA-256 of both evidence files. The
+invocation, pins, and readiness inputs must be owner-matched, single-link,
+mode-0600 regular files. The output parent must already be an owner-matched
+mode-0700 directory; an existing output must be a mode-0600 regular file.
+Every input, work root, and output path is distinct.
+
+Execution is refused unless the upstream document is exactly
+`candidate-qualified` for both a Distribution release newer than v3.1.1 and a
+Ceph Tentacle v20.2 release newer than v20.2.2 containing the accepted
+encrypted-copy fix. On success the runner fsyncs and atomically replaces one
+canonical mode-0600 `coffer.load-client-execution/v1` result. It retains only
+the readiness and pins hashes plus the already bounded adapter result.
+Failures print one fixed category; interruption, timeout, overflow, client
+failure, and output failure retain no command output or secret.
