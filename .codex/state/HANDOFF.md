@@ -3,7 +3,7 @@
 - Updated: 2026-07-25
 - Status: plan 0019 active; local production observability, disposable
   filesystem GC/restore, load model/lifecycle, and canonical evidence verifier
-  complete; raw OCI read/publish core complete and invocation exposure next
+  complete; nine raw OCI executable operations complete and referrers next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -387,6 +387,25 @@ release contains it yet.
   unaligned deterministic windows, body/digest/range/location drift, redirect
   refusal, cancellation, and invalid-input preflight. No external target was
   contacted.
+- Expanded the exact invocation schema to nine operations: monolithic and
+  resumable upload; blob HEAD, full GET, range GET, and same-project
+  cross-mount; manifest PUT, HEAD, and GET. Operation-specific seed, size,
+  chunk, range, manifest, reference, and source fields cannot be mixed.
+  Manifest inputs reuse the owner-only single-link boundary and are wiped from
+  the retained runtime buffer after execution.
+- Cross-mount Bearer acquisition now requests destination `pull,push` and
+  source `pull` together while validating the server challenge against the
+  destination scope. Both repository routes must be canonical and share the
+  exact project UUID; cross-project or same-repository requests fail before
+  network use.
+- A native 201 mount requires exact digest and same-origin blob location. A
+  202 fallback requires an empty exact upload range and same-origin opaque
+  location, then the driver cancels that upload and records `fallback`.
+  Cleanup failure is fatal and never reported as a completed mount.
+- Thirty-five driver plus two command tests pass under the race detector and
+  `go vet`. Invocation execution covers manifest GET, blob range GET, and
+  cross-mount; native/fallback scope, cleanup, cross-project, operation-field,
+  digest/location, and no-network refusals pass. No external target changed.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2194,12 +2213,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Extend `poc/load-soak/driver/invocation.go` so the owner-only executable can
-run manifest PUT/HEAD/GET and blob HEAD/full/range GET with operation-specific
-exact fields and an owner-only manifest input. Then add same-project
-cross-mount with exact source/destination/digest authorization and 201-versus-
-202 fallback classification. Keep all tests on local TLS and the release fence
-closed.
+Add `poc/load-soak/driver/referrers.go` to publish a subject-bearing OCI
+artifact and probe the native OCI 1.1 Referrers response versus the accepted
+fallback-tag disposition with exact descriptor/digest checks. Then add bounded
+partial-upload creation/cancellation ownership for the abandoned-upload shape.
+Keep execution local TLS-only and retain no subject, tag, or upload identity.
 
 ## After This Work Package
 

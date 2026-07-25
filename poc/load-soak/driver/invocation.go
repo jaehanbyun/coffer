@@ -37,21 +37,27 @@ var (
 )
 
 type invocationDocument struct {
-	BaseURL         string `json:"base_url"`
-	CAFile          string `json:"ca_file"`
-	ChunkBytes      int64  `json:"chunk_bytes"`
-	CredentialFile  string `json:"credential_file"`
-	MaxAttempts     int    `json:"max_attempts"`
-	Operation       string `json:"operation"`
-	OutputFile      string `json:"output_file"`
-	ReadinessFile   string `json:"readiness_file"`
-	ReadinessSHA256 string `json:"readiness_sha256"`
-	Repository      string `json:"repository"`
-	Schema          string `json:"schema"`
-	Seed            string `json:"seed"`
-	SizeBytes       int64  `json:"size_bytes"`
-	TargetClass     string `json:"target_class"`
-	TimeoutSeconds  int64  `json:"timeout_seconds"`
+	BaseURL          string `json:"base_url"`
+	CAFile           string `json:"ca_file"`
+	ChunkBytes       int64  `json:"chunk_bytes"`
+	CredentialFile   string `json:"credential_file"`
+	LengthBytes      int64  `json:"length_bytes"`
+	ManifestFile     string `json:"manifest_file"`
+	ManifestMedia    string `json:"manifest_media_type"`
+	MaxAttempts      int    `json:"max_attempts"`
+	OffsetBytes      int64  `json:"offset_bytes"`
+	Operation        string `json:"operation"`
+	OutputFile       string `json:"output_file"`
+	ReadinessFile    string `json:"readiness_file"`
+	ReadinessSHA256  string `json:"readiness_sha256"`
+	Reference        string `json:"reference"`
+	Repository       string `json:"repository"`
+	Schema           string `json:"schema"`
+	Seed             string `json:"seed"`
+	SizeBytes        int64  `json:"size_bytes"`
+	SourceRepository string `json:"source_repository"`
+	TargetClass      string `json:"target_class"`
+	TimeoutSeconds   int64  `json:"timeout_seconds"`
 }
 
 type credentialDocument struct {
@@ -91,13 +97,20 @@ type readinessDocument struct {
 }
 
 type loadedInvocation struct {
-	chunkBytes int64
-	client     *Client
-	content    *Content
-	operation  string
-	outputFile string
-	repository string
-	timeout    time.Duration
+	chunkBytes       int64
+	client           *Client
+	content          *Content
+	lengthBytes      int64
+	manifest         []byte
+	manifestDigest   string
+	manifestMedia    string
+	offsetBytes      int64
+	operation        string
+	outputFile       string
+	reference        string
+	repository       string
+	sourceRepository string
+	timeout          time.Duration
 }
 
 func zero(payload []byte) {
@@ -266,6 +279,87 @@ func loadCertPool(payload []byte) (*x509.CertPool, error) {
 	return roots, nil
 }
 
+func isManifestOperation(operation string) bool {
+	return operation == "manifest-publish" ||
+		operation == "manifest-head" ||
+		operation == "manifest-get"
+}
+
+func validateInvocationOperation(invocation invocationDocument) error {
+	if invocation.Schema != InvocationSchema ||
+		invocation.TargetClass != TargetClass ||
+		invocation.MaxAttempts < 1 || invocation.MaxAttempts > 8 ||
+		invocation.TimeoutSeconds < 1 || invocation.TimeoutSeconds > 3*60*60 {
+		return newFailure(FailureProtocol)
+	}
+	if isManifestOperation(invocation.Operation) {
+		if invocation.ManifestFile == "" ||
+			(invocation.ManifestMedia != OCIImageManifest &&
+				invocation.ManifestMedia != OCIImageIndex) ||
+			(!tagPattern.MatchString(invocation.Reference) &&
+				!sha256Pattern.MatchString(invocation.Reference)) ||
+			invocation.Seed != "" || invocation.SizeBytes != 0 ||
+			invocation.ChunkBytes != 0 || invocation.OffsetBytes != 0 ||
+			invocation.LengthBytes != 0 ||
+			invocation.SourceRepository != "" {
+			return newFailure(FailureProtocol)
+		}
+		return nil
+	}
+	if invocation.ManifestFile != "" || invocation.ManifestMedia != "" ||
+		invocation.Reference != "" ||
+		len(invocation.Seed) == 0 || len(invocation.Seed) > 256 ||
+		hasControl(invocation.Seed) ||
+		invocation.SizeBytes < 0 || invocation.SizeBytes > MaxBlobBytes {
+		return newFailure(FailureProtocol)
+	}
+	switch invocation.Operation {
+	case "blob-monolithic":
+		if invocation.ChunkBytes != 0 || invocation.OffsetBytes != 0 ||
+			invocation.LengthBytes != 0 ||
+			invocation.SourceRepository != "" {
+			return newFailure(FailureProtocol)
+		}
+	case "blob-resumable":
+		if invocation.ChunkBytes < 1 ||
+			invocation.ChunkBytes > MaxChunkBytes ||
+			invocation.OffsetBytes != 0 || invocation.LengthBytes != 0 ||
+			invocation.SourceRepository != "" {
+			return newFailure(FailureProtocol)
+		}
+	case "blob-head":
+		if invocation.ChunkBytes != 0 || invocation.OffsetBytes != 0 ||
+			invocation.LengthBytes != 0 ||
+			invocation.SourceRepository != "" {
+			return newFailure(FailureProtocol)
+		}
+	case "blob-read-full":
+		if invocation.ChunkBytes != 0 || invocation.OffsetBytes != 0 ||
+			invocation.LengthBytes != invocation.SizeBytes ||
+			invocation.SourceRepository != "" {
+			return newFailure(FailureProtocol)
+		}
+	case "blob-read-range":
+		if invocation.ChunkBytes != 0 || invocation.OffsetBytes < 0 ||
+			invocation.LengthBytes < 1 ||
+			invocation.OffsetBytes > invocation.SizeBytes ||
+			invocation.LengthBytes >
+				invocation.SizeBytes-invocation.OffsetBytes ||
+			invocation.SourceRepository != "" {
+			return newFailure(FailureProtocol)
+		}
+	case "blob-cross-mount":
+		if invocation.ChunkBytes != 0 || invocation.OffsetBytes != 0 ||
+			invocation.LengthBytes != 0 ||
+			invocation.SourceRepository == "" {
+			return newFailure(FailureProtocol)
+		}
+	default:
+		return newFailure(FailureProtocol)
+	}
+	return nil
+}
+
 func loadInvocation(path string) (*loadedInvocation, error) {
 	invocationPayload, err := readOwnerOnly(path, maxInvocationBytes)
 	if err != nil {
@@ -276,34 +370,28 @@ func loadInvocation(path string) (*loadedInvocation, error) {
 	if err := decodeExact(invocationPayload, &invocation); err != nil {
 		return nil, err
 	}
-	if invocation.Schema != InvocationSchema ||
-		invocation.TargetClass != TargetClass ||
-		(invocation.Operation != "blob-monolithic" &&
-			invocation.Operation != "blob-resumable") ||
-		len(invocation.Seed) == 0 || len(invocation.Seed) > 256 ||
-		hasControl(invocation.Seed) ||
-		invocation.SizeBytes < 0 || invocation.SizeBytes > MaxBlobBytes ||
-		invocation.MaxAttempts < 1 || invocation.MaxAttempts > 8 ||
-		invocation.TimeoutSeconds < 1 || invocation.TimeoutSeconds > 3*60*60 {
-		return nil, newFailure(FailureProtocol)
-	}
-	if invocation.Operation == "blob-monolithic" && invocation.ChunkBytes != 0 {
-		return nil, newFailure(FailureProtocol)
-	}
-	if invocation.Operation == "blob-resumable" &&
-		(invocation.ChunkBytes < 1 || invocation.ChunkBytes > MaxChunkBytes) {
+	if err := validateInvocationOperation(invocation); err != nil {
 		return nil, newFailure(FailureProtocol)
 	}
 	if _, err := repositoryScope(invocation.Repository); err != nil {
 		return nil, err
 	}
-	if err := validateAbsoluteDistinct(
+	if invocation.SourceRepository != "" {
+		if _, err := repositoryProject(invocation.SourceRepository); err != nil {
+			return nil, err
+		}
+	}
+	paths := []string{
 		path,
 		invocation.CAFile,
 		invocation.CredentialFile,
 		invocation.ReadinessFile,
 		invocation.OutputFile,
-	); err != nil {
+	}
+	if invocation.ManifestFile != "" {
+		paths = append(paths, invocation.ManifestFile)
+	}
+	if err := validateAbsoluteDistinct(paths...); err != nil {
 		return nil, err
 	}
 	if err := validateOutputDestination(invocation.OutputFile); err != nil {
@@ -352,9 +440,35 @@ func loadInvocation(path string) (*loadedInvocation, error) {
 		hasControl(credential.Password) {
 		return nil, newFailure(FailureAuthentication)
 	}
-	content, err := NewContent([]byte(invocation.Seed), invocation.SizeBytes)
-	if err != nil {
-		return nil, err
+	var content *Content
+	var manifest []byte
+	var manifestDigest string
+	if isManifestOperation(invocation.Operation) {
+		manifestPayload, readErr := readOwnerOnly(
+			invocation.ManifestFile,
+			MaxManifestBytes,
+		)
+		if readErr != nil {
+			return nil, readErr
+		}
+		defer zero(manifestPayload)
+		manifestDigest, err = validateManifest(
+			invocation.Reference,
+			invocation.ManifestMedia,
+			manifestPayload,
+		)
+		if err != nil {
+			return nil, err
+		}
+		manifest = append([]byte(nil), manifestPayload...)
+	} else {
+		content, err = NewContent(
+			[]byte(invocation.Seed),
+			invocation.SizeBytes,
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
 	client, err := NewClient(Config{
 		BaseURL: invocation.BaseURL,
@@ -369,13 +483,20 @@ func loadInvocation(path string) (*loadedInvocation, error) {
 		return nil, err
 	}
 	return &loadedInvocation{
-		chunkBytes: invocation.ChunkBytes,
-		client:     client,
-		content:    content,
-		operation:  invocation.Operation,
-		outputFile: invocation.OutputFile,
-		repository: invocation.Repository,
-		timeout:    time.Duration(invocation.TimeoutSeconds) * time.Second,
+		chunkBytes:       invocation.ChunkBytes,
+		client:           client,
+		content:          content,
+		lengthBytes:      invocation.LengthBytes,
+		manifest:         manifest,
+		manifestDigest:   manifestDigest,
+		manifestMedia:    invocation.ManifestMedia,
+		offsetBytes:      invocation.OffsetBytes,
+		operation:        invocation.Operation,
+		outputFile:       invocation.OutputFile,
+		reference:        invocation.Reference,
+		repository:       invocation.Repository,
+		sourceRepository: invocation.SourceRepository,
+		timeout:          time.Duration(invocation.TimeoutSeconds) * time.Second,
 	}, nil
 }
 
@@ -385,21 +506,79 @@ func ExecuteInvocation(ctx context.Context, path string) error {
 		return err
 	}
 	defer loaded.client.CloseIdleConnections()
+	defer zero(loaded.manifest)
 	runContext, cancel := context.WithTimeout(ctx, loaded.timeout)
 	defer cancel()
-	if loaded.operation == "blob-monolithic" {
+	switch loaded.operation {
+	case "blob-monolithic":
 		err = loaded.client.UploadMonolithic(
 			runContext,
 			loaded.repository,
 			loaded.content,
 		)
-	} else {
+	case "blob-resumable":
 		err = loaded.client.UploadChunked(
 			runContext,
 			loaded.repository,
 			loaded.content,
 			loaded.chunkBytes,
 		)
+	case "blob-head":
+		err = loaded.client.HeadBlob(
+			runContext,
+			loaded.repository,
+			loaded.content,
+		)
+	case "blob-read-full":
+		err = loaded.client.ReadBlob(
+			runContext,
+			loaded.repository,
+			loaded.content,
+			0,
+			loaded.content.Size(),
+		)
+	case "blob-read-range":
+		err = loaded.client.ReadBlob(
+			runContext,
+			loaded.repository,
+			loaded.content,
+			loaded.offsetBytes,
+			loaded.lengthBytes,
+		)
+	case "blob-cross-mount":
+		_, err = loaded.client.MountBlob(
+			runContext,
+			loaded.repository,
+			loaded.sourceRepository,
+			loaded.content,
+		)
+	case "manifest-publish":
+		_, err = loaded.client.PublishManifest(
+			runContext,
+			loaded.repository,
+			loaded.reference,
+			loaded.manifestMedia,
+			loaded.manifest,
+		)
+	case "manifest-head":
+		err = loaded.client.HeadManifest(
+			runContext,
+			loaded.repository,
+			loaded.reference,
+			loaded.manifestMedia,
+			loaded.manifestDigest,
+			int64(len(loaded.manifest)),
+		)
+	case "manifest-get":
+		err = loaded.client.GetManifest(
+			runContext,
+			loaded.repository,
+			loaded.reference,
+			loaded.manifestMedia,
+			loaded.manifest,
+		)
+	default:
+		err = newFailure(FailureProtocol)
 	}
 	outputErr := WriteCanonical(
 		loaded.outputFile,

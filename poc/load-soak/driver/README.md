@@ -35,8 +35,9 @@ output paths must be absolute and distinct.
 The invocation binds:
 
 - the exact `disposable-stage6-pilot` target class and HTTPS origin;
-- one canonical repository, deterministic seed, bounded size/timeout/retry,
-  and monolithic or resumable operation;
+- one canonical repository, deterministic seed or owner-only manifest,
+  bounded size/range/chunk/timeout/retry, and one of nine upload/read/publish/
+  mount operations;
 - separate CA and credential files;
 - the SHA-256 of an exact `coffer.upstream-readiness/v1` document whose overall
   and component states are all `candidate-qualified`; and
@@ -61,6 +62,12 @@ same upload URL. It advances only when the exact committed range is visible,
 or resends once from the exact prior range; any other offset or continuation
 fails closed.
 
-The executable invocation currently exposes the two upload operations. The
-next slice exposes the verified read/publish operations and adds cross-mount.
-Real Docker, Podman, Skopeo, ORAS, and nerdctl adapters remain separate.
+The executable exposes monolithic/resumable upload, blob HEAD/full/range GET,
+same-project cross-mount, and manifest PUT/HEAD/GET. Cross-mount requests bind
+destination `pull,push` plus source `pull` scopes. A 202 fallback upload is
+validated and cancelled immediately, then recorded separately from a native
+201 mount.
+
+The next slice adds OCI artifact/referrers disposition and bounded abandoned
+upload ownership. Real Docker, Podman, Skopeo, ORAS, and nerdctl adapters
+remain separate.

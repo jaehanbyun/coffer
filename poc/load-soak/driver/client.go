@@ -31,6 +31,7 @@ type Failure string
 
 const (
 	ResultSuccess         Failure = "success"
+	ResultFallback        Failure = "fallback"
 	FailureAuthentication Failure = "authentication"
 	FailureCancelled      Failure = "cancelled"
 	FailureDependency     Failure = "dependency"
@@ -205,8 +206,39 @@ func (c *Client) perform(
 	accepted map[int]bool,
 	allowRetry bool,
 ) (requestResult, error) {
+	return c.performScopes(
+		ctx,
+		scope,
+		[]string{scope},
+		factory,
+		accepted,
+		allowRetry,
+	)
+}
+
+func (c *Client) performScopes(
+	ctx context.Context,
+	challengeScope string,
+	tokenScopes []string,
+	factory requestFactory,
+	accepted map[int]bool,
+	allowRetry bool,
+) (requestResult, error) {
 	var result requestResult
-	authorization := c.cachedAuthorization(scope)
+	if len(tokenScopes) == 0 || len(tokenScopes) > 4 ||
+		tokenScopes[0] != challengeScope {
+		return result, newFailure(FailureProtocol)
+	}
+	seenScopes := make(map[string]bool, len(tokenScopes))
+	for _, scope := range tokenScopes {
+		if scope == "" || len(scope) > 512 || hasControl(scope) ||
+			seenScopes[scope] {
+			return result, newFailure(FailureProtocol)
+		}
+		seenScopes[scope] = true
+	}
+	cacheKey := strings.Join(tokenScopes, "\n")
+	authorization := c.cachedAuthorization(cacheKey)
 	challengeUsed := false
 	for attempt := 1; attempt <= c.maxAttempts; attempt++ {
 		if err := ctx.Err(); err != nil {
@@ -241,12 +273,17 @@ func (c *Client) perform(
 			if err := consumeBounded(response.Body, c.maxResponseBytes); err != nil {
 				return result, err
 			}
-			token, err := c.acquireToken(ctx, response.Header.Get("WWW-Authenticate"), scope)
+			token, err := c.acquireToken(
+				ctx,
+				response.Header.Get("WWW-Authenticate"),
+				challengeScope,
+				tokenScopes,
+			)
 			if err != nil {
 				return result, err
 			}
 			authorization = "Bearer " + token
-			c.cacheAuthorization(scope, authorization)
+			c.cacheAuthorization(cacheKey, authorization)
 			challengeUsed = true
 			continue
 		}
@@ -348,6 +385,7 @@ func (c *Client) acquireToken(
 	ctx context.Context,
 	header string,
 	expectedScope string,
+	requestedScopes []string,
 ) (string, error) {
 	parsed, err := parseChallenge(header)
 	if err != nil || parsed.scope != expectedScope ||
@@ -362,7 +400,10 @@ func (c *Client) acquireToken(
 	tokenURL := *parsed.realm
 	query := tokenURL.Query()
 	query.Set("service", parsed.service)
-	query.Set("scope", parsed.scope)
+	query.Del("scope")
+	for _, scope := range requestedScopes {
+		query.Add("scope", scope)
+	}
 	tokenURL.RawQuery = query.Encode()
 	for attempt := 1; attempt <= c.maxAttempts; attempt++ {
 		request, err := http.NewRequestWithContext(ctx, http.MethodGet, tokenURL.String(), nil)

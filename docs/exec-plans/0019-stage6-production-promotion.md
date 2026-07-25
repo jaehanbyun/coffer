@@ -1394,6 +1394,33 @@ operator-local release.
   cross-mount with exact source/destination/digest handling and 201/202
   classification. Test local TLS only.
 
+### 2026-07-25 — Nine-operation invocation and cross-mount completed
+
+- Invocation: Expanded the owner-only executable to monolithic/resumable
+  upload; blob HEAD, full GET, range GET, and cross-mount; and manifest PUT,
+  HEAD, and GET. Operation-specific seed/content/chunk/range/manifest/reference/
+  source fields are exact and cannot be mixed. The optional manifest is a
+  distinct owner-only single-link file and its runtime buffer is overwritten
+  after execution.
+- Authorization: Cross-mount learns the destination challenge but requests two
+  exact token scopes together: destination `pull,push` and source `pull`.
+  Destination and source routes must be distinct canonical Coffer routes under
+  the same project UUID; cross-project authorization is refused before any
+  request.
+- Mount outcomes: 201 requires the local digest and exact same-origin blob
+  location. A 202 fallback must identify one empty same-origin upload; the
+  driver cancels it immediately and records fixed `fallback`, not `success`.
+  Missing/drifted state or failed cleanup is fatal.
+- Verification: Thirty-five driver plus two command top-level tests pass under
+  the race detector and `go vet`. Local TLS covers multi-scope token order,
+  native mount, fallback cleanup and cleanup failure, cross-project refusal,
+  manifest/blob/mount invocation dispatch, operation-field separation, and
+  retained-result safety. No external registry or infrastructure was used.
+- Next exact action: Add `poc/load-soak/driver/referrers.go` for a
+  subject-bearing OCI artifact and exact native OCI 1.1 Referrers-versus-
+  fallback-tag disposition, then add bounded partial-upload ownership and
+  cancellation for the abandoned-upload shape. Test local TLS only.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1478,6 +1505,7 @@ operator-local release.
 | Owner-only raw OCI executable | `env -u GOROOT mise x go@1.25.3 -- go test -race -count=1 ./...` in `poc/load-soak/driver` | passed; 23 driver plus 2 command tests |
 | Raw OCI executable build/static analysis | `env -u GOROOT mise x go@1.25.3 -- go vet ./...`; `go build ./cmd/coffer-raw-oci-driver` | passed |
 | Raw manifest/blob-read integrity | `env -u GOROOT mise x go@1.25.3 -- go test -race -count=1 ./...` in `poc/load-soak/driver` | passed; 29 driver plus 2 command tests |
+| Nine-operation invocation and cross-mount | `env -u GOROOT mise x go@1.25.3 -- go test -race -count=1 ./...` in `poc/load-soak/driver` | passed; 35 driver plus 2 command tests |
 
 ## Failures, Blockers, and Risks
 

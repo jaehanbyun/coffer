@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -130,6 +131,24 @@ func createInvocationFixture(
 	}
 	writeOwnerFile(t, result.invocation, marshalDocument(t, invocation))
 	return result
+}
+
+func rewriteInvocation(
+	t *testing.T,
+	path string,
+	mutate func(*invocationDocument),
+) {
+	t.Helper()
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document invocationDocument
+	if err := json.Unmarshal(payload, &document); err != nil {
+		t.Fatal(err)
+	}
+	mutate(&document)
+	writeOwnerFile(t, path, marshalDocument(t, document))
 }
 
 func TestOwnerOnlyInvocationExecutesAndWritesCanonicalResult(t *testing.T) {
@@ -386,5 +405,211 @@ func TestInvocationRejectsUnknownFieldsAndPathAliasing(t *testing.T) {
 	writeOwnerFile(t, fixture.invocation, marshalDocument(t, document))
 	if err := ExecuteInvocation(context.Background(), fixture.invocation); failureKind(err) != FailureProtocol {
 		t.Fatalf("input/output alias was accepted: %v", err)
+	}
+}
+
+func TestInvocationExposesManifestBlobRangeAndCrossMount(t *testing.T) {
+	t.Run("manifest-get", func(t *testing.T) {
+		payload := manifestPayload(t, OCIImageManifest)
+		sum := sha256.Sum256(payload)
+		digest := "sha256:" + hex.EncodeToString(sum[:])
+		var server *httptest.Server
+		handler := http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			if request.URL.Path == "/auth/token" {
+				serveToken(t, response, request)
+				return
+			}
+			if request.Header.Get("Authorization") != "Bearer "+testToken {
+				writeChallenge(response, server.URL)
+				return
+			}
+			response.Header().Set("Docker-Content-Digest", digest)
+			response.Header().Set("Content-Type", OCIImageManifest)
+			response.Header().Set("Content-Length", fmt.Sprintf("%d", len(payload)))
+			response.WriteHeader(http.StatusOK)
+			_, _ = response.Write(payload)
+		})
+		server = startTLSServer(t, handler)
+		fixture := createInvocationFixture(t, server, qualifiedReadiness(), nil)
+		manifestPath := filepath.Join(fixture.directory, "manifest.json")
+		writeOwnerFile(t, manifestPath, payload)
+		rewriteInvocation(t, fixture.invocation, func(document *invocationDocument) {
+			document.Operation = "manifest-get"
+			document.ManifestFile = manifestPath
+			document.ManifestMedia = OCIImageManifest
+			document.Reference = "load-test"
+			document.Seed = ""
+			document.SizeBytes = 0
+		})
+
+		if err := ExecuteInvocation(context.Background(), fixture.invocation); err != nil {
+			t.Fatalf("manifest invocation failed: %v", err)
+		}
+		resultPayload, err := os.ReadFile(fixture.output)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(resultPayload), `"operation":"manifest-read"`) {
+			t.Fatal("manifest invocation result changed")
+		}
+	})
+
+	t.Run("blob-range", func(t *testing.T) {
+		content := mustContent(t, "cli-seed", 1024)
+		digest, err := content.Digest(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		reader, err := content.NewRangeReader(7, 17)
+		if err != nil {
+			t.Fatal(err)
+		}
+		expected, err := io.ReadAll(reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var server *httptest.Server
+		handler := http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			if request.URL.Path == "/auth/token" {
+				serveToken(t, response, request)
+				return
+			}
+			if request.Header.Get("Authorization") != "Bearer "+testToken {
+				writeChallenge(response, server.URL)
+				return
+			}
+			if request.Header.Get("Range") != "bytes=7-23" {
+				t.Fatal("invocation range changed")
+			}
+			response.Header().Set("Docker-Content-Digest", digest)
+			response.Header().Set("Content-Length", "17")
+			response.Header().Set("Content-Range", "bytes 7-23/1024")
+			response.WriteHeader(http.StatusPartialContent)
+			_, _ = response.Write(expected)
+		})
+		server = startTLSServer(t, handler)
+		fixture := createInvocationFixture(t, server, qualifiedReadiness(), nil)
+		rewriteInvocation(t, fixture.invocation, func(document *invocationDocument) {
+			document.Operation = "blob-read-range"
+			document.OffsetBytes = 7
+			document.LengthBytes = 17
+		})
+
+		if err := ExecuteInvocation(context.Background(), fixture.invocation); err != nil {
+			t.Fatalf("blob-range invocation failed: %v", err)
+		}
+	})
+
+	t.Run("cross-mount", func(t *testing.T) {
+		content := mustContent(t, "cli-seed", 1024)
+		digest, err := content.Digest(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		var server *httptest.Server
+		handler := http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			if request.URL.Path == "/auth/token" {
+				mountToken(t, response, request)
+				return
+			}
+			if request.Header.Get("Authorization") != "Bearer "+testToken {
+				mountChallenge(response, server.URL)
+				return
+			}
+			response.Header().Set("Docker-Content-Digest", digest)
+			response.Header().Set(
+				"Location",
+				"/v2/"+mountDestination+"/blobs/"+digest,
+			)
+			response.WriteHeader(http.StatusCreated)
+		})
+		server = startTLSServer(t, handler)
+		fixture := createInvocationFixture(t, server, qualifiedReadiness(), nil)
+		rewriteInvocation(t, fixture.invocation, func(document *invocationDocument) {
+			document.Operation = "blob-cross-mount"
+			document.Repository = mountDestination
+			document.SourceRepository = mountSource
+		})
+
+		if err := ExecuteInvocation(context.Background(), fixture.invocation); err != nil {
+			t.Fatalf("cross-mount invocation failed: %v", err)
+		}
+	})
+}
+
+func TestInvocationOperationFieldsAreExact(t *testing.T) {
+	base := invocationDocument{
+		MaxAttempts:    4,
+		Operation:      "blob-monolithic",
+		Repository:     testRepository,
+		Schema:         InvocationSchema,
+		Seed:           "seed",
+		SizeBytes:      32,
+		TargetClass:    TargetClass,
+		TimeoutSeconds: 30,
+	}
+	valid := []invocationDocument{
+		base,
+		func() invocationDocument {
+			value := base
+			value.Operation = "blob-resumable"
+			value.ChunkBytes = 4
+			return value
+		}(),
+		func() invocationDocument {
+			value := base
+			value.Operation = "blob-head"
+			return value
+		}(),
+		func() invocationDocument {
+			value := base
+			value.Operation = "blob-read-full"
+			value.LengthBytes = value.SizeBytes
+			return value
+		}(),
+		func() invocationDocument {
+			value := base
+			value.Operation = "blob-read-range"
+			value.OffsetBytes = 1
+			value.LengthBytes = 8
+			return value
+		}(),
+		func() invocationDocument {
+			value := base
+			value.Operation = "blob-cross-mount"
+			value.SourceRepository = mountSource
+			return value
+		}(),
+	}
+	for _, operation := range []string{
+		"manifest-publish",
+		"manifest-head",
+		"manifest-get",
+	} {
+		value := base
+		value.Operation = operation
+		value.ManifestFile = "/owner/manifest.json"
+		value.ManifestMedia = OCIImageManifest
+		value.Reference = "tag"
+		value.Seed = ""
+		value.SizeBytes = 0
+		valid = append(valid, value)
+	}
+	for _, document := range valid {
+		if err := validateInvocationOperation(document); err != nil {
+			t.Fatalf("valid %s operation rejected: %v", document.Operation, err)
+		}
+	}
+	for _, mutate := range []func(*invocationDocument){
+		func(value *invocationDocument) { value.Operation = "unknown" },
+		func(value *invocationDocument) { value.OffsetBytes = 1 },
+		func(value *invocationDocument) { value.ManifestFile = "/mixed" },
+		func(value *invocationDocument) { value.SourceRepository = mountSource },
+	} {
+		document := base
+		mutate(&document)
+		if err := validateInvocationOperation(document); failureKind(err) != FailureProtocol {
+			t.Fatalf("invalid operation fields accepted: %#v", document)
+		}
 	}
 }
