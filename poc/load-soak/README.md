@@ -54,6 +54,12 @@ manifest-read/publish, and same-project cross-mount operations are now exposed
 through the invocation. Cross-mount fallback is cleaned and classified.
 Subject-bearing artifacts now distinguish exact native OCI 1.1 Referrers from
 the standard fallback-tag path, and exactly two partial uploads are cancelled
-without retaining their identities on success or failure. Real-client
-adapters remain next. Live execution is still gated on a fresh disposable
-Stage 6 pilot and qualified stable dependencies.
+without retaining their identities on success or failure.
+
+`clients/` now pins Docker, Podman, Skopeo, ORAS, nerdctl, and containerd
+versions/source revisions and implements their bounded command, CA,
+stdin-password, isolated-state, digest-verification, and cleanup contracts.
+Executable fakes prove the local boundary; an owner-only invocation CLI and
+real pinned binaries on both architectures remain next. Live execution is
+still gated on a fresh disposable Stage 6 pilot and qualified stable
+dependencies.

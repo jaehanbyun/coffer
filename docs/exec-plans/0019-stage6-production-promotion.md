@@ -1459,6 +1459,48 @@ operator-local release.
   cleanup contract; and prove argv/environment/log safety with fake
   executables before any release-gated pilot execution.
 
+### 2026-07-25 — Five real-client adapter contracts completed
+
+- Pins: Added exact 2026-07-25 client inputs for Docker Engine/CLI 29.6.2,
+  Podman 6.0.2, Skopeo 1.23.0, ORAS 1.3.3, nerdctl 2.3.5, and containerd
+  2.3.3 with source revisions, release URLs, architecture scope, and upstream
+  GitHub verification disposition. Skopeo is honestly marked unverified; it
+  is compatibility input, not accepted supply-chain provenance.
+- Input boundary: Every adapter requires the exact version plus executable
+  SHA-256, mode-0600 owner-only CA/credential/artifact files, a mode-0700 work
+  root, canonical same-project Coffer routes, private hostname, finite timeout,
+  and expected manifest digest. Docker additionally requires an identical
+  read-only daemon CA at `<registry>/ca.crt`; the live client VM must bind that
+  evidence to `/etc/docker/certs.d`.
+- Command boundary: Passwords enter only login stdin. Commands use absolute
+  binaries, no shell, a fixed seven-variable environment without ambient
+  proxy/auth/home state, explicit TLS verification and CA/auth paths, streaming
+  one-MiB output limits, process-group timeout termination, isolated client
+  roots, fixed version parsers, and one exact digest parser.
+- Client shapes: Docker, Podman, and nerdctl tag/push/pull/inspect; Skopeo
+  performs authenticated same-project registry copy/inspect; ORAS attaches to
+  an exact subject digest, discovers with the same explicit native or fallback
+  Referrers mode, and pulls the artifact by exact digest.
+- Cleanup/evidence: Image cleanup and logout run after success or failure;
+  generated state is removed. Retained results contain only fixed client,
+  version, Referrers disposition, binary/pins hashes, counts, and result.
+  Registry, project/repository, source, subject, tag, credential, artifact,
+  CA, state, and command output are not retained.
+- Verification: Seventeen focused tests pass using local executable fakes. They
+  cover all five clients, both ORAS dispositions, exact pins, binary/input
+  drift, clean environment, stdin-only passwords, secret echo refusal,
+  output-limit and timeout process-group termination, command flags, CA/hosts
+  materialization, failure cleanup, unsafe input, and zero generated residue.
+  Python compilation and diff checks pass. No real client, daemon, containerd,
+  registry, network, credential, or remote infrastructure was used.
+- Full regression: All 719 Python tests pass after the adapter boundary and
+  bounded subprocess implementation.
+- Next exact action: Add `poc/load-soak/clients/run.py` as the owner-only
+  executable boundary. Load exact invocation, credential, CA, pins, qualified
+  readiness, and output files; atomically emit canonical results; retain fixed
+  failures only; and test interruption/output/residue behavior with the same
+  executable seam before qualifying real client binaries or images.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1545,6 +1587,8 @@ operator-local release.
 | Raw manifest/blob-read integrity | `env -u GOROOT mise x go@1.25.3 -- go test -race -count=1 ./...` in `poc/load-soak/driver` | passed; 29 driver plus 2 command tests |
 | Nine-operation invocation and cross-mount | `env -u GOROOT mise x go@1.25.3 -- go test -race -count=1 ./...` in `poc/load-soak/driver` | passed; 35 driver plus 2 command tests |
 | Artifact/referrers and abandoned uploads | `env -u GOROOT mise x go@1.25.3 -- go test -race -count=1 ./...` in `poc/load-soak/driver` | passed; 42 driver plus 2 command tests |
+| Five real-client adapter contracts | `uv run pytest -q tests/test_load_client_contract.py` | passed; 17 |
+| Full regression after real-client adapters | `uv run pytest -q` | passed; 719 |
 
 ## Failures, Blockers, and Risks
 
@@ -1575,10 +1619,10 @@ operator-local release.
   Real RGW lifecycle evidence and current stable dependencies remain blocked;
   no real identity, credential, certificate, endpoint, or remote state
   changed.
-- Exact next action: Add `poc/load-soak/clients/contract.py` and exact client
-  version pins. Implement the five real-client command/state/credential/CA
-  adapters behind a fake-executable test seam, then prove bounded cleanup and
-  secret-safe retained results before release-gated pilot execution.
+- Exact next action: Add `poc/load-soak/clients/run.py` with owner-only
+  invocation/pins/readiness/output files, canonical atomic result emission,
+  fixed failures, and bounded interruption/residue tests over the completed
+  five-client execution seam.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

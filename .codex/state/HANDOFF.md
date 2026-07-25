@@ -3,7 +3,7 @@
 - Updated: 2026-07-25
 - Status: plan 0019 active; local production observability, disposable
   filesystem GC/restore, load model/lifecycle, and canonical evidence verifier
-  complete; eleven raw OCI executable operations complete and real clients next
+  complete; raw OCI and five real-client contracts complete; client CLI next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -422,6 +422,29 @@ release contains it yet.
   local TLS covers native/fallback and mismatch cases, two-upload/failure/
   malformed-start cleanup, new invocation dispatch, and retained identity
   safety. No external target or infrastructure changed.
+- Pinned Docker 29.6.2, Podman 6.0.2, Skopeo 1.23.0, ORAS 1.3.3, nerdctl
+  2.3.5, and containerd 2.3.3 with exact source revisions and verification
+  disposition. Skopeo v1.23.0 remains explicitly unverified rather than being
+  treated as supply-chain evidence.
+- Added five real-client command adapters. They bind exact binary SHA-256,
+  version, CA, owner-only credentials/artifacts, private target, canonical
+  same-project route, expected digest, isolated state, finite timeout,
+  streaming one-MiB output limit, process-group termination, fixed
+  environment, and cleanup. Passwords enter only login stdin; no shell, proxy,
+  ambient auth/home, or insecure transport flag is used.
+- Docker/Podman/nerdctl cover tag/push/pull/inspect, Skopeo covers authenticated
+  same-project copy/inspect, and ORAS covers exact-subject attach/discover/pull
+  with separately retained native or fallback Referrers disposition. Docker
+  also requires an identical read-only daemon CA input; live placement under
+  `/etc/docker/certs.d` remains a pilot preflight.
+- Seventeen local fake-executable tests pass. They prove all client command
+  shapes, pin/input drift refusal, clean environment, stdin-only password,
+  secret echo refusal, bounded output and timeout termination, CA/hosts state,
+  exact version/digest parsing, cleanup after failure, and zero generated
+  residue. No real client, daemon, containerd, registry, network, credential,
+  or remote target changed.
+- Full Python regression passes 719 tests after the real-client adapter
+  boundary and bounded subprocess implementation.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2229,11 +2252,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/load-soak/clients/contract.py` and exact client version pins.
-Implement Docker, Podman, Skopeo, ORAS, and nerdctl/containerd command, CA,
-stdin-credential, owner-only state, digest-verification, and cleanup adapters
-behind fake executables. Prove bounded execution and argv/environment/log
-safety locally before any release-gated pilot execution.
+Add `poc/load-soak/clients/run.py` as an owner-only executable. Load exact
+invocation, pins, qualified readiness, credential, CA, and output files;
+invoke the completed adapter seam; atomically write one canonical mode-0600
+result with fixed failures; and prove interruption plus zero temporary residue
+using local executable fakes before any real client qualification.
 
 ## After This Work Package
 
