@@ -695,6 +695,11 @@ run_companion() {
     local timeout_seconds="$2"
     local log="${log_root}/${phase}.log"
     local rc
+    local -a phase_arguments=()
+
+    if test "${phase}" = stop; then
+        phase_arguments+=(--yes-i-really-really-mean-it)
+    fi
 
     install -o root -g root -m 0600 /dev/null "${log}"
     set +e
@@ -712,6 +717,7 @@ run_companion() {
         --configdir "${config_root}" \
         --passwords "${passwords}" \
         -e "@${coffer_globals}" \
+        "${phase_arguments[@]}" \
         >"${log}" 2>&1
     rc="$?"
     set -e

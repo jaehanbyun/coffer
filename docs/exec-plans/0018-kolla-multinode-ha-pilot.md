@@ -2471,6 +2471,28 @@ promotion while ADR 0006 remains blocked.
   RGW users/buckets 0, exact libvirt residue 0, unchanged unrelated-host
   signatures, then rerun `status` idempotently.
 
+### 2026-07-25 — Teardown resumed after stop confirmation guard
+
+- Applied state: The approved teardown removed exactly two recorded tenant
+  application credentials, users, and projects. Repeated identity preflight
+  reports zero residue. Coffer remains fully deployed and healthy; S3 remains
+  at exactly two users/two buckets; all six guests, sixteen volumes, and three
+  networks remain present.
+- Failure: The companion stop phase returned rc 2 before container mutation
+  because Kolla-Ansible requires its explicit
+  `--yes-i-really-really-mean-it` confirmation for `stop`. The secret-safe
+  retained log contained only that parser error.
+- Recovery evidence: The wrapper's boundary audit found all nine Coffer
+  containers healthy, the catalog/database/endpoints intact, external Ceph
+  `HEALTH_OK`, and no S3 or libvirt cleanup invocation. This is an admitted
+  partial teardown state.
+- Correction: The companion runner now adds Kolla's confirmation flag only
+  when the allowlisted phase is `stop`; no other lifecycle action receives it.
+  The top-level sequence can resume because tenant cleanup is idempotent.
+- Next exact action: Validate and commit the stop-confirmation correction,
+  rerun top-level teardown `run`, and require it to adopt the clean tenant
+  state before stopping Coffer and continuing to S3/libvirt cleanup.
+
 ## Verification
 
 | Check | Command or method | Result |
