@@ -1,8 +1,8 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; pure data-protection state model complete;
-  fixture-only lifecycle adapter next
+- Status: plan 0019 active; fixture-only data-protection lifecycle complete;
+  canonical backup manifest verifier next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -184,6 +184,14 @@ release contains it yet.
   companion-role checks pass. Compilation, topology parsing, diff checks, and
   Gitleaks pass. The model performs no network, OpenStack, registry, RGW, SQL,
   KMS, Kolla, VM, or remote-file operation.
+- Added the fixture-only data-protection lifecycle CLI. It replays every
+  ordered phase through owner-only atomic state under a nonblocking lock,
+  refuses unsafe existing paths or any non-fixture mutation, hashes immutable
+  cleanup IDs, reaches the complete zero-residue terminal state, and repeats
+  teardown idempotently.
+- Twelve lifecycle tests plus 27 model tests and all 398 Python tests pass.
+  Compilation, fixture parsing, CLI help, and diff checks pass. No external
+  client, network, remote service, or infrastructure resource was used.
 
 ## Plan 0018 Activation
 
@@ -1910,12 +1918,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add fixture-only `poc/data-protection/lifecycle.py`,
-`tests/fixtures/data_protection.json`, and CLI tests for read-only
-preflight/status, atomic mode-0600 state, nonblocking locks, exact
-target/adapter gates, every ordered phase, deterministic cleanup, fixed
-failures, and idempotent zero-residue teardown. Do not call an external
-service.
+Add a canonical secret-safe SQL/RGW backup manifest verifier with fixture
+tests. It must bind backup provenance, versioned object identifiers,
+pagination, checksums, metadata and encryption disposition, multipart
+absence, and isolated restore comparison without reading a live database,
+bucket, KMS key, or registry.
 
 ## After This Work Package
 

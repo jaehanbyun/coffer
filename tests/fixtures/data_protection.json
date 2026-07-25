@@ -1,0 +1,159 @@
+{
+  "schema": "coffer.data-protection-fixture/v1",
+  "target_signature": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "unrelated_signature": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "seed": "coffer-stage6-cutover-fixture-001",
+  "evidence": {
+    "fixture": {
+      "content_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "source_signature": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "manifest_count": 4,
+      "blob_count": 5,
+      "index_count": 1,
+      "artifact_count": 1,
+      "zero_byte_blob_count": 1,
+      "multipart_upload_count": 0
+    },
+    "writer_fence": {
+      "ingress_config_sha256": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "replica_set_sha256": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "disabled_workers_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "database_fence_sha256": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "source_signature": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "active_uploads": 0,
+      "unknown_listeners": 0,
+      "canary_write_status": 405,
+      "digest_read_status": 200
+    },
+    "sql_backup": {
+      "backup_sha256": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "restore_sha256": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "schema_sha256": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+      "recovery_coordinate_sha256": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+      "bytes": 8192,
+      "row_count": 42,
+      "restored": true
+    },
+    "rgw_backup": {
+      "manifest_sha256": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+      "source_inventory_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "restore_inventory_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "metadata_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "source_signature": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "bytes": 16384,
+      "object_count": 12,
+      "version_count": 12,
+      "multipart_upload_count": 0,
+      "restored": true
+    },
+    "inventory": {
+      "scan_one_sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "scan_two_sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "inventory_sha256": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "provenance_sha256": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "source_signature": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "repository_count": 1,
+      "manifest_count": 4,
+      "descriptor_count": 10,
+      "scans_equal": true
+    },
+    "baseline_import": {
+      "inventory_sha256": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "database_sha256": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "status": "imported",
+      "idempotent_replay": true,
+      "conflicting_replay_refused": true,
+      "partial_rows": 0
+    },
+    "live_comparison": {
+      "inventory_sha256": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "session_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "workload_sha256": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_manifest_count": 4,
+      "verified_manifest_count": 4,
+      "failure_count": 0,
+      "private_tls_verified": true,
+      "pull_only": true,
+      "session_closed": true
+    },
+    "admission_cutover": {
+      "routing_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "database_sha256": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "quota_edge_forced": true,
+      "direct_registry_closed": true,
+      "writer_fence_released": true
+    },
+    "cutover_verification": {
+      "existing_pull": true,
+      "new_push_accounted": true,
+      "project_isolation": true,
+      "over_quota_429": true,
+      "dependency_503": true,
+      "restart_persistence": true,
+      "reconciliation": true
+    },
+    "rollback": {
+      "original_source_sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "restored_source_sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "routing_sha256": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "rollback_manifest_sha256": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+      "writer_fence_reapplied": true,
+      "active_uploads": 0,
+      "ambiguous_differences": 0,
+      "original_digest_readable": true,
+      "post_cutover_write_count": 1,
+      "removed_post_cutover_write_count": 1
+    },
+    "restore": {
+      "sql_backup_sha256": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "sql_restore_sha256": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "rgw_manifest_sha256": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+      "inventory_sha256": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "authenticated_comparison": true,
+      "pull_digest_match": true,
+      "admission_checks": true
+    }
+  },
+  "failure_outcomes": {
+    "sql-backup-interrupted": "passed",
+    "sql-backup-corrupt": "passed",
+    "sql-restore-failed": "passed",
+    "rgw-pagination-drift": "passed",
+    "rgw-object-read-failed": "passed",
+    "rgw-backup-corrupt": "passed",
+    "rgw-multipart-incomplete": "passed",
+    "kms-wrong-key": "passed",
+    "rgw-restore-interrupted": "passed",
+    "source-signature-changed": "passed",
+    "helper-provenance-mismatch": "passed",
+    "helper-insecure-tls": "passed",
+    "import-transaction-failed": "passed",
+    "import-conflicting-replay": "passed",
+    "import-deadlock-retry": "passed",
+    "maintenance-identity-outage": "passed",
+    "private-frontend-outage": "passed",
+    "api-outage": "passed",
+    "distribution-outage": "passed",
+    "cutover-partial-failure": "passed",
+    "rollback-interrupted": "passed",
+    "replica-loss": "passed"
+  },
+  "residue_counts": {
+    "identities": 0,
+    "credentials": 0,
+    "sessions": 0,
+    "ingress_mappings": 0,
+    "buckets": 0,
+    "object_versions": 0,
+    "multipart_uploads": 0,
+    "databases": 0,
+    "distributions": 0,
+    "containers": 0,
+    "config_trees": 0,
+    "materialized_files": 0,
+    "volumes": 0,
+    "networks": 0,
+    "temporary_files": 0,
+    "locks": 0
+  }
+}

@@ -339,11 +339,27 @@ proofs, partial cleanup targets, partial residue reports, tampered histories,
 extra phase evidence, and secret-bearing retained payloads. Terminal state
 requires all fixed residue categories to be explicit zeroes.
 
-The next local milestone should add a fixture-only `lifecycle.py` command
-adapter. It must provide read-only `preflight` and `status`, atomic mode-0600
-state replacement under a nonblocking invocation lock, exact fixture-gated
-phase commands, deterministic dry-run cleanup, fixed secret-safe failures,
-and idempotent zero-residue teardown. It must refuse every mutating command
-unless the fixture adapter and exact target signature are selected.
+The fixture-only lifecycle command milestone is also complete locally.
+Read-only `preflight`, `status`, and hashed cleanup planning cannot select an
+adapter. Every mutating phase requires the exact `fixture` adapter, target and
+unrelated signatures, topology, and fixture artifact. State is atomically
+replaced as an owner-only mode-0600 regular file under a nonblocking
+invocation lock and a mode-0700 directory. Unsafe existing paths, modes,
+links, concurrent actions, phase skips, fixture drift, target drift, partial
+residue evidence, and secret-bearing fixtures fail with one fixed category
+without exposing details or changing the accepted state.
+
+The complete fixture flow reaches all 14 phases, emits cleanup targets only
+with hashed immutable IDs, tears down to the complete zero-residue terminal
+state, and repeats teardown idempotently. It imports no external service
+client and has no network adapter.
+
+The next local milestone should add one canonical, secret-safe SQL/RGW backup
+manifest verifier. It must bind tool/server/schema/recovery-coordinate
+metadata, versioned object identifiers, sizes/checksums/metadata/encryption
+disposition, complete pagination, zero multipart residue, and isolated
+restore comparisons before the state model can accept `backups-verified`.
+The first implementation remains fixture-only and reads no live database,
+bucket, KMS key, or registry.
 
 No external resource may be created by that implementation milestone.

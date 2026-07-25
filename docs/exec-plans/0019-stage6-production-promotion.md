@@ -623,6 +623,42 @@ operator-local release.
   failures, and idempotent zero-residue teardown. Do not contact a remote
   service.
 
+### 2026-07-25 — Fixture-only data-protection lifecycle completed locally
+
+- Completed: Added a command adapter that replays every ordered
+  data-protection phase through the pure state model. Read-only
+  preflight/status/cleanup planning cannot select an adapter; every mutation
+  requires the exact fixture, target signature, unrelated signature, and
+  topology.
+- State safety: The invocation directory is owner mode 0700. State and lock
+  are regular single-link owner mode 0600; state replacement is atomic and
+  fsynced under a nonblocking lock. Existing unsafe directories/files/links
+  are refused rather than remediated.
+- Lifecycle result: The fixture reaches all 14 phases, exposes cleanup targets
+  only as name/kind plus immutable-ID hashes, proves all fixed residue
+  categories zero, retains a secret-safe terminal summary, and repeats
+  teardown idempotently.
+- Failure coverage: Missing/wrong adapters, target or unrelated-signature
+  drift, reordered actions, evidence drift, incomplete failure/residue sets,
+  concurrent locks, unsafe modes, symlink locks, and secret-bearing malformed
+  fixtures fail with one fixed category and leave the last accepted state
+  unchanged.
+- Verification: Twelve lifecycle CLI tests plus 27 state-model tests pass;
+  all 398 Python tests pass. Compilation, fixture JSON parsing, CLI help, and
+  diff checks pass.
+- Scope: No OpenStack client or remote adapter is imported; no network, SSH,
+  Ansible, Kolla, registry, RGW, SQL, KMS, identity, certificate, VM, or
+  remote-file operation occurs.
+- Changed files: `poc/data-protection/lifecycle.py`,
+  `tests/fixtures/data_protection.json`,
+  `tests/test_data_protection_lifecycle_cli.py`,
+  `poc/data-protection/README.md`, this plan, and `HANDOFF.md`.
+- Next exact action: Add a canonical secret-safe SQL/RGW backup manifest
+  verifier and fixture tests. It must bind backup provenance, versioned object
+  identifiers, pagination, checksums/metadata/encryption disposition,
+  multipart absence, and isolated restore comparisons without reading a live
+  database, bucket, KMS key, or registry.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -657,6 +693,8 @@ operator-local release.
 | Data-protection state model | `uv run pytest -q tests/test_data_protection_state_machine.py` | passed; 27 |
 | Full regression after data-protection state model | `uv run pytest -q` | passed; 386 |
 | Kolla role after data-protection state model | `make -C poc/kolla-ansible-role verify` | passed; 68 |
+| Fixture-only data-protection lifecycle | `uv run pytest -q tests/test_data_protection_lifecycle_cli.py tests/test_data_protection_state_machine.py` | passed; 39 |
+| Full regression after data-protection lifecycle | `uv run pytest -q` | passed; 398 |
 
 ## Failures, Blockers, and Risks
 
@@ -681,13 +719,13 @@ operator-local release.
   design. The opt-in generated Kolla recipient/private-frontend fixture and
   trusted workload adapter and fixture-only lifecycle are complete; defaults
   and reconciliation remain disabled. The provenance-bound S3 inventory helper
-  and pure data-protection rehearsal state model are complete. Real lifecycle
-  evidence and current stable dependencies remain blocked; no real identity,
-  credential, certificate, endpoint, or remote state changed.
-- Exact next action: Add fixture-only
-  `poc/data-protection/lifecycle.py`,
-  `tests/fixtures/data_protection.json`, and CLI tests for the complete
-  phase/cleanup flow without contacting an external service.
+  plus the pure state model and fixture-only data-protection lifecycle are
+  complete. Real lifecycle evidence and current stable dependencies remain
+  blocked; no real identity, credential, certificate, endpoint, or remote state
+  changed.
+- Exact next action: Add a canonical fixture-only SQL/RGW backup manifest
+  verifier that must pass isolated restore comparison before the lifecycle
+  accepts backup evidence.
 - Questions requiring user input: None for the next fixture-only lifecycle
   milestone. The user has already authorized atomic milestone publication and
   the bounded disposable Stage 6 sequence; exact safety and release gates
