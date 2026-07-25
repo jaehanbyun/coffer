@@ -15,6 +15,9 @@ The harness covers:
 - database creation followed by repeat-safe one-shot bootstrap;
 - bootstrap-before-process ordering and bootstrap-failure rollout blocking;
 - secret source permissions and per-process recipient boundaries;
+- fixture-only per-reconciler maintenance credential/client-key recipients;
+- private mTLS maintenance frontend certificate mapping, exact route, and
+  ordinary-frontend header stripping;
 - idempotent reconfigure, pull, and stop;
 - negative missing/unsafe secret, plaintext RGW, disabled backend TLS, occupied
   port, and direct-registry-bypass prechecks;

@@ -354,6 +354,48 @@ operator-local release.
   contract tests. It will keep reconciliation disabled and create no real
   identity, secret, certificate, Barbican object, or remote deployment.
 
+### 2026-07-25 — Fixture-only Kolla maintenance contract completed
+
+- Authorization: The user directed the long-horizon harness to complete
+  appropriately sized local milestones without per-step interruptions. This
+  milestone remained inside the previously described fixture boundary: no
+  real identity, credential, certificate, Barbican object, endpoint, remote
+  deployment, or reconciliation enablement.
+- Product integration: Added opt-in maintenance configuration and wired the
+  accepted SQL authorities, policy, token broker, resource, and trusted proxy
+  adapter into the product application. The adapter always removes the
+  incoming workload header and any preexisting private WSGI value, then
+  restores one configured workload only for an allowlisted direct HAProxy
+  peer. Maintenance remains disabled by default.
+- Kolla contract: Added host-addressed per-replica source paths, exact
+  owner/mode/regular-file/single-link checks, unique application-credential
+  IDs, CA verification, certificate/private-key pairing, and unique
+  certificate fingerprints. Generated credential and client-key material is
+  copied only to the disabled reconciler fixture.
+- Private frontend: Added a separately rendered internal-VIP mTLS frontend
+  that requires the exact maintenance client CA, maps an exact SHA-256
+  certificate fingerprint to one workload, accepts only the broker POST path,
+  and verifies API backend TLS. The ordinary API frontend strips the assertion
+  and denies `/v1/internal/`; the public edge denial remains in place.
+- Failure boundary: Missing/unsafe maintenance files, invalid client keys,
+  reconciliation enablement, untrusted proxy addresses, unknown workloads,
+  and caller-prepopulated WSGI context fail closed. No runtime worker token
+  provider, real secret delivery, remote HAProxy syntax/run, rotation,
+  revocation, or teardown evidence is claimed.
+- Verification: Full Python regression passes 310 tests. The focused
+  maintenance/config/API matrix passes 115 tests, the pinned local Kolla role
+  lifecycle passes 68 checks, compilation and diff checks pass, and generated
+  secrets remain absent from retained harness output/state.
+- Changed files: Product maintenance configuration/adapter/builder and tests;
+  Coffer Kolla defaults, prechecks, config recipients, HAProxy template and
+  fixture harness; ADR 0015, secret-delivery research, this plan, and
+  `.codex/state/HANDOFF.md`.
+- Next exact action: Create
+  `poc/maintenance-identity/README.md` defining the abort-safe disposable
+  create/rotate/revoke/teardown harness and its exact allowlists without
+  creating an identity, secret, certificate, Barbican object, or remote
+  resource.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -365,8 +407,8 @@ operator-local release.
 | Plan/HANDOFF structure | Markdown inspection and local-link check | passed |
 | Upstream classifier fixtures | `uv run pytest -q tests/test_upstream_readiness.py` | passed; 10 |
 | Live upstream classifier | `make -C poc/production-images check-upstream` | passed; valid `blocked` result |
-| Full Python regression | `uv run pytest -q` | passed; 308 |
-| Kolla companion-role regression | `make -C poc/kolla-ansible-role verify` | passed; 52 |
+| Full Python regression | `uv run pytest -q` | passed; 310 |
+| Kolla companion-role regression | `make -C poc/kolla-ansible-role verify` | passed; 68 |
 | Maintenance identity code/config inventory | Focused inspection of live comparison, reconciliation runner/probe, WSGI, Kolla config, secrets, and Stage 5 inputs | passed |
 | Maintenance identity primary sources | Current Keystone, keystonemiddleware, Barbican, and Distribution specifications | passed |
 | ADR 0015 contract consistency | Focused comparison with ADRs 0008, 0013, 0014 and the Stage 6 identity research | passed; proposed pending local proof |
@@ -374,6 +416,7 @@ operator-local release.
 | Python compilation and diff checks | `uv run python -m compileall -q src tests`; `git diff --check` | passed |
 | Maintenance session/migration/import/live focused regression | `uv run pytest -q tests/test_maintenance_sessions.py tests/test_migrations.py tests/test_bootstrap.py tests/test_maintenance_token.py tests/test_maintenance_api.py tests/test_quota_import.py tests/test_quota_import_verification.py tests/test_live_inventory_verification.py` | passed; 105 |
 | Maintenance secret-delivery inventory | Focused inspection of Kolla defaults, prechecks, per-process config, `kolla_start` file recipients, HAProxy model, ADRs 0014/0015, and disposable Barbican evidence | passed; design only, no recipient changed |
+| Maintenance proxy/Kolla fixture focused regression | `uv run pytest -q tests/test_maintenance_api.py tests/test_maintenance_token.py tests/test_config_validator.py tests/test_api_runner.py tests/test_registry_proxy.py tests/test_tokens.py tests/test_quota_reconciliation.py tests/test_maintenance_sessions.py`; pinned role harness | passed; 115 tests and 68 role checks |
 
 ## Failures, Blockers, and Risks
 
@@ -383,29 +426,27 @@ operator-local release.
 - Ceph's encrypted-copy fix is merged but unreleased. Branch execution may be
   useful only as explicitly labelled anticipatory evidence; it cannot satisfy
   the stable-release gate.
-- The maintenance identity architecture is approved for pure local proof.
-  Creating or delivering its identity, credential, certificate, endpoint, or
-  Kolla secret recipient remains separately approval-gated. Destructive GC also
-  remains unapproved.
+- The maintenance architecture, broker, trusted adapter, and generated Kolla
+  recipient/frontend fixture are locally proven. Creating or delivering a real
+  identity, credential, certificate, endpoint, or remote Kolla secret remains
+  separately gated. Destructive GC also remains unapproved.
 - The local branch remains ahead of `origin/main`. This is not a technical
   blocker, but remote publication remains a separately authorized action and
   must use the `jaehanbyun` GitHub account.
 
 ## Handoff
 
-- Current state: Stage 5 is complete and committed. Stage 6 has a deterministic
-  upstream release gate and proposed ADR 0015 for the user-approved maintenance
-  identity boundary. ADR 0015 is accepted for its pure local reconciliation and
-  live-comparison contract. Production configuration, mTLS adapter, secret
-  delivery, and real lifecycle evidence remain absent. Current stable
-  dependencies remain blocked; no real identity, credential, certificate,
-  recipient, endpoint, or remote state changed.
-- Exact next action: Obtain approval or rejection of the fixture-only Kolla
-  maintenance recipient/private-frontend contract milestone described in
-  `docs/research/stage6-maintenance-secret-delivery.md`.
-- First file after approval: `ansible/roles/coffer/defaults/main.yml`.
-- Questions requiring user input: Approve or reject local generated-placeholder
-  Kolla recipient, private mTLS frontend rendering, trusted workload adapter,
-  and negative contract tests. This does not request approval for real
-  credential creation/delivery, Barbican mutation, reconciliation enablement,
-  destructive GC, external publication, or production deployment.
+- Current state: Stage 5 is complete and committed. Stage 6 has deterministic
+  upstream release gates plus an accepted local maintenance broker/session
+  design. The opt-in generated Kolla recipient/private-frontend fixture and
+  trusted workload adapter are complete; defaults and reconciliation remain
+  disabled. Real lifecycle evidence and current stable dependencies remain
+  blocked; no real identity, credential, certificate, endpoint, or remote state
+  changed.
+- Exact next action: Create `poc/maintenance-identity/README.md` and define the
+  abort-safe disposable create/rotate/revoke/teardown harness and exact
+  allowlists without executing or creating external resources.
+- Questions requiring user input: None for the next local harness-design
+  milestone. Real credential/certificate/Barbican creation, remote deployment,
+  reconciliation enablement, destructive GC, and publication remain outside
+  that local step.

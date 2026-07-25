@@ -166,10 +166,11 @@ The pure local implementation boundary is complete:
 - schema downgrade refuses to discard retained session evidence.
 
 ADR 0015 is accepted for this architecture and local contract. There is still
-no production configuration, trusted mTLS-to-WSGI adapter, real credential,
-Kolla recipient, or secret materialization. Those production gates cannot be
-represented by a permissive fixture or by enabling the resource in
-`build_product_application`.
+no real credential or secret materialization. The opt-in Kolla fixture now
+proves exact generated-placeholder recipients, an exact-certificate private
+frontend, ordinary-frontend denial, and a trusted-proxy-to-WSGI adapter. The
+production default and reconciler remain disabled. Real lifecycle and
+private-TLS deployment gates cannot be represented by the local fixture.
 
 ## Consequences
 
@@ -208,8 +209,8 @@ represented by a permissive fixture or by enabling the resource in
 ## Follow-up Evidence
 
 After local acceptance, a separately approved work package must add Kolla
-objects and owner-only materialization, then prove explicit expiry, access-rule
-enforcement, role removal, owner disablement, deletion, wrong credential,
-wrong client certificate, dependency outages, overlapping rotation, API/HAProxy
-failover, authenticated Distribution HEAD, aggregate secret-safe audit, and
-exact residue teardown in a disposable region.
+identity objects and owner-only materialization, then prove explicit expiry,
+access-rule enforcement, role removal, owner disablement, deletion, wrong
+credential, wrong client certificate, dependency outages, overlapping
+rotation, API/HAProxy failover, authenticated Distribution HEAD, aggregate
+secret-safe audit, and exact residue teardown in a disposable region.

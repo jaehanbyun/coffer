@@ -32,6 +32,13 @@ coffer_registry_port: "18789"
 coffer_rgw_endpoint: https://rgw.example.test:8443
 coffer_rgw_bucket: coffer-stage3-contract
 coffer_enable_reconcile: false
+coffer_enable_maintenance_identity: true
+coffer_maintenance_port: "18790"
+coffer_maintenance_service_project_id: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+coffer_maintenance_user_id: bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb
+coffer_maintenance_workloads:
+  - inventory_host: coffer-stage3-contract
+    workload_id: reconciler-coffer-stage3-contract
 coffer_enable_metrics: false
 coffer_manage_observability_overrides: true
 coffer_config_controller_become: false

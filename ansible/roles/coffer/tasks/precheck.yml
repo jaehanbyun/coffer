@@ -1,4 +1,8 @@
 ---
+- name: Validate fixture-only maintenance identity inputs
+  ansible.builtin.import_tasks: maintenance-precheck.yml
+  when: coffer_enable_maintenance_identity | bool
+
 - name: Precheck Coffer inventory groups
   ansible.builtin.import_role:
     name: service-precheck
@@ -96,8 +100,8 @@
     that:
       - not coffer_enable_reconcile | bool
     fail_msg: >-
-      coffer-reconcile cannot be enabled until an accepted authenticated
-      private-Distribution credential provider is implemented.
+      coffer-reconcile remains disabled until the authenticated private-TLS
+      credential provider and disposable lifecycle evidence are complete.
 
 - name: Inspect required owner-controlled Coffer secrets
   vars:

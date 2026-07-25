@@ -5,6 +5,9 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from alembic import command
+from alembic.config import Config
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from falcon import testing
 from keystoneauth1 import fixture as keystone_fixture
@@ -18,9 +21,11 @@ from coffer.maintenance_token import (
     MaintenancePolicy,
     MaintenanceTokenBroker,
     MaintenanceTokenResource,
+    WORKLOAD_CONTEXT_ENV,
+    WORKLOAD_HEADER_ENV,
 )
 from coffer.tokens import TokenIssuer
-from coffer.wsgi import build_application
+from coffer.wsgi import build_application, build_product_application
 
 
 SERVICE_PROJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
@@ -37,6 +42,7 @@ ACCESS_RULE = {
     "method": "POST",
     "path": INTERNAL_TOKEN_PATH,
 }
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class FixedAuthority:
@@ -146,11 +152,16 @@ def _client(
             "token_cache_time": "-1",
         },
         maintenance_resource=MaintenanceTokenResource(broker),
+        maintenance_trusted_proxy_addresses=frozenset({"127.0.0.1"}),
+        maintenance_workload_ids=frozenset({WORKLOAD_ID}),
     )
 
     def wsgi_app(environ: dict[str, Any], start_response: Any) -> Any:
         if inject_workload:
-            environ["coffer.maintenance_workload_id"] = WORKLOAD_ID
+            environ["REMOTE_ADDR"] = "127.0.0.1"
+            environ[WORKLOAD_HEADER_ENV] = WORKLOAD_ID
+        else:
+            environ["REMOTE_ADDR"] = "192.0.2.10"
         return application(environ, start_response)
 
     return testing.TestClient(wsgi_app), auth_fixture
@@ -250,6 +261,84 @@ def test_http_header_cannot_replace_trusted_mtls_workload_context(
         auth_fixture.cleanUp()
 
     assert result.status_code == 403
+
+
+def test_proxy_adapter_replaces_preexisting_wsgi_context_and_rejects_unknown_workload(
+    tmp_path: Path,
+) -> None:
+    client, auth_fixture = _client(tmp_path, inject_workload=False)
+    try:
+        result = client.simulate_post(
+            INTERNAL_TOKEN_PATH,
+            headers={
+                "X-Auth-Token": "maintenance-app-credential",
+                "X-Coffer-Maintenance-Workload": "unknown-workload",
+            },
+            extras={
+                "REMOTE_ADDR": "127.0.0.1",
+                WORKLOAD_CONTEXT_ENV: WORKLOAD_ID,
+            },
+            json=_request(),
+        )
+    finally:
+        auth_fixture.cleanUp()
+
+    assert result.status_code == 403
+
+
+def test_product_builder_wires_enabled_maintenance_broker(
+    tmp_path: Path,
+) -> None:
+    database_url = f"sqlite:///{tmp_path / 'product-maintenance.sqlite'}"
+    migration = Config(str(ROOT / "alembic.ini"))
+    migration.set_main_option("sqlalchemy.url", database_url)
+    command.upgrade(migration, "head")
+
+    signing_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+    )
+    signing_key_file = tmp_path / "signing-key.pem"
+    signing_key_file.write_bytes(
+        signing_key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+    )
+    signing_key_file.chmod(0o600)
+    conf = new_config()
+    conf(args=[])
+    conf.set_override("connection", database_url, group="database")
+    conf.set_override("enabled", True, group="token")
+    conf.set_override(
+        "private_key_file",
+        str(signing_key_file),
+        group="token",
+    )
+    conf.set_override("key_id", "maintenance-product-test", group="token")
+    conf.set_override(
+        "auth_url",
+        "https://keystone.invalid/v3",
+        group="keystone",
+    )
+    conf.set_override("enabled", True, group="maintenance")
+    conf.set_override(
+        "service_project_id",
+        SERVICE_PROJECT_ID,
+        group="maintenance",
+    )
+    conf.set_override("user_id", MAINTENANCE_USER_ID, group="maintenance")
+    conf.set_override("workload_ids", [WORKLOAD_ID], group="maintenance")
+    conf.set_override(
+        "trusted_proxy_addresses",
+        ["127.0.0.1"],
+        group="maintenance",
+    )
+
+    application = build_product_application(conf)
+
+    assert callable(application)
 
 
 def test_invalid_request_and_logs_do_not_retain_caller_authority(

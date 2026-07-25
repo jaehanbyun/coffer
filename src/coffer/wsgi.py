@@ -13,13 +13,23 @@ from coffer.authorization import RegistryScopeAuthorizer
 from coffer.config import parse_config, setup_logging
 from coffer.db import RepositoryStore
 from coffer.keystone import create_authenticator
-from coffer.maintenance_token import INTERNAL_TOKEN_PATH
+from coffer.maintenance_token import (
+    INTERNAL_TOKEN_PATH,
+    LiveComparisonMaintenanceAuthority,
+    MaintenanceAuthorityRouter,
+    MaintenancePolicy,
+    MaintenanceTokenBroker,
+    MaintenanceTokenResource,
+    ReconciliationMaintenanceAuthority,
+    TrustedMaintenanceProxy,
+)
 from coffer.observability import (
     CofferMetrics,
     HTTPMetricsMiddleware,
     build_operational_application,
 )
 from coffer.policy import create_enforcer
+from coffer.quota import QuotaStore
 from coffer.token_api import build_token_application
 from coffer.tokens import TokenIssuer
 
@@ -56,6 +66,8 @@ def build_application(
     enforcer: Any | None = None,
     metrics: CofferMetrics | None = None,
     maintenance_resource: Any | None = None,
+    maintenance_trusted_proxy_addresses: frozenset[str] | None = None,
+    maintenance_workload_ids: frozenset[str] | None = None,
 ) -> Any:
     store = store or RepositoryStore(conf.database.connection)
     enforcer = enforcer or create_enforcer(conf)
@@ -75,6 +87,17 @@ def build_application(
     else:
         middleware_config = dict(auth_config)
     control_application = auth_token.AuthProtocol(application, middleware_config)
+    if maintenance_resource is not None:
+        if (
+            maintenance_trusted_proxy_addresses is None
+            or maintenance_workload_ids is None
+        ):
+            raise ValueError("maintenance proxy configuration is required")
+        control_application = TrustedMaintenanceProxy(
+            control_application,
+            trusted_proxy_addresses=maintenance_trusted_proxy_addresses,
+            workload_ids=maintenance_workload_ids,
+        )
     if token_application is None and operational_application is None:
         return control_application
     return PathDispatcher(
@@ -94,6 +117,7 @@ def build_product_application(conf: cfg.ConfigOpts) -> Any:
         metrics_enabled=conf.observability.metrics_enabled,
     )
     token_application = None
+    issuer = None
     if conf.token.enabled:
         authenticator = create_authenticator(conf)
         issuer = TokenIssuer.from_pem_file(
@@ -107,6 +131,31 @@ def build_product_application(conf: cfg.ConfigOpts) -> Any:
         token_application = build_token_application(
             authenticator, scope_authorizer, issuer, metrics
         )
+    maintenance_resource = None
+    maintenance_workload_ids = None
+    maintenance_trusted_proxy_addresses = None
+    if conf.maintenance.enabled:
+        if issuer is None:
+            raise ValueError("maintenance token broker requires token issuance")
+        maintenance_workload_ids = frozenset(conf.maintenance.workload_ids)
+        maintenance_trusted_proxy_addresses = frozenset(
+            conf.maintenance.trusted_proxy_addresses
+        )
+        quotas = QuotaStore(conf.database.connection)
+        authority = MaintenanceAuthorityRouter(
+            ReconciliationMaintenanceAuthority(quotas, store),
+            LiveComparisonMaintenanceAuthority(quotas, store),
+        )
+        broker = MaintenanceTokenBroker(
+            policy=MaintenancePolicy(
+                service_project_id=conf.maintenance.service_project_id,
+                maintenance_user_id=conf.maintenance.user_id,
+                workload_ids=maintenance_workload_ids,
+            ),
+            authority=authority,
+            issuer=issuer,
+        )
+        maintenance_resource = MaintenanceTokenResource(broker)
     return build_application(
         conf,
         store=store,
@@ -114,6 +163,9 @@ def build_product_application(conf: cfg.ConfigOpts) -> Any:
         operational_application=operational_application,
         enforcer=enforcer,
         metrics=metrics,
+        maintenance_resource=maintenance_resource,
+        maintenance_trusted_proxy_addresses=maintenance_trusted_proxy_addresses,
+        maintenance_workload_ids=maintenance_workload_ids,
     )
 
 

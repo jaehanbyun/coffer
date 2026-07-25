@@ -12,7 +12,31 @@
             "dest": "/etc/coffer/registry-ca.crt",
             "owner": "coffer",
             "perm": "0644"
-        }{% if kolla_copy_ca_into_containers | bool %},
+        }{% if coffer_enable_maintenance_identity | bool %},
+        {
+            "source": "{{ container_config_directory }}/maintenance-application-credential-id",
+            "dest": "/etc/coffer/maintenance-application-credential-id",
+            "owner": "coffer",
+            "perm": "0600"
+        },
+        {
+            "source": "{{ container_config_directory }}/maintenance-application-credential-secret",
+            "dest": "/etc/coffer/maintenance-application-credential-secret",
+            "owner": "coffer",
+            "perm": "0600"
+        },
+        {
+            "source": "{{ container_config_directory }}/maintenance-client.crt",
+            "dest": "/etc/coffer/maintenance-client.crt",
+            "owner": "coffer",
+            "perm": "0644"
+        },
+        {
+            "source": "{{ container_config_directory }}/maintenance-client.key",
+            "dest": "/etc/coffer/maintenance-client.key",
+            "owner": "coffer",
+            "perm": "0600"
+        }{% endif %}{% if kolla_copy_ca_into_containers | bool %},
         {
             "source": "{{ container_config_directory }}/ca-certificates",
             "dest": "/var/lib/kolla/share/ca-certificates",

@@ -1,7 +1,8 @@
 # Stage 6 Maintenance Secret Delivery
 
 - Date: 2026-07-25
-- Status: design baseline; no recipient or secret changed
+- Status: fixture-only Kolla contract implemented; no real identity or secret
+  created
 - Scope: accepted ADR 0015 identity material, per-workload mTLS, Kolla
   materialization, rotation, revocation, and residue
 - Related ADRs: `docs/adrs/0008-finite-application-credentials-as-provisioning-contract.md`,
@@ -31,9 +32,43 @@ contract is:
    the internal broker for one repository pull token, and retains both tokens
    only in memory.
 
-This document does not authorize or implement those recipients. No Keystone
-object, application credential, certificate, Barbican secret, ACL, consumer,
-HAProxy frontend, Kolla variable, file, or remote state changed.
+The local fixture contract now implements the recipient and frontend shape
+using generated disposable placeholders. It creates no Keystone object,
+Barbican secret, ACL, consumer, real certificate, endpoint, or remote state.
+`coffer_enable_reconcile` remains false.
+
+## Implemented Fixture Boundary
+
+The companion role now has an opt-in
+`coffer_enable_maintenance_identity=false` default. The isolated contract
+harness turns it on only for generated files and proves:
+
+- the declared workload hosts exactly cover the `coffer-reconcile` group, with
+  unique bounded workload IDs, application-credential IDs, and client
+  certificates;
+- host-addressed secret directories are owner-only mode `0700`; exact
+  credential ID/secret and client-key files are regular, nonempty,
+  single-link mode-`0600` files;
+- each mode-`0644` client certificate verifies against the exact maintenance
+  CA and matches its own private key;
+- disabled reconciler `config.json` receives only the exact credential
+  ID/secret and client certificate/key paths; no API, edge, registry, or
+  bootstrap recipient receives those values;
+- a private internal-VIP HAProxy frontend requires the exact client CA, maps
+  the SHA-256 fingerprint of each declared certificate to one workload,
+  accepts only `POST /v1/internal/maintenance/registry-token`, and verifies
+  backend TLS;
+- the ordinary internal API frontend removes the workload header and denies
+  `/v1/internal/`, while the public edge retains its application-level
+  internal-namespace denial; and
+- the API adapter deletes any incoming header and preexisting WSGI context,
+  accepting a mapped workload only when the direct peer is an allowlisted
+  HAProxy address and the workload is configured.
+
+The product builder can assemble the accepted SQL authority, policy, broker,
+resource, and adapter when `[maintenance] enabled=true`. The production Kolla
+default remains false, the reconciler remains disabled, and the worker still
+has no runtime Keystone-token or broker-token provider.
 
 ## Current Role Boundary
 
@@ -231,11 +266,9 @@ Before `coffer_enable_reconcile=true` is permitted:
 The following would cross the approved design-only boundary and require
 explicit authorization before implementation:
 
-- adding the maintenance role/user/application-credential lifecycle to the
-  Kolla role;
-- adding application-credential/client-key source paths or runtime recipients;
-- adding the private HAProxy mTLS frontend, client CA, workload adapter, or
-  network policy;
+- adding the real maintenance role/user/application-credential lifecycle;
+- materializing any real application credential, client key, or certificate;
+- applying the private frontend or network policy to a remote environment;
 - adding Barbican retrieval/materialization or consumer/ACL mutations;
 - enabling `coffer-reconcile` or installing a live-comparison job; and
 - creating, rotating, revoking, or deleting any real identity, secret,
@@ -243,10 +276,8 @@ explicit authorization before implementation:
 
 ## Recommendation
 
-Approve a local, fixture-only Kolla contract milestone next: add variables,
-prechecks, exact `config.json` recipients, private-frontend rendering, and
-negative tests using generated placeholder files only. Keep
-`coffer_enable_reconcile=false`, do not retrieve Barbican, do not create
-Keystone objects, and do not deploy remotely. After those local tests pass,
-request a second approval for a disposable-region lifecycle run with real
-finite credentials and mTLS.
+Prepare the disposable lifecycle harness next without executing it. The harness
+must own exact create/rotate/revoke/teardown allowlists, finite expiry and
+access-rule assertions, private-TLS failure cases, log/residue scans, and an
+abort-safe cleanup path. Execution with real finite credentials, certificates,
+Barbican objects, or a remote deployment remains a separate boundary.

@@ -38,6 +38,16 @@
   gather_facts: false
   serial: '{{ kolla_serial | default("0") }}'
   tasks:
+    - name: Validate the fixture-only maintenance frontend inputs
+      ansible.builtin.include_role:
+        name: coffer
+        tasks_from: maintenance-precheck
+      when:
+        - enable_coffer | bool
+        - enable_haproxy | bool
+        - coffer_enable_maintenance_identity | bool
+        - kolla_action in ['deploy', 'reconfigure', 'upgrade', 'config']
+
     - name: Render Coffer HAProxy and ProxySQL inputs
       ansible.builtin.include_role:
         name: coffer

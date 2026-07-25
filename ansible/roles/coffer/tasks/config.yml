@@ -26,6 +26,19 @@
   become: true
   when: inventory_hostname in groups['coffer-api']
 
+- name: Ensure the disabled reconciler fixture directory exists
+  ansible.builtin.file:
+    path: "{{ node_config_directory }}/coffer-reconcile"
+    state: directory
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0770"
+  become: true
+  when:
+    - coffer_enable_maintenance_identity | bool
+    - not coffer_enable_reconcile | bool
+    - inventory_hostname in groups['coffer-reconcile']
+
 - name: Render Coffer Kolla config.json contracts
   ansible.builtin.template:
     src: "{{ coffer_source_root }}/docker/config/{{ item.key }}.json.j2"
@@ -52,6 +65,19 @@
     mode: "0660"
   become: true
   when: inventory_hostname in groups['coffer-api']
+
+- name: Render the disabled reconciler maintenance recipient fixture
+  ansible.builtin.template:
+    src: "{{ coffer_source_root }}/docker/config/coffer-reconcile.json.j2"
+    dest: "{{ node_config_directory }}/coffer-reconcile/config.json"
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0660"
+  become: true
+  when:
+    - coffer_enable_maintenance_identity | bool
+    - not coffer_enable_reconcile | bool
+    - inventory_hostname in groups['coffer-reconcile']
 
 - name: Render per-process Coffer configuration
   vars:
@@ -87,6 +113,22 @@
     mode: "0600"
   become: true
   when: inventory_hostname in groups['coffer-api']
+  no_log: true
+
+- name: Render the disabled reconciler maintenance configuration fixture
+  vars:
+    service_name: "coffer-reconcile"
+  ansible.builtin.template:
+    src: "coffer.conf.j2"
+    dest: "{{ node_config_directory }}/coffer-reconcile/coffer.conf"
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0600"
+  become: true
+  when:
+    - coffer_enable_maintenance_identity | bool
+    - not coffer_enable_reconcile | bool
+    - inventory_hostname in groups['coffer-reconcile']
   no_log: true
 
 - name: Render the private Distribution configuration
@@ -145,8 +187,47 @@
     mode: "0644"
   become: true
   when:
-    - coffer_enable_reconcile | bool
+    - >-
+      coffer_enable_reconcile | bool or
+      coffer_enable_maintenance_identity | bool
     - inventory_hostname in groups['coffer-reconcile']
+
+- name: Copy exact maintenance identity files to the reconciler fixture
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: >-
+      {{ node_config_directory }}/coffer-reconcile/{{ item.dest }}
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "{{ item.mode }}"
+  become: true
+  loop:
+    - src: >-
+        {{ coffer_secret_source_dir }}/maintenance/{{
+        inventory_hostname }}/application-credential-id
+      dest: "maintenance-application-credential-id"
+      mode: "0600"
+    - src: >-
+        {{ coffer_secret_source_dir }}/maintenance/{{
+        inventory_hostname }}/application-credential-secret
+      dest: "maintenance-application-credential-secret"
+      mode: "0600"
+    - src: >-
+        {{ coffer_public_source_dir }}/maintenance/{{
+        inventory_hostname }}/client.crt
+      dest: "maintenance-client.crt"
+      mode: "0644"
+    - src: >-
+        {{ coffer_secret_source_dir }}/maintenance/{{
+        inventory_hostname }}/client.key
+      dest: "maintenance-client.key"
+      mode: "0600"
+  loop_control:
+    label: "{{ item.dest }}"
+  when:
+    - coffer_enable_maintenance_identity | bool
+    - inventory_hostname in groups['coffer-reconcile']
+  no_log: true
 
 - name: Copy verified RGW CA material only to Distribution
   ansible.builtin.copy:

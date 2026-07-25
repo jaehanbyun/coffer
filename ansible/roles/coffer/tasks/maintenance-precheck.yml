@@ -1,0 +1,325 @@
+---
+- name: Require the bounded maintenance identity fixture contract
+  ansible.builtin.assert:
+    that:
+      - not coffer_enable_reconcile | bool
+      - coffer_maintenance_port | int >= 1024
+      - coffer_maintenance_port | int <= 65535
+      - >-
+        coffer_maintenance_port | int not in
+        [coffer_api_port | int, coffer_edge_port | int,
+         coffer_registry_port | int]
+      - >-
+        coffer_maintenance_service_project_id is match(
+        '^([0-9a-fA-F]{32}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-'
+        '[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$')
+      - >-
+        coffer_maintenance_user_id is match(
+        '^([0-9a-fA-F]{32}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-'
+        '[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$')
+      - >-
+        coffer_reconcile_lease_seconds | int >=
+        60 +
+        coffer_maintenance_exchange_budget_seconds | int
+      - >-
+        coffer_maintenance_workloads |
+        map(attribute='inventory_host') |
+        list | sort == groups['coffer-reconcile'] | sort
+      - >-
+        coffer_maintenance_workloads |
+        map(attribute='inventory_host') |
+        list | unique | length ==
+        coffer_maintenance_workloads | length
+      - >-
+        coffer_maintenance_workloads |
+        map(attribute='workload_id') |
+        list | unique | length ==
+        coffer_maintenance_workloads | length
+    fail_msg: >-
+      The fixture-only maintenance identity contract is invalid or
+      reconciliation was enabled before disposable lifecycle acceptance.
+
+- name: Require bounded maintenance workload identifiers
+  ansible.builtin.assert:
+    that:
+      - item.inventory_host | length > 0
+      - item.workload_id is match('^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$')
+    fail_msg: A maintenance workload mapping is invalid.
+  loop: "{{ coffer_maintenance_workloads }}"
+  loop_control:
+    label: "{{ item.inventory_host }}"
+
+- name: Inspect maintenance secret source directories
+  ansible.builtin.stat:
+    path: >-
+      {{ coffer_secret_source_dir }}/maintenance/{{ item.inventory_host }}
+  delegate_to: localhost
+  run_once: true
+  register: coffer_maintenance_secret_directory_stats
+  loop: "{{ coffer_maintenance_workloads }}"
+  loop_control:
+    label: "{{ item.inventory_host }}"
+  no_log: true
+
+- name: Enforce owner-only maintenance secret source directories
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+      - item.stat.isdir
+      - not item.stat.islnk
+      - item.stat.uid == coffer_secret_owner_uid | int
+      - item.stat.mode == '0700'
+    fail_msg: >-
+      A maintenance secret source directory is missing, linked, or not
+      owner-only mode 0700.
+  loop: "{{ coffer_maintenance_secret_directory_stats.results }}"
+  loop_control:
+    label: "{{ item.item.inventory_host }}"
+  delegate_to: localhost
+  run_once: true
+  no_log: true
+
+- name: Inspect exact maintenance secret source files
+  ansible.builtin.stat:
+    path: >-
+      {{ coffer_secret_source_dir }}/maintenance/{{ item.0.inventory_host
+      }}/{{ item.1 }}
+  delegate_to: localhost
+  run_once: true
+  register: coffer_maintenance_secret_file_stats
+  loop: >-
+    {{
+      coffer_maintenance_workloads |
+      product([
+        'application-credential-id',
+        'application-credential-secret',
+        'client.key'
+      ]) |
+      list
+    }}
+  loop_control:
+    label: "{{ item.0.inventory_host }}/{{ item.1 }}"
+  no_log: true
+
+- name: Enforce exact maintenance secret source files
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+      - item.stat.isreg
+      - not item.stat.islnk
+      - item.stat.nlink == 1
+      - item.stat.uid == coffer_secret_owner_uid | int
+      - item.stat.mode == coffer_secret_file_mode
+      - item.stat.size > 0
+    fail_msg: >-
+      A maintenance secret source is missing, empty, linked, has multiple
+      hard links, or violates its owner/mode contract.
+  loop: "{{ coffer_maintenance_secret_file_stats.results }}"
+  loop_control:
+    label: "{{ item.item.0.inventory_host }}/{{ item.item.1 }}"
+  delegate_to: localhost
+  run_once: true
+  no_log: true
+
+- name: Read maintenance application-credential IDs for uniqueness
+  ansible.builtin.slurp:
+    src: >-
+      {{ coffer_secret_source_dir }}/maintenance/{{
+      item.inventory_host }}/application-credential-id
+  delegate_to: localhost
+  run_once: true
+  register: coffer_maintenance_application_credential_ids
+  loop: "{{ coffer_maintenance_workloads }}"
+  loop_control:
+    label: "{{ item.inventory_host }}"
+  no_log: true
+
+- name: Require one valid application-credential ID per workload
+  vars:
+    coffer_maintenance_credential_id_values: >-
+      {{
+        coffer_maintenance_application_credential_ids.results |
+        map(attribute='content') |
+        map('b64decode') |
+        map('trim') |
+        list
+      }}
+  ansible.builtin.assert:
+    that:
+      - >-
+        coffer_maintenance_credential_id_values | unique | length ==
+        coffer_maintenance_workloads | length
+      - >-
+        coffer_maintenance_credential_id_values |
+        select('match',
+        '^([0-9a-fA-F]{32}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-'
+        '[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$') |
+        list | length == coffer_maintenance_workloads | length
+    fail_msg: >-
+      Every maintenance workload requires one distinct valid application
+      credential ID.
+  delegate_to: localhost
+  run_once: true
+  no_log: true
+
+- name: Inspect the maintenance client CA
+  ansible.builtin.stat:
+    path: "{{ coffer_maintenance_client_ca_file }}"
+  delegate_to: localhost
+  run_once: true
+  register: coffer_maintenance_client_ca_stat
+
+- name: Enforce the maintenance client CA input
+  ansible.builtin.assert:
+    that:
+      - coffer_maintenance_client_ca_stat.stat.exists
+      - coffer_maintenance_client_ca_stat.stat.isreg
+      - not coffer_maintenance_client_ca_stat.stat.islnk
+      - coffer_maintenance_client_ca_stat.stat.nlink == 1
+      - >-
+        coffer_maintenance_client_ca_stat.stat.uid ==
+        coffer_secret_owner_uid | int
+      - coffer_maintenance_client_ca_stat.stat.mode == '0644'
+      - coffer_maintenance_client_ca_stat.stat.size > 0
+    fail_msg: >-
+      The maintenance client CA is missing, empty, linked, or violates its
+      exact owner/mode contract.
+  delegate_to: localhost
+  run_once: true
+
+- name: Inspect maintenance client certificates
+  ansible.builtin.stat:
+    path: >-
+      {{ coffer_public_source_dir }}/maintenance/{{
+      item.inventory_host }}/client.crt
+  delegate_to: localhost
+  run_once: true
+  register: coffer_maintenance_public_file_stats
+  loop: "{{ coffer_maintenance_workloads }}"
+  loop_control:
+    label: "{{ item.inventory_host }}"
+
+- name: Enforce maintenance client certificate and CA inputs
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+      - item.stat.isreg
+      - not item.stat.islnk
+      - item.stat.nlink == 1
+      - item.stat.uid == coffer_secret_owner_uid | int
+      - item.stat.mode == '0644'
+      - item.stat.size > 0
+    fail_msg: >-
+      A maintenance certificate input is missing, empty, linked, or violates
+      its exact owner/mode contract.
+  loop: "{{ coffer_maintenance_public_file_stats.results }}"
+  loop_control:
+    label: "{{ item.item.inventory_host }}"
+  delegate_to: localhost
+  run_once: true
+
+- name: Verify maintenance client certificates against the exact CA
+  ansible.builtin.command:
+    argv:
+      - openssl
+      - verify
+      - -CAfile
+      - "{{ coffer_maintenance_client_ca_file }}"
+      - >-
+        {{ coffer_public_source_dir }}/maintenance/{{
+        item.inventory_host }}/client.crt
+  changed_when: false
+  delegate_to: localhost
+  run_once: true
+  loop: "{{ coffer_maintenance_workloads }}"
+  loop_control:
+    label: "{{ item.inventory_host }}"
+  no_log: true
+
+- name: Read maintenance client certificate public keys
+  ansible.builtin.command:
+    argv:
+      - openssl
+      - x509
+      - -in
+      - >-
+        {{ coffer_public_source_dir }}/maintenance/{{
+        item.inventory_host }}/client.crt
+      - -pubkey
+      - -noout
+  changed_when: false
+  delegate_to: localhost
+  run_once: true
+  register: coffer_maintenance_certificate_public_keys
+  loop: "{{ coffer_maintenance_workloads }}"
+  loop_control:
+    label: "{{ item.inventory_host }}"
+  no_log: true
+
+- name: Read maintenance client private-key public keys
+  ansible.builtin.command:
+    argv:
+      - openssl
+      - pkey
+      - -in
+      - >-
+        {{ coffer_secret_source_dir }}/maintenance/{{
+        item.inventory_host }}/client.key
+      - -pubout
+  changed_when: false
+  delegate_to: localhost
+  run_once: true
+  register: coffer_maintenance_private_key_public_keys
+  loop: "{{ coffer_maintenance_workloads }}"
+  loop_control:
+    label: "{{ item.inventory_host }}"
+  no_log: true
+
+- name: Require each maintenance certificate to match its private key
+  ansible.builtin.assert:
+    that:
+      - >-
+        coffer_maintenance_certificate_public_keys.results[item].stdout ==
+        coffer_maintenance_private_key_public_keys.results[item].stdout
+    fail_msg: A maintenance client certificate does not match its private key.
+  loop: "{{ range(0, coffer_maintenance_workloads | length) | list }}"
+  delegate_to: localhost
+  run_once: true
+  no_log: true
+
+- name: Read exact maintenance client certificate fingerprints
+  ansible.builtin.command:
+    argv:
+      - openssl
+      - x509
+      - -in
+      - >-
+        {{ coffer_public_source_dir }}/maintenance/{{
+        item.inventory_host }}/client.crt
+      - -fingerprint
+      - -sha256
+      - -noout
+  changed_when: false
+  delegate_to: localhost
+  run_once: true
+  register: coffer_maintenance_certificate_fingerprints
+  loop: "{{ coffer_maintenance_workloads }}"
+  loop_control:
+    label: "{{ item.inventory_host }}"
+
+- name: Require unique maintenance client certificates
+  vars:
+    coffer_maintenance_fingerprint_values: >-
+      {{
+        coffer_maintenance_certificate_fingerprints.results |
+        map(attribute='stdout') |
+        list
+      }}
+  ansible.builtin.assert:
+    that:
+      - >-
+        coffer_maintenance_fingerprint_values | unique | length ==
+        coffer_maintenance_workloads | length
+    fail_msg: Every maintenance workload requires a distinct client certificate.
+  delegate_to: localhost
+  run_once: true

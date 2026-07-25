@@ -65,6 +65,14 @@ OBSERVABILITY_GROUP = cfg.OptGroup("observability")
 OBSERVABILITY_OPTS = [
     cfg.BoolOpt("metrics_enabled", default=False),
 ]
+MAINTENANCE_GROUP = cfg.OptGroup("maintenance")
+MAINTENANCE_OPTS = [
+    cfg.BoolOpt("enabled", default=False),
+    cfg.StrOpt("service_project_id"),
+    cfg.StrOpt("user_id"),
+    cfg.ListOpt("workload_ids", default=[]),
+    cfg.ListOpt("trusted_proxy_addresses", default=[]),
+]
 RECONCILIATION_GROUP = cfg.OptGroup("reconciliation")
 RECONCILIATION_OPTS = [
     cfg.StrOpt("mode", default="once", choices=("once", "periodic")),
@@ -101,6 +109,9 @@ def new_config() -> cfg.ConfigOpts:
     observability_group = deepcopy(OBSERVABILITY_GROUP)
     conf.register_group(observability_group)
     conf.register_opts(deepcopy(OBSERVABILITY_OPTS), group=observability_group)
+    maintenance_group = deepcopy(MAINTENANCE_GROUP)
+    conf.register_group(maintenance_group)
+    conf.register_opts(deepcopy(MAINTENANCE_OPTS), group=maintenance_group)
     reconciliation_group = deepcopy(RECONCILIATION_GROUP)
     conf.register_group(reconciliation_group)
     conf.register_opts(

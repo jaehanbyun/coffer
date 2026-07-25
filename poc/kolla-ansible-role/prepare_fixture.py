@@ -13,7 +13,7 @@ import shutil
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.x509.oid import NameOID
+from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 import yaml
 
 from coffer.tokens import public_jwk
@@ -107,6 +107,68 @@ def certificate_pair() -> tuple[bytes, bytes, bytes]:
     )
 
 
+def maintenance_certificate_pair() -> tuple[bytes, bytes, bytes]:
+    now = datetime.now(UTC)
+    ca_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    ca_name = x509.Name(
+        [x509.NameAttribute(NameOID.COMMON_NAME, "Coffer Maintenance Contract CA")]
+    )
+    ca_certificate = (
+        x509.CertificateBuilder()
+        .subject_name(ca_name)
+        .issuer_name(ca_name)
+        .public_key(ca_key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - timedelta(minutes=5))
+        .not_valid_after(now + timedelta(days=7))
+        .add_extension(x509.BasicConstraints(ca=True, path_length=0), True)
+        .add_extension(
+            x509.KeyUsage(
+                digital_signature=True,
+                content_commitment=False,
+                key_encipherment=False,
+                data_encipherment=False,
+                key_agreement=False,
+                key_cert_sign=True,
+                crl_sign=True,
+                encipher_only=False,
+                decipher_only=False,
+            ),
+            True,
+        )
+        .sign(ca_key, hashes.SHA256())
+    )
+    client_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    client_name = x509.Name(
+        [
+            x509.NameAttribute(
+                NameOID.COMMON_NAME,
+                "reconciler-coffer-stage3-contract",
+            )
+        ]
+    )
+    client_certificate = (
+        x509.CertificateBuilder()
+        .subject_name(client_name)
+        .issuer_name(ca_name)
+        .public_key(client_key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - timedelta(minutes=5))
+        .not_valid_after(now + timedelta(days=1))
+        .add_extension(x509.BasicConstraints(ca=False, path_length=None), True)
+        .add_extension(
+            x509.ExtendedKeyUsage([ExtendedKeyUsageOID.CLIENT_AUTH]),
+            True,
+        )
+        .sign(ca_key, hashes.SHA256())
+    )
+    return (
+        ca_certificate.public_bytes(serialization.Encoding.PEM),
+        client_certificate.public_bytes(serialization.Encoding.PEM),
+        private_pem(client_key),
+    )
+
+
 def prepare() -> None:
     if WORK.exists():
         shutil.rmtree(WORK)
@@ -114,6 +176,12 @@ def prepare() -> None:
     target_config = WORK / "target-config"
     secret_directory = source_config / "coffer" / "secrets"
     public_directory = source_config / "coffer" / "public"
+    maintenance_secret_directory = (
+        secret_directory / "maintenance" / "coffer-stage3-contract"
+    )
+    maintenance_public_directory = (
+        public_directory / "maintenance" / "coffer-stage3-contract"
+    )
     certificate_directory = source_config / "certificates"
 
     for directory in (
@@ -123,9 +191,12 @@ def prepare() -> None:
         target_config / "proxysql" / "rules",
         secret_directory,
         public_directory,
+        maintenance_secret_directory,
+        maintenance_public_directory,
         certificate_directory / "ca",
     ):
         directory.mkdir(parents=True, exist_ok=True)
+    maintenance_secret_directory.chmod(0o700)
 
     write_text(
         WORK / "bin" / "ip",
@@ -173,6 +244,36 @@ def prepare() -> None:
     write_bytes(certificate_directory / "backend-cert.pem", certificate_pem, 0o644)
     write_bytes(certificate_directory / "backend-key.pem", private_key_pem, 0o600)
     write_bytes(source_config / "coffer" / "certs" / "rgw-ca.crt", ca_pem, 0o644)
+    (
+        maintenance_ca_pem,
+        maintenance_client_pem,
+        maintenance_client_key_pem,
+    ) = maintenance_certificate_pair()
+    write_bytes(
+        public_directory / "maintenance" / "client-ca.crt",
+        maintenance_ca_pem,
+        0o644,
+    )
+    write_bytes(
+        maintenance_public_directory / "client.crt",
+        maintenance_client_pem,
+        0o644,
+    )
+    write_text(
+        maintenance_secret_directory / "application-credential-id",
+        "55555555-5555-4555-8555-555555555555\n",
+        0o600,
+    )
+    write_text(
+        maintenance_secret_directory / "application-credential-secret",
+        secrets.token_urlsafe(48) + "\n",
+        0o600,
+    )
+    write_bytes(
+        maintenance_secret_directory / "client.key",
+        maintenance_client_key_pem,
+        0o600,
+    )
 
     user = pwd.getpwuid(os.getuid())
     runtime_vars = {

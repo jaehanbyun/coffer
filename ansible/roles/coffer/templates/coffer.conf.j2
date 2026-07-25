@@ -59,6 +59,13 @@ cafile = {{ openstack_cacert }}
 
 [observability]
 metrics_enabled = {{ coffer_enable_metrics | bool }}
+
+[maintenance]
+enabled = {{ coffer_enable_maintenance_identity | bool }}
+service_project_id = {{ coffer_maintenance_service_project_id }}
+user_id = {{ coffer_maintenance_user_id }}
+workload_ids = {{ coffer_maintenance_workloads | map(attribute='workload_id') | join(',') }}
+trusted_proxy_addresses = {% for host in groups['loadbalancer'] %}{{ 'api' | kolla_address(host) }}{% if not loop.last %},{% endif %}{% endfor %}
 {% elif service_name == 'coffer-edge' %}
 [edge]
 bind_host = {{ api_interface_address }}

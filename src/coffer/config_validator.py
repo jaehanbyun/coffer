@@ -12,6 +12,7 @@ from sqlalchemy.exc import ArgumentError
 
 from coffer.config import parse_config
 from coffer.edge_runner import EdgeSettings, load_jwks
+from coffer.maintenance_token import MaintenancePolicy, TrustedMaintenanceProxy
 from coffer.quota_admission import RegistryTokenVerifier
 from coffer.reconciliation_runner import RunnerSettings
 from coffer.runtime import WSGIServerSettings
@@ -96,6 +97,20 @@ def validate_component(conf: cfg.ConfigOpts, component: str) -> None:
             raise ConfigValidationError("Keystone TLS verification cannot be disabled")
         if conf.keystone.cafile:
             ssl.create_default_context(cafile=conf.keystone.cafile)
+        if conf.maintenance.enabled:
+            workload_ids = frozenset(conf.maintenance.workload_ids)
+            MaintenancePolicy(
+                service_project_id=conf.maintenance.service_project_id,
+                maintenance_user_id=conf.maintenance.user_id,
+                workload_ids=workload_ids,
+            )
+            TrustedMaintenanceProxy(
+                lambda environ, start_response: (),
+                trusted_proxy_addresses=frozenset(
+                    conf.maintenance.trusted_proxy_addresses
+                ),
+                workload_ids=workload_ids,
+            )
         return
 
     if component == "edge":

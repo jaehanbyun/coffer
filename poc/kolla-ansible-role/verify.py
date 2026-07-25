@@ -37,8 +37,9 @@ def check(condition: bool, message: str) -> None:
 def remember_generated_secrets() -> dict[str, str]:
     secret_dir = WORK / "source-config" / "coffer" / "secrets"
     values = {
-        path.name: path.read_text(encoding="utf-8").strip()
-        for path in secret_dir.iterdir()
+        str(path.relative_to(secret_dir)): path.read_text(encoding="utf-8").strip()
+        for path in secret_dir.rglob("*")
+        if path.is_file()
         if path.name != "signing-key.pem"
     }
     GENERATED_SECRETS.update(values.values())
@@ -319,6 +320,13 @@ def verify_disabled_and_negative_prechecks() -> None:
         / "secrets"
         / name
     )
+    public = (
+        lambda name: WORK
+        / "source-config"
+        / "coffer"
+        / "public"
+        / name
+    )
     assert_failure_case(
         "missing secret",
         lambda: secret("database-password").unlink(),
@@ -344,6 +352,38 @@ def verify_disabled_and_negative_prechecks() -> None:
         lambda: None,
         "-e",
         "coffer_registry_external=true",
+    )
+    assert_failure_case(
+        "maintenance reconciliation remains disabled",
+        lambda: None,
+        "-e",
+        "coffer_enable_reconcile=true",
+    )
+    assert_failure_case(
+        "unsafe maintenance secret permission",
+        lambda: secret(
+            "maintenance/coffer-stage3-contract/"
+            "application-credential-secret"
+        ).chmod(0o644),
+    )
+    assert_failure_case(
+        "mismatched maintenance client key",
+        lambda: secret(
+            "maintenance/coffer-stage3-contract/client.key"
+        ).write_text("not-a-private-key\n", encoding="utf-8"),
+    )
+    assert_failure_case(
+        "maintenance client certificate from the wrong CA",
+        lambda: public(
+            "maintenance/coffer-stage3-contract/client.crt"
+        ).write_bytes(
+            (
+                WORK
+                / "source-config"
+                / "certificates"
+                / "backend-cert.pem"
+            ).read_bytes()
+        ),
     )
 
     prepare()
@@ -522,6 +562,36 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
             "ssl verify required" in haproxy_config,
             f"{service} HAProxy backend verifies TLS",
         )
+    maintenance_haproxy = (
+        target / "haproxy" / "services.d" / "coffer-maintenance.cfg"
+    ).read_text(encoding="utf-8")
+    check(
+        "bind 127.0.0.2:18790 ssl" in maintenance_haproxy
+        and "coffer-maintenance-client-ca.crt verify required" in maintenance_haproxy
+        and "ssl_c_der,sha2(256),hex" in maintenance_haproxy,
+        "private maintenance frontend requires the exact client CA and certificate",
+    )
+    check(
+        "http-request del-header X-Coffer-Maintenance-Workload"
+        in maintenance_haproxy
+        and (
+            "http-request set-header X-Coffer-Maintenance-Workload "
+            "reconciler-coffer-stage3-contract"
+        )
+        in maintenance_haproxy
+        and "/v1/internal/maintenance/registry-token" in maintenance_haproxy,
+        "private frontend strips caller identity and maps only the broker route",
+    )
+    api_haproxy = (
+        target / "haproxy" / "services.d" / "coffer-api.cfg"
+    ).read_text(encoding="utf-8")
+    check(
+        "http-request del-header X-Coffer-Maintenance-Workload"
+        in api_haproxy
+        and "http-request deny if { path -i -m beg /v1/internal/ }"
+        in api_haproxy,
+        "ordinary internal API frontend strips assertions and denies internal paths",
+    )
 
     expected_modes = {
         "coffer-api/coffer.conf": 0o600,
@@ -529,6 +599,10 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
         "coffer-edge/coffer.conf": 0o600,
         "coffer-registry/config.yml": 0o600,
         "coffer-bootstrap/coffer.conf": 0o600,
+        "coffer-reconcile/coffer.conf": 0o600,
+        "coffer-reconcile/maintenance-application-credential-id": 0o600,
+        "coffer-reconcile/maintenance-application-credential-secret": 0o600,
+        "coffer-reconcile/maintenance-client.key": 0o600,
     }
     for relative_path, expected_mode in expected_modes.items():
         mode = (target / relative_path).stat().st_mode & 0o777
@@ -569,13 +643,77 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
         "Keystone service password is delivered only to the API",
     )
     check(
+        recipients(
+            secret_values[
+                "maintenance/coffer-stage3-contract/"
+                "application-credential-id"
+            ]
+        )
+        == {"coffer-reconcile/maintenance-application-credential-id"},
+        "maintenance application-credential ID has one reconciler recipient",
+    )
+    check(
+        recipients(
+            secret_values[
+                "maintenance/coffer-stage3-contract/"
+                "application-credential-secret"
+            ]
+        )
+        == {"coffer-reconcile/maintenance-application-credential-secret"},
+        "maintenance application-credential secret has one reconciler recipient",
+    )
+    maintenance_private_key = secret_values[
+        "maintenance/coffer-stage3-contract/client.key"
+    ].encode()
+    check(
+        {
+            path
+            for path, content in all_target_files.items()
+            if maintenance_private_key in content
+        }
+        == {"coffer-reconcile/maintenance-client.key"},
+        "maintenance client private key has one reconciler recipient",
+    )
+    reconcile_config_json = (
+        target / "coffer-reconcile" / "config.json"
+    ).read_text(encoding="utf-8")
+    reconcile_config_document = json.loads(reconcile_config_json)
+    reconcile_destinations = {
+        item["dest"]
+        for item in reconcile_config_document["config_files"]
+    }
+    check(
+        {
+            "/etc/coffer/maintenance-application-credential-id",
+            "/etc/coffer/maintenance-application-credential-secret",
+            "/etc/coffer/maintenance-client.crt",
+            "/etc/coffer/maintenance-client.key",
+        }
+        <= reconcile_destinations,
+        "disabled reconciler fixture declares exact future runtime recipients",
+    )
+    api_config = (target / "coffer-api" / "coffer.conf").read_text(
+        encoding="utf-8"
+    )
+    check(
+        "[maintenance]" in api_config
+        and "enabled = True" in api_config
+        and (
+            "workload_ids = reconciler-coffer-stage3-contract"
+            in api_config
+        )
+        and "trusted_proxy_addresses = 127.0.0.1" in api_config,
+        "API fixture renders the trusted proxy and workload allowlists",
+    )
+    check(
         recipients(secret_values["database-password"])
         == {
             "coffer-api/coffer.conf",
             "coffer-edge/coffer.conf",
+            "coffer-reconcile/coffer.conf",
             "coffer-bootstrap/coffer.conf",
         },
-        "database secret recipients match API, edge, and bootstrap",
+        "database secret recipients match API, edge, reconciler, and bootstrap",
     )
     check(
         "coffer-api/signing-key.pem" in all_target_files

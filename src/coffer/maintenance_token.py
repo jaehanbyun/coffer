@@ -3,9 +3,10 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import ipaddress
 import logging
 import re
-from typing import Protocol
+from typing import Any, Protocol
 import uuid
 
 import falcon
@@ -28,6 +29,8 @@ from coffer.tokens import (
 INTERNAL_TOKEN_PATH = "/v1/internal/maintenance/registry-token"
 INTERNAL_SERVICE_TYPE = "oci-registry"
 REQUIRED_ROLES = frozenset({"service", "registry_maintenance"})
+WORKLOAD_HEADER_ENV = "HTTP_X_COFFER_MAINTENANCE_WORKLOAD"
+WORKLOAD_CONTEXT_ENV = "coffer.maintenance_workload_id"
 SHA256_DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 Clock = Callable[[], datetime]
 LOG = logging.getLogger(__name__)
@@ -46,6 +49,58 @@ class MaintenanceTokenUnavailable(Exception):
 class MaintenanceAuthorityDenied(Exception):
     def __init__(self) -> None:
         super().__init__("maintenance authority denied")
+
+
+class TrustedMaintenanceProxy:
+    """Translate only a trusted proxy assertion into private WSGI context."""
+
+    def __init__(
+        self,
+        application: Any,
+        *,
+        trusted_proxy_addresses: frozenset[str],
+        workload_ids: frozenset[str],
+    ) -> None:
+        if not trusted_proxy_addresses or not workload_ids:
+            raise ValueError("maintenance proxy configuration is invalid")
+        try:
+            normalized_addresses = frozenset(
+                str(ipaddress.ip_address(address))
+                for address in trusted_proxy_addresses
+            )
+        except ValueError:
+            raise ValueError("maintenance proxy configuration is invalid") from None
+        if any(
+            not workload_id
+            or workload_id.strip() != workload_id
+            or len(workload_id) > 128
+            for workload_id in workload_ids
+        ):
+            raise ValueError("maintenance proxy configuration is invalid")
+        self._application = application
+        self._trusted_proxy_addresses = normalized_addresses
+        self._workload_ids = workload_ids
+
+    def __call__(self, environ: dict[str, Any], start_response: Any) -> Any:
+        asserted_workload = environ.pop(WORKLOAD_HEADER_ENV, None)
+        environ.pop(WORKLOAD_CONTEXT_ENV, None)
+        if environ.get("PATH_INFO") == INTERNAL_TOKEN_PATH:
+            remote_address = environ.get("REMOTE_ADDR")
+            try:
+                normalized_remote = (
+                    str(ipaddress.ip_address(remote_address))
+                    if isinstance(remote_address, str)
+                    else None
+                )
+            except ValueError:
+                normalized_remote = None
+            if (
+                normalized_remote in self._trusted_proxy_addresses
+                and isinstance(asserted_workload, str)
+                and asserted_workload in self._workload_ids
+            ):
+                environ[WORKLOAD_CONTEXT_ENV] = asserted_workload
+        return self._application(environ, start_response)
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,7 +132,7 @@ class MaintenancePrincipal:
             "application_credential_access_rules",
             None,
         )
-        workload_id = environ.get("coffer.maintenance_workload_id")
+        workload_id = environ.get(WORKLOAD_CONTEXT_ENV)
         roles = tuple(getattr(user_auth, "role_names", ()) or ())
         exact_access_rule = (
             isinstance(access_rules, (list, tuple))

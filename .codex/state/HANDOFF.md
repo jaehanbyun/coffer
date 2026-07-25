@@ -1,7 +1,8 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; maintenance Kolla fixture contract awaiting approval
+- Status: plan 0019 active; maintenance Kolla fixture contract complete;
+  disposable lifecycle harness design next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -101,6 +102,22 @@ release contains it yet.
   alone is rejected.
 - The research changed no Kolla variable, recipient, identity, credential,
   certificate, Barbican object, frontend, endpoint, or remote state.
+- Completed the opt-in, fixture-only Kolla maintenance contract. Generated
+  host-addressed credential/client-key inputs now have exact owner/mode/link,
+  uniqueness, CA, certificate/key-pair, and recipient checks. Only the disabled
+  reconciler fixture receives those generated inputs.
+- Added a private internal-VIP HAProxy fixture requiring the exact maintenance
+  client CA and SHA-256 certificate fingerprint, accepting only the broker POST
+  path, and verifying backend TLS. The ordinary API frontend strips workload
+  assertions and denies `/v1/internal/`; the public edge denial remains.
+- Wired the accepted maintenance policy, SQL authorities, broker/resource, and
+  trusted proxy adapter into the product builder behind a disabled-by-default
+  `[maintenance]` switch. The adapter discards raw headers and preexisting WSGI
+  values unless the direct peer and mapped workload are both allowlisted.
+- Full regression passes 310 Python tests; the focused maintenance/config/API
+  matrix passes 115; the pinned Kolla companion role passes 68 checks.
+  Compilation and diff checks pass. No real identity, credential, certificate,
+  Barbican object, endpoint, remote service, or reconciliation setting changed.
 
 ## Plan 0018 Activation
 
@@ -1827,11 +1844,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Obtain user approval or rejection of the fixture-only local Kolla maintenance
-contract: generated placeholder source files, exact per-process recipients,
-private mTLS frontend rendering, trusted workload adapter, and negative
-contract tests while reconciliation stays disabled and no real identity,
-secret, certificate, Barbican object, or remote deployment is created.
+Create `poc/maintenance-identity/README.md` defining an abort-safe disposable
+create/rotate/revoke/teardown harness with exact identity, certificate,
+Barbican, endpoint, log-scan, and residue allowlists. Do not execute it or
+create any external resource in that local design milestone.
 
 ## After This Work Package
 
