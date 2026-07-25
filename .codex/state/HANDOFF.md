@@ -1,8 +1,8 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; bounded API/edge/reconciliation runtime metric
-  core complete; quota-admission outcomes next
+- Status: plan 0019 active; bounded runtime and quota-admission metrics
+  complete; edge/Kolla private scrape boundary next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -249,6 +249,15 @@ release contains it yet.
 - This slice added no Kolla variable/template, Prometheus target/rule, Grafana
   dashboard, HAProxy ACL, private edge/reconciler endpoint, Distribution
   listener, network, container, or remote change.
+- Added bounded manifest quota-admission count/duration metrics using the same
+  edge collector as outer HTTP instrumentation. The seven exact results
+  distinguish quota absence, database/internal failure, upstream failure,
+  policy/client invalidity, and acceptance without dynamic labels.
+- The quota/observability/edge/proxy focused matrix passes 112 tests and full
+  regression passes 515. Tests use a real issued JWT and concrete repository
+  path while proving neither value nor dependency exception text enters the
+  metric payload. No endpoint, Kolla, Prometheus, HAProxy, network, container,
+  or remote state changed.
 
 ## Plan 0018 Activation
 
@@ -1975,12 +1984,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add bounded quota-admission outcome and duration instrumentation in
-`src/coffer/quota_admission.py`, pass the edge collector from
-`src/coffer/edge_runner.py`, and prove accepted, over-quota, missing-quota,
-invalid-manifest, unauthorized, upstream-unavailable, and internal-error
-paths without retaining a repository or token. Do not change Kolla or contact
-a remote service in that atomic milestone.
+Implement a metrics-enabled edge operational dispatcher and the matching
+Kolla fail-closed boundary together. Direct backend `/metrics` must work with
+one worker, both edge HAProxy frontends must deny all operational/debug paths,
+and the Prometheus fragment must enumerate every API/edge backend address
+instead of a VIP. Do not deploy remotely.
 
 ## After This Work Package
 

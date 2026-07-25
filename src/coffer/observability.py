@@ -43,6 +43,17 @@ TOKEN_RESULTS = frozenset(
     }
 )
 READINESS_RESULTS = frozenset({"database_unavailable", "ready"})
+ADMISSION_RESULTS = frozenset(
+    {
+        "accepted",
+        "internal_error",
+        "invalid_manifest",
+        "missing_quota",
+        "over_quota",
+        "unauthorized",
+        "upstream_unavailable",
+    }
+)
 RECONCILIATION_RESULTS = frozenset(
     {"absent", "indeterminate", "present", "stale_claim", "stale_version"}
 )
@@ -133,6 +144,18 @@ class CofferMetrics:
             ["result"],
             registry=self.registry,
         )
+        self._quota_admission = Counter(
+            "coffer_quota_admission_total",
+            "Manifest quota admission decisions by bounded result class.",
+            ["result"],
+            registry=self.registry,
+        )
+        self._quota_admission_duration = Histogram(
+            "coffer_quota_admission_duration_seconds",
+            "Manifest quota admission duration.",
+            buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10),
+            registry=self.registry,
+        )
         self._reconciliation = Counter(
             "coffer_quota_reconciliation_outcomes_total",
             "Quota reconciliation candidates by bounded result class.",
@@ -177,6 +200,16 @@ class CofferMetrics:
         if result not in READINESS_RESULTS:
             raise ValueError("readiness metric result is not bounded")
         self._readiness.labels(result=result).inc()
+
+    def observe_quota_admission(
+        self,
+        result: str,
+        duration_seconds: float,
+    ) -> None:
+        if result not in ADMISSION_RESULTS:
+            raise ValueError("quota admission metric result is not bounded")
+        self._quota_admission.labels(result=result).inc()
+        self._quota_admission_duration.observe(_duration(duration_seconds))
 
     def observe_reconciliation(self, result: str) -> None:
         if result not in RECONCILIATION_RESULTS:

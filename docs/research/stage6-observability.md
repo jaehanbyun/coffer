@@ -52,7 +52,7 @@ endpoint, or pilot evidence.
 | Component | Current surface | Production gap |
 |---|---|---|
 | `coffer-api` | `/healthz`, SQL `/readyz`, optional process-local `/metrics`; process-start, bounded HTTP, token, readiness, and reconciliation counters; metrics-enabled worker count must be one | VIP scrape; no dependency/admission/session gauges; public denial not proven |
-| `coffer-edge` | bounded route/method/status request counters and process-start when metrics are enabled; listener health and fixed startup logs | no private health/readiness/metrics application; no admission or upstream result metrics |
+| `coffer-edge` | bounded route/method/status, quota-admission outcome/duration, and process-start metrics when enabled; listener health and fixed startup logs | no private health/readiness/metrics application or generic upstream-result metrics |
 | Distribution | `/v2/` health through HAProxy; JSON logs | private debug/Prometheus server disabled; no per-replica scrape |
 | `coffer-reconcile` | aggregate cycle logs and process-local result counters | no scrape listener; counters disappear; no cycle/backlog/lease gauges |
 | MariaDB/Galera | Kolla service health; existing exporter available when enabled | Coffer dashboard/alerts and transaction retry/deadlock correlation absent |

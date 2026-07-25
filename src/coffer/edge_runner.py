@@ -144,6 +144,11 @@ def build_product_application(
     repositories = RepositoryStore(conf.database.connection)
     quotas = QuotaStore(conf.database.connection)
     registry = HTTPManifestUpstream(settings.registry_origin)
+    metrics = (
+        CofferMetrics(component="edge")
+        if conf.observability.metrics_enabled
+        else None
+    )
     manifest_application = build_manifest_admission_application(
         RegistryTokenVerifier(
             load_jwks(settings.jwks_file),
@@ -153,17 +158,18 @@ def build_product_application(
         ManifestAdmissionService(repositories, quotas),
         registry,
         token_realm=settings.token_realm,
+        metrics=metrics,
     )
     application = RegistryEdgeProxy(
         manifest_application,
         settings.registry_origin,
         api_origin=settings.api_origin,
     )
-    if not conf.observability.metrics_enabled:
+    if metrics is None:
         return application
     return WSGIHTTPMetricsMiddleware(
         application,
-        CofferMetrics(component="edge"),
+        metrics,
     )
 
 

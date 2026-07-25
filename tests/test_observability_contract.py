@@ -9,6 +9,7 @@ import sys
 import pytest
 
 from coffer.observability import (
+    ADMISSION_RESULTS,
     BOUNDED_COMPONENTS,
     BOUNDED_HTTP_METHODS,
     BOUNDED_ROUTES,
@@ -89,6 +90,7 @@ def test_runtime_metric_allowlists_match_the_versioned_topology() -> None:
     assert BOUNDED_ROUTES == CONTRACT.ROUTES
     assert TOKEN_RESULTS == frozenset(loaded.result_labels["token"])
     assert READINESS_RESULTS == frozenset(loaded.result_labels["readiness"])
+    assert ADMISSION_RESULTS == frozenset(loaded.result_labels["admission"])
     assert RECONCILIATION_RESULTS == frozenset(
         loaded.result_labels["reconciliation"]
     )

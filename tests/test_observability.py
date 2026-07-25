@@ -230,6 +230,13 @@ def test_wsgi_edge_metrics_never_retain_the_raw_path() -> None:
             lambda: CofferMetrics().observe_readiness("project-a"),
             "readiness",
         ),
+        (
+            lambda: CofferMetrics(component="edge").observe_quota_admission(
+                "project-a",
+                0.1,
+            ),
+            "admission",
+        ),
     ],
 )
 def test_metric_schema_rejects_unbounded_values(operation, message) -> None:

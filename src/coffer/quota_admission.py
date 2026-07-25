@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
+import time
 from typing import Mapping, Protocol
 from urllib.parse import urlsplit
 import uuid
@@ -91,6 +92,58 @@ class ManifestUpstream(Protocol):
         headers: Mapping[str, str],
         body: bytes,
     ) -> UpstreamResponse: ...
+
+
+class AdmissionMetrics(Protocol):
+    def observe_quota_admission(
+        self,
+        result: str,
+        duration_seconds: float,
+    ) -> None: ...
+
+
+def _set_admission_result(req: falcon.Request, result: str) -> None:
+    req.context.coffer_admission_result = result
+
+
+def _default_admission_result(status_code: int) -> str:
+    if 200 <= status_code < 300:
+        return "accepted"
+    if status_code in {401, 403}:
+        return "unauthorized"
+    if status_code in {400, 404, 405, 413, 415, 422}:
+        return "invalid_manifest"
+    if status_code == 429:
+        return "over_quota"
+    return "internal_error"
+
+
+class ManifestAdmissionMetricsMiddleware:
+    def __init__(self, metrics: AdmissionMetrics) -> None:
+        self._metrics = metrics
+
+    def process_request(self, req: falcon.Request, resp: falcon.Response) -> None:
+        req.context.coffer_admission_started = time.monotonic()
+
+    def process_response(
+        self,
+        req: falcon.Request,
+        resp: falcon.Response,
+        resource: object,
+        req_succeeded: bool,
+    ) -> None:
+        started = getattr(
+            req.context,
+            "coffer_admission_started",
+            time.monotonic(),
+        )
+        result = getattr(req.context, "coffer_admission_result", None)
+        if result is None:
+            result = _default_admission_result(resp.status_code)
+        self._metrics.observe_quota_admission(
+            result,
+            max(0.0, time.monotonic() - started),
+        )
 
 
 class RegistryTokenVerifier:
@@ -375,7 +428,18 @@ class ManifestAdmissionResource:
         try:
             try:
                 self._admission.ensure_quota_authority(principal)
-            except (QuotaNotConfigured, *DATABASE_ERRORS):
+            except QuotaNotConfigured:
+                _set_admission_result(req, "missing_quota")
+                _distribution_error(
+                    resp,
+                    falcon.HTTP_503,
+                    "UNAVAILABLE",
+                    "quota authority unavailable",
+                    retry_after="5",
+                )
+                return
+            except DATABASE_ERRORS:
+                _set_admission_result(req, "internal_error")
                 _distribution_error(
                     resp,
                     falcon.HTTP_503,
@@ -424,6 +488,7 @@ class ManifestAdmissionResource:
                 )
                 return
             except Exception:
+                _set_admission_result(req, "upstream_unavailable")
                 _distribution_error(
                     resp,
                     falcon.HTTP_503,
@@ -453,7 +518,18 @@ class ManifestAdmissionResource:
                     retry_after="60",
                 )
                 return
-            except (QuotaNotConfigured, *DATABASE_ERRORS):
+            except QuotaNotConfigured:
+                _set_admission_result(req, "missing_quota")
+                _distribution_error(
+                    resp,
+                    falcon.HTTP_503,
+                    "UNAVAILABLE",
+                    "quota authority unavailable",
+                    retry_after="5",
+                )
+                return
+            except DATABASE_ERRORS:
+                _set_admission_result(req, "internal_error")
                 _distribution_error(
                     resp,
                     falcon.HTTP_503,
@@ -471,6 +547,7 @@ class ManifestAdmissionResource:
                     body=body,
                 )
             except Exception:
+                _set_admission_result(req, "upstream_unavailable")
                 try:
                     self._admission.mark_indeterminate(reservation.id)
                 except DATABASE_ERRORS:
@@ -491,6 +568,7 @@ class ManifestAdmissionResource:
             try:
                 self._admission.commit(reservation.id)
             except DATABASE_ERRORS:
+                _set_admission_result(req, "internal_error")
                 try:
                     self._admission.mark_indeterminate(reservation.id)
                 except DATABASE_ERRORS:
@@ -507,6 +585,7 @@ class ManifestAdmissionResource:
             try:
                 self._admission.release_absent(reservation.id)
             except DATABASE_ERRORS:
+                _set_admission_result(req, "internal_error")
                 _distribution_error(
                     resp,
                     falcon.HTTP_503,
@@ -519,6 +598,7 @@ class ManifestAdmissionResource:
             try:
                 self._admission.mark_indeterminate(reservation.id)
             except DATABASE_ERRORS:
+                _set_admission_result(req, "internal_error")
                 _distribution_error(
                     resp,
                     falcon.HTTP_503,
@@ -527,6 +607,8 @@ class ManifestAdmissionResource:
                     retry_after="5",
                 )
                 return
+        if upstream.status >= 500:
+            _set_admission_result(req, "upstream_unavailable")
         resp.status = upstream.status
         for name, value in upstream.headers:
             if name.lower() not in {"connection", "transfer-encoding"}:
@@ -540,8 +622,14 @@ def build_manifest_admission_application(
     upstream: ManifestUpstream,
     *,
     token_realm: str,
+    metrics: AdmissionMetrics | None = None,
 ) -> falcon.App:
-    application = falcon.App()
+    middleware = (
+        [ManifestAdmissionMetricsMiddleware(metrics)]
+        if metrics is not None
+        else None
+    )
+    application = falcon.App(middleware=middleware)
     resource = ManifestAdmissionResource(
         verifier, admission, upstream, token_realm=token_realm
     )

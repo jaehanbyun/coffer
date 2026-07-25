@@ -7,10 +7,12 @@ from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric import rsa
 from falcon import testing
+import pytest
 from sqlalchemy import exc as sa_exception
 
 from coffer.db import RepositoryStore
 from coffer.keystone import ApplicationCredentialPrincipal
+from coffer.observability import CofferMetrics
 from coffer.quota import QuotaStore
 from coffer.quota_admission import (
     ManifestAdmissionService,
@@ -70,7 +72,13 @@ class FakeUpstream:
         )
 
 
-def fixture(tmp_path: Path, *, quota_limit: int | None, upstream: FakeUpstream):
+def fixture(
+    tmp_path: Path,
+    *,
+    quota_limit: int | None,
+    upstream: FakeUpstream,
+    metrics: CofferMetrics | None = None,
+):
     database = f"sqlite:///{tmp_path / 'quota.sqlite'}"
     repositories = RepositoryStore(database, bootstrap_schema=True)
     repositories.create(PROJECT, "demo")
@@ -104,6 +112,7 @@ def fixture(tmp_path: Path, *, quota_limit: int | None, upstream: FakeUpstream):
         ManifestAdmissionService(repositories, quotas),
         upstream,
         token_realm="https://registry.example/auth/token",
+        metrics=metrics,
     )
     return testing.TestClient(application), quotas, token
 
@@ -300,3 +309,78 @@ def test_commit_sqlalchemy_failure_is_indeterminate_503(
     assert result.json["errors"][0]["code"] == "UNAVAILABLE"
     assert len(upstream.bodies) == 1
     assert quotas.usage(PROJECT).reserved_bytes > 0
+
+
+@pytest.mark.parametrize(
+    ("case", "expected"),
+    [
+        ("accepted", "accepted"),
+        ("over_quota", "over_quota"),
+        ("missing_quota", "missing_quota"),
+        ("invalid_manifest", "invalid_manifest"),
+        ("unauthorized", "unauthorized"),
+        ("upstream_unavailable", "upstream_unavailable"),
+    ],
+)
+def test_admission_metrics_use_only_bounded_results(
+    tmp_path: Path,
+    case: str,
+    expected: str,
+) -> None:
+    metrics = CofferMetrics(component="edge")
+    upstream = FakeUpstream(raises=case == "upstream_unavailable")
+    quota_limit = None if case == "missing_quota" else 10_000
+    if case == "over_quota":
+        quota_limit = 1
+    client, _quotas, token = fixture(
+        tmp_path,
+        quota_limit=quota_limit,
+        upstream=upstream,
+        metrics=metrics,
+    )
+    body = b"not-json" if case == "invalid_manifest" else manifest()
+    request_token = "not-a-jwt" if case == "unauthorized" else token
+
+    put(client, request_token, body)
+    rendered = metrics.render().decode()
+
+    assert f'coffer_quota_admission_total{{result="{expected}"}} 1.0' in rendered
+    assert "coffer_quota_admission_duration_seconds_count 1.0" in rendered
+    assert PROJECT not in rendered
+    assert CANONICAL_REPOSITORY not in rendered
+    assert request_token not in rendered
+
+
+def test_database_admission_failure_is_a_bounded_internal_error(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    metrics = CofferMetrics(component="edge")
+    upstream = FakeUpstream()
+    client, quotas, token = fixture(
+        tmp_path,
+        quota_limit=10_000,
+        upstream=upstream,
+        metrics=metrics,
+    )
+    operational_error = sa_exception.OperationalError(
+        "quota operation",
+        {},
+        RuntimeError("database credential secret"),
+    )
+    monkeypatch.setattr(
+        quotas,
+        "reserve",
+        lambda **_kwargs: (_ for _ in ()).throw(operational_error),
+    )
+
+    result = put(client, token, manifest())
+    rendered = metrics.render().decode()
+
+    assert result.status_code == 503
+    assert (
+        'coffer_quota_admission_total{result="internal_error"} 1.0'
+        in rendered
+    )
+    assert "database credential secret" not in rendered
+    assert PROJECT not in rendered

@@ -842,6 +842,37 @@ operator-local release.
   internal-error paths without retaining a repository or token. Do not change
   Kolla or contact a remote service in that atomic milestone.
 
+### 2026-07-25 — Quota-admission metrics completed locally
+
+- Completed: Added one bounded admission counter and duration histogram to the
+  edge collector. The manifest application now records exactly `accepted`,
+  `over_quota`, `missing_quota`, `invalid_manifest`, `unauthorized`,
+  `upstream_unavailable`, or `internal_error`.
+- Failure separation: A missing configured quota is distinct from a database
+  error; registry metadata/write exceptions and upstream 5xx are upstream
+  failures; SQL reserve/commit/release/reconciliation errors are internal;
+  normal status-derived client and policy outcomes remain fixed.
+- Collector ownership: The edge runner constructs one collector and passes the
+  same object to admission middleware and outer WSGI request instrumentation,
+  preventing split registries inside one process.
+- Secret/cardinality result: Tests exercise a real issued JWT and concrete
+  project/repository path but retain none of those values, failure exception
+  text, or request tokens in Prometheus output.
+- Verification: The quota/observability/edge/proxy focused matrix passes 112
+  tests; full Python regression passes 515 tests. Compilation and diff checks
+  pass.
+- Scope: No endpoint, Kolla variable/template, Prometheus target/rule,
+  Grafana dashboard, HAProxy ACL, Distribution listener, network, container,
+  or remote state changed.
+- Changed files: `src/coffer/observability.py`,
+  `src/coffer/quota_admission.py`, `src/coffer/edge_runner.py`, focused tests,
+  ADR/research, this plan, and `HANDOFF.md`.
+- Next exact action: Implement a metrics-enabled edge operational dispatcher
+  and the matching Kolla fail-closed boundary together. Direct backend
+  `/metrics` must work with one worker, both edge HAProxy frontends must deny
+  all operational/debug paths, and the Prometheus fragment must enumerate
+  every API/edge backend address instead of a VIP. Do not deploy remotely.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -889,6 +920,8 @@ operator-local release.
 | Kolla role after observability contract | `make -C poc/kolla-ansible-role verify` | passed; 68 |
 | Runtime observability focused regression | `uv run pytest -q tests/test_observability_contract.py tests/test_observability.py tests/test_api_runner.py tests/test_edge_runner.py tests/test_token_api.py tests/test_quota_reconciliation.py tests/test_reconciliation_runner.py tests/test_registry_proxy.py` | passed; 141 |
 | Full regression after runtime metric core | `uv run pytest -q` | passed; 507 |
+| Quota-admission observability focused regression | `uv run pytest -q tests/test_quota_admission.py tests/test_observability.py tests/test_observability_contract.py tests/test_edge_runner.py tests/test_registry_proxy.py` | passed; 112 |
+| Full regression after quota-admission metrics | `uv run pytest -q` | passed; 515 |
 
 ## Failures, Blockers, and Risks
 
