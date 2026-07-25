@@ -1535,6 +1535,44 @@ operator-local release.
   windows, and owner-only output; reject missing targets, unbounded labels,
   invariant drift, or secret-like evidence before a live collector exists.
 
+### 2026-07-25 — Canonical load telemetry adapter completed
+
+- Three-window contract: Added exact before/during/after snapshots bound to
+  both checked-in load and observability topology hashes. Observation times
+  increase, direct target identities and counts are bounded, counters cannot
+  reset without a newer process start, and at least one restart plus a
+  zero/nonzero/zero stale-series transition is mandatory.
+- Signal coverage: Every snapshot contains the exact recording-rule and alert
+  sets, per-replica API/edge/reconciler/registry health, Galera
+  primary/ready/synced state, RGW daemon/ingress/KMS/multipart state, quota
+  headroom and transaction invariants, reconciliation freshness/fencing,
+  HAProxy backends, and three controller plus three storage host resource
+  envelopes.
+- Gates: Normal windows require all replicas; the fault window permits at most
+  one missing replica per service and requires a bounded alert. Resource and
+  quota usage remain at or below 70 percent with at least 30 percent headroom,
+  transaction attempts remain at or below three, and post-window multipart,
+  stale claim, fencing, schema, secret, OOM, and unexpected-error counts are
+  zero.
+- Evidence boundary: The owner-only canonical input and mode-0700 output
+  parent produce one atomic mode-0600 verified result containing only hashes,
+  counts, source disposition, and the exact load `metrics-verified` phase.
+  Host/target identities and raw samples are not retained.
+- Promotion fence: With no typed live collector, only explicit fixture,
+  `synthetic=true` input is accepted. Claimed non-synthetic Prometheus export
+  is refused, so local validation cannot satisfy production evidence.
+- Verification: Thirty-three focused tests and all 761 Python tests pass.
+  Drift cases cover every dependency/resource family, under/over-counts,
+  rules, alerts, stale/restart transitions, topology bindings, owner/mode/
+  symlink/canonical output, fixed CLI failures, and static absence of network
+  or subprocess imports. No network, Prometheus, SQL, RGW, Kolla, container,
+  VM, credential, or remote resource was used.
+- Next exact action: Add `poc/load-soak/plan.py` as a pure deterministic
+  execution-manifest compiler. Expand the exact client/operation/content,
+  smoke/ramp/qualification/soak, serial fault, transfer-budget, and telemetry
+  schedule; bind readiness, client, driver, image, and configuration evidence;
+  emit owner-only canonical plan hashes without starting a workload.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1625,6 +1663,8 @@ operator-local release.
 | Full regression after real-client adapters | `uv run pytest -q` | passed; 719 |
 | Owner-only real-client runner | `uv run pytest -q tests/test_load_client_run.py` | passed; 9 |
 | Full regression after owner-only client runner | `uv run pytest -q` | passed; 728 |
+| Canonical load telemetry adapter | `uv run pytest -q tests/test_load_soak_telemetry.py` | passed; 33 |
+| Full regression after load telemetry adapter | `uv run pytest -q` | passed; 761 |
 
 ## Failures, Blockers, and Risks
 
@@ -1655,10 +1695,11 @@ operator-local release.
   Real RGW lifecycle evidence and current stable dependencies remain blocked;
   no real identity, credential, certificate, endpoint, or remote state
   changed.
-- Exact next action: Add `poc/load-soak/telemetry.py` with exact
-  before/during/after Prometheus, Galera, RGW, quota, reconciliation, and host
-  resource snapshot contracts. Produce only canonical secret-safe evidence
-  locally; do not add a network collector until the release gate qualifies.
+- Exact next action: Add `poc/load-soak/plan.py` as a pure deterministic
+  execution-manifest compiler for the exact client/operation/content,
+  profile/ramp/fault, transfer-budget, and telemetry schedule. Bind all
+  qualified inputs and emit owner-only canonical plan evidence without
+  starting a workload.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

@@ -59,7 +59,20 @@ without retaining their identities on success or failure.
 `clients/` now pins Docker, Podman, Skopeo, ORAS, nerdctl, and containerd
 versions/source revisions and implements their bounded command, CA,
 stdin-password, isolated-state, digest-verification, and cleanup contracts.
-Executable fakes prove the local boundary; an owner-only invocation CLI and
-real pinned binaries on both architectures remain next. Live execution is
-still gated on a fresh disposable Stage 6 pilot and qualified stable
-dependencies.
+Its owner-only runner additionally binds exact pins and qualified upstream
+readiness, emits only canonical mode-0600 results, and cleans child state on
+failure or interruption. Executable fakes prove the local boundary; real
+pinned binaries on both architectures remain release-gated.
+
+`telemetry.py` validates one canonical before/during/after snapshot bundle
+against both the load and observability topologies. It requires every direct
+API/edge/reconciler/registry target, recording rule and alert; restart and
+stale-series transitions; bounded Galera, RGW, quota, reconciliation, HAProxy,
+and six-host resource facts; and zero schema/leak/invariant errors. Its
+owner-only CLI emits only hashes, counts, and the exact `metrics-verified`
+phase payload. Until a typed live collector exists it accepts only explicit
+`source=fixture`, `synthetic=true` evidence, so this local proof cannot be
+mistaken for production telemetry.
+
+Live execution remains gated on a fresh disposable Stage 6 pilot and qualified
+stable dependencies.
