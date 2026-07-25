@@ -22,10 +22,12 @@ import (
 )
 
 const (
-	evidenceSchema      = "coffer.distribution-storage-scan/v1"
-	distributionVersion = "v3.1.1"
-	enumeratorName      = "distribution.storage.RepositoryEnumerator+ManifestEnumerator"
-	maxPageSize         = 1000
+	evidenceSchema       = "coffer.distribution-storage-scan/v1"
+	s3EvidenceSchema     = "coffer.distribution-storage-scan/v2"
+	distributionVersion  = "v3.1.1"
+	distributionRevision = "9a8d98b679740cd514aa7e7d84d23d442a5ef54c"
+	enumeratorName       = "distribution.storage.RepositoryEnumerator+ManifestEnumerator"
+	maxPageSize          = 1000
 )
 
 type referenceFact struct {
@@ -71,11 +73,12 @@ type scanEvidence struct {
 }
 
 type evidence struct {
-	DistributionVersion string         `json:"distribution_version"`
-	Enumerator          string         `json:"enumerator"`
-	PageSize            int            `json:"page_size"`
-	Scans               []scanEvidence `json:"scans"`
-	Schema              string         `json:"schema"`
+	DistributionVersion string           `json:"distribution_version"`
+	Enumerator          string           `json:"enumerator"`
+	Backend             *backendEvidence `json:"backend,omitempty"`
+	PageSize            int              `json:"page_size"`
+	Scans               []scanEvidence   `json:"scans"`
+	Schema              string           `json:"schema"`
 }
 
 func referenceFacts(descriptors []v1.Descriptor) ([]referenceFact, error) {
@@ -273,7 +276,12 @@ func evidenceScan(phase string, result scanResult, pageSize int) (scanEvidence, 
 	}, nil
 }
 
-func run(ctx context.Context, namespace distribution.Namespace, pageSize int) error {
+func run(
+	ctx context.Context,
+	namespace distribution.Namespace,
+	pageSize int,
+	backend *backendEvidence,
+) error {
 	startFacts, err := scan(ctx, namespace)
 	if err != nil {
 		return fmt.Errorf("start scan: %w", err)
@@ -290,12 +298,17 @@ func run(ctx context.Context, namespace distribution.Namespace, pageSize int) er
 	if err != nil {
 		return err
 	}
+	schema := evidenceSchema
+	if backend != nil {
+		schema = s3EvidenceSchema
+	}
 	result := evidence{
 		DistributionVersion: distributionVersion,
 		Enumerator:          enumeratorName,
+		Backend:             backend,
 		PageSize:            pageSize,
 		Scans:               []scanEvidence{start, end},
-		Schema:              evidenceSchema,
+		Schema:              schema,
 	}
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetEscapeHTML(false)
@@ -326,6 +339,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), *scanTimeout)
 	defer cancel()
 	var namespace distribution.Namespace
+	var backend *backendEvidence
 	var err error
 	if *root != "" {
 		if *expectedVersion != "" || *expectedConfigSHA256 != "" {
@@ -338,7 +352,7 @@ func main() {
 		})
 		namespace, err = namespaceFromDriver(ctx, driver)
 	} else {
-		namespace, err = s3Namespace(
+		namespace, backend, err = s3Namespace(
 			ctx,
 			*configPath,
 			*expectedVersion,
@@ -353,7 +367,7 @@ func main() {
 		}
 		os.Exit(1)
 	}
-	if err := run(ctx, namespace, *pageSize); err != nil {
+	if err := run(ctx, namespace, *pageSize, backend); err != nil {
 		fmt.Fprintln(os.Stderr, "inventory enumeration failed: bounded scan unavailable")
 		os.Exit(1)
 	}

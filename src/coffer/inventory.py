@@ -23,9 +23,14 @@ from coffer.tokens import PROJECT_ID, REPOSITORY_NAME, REPOSITORY_SUFFIX
 
 
 EVIDENCE_SCHEMA = "coffer.distribution-storage-scan/v1"
+S3_EVIDENCE_SCHEMA = "coffer.distribution-storage-scan/v2"
 AUTHORITY_SCHEMA = "coffer.repository-authority/v1"
 INVENTORY_SCHEMA = "coffer.inventory/v1"
+S3_INVENTORY_SCHEMA = "coffer.inventory/v2"
 PINNED_DISTRIBUTION_VERSION = "v3.1.1"
+PINNED_DISTRIBUTION_REVISION = (
+    "9a8d98b679740cd514aa7e7d84d23d442a5ef54c"
+)
 PINNED_ENUMERATOR = (
     "distribution.storage.RepositoryEnumerator+ManifestEnumerator"
 )
@@ -35,6 +40,7 @@ MAX_PAGE_COUNT = 100_000
 MAX_RECORD_COUNT = 10_000_000
 MAX_MEDIA_TYPE_BYTES = 255
 MEDIA_TYPE = re.compile(r"[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+")
+REVISION = re.compile(r"[0-9a-f]{40}")
 
 
 class InvalidInventoryEvidence(Exception):
@@ -96,6 +102,7 @@ class RepositoryAuthority:
 class StorageSnapshot:
     repositories: tuple[str, ...]
     records: tuple[ManifestFact, ...]
+    backend: dict[str, str] | None = None
 
 
 def _fail(message: str) -> InvalidInventoryEvidence:
@@ -375,20 +382,88 @@ def _parse_scan(
     return StorageSnapshot(repositories=repositories, records=parsed_records)
 
 
+def _parse_s3_backend(value: object) -> dict[str, str]:
+    backend = _object(value, "evidence.backend")
+    _exact_keys(
+        backend,
+        {
+            "bucket_sha256",
+            "config_sha256",
+            "distribution_revision",
+            "endpoint_sha256",
+            "helper_sha256",
+            "module_graph_sha256",
+            "root_sha256",
+            "storage_type",
+            "type",
+        },
+        "evidence.backend",
+    )
+    if backend["type"] != "s3":
+        raise _fail("evidence backend type is unsupported")
+    if backend["storage_type"] not in {"s3", "s3aws"}:
+        raise _fail("evidence storage type is unsupported")
+    revision = _string(
+        backend["distribution_revision"],
+        "evidence.backend.distribution_revision",
+        maximum_bytes=40,
+    )
+    if (
+        REVISION.fullmatch(revision) is None
+        or revision != PINNED_DISTRIBUTION_REVISION
+    ):
+        raise _fail("evidence Distribution revision is not pinned")
+    result = {
+        "type": "s3",
+        "storage_type": str(backend["storage_type"]),
+        "distribution_revision": revision,
+    }
+    for field in (
+        "module_graph_sha256",
+        "helper_sha256",
+        "config_sha256",
+        "endpoint_sha256",
+        "bucket_sha256",
+        "root_sha256",
+    ):
+        result[field] = _digest(
+            backend[field],
+            f"evidence.backend.{field}",
+        )
+    return result
+
+
 def parse_evidence(value: object) -> StorageSnapshot:
     evidence = _object(value, "evidence")
-    _exact_keys(
-        evidence,
-        {
-            "distribution_version",
-            "enumerator",
-            "page_size",
-            "scans",
-            "schema",
-        },
-        "evidence",
-    )
-    if evidence["schema"] != EVIDENCE_SCHEMA:
+    schema = evidence.get("schema")
+    if schema == EVIDENCE_SCHEMA:
+        _exact_keys(
+            evidence,
+            {
+                "distribution_version",
+                "enumerator",
+                "page_size",
+                "scans",
+                "schema",
+            },
+            "evidence",
+        )
+        backend = None
+    elif schema == S3_EVIDENCE_SCHEMA:
+        _exact_keys(
+            evidence,
+            {
+                "backend",
+                "distribution_version",
+                "enumerator",
+                "page_size",
+                "scans",
+                "schema",
+            },
+            "evidence",
+        )
+        backend = _parse_s3_backend(evidence["backend"])
+    else:
         raise _fail("evidence schema is unsupported")
     if evidence["distribution_version"] != PINNED_DISTRIBUTION_VERSION:
         raise _fail("evidence Distribution version is not pinned")
@@ -404,7 +479,11 @@ def parse_evidence(value: object) -> StorageSnapshot:
     end = _parse_scan(scans[1], expected_phase="end", page_size=page_size)
     if start != end:
         raise _fail("start and end scans differ")
-    return start
+    return StorageSnapshot(
+        repositories=start.repositories,
+        records=start.records,
+        backend=backend,
+    )
 
 
 def parse_authority(value: object) -> dict[str, RepositoryAuthority]:
@@ -553,15 +632,21 @@ def build_inventory(evidence: object, authority: object) -> dict[str, object]:
             }
         )
 
+    source: dict[str, object] = {
+        "distribution_version": PINNED_DISTRIBUTION_VERSION,
+        "enumerator": PINNED_ENUMERATOR,
+        "snapshot_scans": 2,
+    }
+    schema = INVENTORY_SCHEMA
+    if snapshot.backend is not None:
+        source["backend"] = snapshot.backend
+        schema = S3_INVENTORY_SCHEMA
+
     return {
         "projects": projects,
         "repositories": final_repositories,
-        "schema": INVENTORY_SCHEMA,
-        "source": {
-            "distribution_version": PINNED_DISTRIBUTION_VERSION,
-            "enumerator": PINNED_ENUMERATOR,
-            "snapshot_scans": 2,
-        },
+        "schema": schema,
+        "source": source,
         "summary": {
             "descriptor_count": sum(
                 project["descriptor_count"] for project in projects

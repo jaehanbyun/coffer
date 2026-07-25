@@ -1,6 +1,7 @@
 # Existing OCI Content Inventory Boundary
 
-- Status: verified read-only filesystem PoC; not a production import procedure
+- Status: verified filesystem PoC plus local exact-release S3/provenance
+  contract; not a production import procedure
 - Related ADRs: `docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md`, `docs/adrs/0012-import-existing-content-into-empty-quota-ledger.md`, `docs/adrs/0013-require-explicit-authentication-for-live-comparison.md`
 - Related plans: `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`
 
@@ -19,9 +20,12 @@ The authoritative completeness reasoning and primary source links are in
 
 `coffer-inventory-verify` consumes two secret-free JSON inputs:
 
-1. `coffer.distribution-storage-scan/v1` evidence from the exact-version storage
-   enumerator. It contains start/end bounded pages of repository-linked manifest
-   facts, current tag-presence booleans, and count/hash summaries.
+1. `coffer.distribution-storage-scan/v1` filesystem evidence or
+   `coffer.distribution-storage-scan/v2` S3 evidence from the exact-version
+   storage enumerator. Both contain start/end bounded pages of
+   repository-linked manifest facts, current tag-presence booleans, and
+   count/hash summaries. S3 v2 additionally binds hashed build/config/backend
+   provenance.
 2. `coffer.repository-authority/v1` exported through an operator-owned read-only
    control-database path. It contains only canonical repository UUID, project
    UUID, and repository suffix records.
@@ -31,8 +35,8 @@ only those two local inputs and either writes a new output path exclusively or
 prints to stdout. Unknown fields are rejected so an accidental credential,
 token, URL, or payload cannot be copied into the final artifact.
 
-Successful output is canonical compact JSON with schema `coffer.inventory/v1`.
-It contains:
+Successful output is canonical compact JSON with schema `coffer.inventory/v1`
+for filesystem input or `coffer.inventory/v2` for S3 input. It contains:
 
 - exact Distribution release and enumerator identity;
 - immutable project and repository IDs;
@@ -40,6 +44,11 @@ It contains:
 - project-unique descriptor digest, media type, and size facts; and
 - fixed aggregate project/repository/manifest/descriptor counts and logical
   bytes.
+
+S3 v2 also contains only non-secret exact provenance: the pinned Distribution
+source revision plus SHA-256 values for the canonical module graph, helper
+executable, owner-only configuration, endpoint, bucket, and root. Those values
+are part of the canonical inventory digest validated by the importer.
 
 It intentionally omits repository names and backend paths after authority
 resolution, mutable tag evidence, manifest bodies, storage locations, URLs,
@@ -97,12 +106,13 @@ The following is a design checklist, not an executable production procedure:
 9. Remove transient authority/evidence material according to the approved
    retention policy and restore writers through a controlled rollout.
 
-The checked-in filesystem helper cannot perform steps 4–7 against production
-RGW. `coffer-import-inventory` and `coffer-verify-inventory-import` implement the
-disposable SQL import/comparison semantics for step 8, but neither establishes
-writer exclusion, backup/restore, production authorization, representative
-capacity, authenticated live content availability, rollback readiness, or
-permission to enable admission. Those remain explicit gates.
+The checked-in helper now has an exact-release S3 configuration adapter and
+provenance-bound verifier/importer contract, but it has not been run against
+RGW. `coffer-import-inventory` and `coffer-verify-inventory-import` implement
+the disposable SQL import/comparison semantics for step 8, but neither
+establishes writer exclusion, backup/restore, production authorization,
+representative capacity, authenticated live content availability, rollback
+readiness, or permission to enable admission. Those remain explicit gates.
 
 The plan 0011 library adds the read-only live-comparison algorithm but no
 installed production command. It verifies the SQL baseline and resolves exact
@@ -140,9 +150,11 @@ The fixture:
 9. removes every labeled container, volume, network, SQLite database, evidence,
    inventory, and log file.
 
-The Go environment and module checksums are pinned for a reproducible disposable
-proof, but it downloads and compiles dependencies at run time. That is not an
-approved production packaging model.
+The filesystem fixture still downloads and compiles dependencies at run time.
+Separately, the exact helper Containerfile uses a digest-pinned Go 1.25.3
+builder and a scratch, CA-equipped, static, non-root final stage. Its local
+ARM64 build/CLI contract passes, but the image is unsigned, was removed after
+inspection, and is not a production artifact.
 
 The downstream empty-ledger transaction is tested independently with:
 
@@ -187,9 +199,10 @@ qualified target.
 
 ## Separately Approved Next Work
 
-- Build and attest an exact-release helper image with production storage-driver
-  configuration support and no command-line secrets.
-- Run read-only against a disposable RGW copy with a non-writing role.
+- Sign, attest, scan, and qualify the exact-release helper image on x86_64 and
+  aarch64 after the Distribution release gate clears.
+- Run read-only against a writer-excluded disposable RGW copy with exact
+  owner-only static credentials and verified TLS.
 - Qualify transaction duration, locks, WAL/binlog, deadlock, crash, capacity,
   chunking, and Galera behavior with a representative disposable copy.
 - Select an accepted workload target, qualify both comparators against a
@@ -199,6 +212,6 @@ qualified target.
   re-baseline resurrection.
 - Add large-inventory memory/time bounds and evidence chunk storage/retention.
 
-Until those gates pass, `coffer.inventory/v1` is verified PoC evidence only and
-must not be represented as a production-imported or production-authoritative
-quota ledger.
+Until those gates pass, `coffer.inventory/v1` and v2 are verified local
+contracts only and must not be represented as a production-imported or
+production-authoritative quota ledger.

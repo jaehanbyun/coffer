@@ -310,10 +310,24 @@ ambient credential paths, and bounds both scans with one context. Seven Go
 configuration tests, Go vet, the existing filesystem Podman fixture, and its
 zero-residue cleanup pass. No RGW connection was attempted.
 
-The next local milestone must extend the S3 evidence schema with the exact
-Distribution revision, canonical module graph, helper binary, configuration,
-storage type, endpoint, bucket, and root hashes; teach the verifier/importer
-to preserve and validate that provenance; and build an immutable non-root
-helper image with no registry server entry point.
+The provenance/image milestone is also complete locally. S3 evidence v2 binds
+the exact Distribution revision, canonical module graph, helper binary,
+configuration, storage type, endpoint, bucket, and root hashes. The verifier
+preserves those values in inventory v2 and the importer validates them before
+the artifact digest is accepted; filesystem evidence/inventory v1 remains
+unchanged.
+
+The helper image uses a digest-pinned Go 1.25.3 builder and a scratch final
+stage containing only the static helper and CA bundle. It runs as
+`65532:65532`, has no shell, server binary, listener, command override, or
+exposed port, and accepts only the helper entry point. A local ARM64 build and
+no-network CLI inspection passed, then the exact image and Podman VM were
+removed.
+
+The next local milestone should implement a pure data-protection topology and
+state machine for exact phase ordering, immutable ownership, writer-fence
+evidence, backup/restore manifests, cutover/rollback transitions, failure
+categories, cleanup planning, and secret-safe retained evidence. It must use
+fixtures only and create no external resource.
 
 No external resource may be created by that implementation milestone.

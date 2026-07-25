@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"os"
 	"runtime"
+	"runtime/debug"
+	"sort"
 	"strings"
 	"syscall"
 
@@ -48,6 +50,18 @@ type s3Configuration struct {
 	RootSHA256     string
 	EndpointSHA256 string
 	Parameters     map[string]any
+}
+
+type backendEvidence struct {
+	Type                 string `json:"type"`
+	DistributionRevision string `json:"distribution_revision"`
+	ModuleGraphSHA256    string `json:"module_graph_sha256"`
+	HelperSHA256         string `json:"helper_sha256"`
+	ConfigSHA256         string `json:"config_sha256"`
+	StorageType          string `json:"storage_type"`
+	EndpointSHA256       string `json:"endpoint_sha256"`
+	BucketSHA256         string `json:"bucket_sha256"`
+	RootSHA256           string `json:"root_sha256"`
 }
 
 func refuseS3Config() error {
@@ -121,6 +135,77 @@ func exactBool(parameters map[string]any, key string, fallback bool) (bool, erro
 func hashNonSecret(value string) string {
 	digest := sha256.Sum256([]byte(value))
 	return fmt.Sprintf("sha256:%x", digest)
+}
+
+func moduleGraphSHA256() (string, error) {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "", refuseS3Config()
+	}
+	lines := []string{
+		"go=" + info.GoVersion,
+		"main=" + info.Main.Path + "@" + info.Main.Version + "=" + info.Main.Sum,
+	}
+	distributionFound := false
+	for _, dependency := range info.Deps {
+		module := dependency
+		if dependency.Replace != nil {
+			module = dependency.Replace
+		}
+		lines = append(
+			lines,
+			module.Path+"@"+module.Version+"="+module.Sum,
+		)
+		if module.Path == "github.com/distribution/distribution/v3" &&
+			module.Version == distributionVersion &&
+			module.Sum != "" {
+			distributionFound = true
+		}
+	}
+	if !distributionFound {
+		return "", refuseS3Config()
+	}
+	sort.Strings(lines)
+	return hashNonSecret(strings.Join(lines, "\n") + "\n"), nil
+}
+
+func helperSHA256() (string, error) {
+	path, err := os.Executable()
+	if err != nil {
+		return "", refuseS3Config()
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return "", refuseS3Config()
+	}
+	defer file.Close()
+	checksum := sha256.New()
+	if _, err := io.Copy(checksum, file); err != nil {
+		return "", refuseS3Config()
+	}
+	return fmt.Sprintf("sha256:%x", checksum.Sum(nil)), nil
+}
+
+func (config s3Configuration) backendEvidence() (*backendEvidence, error) {
+	moduleDigest, err := moduleGraphSHA256()
+	if err != nil {
+		return nil, err
+	}
+	helperDigest, err := helperSHA256()
+	if err != nil {
+		return nil, err
+	}
+	return &backendEvidence{
+		Type:                 "s3",
+		DistributionRevision: distributionRevision,
+		ModuleGraphSHA256:    moduleDigest,
+		HelperSHA256:         helperDigest,
+		ConfigSHA256:         config.ConfigSHA256,
+		StorageType:          config.StorageType,
+		EndpointSHA256:       config.EndpointSHA256,
+		BucketSHA256:         config.BucketSHA256,
+		RootSHA256:           config.RootSHA256,
+	}, nil
 }
 
 func parseS3Configuration(
@@ -247,7 +332,7 @@ func s3Namespace(
 	path string,
 	expectedVersion string,
 	expectedDigest string,
-) (distribution.Namespace, error) {
+) (distribution.Namespace, *backendEvidence, error) {
 	config, err := parseS3Configuration(
 		path,
 		expectedVersion,
@@ -255,15 +340,19 @@ func s3Namespace(
 		os.Environ(),
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	provenance, err := config.backendEvidence()
+	if err != nil {
+		return nil, nil, err
 	}
 	driver, err := factory.Create(ctx, config.StorageType, config.Parameters)
 	if err != nil {
-		return nil, fmt.Errorf("construct exact S3 driver: %w", err)
+		return nil, nil, fmt.Errorf("construct exact S3 driver: %w", err)
 	}
 	namespace, err := storage.NewRegistry(ctx, driver)
 	if err != nil {
-		return nil, fmt.Errorf("construct exact S3 namespace: %w", err)
+		return nil, nil, fmt.Errorf("construct exact S3 namespace: %w", err)
 	}
-	return namespace, nil
+	return namespace, provenance, nil
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -82,6 +83,49 @@ func TestParseExactS3Configuration(t *testing.T) {
 	} {
 		if strings.Contains(encoded, secret) {
 			t.Fatalf("non-secret evidence contains %q", secret)
+		}
+	}
+}
+
+func TestS3EvidenceBindsExactNonSecretBuildAndBackendFacts(t *testing.T) {
+	config, err := parseFixture(t, validS3Configuration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidence, err := config.backendEvidence()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if evidence.Type != "s3" ||
+		evidence.DistributionRevision != distributionRevision ||
+		evidence.StorageType != "s3" {
+		t.Fatalf("unexpected backend evidence: %#v", evidence)
+	}
+	for _, digest := range []string{
+		evidence.ModuleGraphSHA256,
+		evidence.HelperSHA256,
+		evidence.ConfigSHA256,
+		evidence.EndpointSHA256,
+		evidence.BucketSHA256,
+		evidence.RootSHA256,
+	} {
+		if !strings.HasPrefix(digest, "sha256:") || len(digest) != 71 {
+			t.Fatalf("invalid evidence digest %q", digest)
+		}
+	}
+	encoded, err := json.Marshal(evidence)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, secret := range []string{
+		"COFFERFIXTUREACCESS",
+		"coffer-fixture-secret-material",
+		"coffer-cutover-fixture",
+		"rgw.example.invalid",
+	} {
+		if strings.Contains(string(encoded), secret) {
+			t.Fatalf("backend evidence contains %q", secret)
 		}
 	}
 }

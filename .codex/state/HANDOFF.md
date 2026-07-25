@@ -1,8 +1,8 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; exact-release S3 inventory adapter complete;
-  provenance-bound artifact next
+- Status: plan 0019 active; provenance-bound S3 helper artifact complete;
+  data-protection state model next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -164,6 +164,17 @@ release contains it yet.
 - The host exposed an ambient Go 1.26.5 `GOROOT` while mise supplied Go 1.25.3.
   Go verification succeeded with only `GOROOT` removed for those commands;
   no shell configuration was changed.
+- Added S3 evidence/inventory v2. Exact Distribution revision plus helper,
+  module graph, configuration, endpoint, bucket, and root hashes now survive
+  verifier output and are validated by import; filesystem v1 remains
+  byte-compatible.
+- Added and built the scratch/non-root helper image locally on ARM64. The
+  image ran as `65532:65532`, exposed only the exact helper entry point, and
+  passed no-network CLI inspection. The exact image was deleted, no tagged
+  helper image/container remains, and Podman is stopped.
+- Fifty-three focused inventory/import/image tests, eight Go tests and vet,
+  all 359 Python tests, compilation, and diff checks pass. This remains local
+  evidence only; no RGW connection or signed/x86_64 promotion occurred.
 
 ## Plan 0018 Activation
 
@@ -1890,11 +1901,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add an S3 evidence/provenance schema binding the exact Distribution revision,
-canonical module graph, helper binary, config, storage type, endpoint, bucket,
-and root hashes. Extend `coffer-inventory-verify` and
-`coffer-import-inventory` to preserve and validate the provenance while
-keeping filesystem v1 byte-compatible.
+Add `poc/data-protection/topology.json`,
+`poc/data-protection/state_machine.py`, and fixture-driven tests for exact
+phase ordering, immutable ownership, writer-fence evidence, backup/restore
+manifests, cutover/rollback transitions, fixed failures, cleanup planning, and
+secret-safe evidence. Do not call an external service.
 
 ## After This Work Package
 

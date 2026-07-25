@@ -1,0 +1,37 @@
+FROM docker.io/library/golang:1.25.3@sha256:6d4e5e74f47db00f7f24da5f53c1b4198ae46862a47395e30477365458347bf2 AS build
+
+ARG TARGETOS=linux
+ARG TARGETARCH
+
+WORKDIR /src/poc/inventory
+
+COPY poc/inventory/go.mod poc/inventory/go.sum ./
+RUN go mod download \
+    && go mod verify
+
+COPY poc/inventory/*.go ./
+RUN test "${TARGETOS}" = "linux" \
+    && { test "${TARGETARCH}" = "amd64" || test "${TARGETARCH}" = "arm64"; } \
+    && CGO_ENABLED=0 GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" \
+       go build \
+       -buildvcs=false \
+       -trimpath \
+       -ldflags="-s -w -buildid=" \
+       -o /out/coffer-inventory-helper \
+       .
+
+FROM scratch
+
+ARG DISTRIBUTION_VERSION=v3.1.1
+ARG DISTRIBUTION_REVISION=9a8d98b679740cd514aa7e7d84d23d442a5ef54c
+
+LABEL org.opencontainers.image.title="Coffer exact-release inventory helper" \
+      org.opencontainers.image.source="https://github.com/jaehanbyun/coffer" \
+      org.opencontainers.image.version="${DISTRIBUTION_VERSION}" \
+      io.coffer.distribution.revision="${DISTRIBUTION_REVISION}"
+
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=build --chmod=0555 /out/coffer-inventory-helper /usr/local/bin/coffer-inventory-helper
+
+USER 65532:65532
+ENTRYPOINT ["/usr/local/bin/coffer-inventory-helper"]

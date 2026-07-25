@@ -16,8 +16,10 @@ from sqlalchemy import create_engine, func, insert, select, text
 from coffer.db import repositories as repository_table
 from coffer.inventory import (
     INVENTORY_SCHEMA,
+    PINNED_DISTRIBUTION_REVISION,
     PINNED_DISTRIBUTION_VERSION,
     PINNED_ENUMERATOR,
+    S3_INVENTORY_SCHEMA,
 )
 from coffer.quota import (
     Descriptor,
@@ -133,6 +135,23 @@ def artifact() -> dict[str, object]:
     }
 
 
+def s3_artifact() -> dict[str, object]:
+    value = artifact()
+    value["schema"] = S3_INVENTORY_SCHEMA
+    value["source"]["backend"] = {  # type: ignore[index]
+        "bucket_sha256": f"sha256:{'1' * 64}",
+        "config_sha256": f"sha256:{'2' * 64}",
+        "distribution_revision": PINNED_DISTRIBUTION_REVISION,
+        "endpoint_sha256": f"sha256:{'3' * 64}",
+        "helper_sha256": f"sha256:{'4' * 64}",
+        "module_graph_sha256": f"sha256:{'5' * 64}",
+        "root_sha256": f"sha256:{'6' * 64}",
+        "storage_type": "s3",
+        "type": "s3",
+    }
+    return value
+
+
 def canonical_bytes(value: object) -> bytes:
     return (json.dumps(value, separators=(",", ":"), sort_keys=True) + "\n").encode()
 
@@ -205,6 +224,37 @@ def test_parses_strict_redundant_inventory() -> None:
         CHILD_DIGEST,
         INDEX_DIGEST,
     ]
+
+
+def test_parses_provenance_bound_s3_inventory() -> None:
+    parsed = parse_inventory_artifact(
+        s3_artifact(),
+        artifact_digest=ARTIFACT_DIGEST,
+    )
+
+    assert parsed.digest == ARTIFACT_DIGEST
+    assert parsed.summary.logical_bytes == 220
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement", "message"),
+    [
+        ("type", "filesystem", "backend type"),
+        ("storage_type", "filesystem", "storage type"),
+        ("distribution_revision", "a" * 40, "revision is not pinned"),
+        ("config_sha256", "not-a-digest", "canonical sha256"),
+    ],
+)
+def test_rejects_invalid_s3_inventory_provenance(
+    field: str,
+    replacement: object,
+    message: str,
+) -> None:
+    value = s3_artifact()
+    value["source"]["backend"][field] = replacement  # type: ignore[index]
+
+    with pytest.raises(InvalidInventoryArtifact, match=message):
+        parse_inventory_artifact(value, artifact_digest=ARTIFACT_DIGEST)
 
 
 def test_load_binds_canonical_bytes_to_expected_digest(tmp_path: Path) -> None:

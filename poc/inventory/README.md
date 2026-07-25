@@ -39,9 +39,17 @@ application, upload purger, events, health checks, cache, or delete/GC
 behavior. S3/driver failures are reported as fixed categories without
 configuration or backend detail.
 
-The checked-in fixture still exercises only filesystem storage. The S3
-adapter has configuration-contract tests but has not connected to RGW and does
-not yet attach exact helper/config/backend provenance to the canonical
-inventory/import artifact. It therefore does not qualify RGW credentials,
-authorize a production cutover, or make the helper an upstream-supported
-Distribution API.
+The checked-in fixture still exercises only filesystem storage. S3 scans use
+`coffer.distribution-storage-scan/v2` and bind the pinned Distribution source
+revision, canonical runtime module graph, helper executable, exact
+configuration, storage type, endpoint, bucket, and root through non-secret
+SHA-256 evidence. `coffer-inventory-verify` preserves that binding in
+`coffer.inventory/v2`, and `coffer-import-inventory` validates it before the
+artifact digest can authorize a baseline import. Filesystem v1 evidence and
+inventory remain byte-compatible.
+
+The S3 adapter has not connected to RGW. The immutable scratch image has been
+built and inspected locally on ARM64, but it is not a signed production
+artifact and the pinned Distribution release remains blocked by ADR 0006. The
+helper therefore does not qualify RGW credentials, authorize a production
+cutover, or become an upstream-supported Distribution API.

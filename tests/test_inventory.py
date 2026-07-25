@@ -11,8 +11,11 @@ import pytest
 from coffer.inventory import (
     AUTHORITY_SCHEMA,
     EVIDENCE_SCHEMA,
+    PINNED_DISTRIBUTION_REVISION,
     PINNED_DISTRIBUTION_VERSION,
     PINNED_ENUMERATOR,
+    S3_EVIDENCE_SCHEMA,
+    S3_INVENTORY_SCHEMA,
     InvalidInventoryEvidence,
     build_inventory,
     inventory_bytes,
@@ -131,6 +134,27 @@ def evidence() -> dict[str, object]:
     }
 
 
+def s3_backend() -> dict[str, object]:
+    return {
+        "bucket_sha256": f"sha256:{'1' * 64}",
+        "config_sha256": f"sha256:{'2' * 64}",
+        "distribution_revision": PINNED_DISTRIBUTION_REVISION,
+        "endpoint_sha256": f"sha256:{'3' * 64}",
+        "helper_sha256": f"sha256:{'4' * 64}",
+        "module_graph_sha256": f"sha256:{'5' * 64}",
+        "root_sha256": f"sha256:{'6' * 64}",
+        "storage_type": "s3",
+        "type": "s3",
+    }
+
+
+def s3_evidence() -> dict[str, object]:
+    value = evidence()
+    value["schema"] = S3_EVIDENCE_SCHEMA
+    value["backend"] = s3_backend()
+    return value
+
+
 def authority() -> dict[str, object]:
     return {
         "repositories": [
@@ -173,6 +197,56 @@ def test_builds_deterministic_secret_free_inventory() -> None:
     assert serialized == inventory_bytes(evidence(), authority()).decode()
     for excluded in (REPOSITORY, "inventory\"", "tagged", "payload", "token", "url"):
         assert excluded not in serialized.lower()
+
+
+def test_s3_evidence_preserves_exact_hashed_provenance() -> None:
+    inventory = build_inventory(s3_evidence(), authority())
+
+    assert inventory["schema"] == S3_INVENTORY_SCHEMA
+    assert inventory["source"] == {
+        "backend": s3_backend(),
+        "distribution_version": PINNED_DISTRIBUTION_VERSION,
+        "enumerator": PINNED_ENUMERATOR,
+        "snapshot_scans": 2,
+    }
+    serialized = inventory_bytes(s3_evidence(), authority()).decode()
+    assert PINNED_DISTRIBUTION_REVISION in serialized
+    for excluded in (
+        REPOSITORY,
+        "COFFERFIXTUREACCESS",
+        "coffer-fixture-secret-material",
+        "rgw.example.invalid",
+    ):
+        assert excluded not in serialized
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement", "message"),
+    [
+        ("type", "filesystem", "backend type"),
+        ("storage_type", "filesystem", "storage type"),
+        ("distribution_revision", "a" * 40, "revision is not pinned"),
+        ("helper_sha256", "not-a-digest", "canonical sha256"),
+    ],
+)
+def test_s3_evidence_rejects_unpinned_or_malformed_provenance(
+    field: str,
+    replacement: object,
+    message: str,
+) -> None:
+    value = s3_evidence()
+    value["backend"][field] = replacement  # type: ignore[index]
+
+    with pytest.raises(InvalidInventoryEvidence, match=message):
+        build_inventory(value, authority())
+
+
+def test_s3_evidence_rejects_unknown_backend_fields() -> None:
+    value = s3_evidence()
+    value["backend"]["secret_uuid"] = "not-retained"  # type: ignore[index]
+
+    with pytest.raises(InvalidInventoryEvidence, match="fields are invalid"):
+        build_inventory(value, authority())
 
 
 @pytest.mark.parametrize(

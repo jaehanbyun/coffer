@@ -59,9 +59,12 @@ For the PoC cutover-evidence seam:
    ledger import. This decision does not write quota state, enable admission,
    delete content, or authorize production access.
 
-The current helper supports only a read-only filesystem-backed disposable
-fixture. It proves the interface behavior and artifact contract, not a deployable
-RGW cutover tool.
+The helper now supports a locally verified exact-release S3 configuration
+adapter in addition to the read-only filesystem fixture. S3 evidence binds
+hashed helper/module/config/backend provenance and is preserved through the
+inventory/import artifact. It has not connected to RGW, and the unsigned local
+image plus blocked Distribution release do not make it a deployable cutover
+tool.
 
 ## Consequences
 

@@ -21,8 +21,11 @@ from coffer.inventory import (
     MAX_MEDIA_TYPE_BYTES,
     MAX_RECORD_COUNT,
     MEDIA_TYPE,
+    PINNED_DISTRIBUTION_REVISION,
     PINNED_DISTRIBUTION_VERSION,
     PINNED_ENUMERATOR,
+    REVISION,
+    S3_INVENTORY_SCHEMA,
 )
 from coffer.quota import (
     Descriptor,
@@ -364,6 +367,51 @@ def _canonical_bytes(value: object) -> bytes:
     return (json.dumps(value, separators=(",", ":"), sort_keys=True) + "\n").encode()
 
 
+def _parse_inventory_backend(value: object) -> None:
+    backend = _object(value, "inventory.source.backend")
+    _exact_keys(
+        backend,
+        {
+            "bucket_sha256",
+            "config_sha256",
+            "distribution_revision",
+            "endpoint_sha256",
+            "helper_sha256",
+            "module_graph_sha256",
+            "root_sha256",
+            "storage_type",
+            "type",
+        },
+        "inventory.source.backend",
+    )
+    if backend["type"] != "s3":
+        raise _fail("inventory backend type is unsupported")
+    if backend["storage_type"] not in {"s3", "s3aws"}:
+        raise _fail("inventory storage type is unsupported")
+    revision = _string(
+        backend["distribution_revision"],
+        "inventory.source.backend.distribution_revision",
+        maximum_bytes=40,
+    )
+    if (
+        REVISION.fullmatch(revision) is None
+        or revision != PINNED_DISTRIBUTION_REVISION
+    ):
+        raise _fail("inventory Distribution revision is not pinned")
+    for field in (
+        "module_graph_sha256",
+        "helper_sha256",
+        "config_sha256",
+        "endpoint_sha256",
+        "bucket_sha256",
+        "root_sha256",
+    ):
+        _digest(
+            backend[field],
+            f"inventory.source.backend.{field}",
+        )
+
+
 def parse_inventory_artifact(
     value: object,
     *,
@@ -376,14 +424,28 @@ def parse_inventory_artifact(
         {"projects", "repositories", "schema", "source", "summary"},
         "inventory",
     )
-    if raw["schema"] != INVENTORY_SCHEMA:
+    schema = raw["schema"]
+    if schema not in {INVENTORY_SCHEMA, S3_INVENTORY_SCHEMA}:
         raise _fail("inventory schema is unsupported")
     source = _object(raw["source"], "inventory.source")
-    _exact_keys(
-        source,
-        {"distribution_version", "enumerator", "snapshot_scans"},
-        "inventory.source",
-    )
+    if schema == INVENTORY_SCHEMA:
+        _exact_keys(
+            source,
+            {"distribution_version", "enumerator", "snapshot_scans"},
+            "inventory.source",
+        )
+    else:
+        _exact_keys(
+            source,
+            {
+                "backend",
+                "distribution_version",
+                "enumerator",
+                "snapshot_scans",
+            },
+            "inventory.source",
+        )
+        _parse_inventory_backend(source["backend"])
     if source["distribution_version"] != PINNED_DISTRIBUTION_VERSION:
         raise _fail("inventory Distribution version is not pinned")
     if source["enumerator"] != PINNED_ENUMERATOR:

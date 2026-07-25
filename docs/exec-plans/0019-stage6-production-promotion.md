@@ -549,6 +549,39 @@ operator-local release.
   `coffer-inventory-verify` and `coffer-import-inventory` to preserve and
   validate that provenance while keeping filesystem v1 byte-compatible.
 
+### 2026-07-25 — Provenance-bound helper artifact completed locally
+
+- Completed: Added S3 scan evidence v2 and inventory v2. The helper binds the
+  pinned Distribution source revision and hashes of its canonical runtime
+  module graph, executable, exact configuration, endpoint, bucket, root, and
+  storage type. The verifier rejects missing, extra, malformed, unsupported,
+  or unpinned provenance, preserves it in the canonical inventory, and the
+  importer validates it before accepting the artifact digest. Filesystem
+  scan/inventory v1 remains byte-compatible.
+- Image contract: Added a digest-pinned Go 1.25.3 multi-architecture builder
+  and scratch runtime containing only the static helper plus CA bundle. It
+  runs as `65532:65532` with one helper entry point and no shell, registry
+  server, command, listener, or exposed port.
+- Verification: Fifty-three focused inventory/import/image Python tests, eight
+  Go tests and vet, full 359-test Python regression, compilation, and diff
+  checks pass. A local Linux ARM64 image built as
+  `bbdf44f30f9435b5ca4ee2c61540d1d388a44f77e6577eb7c8b5b58a29faea64`;
+  inspection proved architecture, non-root UID, exact entry point, and
+  no-network CLI help. The exact image was deleted and Podman returned to
+  stopped with no tagged helper image or container.
+- Boundary: This is local packaging/provenance evidence, not a signed image,
+  x86_64 qualification, RGW execution, released dependency promotion, backup,
+  cutover, or production authorization.
+- Changed files: Inventory Go provenance and tests; Python verifier/importer
+  v2 validation and tests; `poc/inventory/Containerfile` and its contract
+  tests; inventory/data-protection/runbook/ADR documents; this plan and
+  `HANDOFF.md`.
+- Next exact action: Add `poc/data-protection/topology.json`,
+  `state_machine.py`, and fixture-driven tests for exact phase ordering,
+  immutable ownership, writer-fence evidence, backup/restore manifests,
+  cutover/rollback transitions, fixed failures, cleanup planning, and
+  secret-safe evidence. Do not call an external service.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -576,6 +609,10 @@ operator-local release.
 | Full regression after lifecycle CLI | `uv run pytest -q` | passed; 346 |
 | Exact-release S3 config adapter | `env -u GOROOT "$(mise which go)" test ./...`; `vet ./...` in `poc/inventory` | passed; 7 tests |
 | Filesystem inventory compatibility | persistent-PTY `make -C poc/inventory verify` | passed; equal scans, immutable SQL/storage, zero residue |
+| S3 provenance verifier/importer | `uv run pytest -q tests/test_inventory.py tests/test_quota_import.py tests/test_inventory_helper_container.py` | passed; 53 |
+| Provenance helper Go regression | pinned Go 1.25.3 `test ./...`; `vet ./...` | passed; 8 tests |
+| Static helper image contract | ARM64 Podman build, inspect, no-network `--help`, exact image removal | passed; non-root scratch image, zero tagged image/container residue |
+| Full regression after provenance helper | `uv run pytest -q` | passed; 359 |
 
 ## Failures, Blockers, and Risks
 
