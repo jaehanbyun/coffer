@@ -92,15 +92,27 @@ entry, and produces only a synthetic terminal hash summary. Failed steps do
 not advance state, stale outputs and tampered history fail closed, and
 lookalike or live executors are rejected by exact type.
 
+`profile/run.py` is the owner-only runtime contract for smoke, ramp,
+qualification, and soak steps. It binds the exact compiled step plus one
+source- and binary-hashed child template for every operation, executes
+steady/burst or fixed-ramp waves for the full duration, and advances an
+atomically replayable hash-chain checkpoint only after every child result and
+transfer bound pass. Child process groups, stdout/stderr, temporary invocation
+copies, interruption, and resume are bounded. Control quota contention is
+limited to one child per wave to avoid fixed-tag races. Local executable
+fixtures remain explicitly synthetic; both-architecture pilot execution is
+still required.
+
 `runtime_manifest.py` maps every schedule entry and operation to the current
 runtime capability baseline. It binds a canonical owner-only compiled plan,
 qualified readiness file, exact client pins, checked-in runner source hashes,
 target class, per-step input/output schemas, timeout, cleanup owner, verified
 TLS, and owner-only requirements. Current client/raw paths are only
-`contract-only`; profile, fault, and live telemetry executors plus standalone
-control, token, and quota-contention operations are missing. No executable has
-qualified binary evidence, so every executable SHA remains null and the
-manifest always reports `ready=false` with explicit gaps.
+`contract-only`; the profile executor and standalone control, token, and
+quota-contention operations are also `contract-only`; fault and live telemetry
+executors remain missing. No executable has qualified binary evidence, so
+every executable SHA remains null and the manifest always reports
+`ready=false` with explicit gaps.
 
 `control/` adds the verified-TLS protocol core for finite Keystone
 application-credential token acquisition, Coffer repository control probing,

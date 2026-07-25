@@ -85,6 +85,9 @@ def test_compiler_covers_every_fixed_dimension_and_budget() -> None:
     assert [entry["clients"] for entry in plan["ramp"]] == TOPOLOGY[
         "ramp_clients"
     ]
+    assert all(
+        entry["duration_seconds"] == 120 for entry in plan["ramp"]
+    )
     assert sum(
         entry["transfer_ceiling_bytes"] for entry in plan["ramp"]
     ) <= TOPOLOGY["profiles"]["qualification"]["transfer_ceiling_bytes"]

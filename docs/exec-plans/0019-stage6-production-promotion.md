@@ -1756,6 +1756,55 @@ operator-local release.
   transfer and cleanup budgets, checkpoint interruption-safe aggregate
   evidence, and prove only local executable fakes before any live pilot.
 
+### 2026-07-25 — Checkpointed profile and ramp executor completed
+
+- Plan contract: Every ramp level now has an explicit 120-second duration in
+  the deterministic compiled plan. Smoke, qualification, and soak retain their
+  120-, 1800-, and 7200-second durations and exact steady/burst concurrency and
+  transfer ceilings.
+- Invocation boundary: Added the owner-only
+  `coffer.load-profile-invocation/v1` runner. It revalidates the exact compiled
+  schedule step and binds target/source class, runner source hash, plan hash,
+  state/lock/output/work paths, and one exact binary/invocation/contract hash
+  plus cleanup and transfer ownership for every operation. All twelve
+  operations have exactly one owner; `control-load` owns control, token, and
+  quota contention and raw OCI owns the remaining nine.
+- Runtime: Profile waves use steady clients in the first/final quarters and
+  burst clients in the middle half; ramps use the exact client level.
+  `control-load` runs at most once per wave so its fixed quota tags and cleanup
+  cannot race another invocation. Remaining slots rotate deterministically
+  through raw operations.
+- Process/file safety: Children receive only an owner-only temporary
+  invocation path, a minimal fixed environment, no stdin, no shell, and an
+  independent process group. Runtime and stdout/stderr are bounded while the
+  process is alive. Timeout, nonzero/fixed-output drift, malformed result,
+  transfer violation, interruption, or cleanup residue terminates all groups
+  and removes exact generated invocation/result/stream files.
+- Checkpoint/evidence: Each successful wave extends a replay-validated
+  hash-chain with operation counts, elapsed duration, attempts, and transferred
+  bytes, then atomically writes mode-0600 state. Resume rejects altered state,
+  plan, binary, invocation, source, operation ownership, link/mode, or path
+  boundaries. Terminal output retains only fixed counts and provenance hashes.
+  Fixture output is explicitly synthetic and exits 3; a pilot cannot exit 0
+  before real duration, full operation coverage, zero unexpected errors, and
+  the transfer ceiling pass.
+- Qualification boundary: The runtime manifest now source-hashes
+  `profile-load` and marks all ten profile/ramp schedule entries
+  `contract-only`. It still reports nine gaps and `ready=false` because no
+  executable SHA or both-architecture pilot evidence is qualified; fault and
+  live telemetry executors remain missing.
+- Verification: Fifteen profile tests use actual local fake executables plus
+  an accelerated test clock and cover checkpoint/resume/idempotence, cadence,
+  transfer/failure refusal, state tamper, input drift, interruption, process
+  timeout, output bounds, fixed CLI behavior, and zero temporary residue. The
+  broader load matrix passes 136 tests; all 828 Python tests and compilation
+  pass.
+- Next exact action: Add the serial owner-only fault executor beginning under
+  `poc/load-soak/fault/`. Bind each compiled fault window to exact
+  preflight/inject/observe/recover/verify commands and target evidence, enforce
+  one active fault, process/time/output bounds, recovery deadlines, and
+  interruption-safe rollback using local executable fakes only.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1861,6 +1910,9 @@ operator-local release.
 | Raw driver after shared output strengthening | pinned Go 1.25.3 `go test -race -count=1 ./...`; `go vet ./...` in `poc/load-soak/driver` | passed |
 | Runtime manifest after control CLI | `uv run pytest -q tests/test_load_soak_runtime_manifest.py` | passed; 14; runtime gaps 9 |
 | Full Python regression after control CLI | `uv run pytest -q` | passed; 813 |
+| Owner-only profile/ramp executor | `uv run pytest -q tests/test_load_profile_run.py` | passed; 15 |
+| Broader load matrix after profile executor | profile, plan, orchestrator, runtime manifest, state machine, and evidence tests | passed; 136 |
+| Full Python regression after profile executor | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 828 collected |
 
 ## Failures, Blockers, and Risks
 
@@ -1891,12 +1943,11 @@ operator-local release.
   Real RGW lifecycle evidence and current stable dependencies remain blocked;
   no real identity, credential, certificate, endpoint, or remote state
   changed.
-- Exact next action: Add the bounded owner-only profile-load executor under
-  `poc/load-soak/profile/`. Bind the compiled profile/ramp step, exact
-  raw-OCI/control child binaries and invocations, qualified readiness/source
-  evidence, finite concurrency/transfer/cleanup budgets, interruption-safe
-  checkpoints, and canonical aggregate output; use local executable fakes
-  only.
+- Exact next action: Add the serial owner-only fault executor under
+  `poc/load-soak/fault/`. Bind each compiled fault window to exact
+  preflight/inject/observe/recover/verify commands and target evidence, enforce
+  one active fault, process/time/output bounds, recovery deadlines, and
+  interruption-safe rollback using local executable fakes only.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

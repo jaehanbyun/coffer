@@ -153,6 +153,17 @@ def test_current_runtime_manifest_exposes_every_gap_without_claiming_ready() -> 
         entry["disposition"] == "qualified"
         for entry in manifest["entries"]
     )
+    profile_entries = [
+        entry
+        for entry in manifest["entries"]
+        if entry["executor"] == "profile-load"
+    ]
+    assert len(profile_entries) == 10
+    assert all(
+        entry["disposition"] == "contract-only"
+        and entry["contract_sha256"].startswith("sha256:")
+        for entry in profile_entries
+    )
     operations = {
         entry["operation"]: entry
         for entry in manifest["operation_capabilities"]

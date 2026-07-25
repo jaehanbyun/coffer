@@ -116,6 +116,13 @@ def _contract_hashes() -> dict[str, str]:
                 if path.is_file()
             ]
         ),
+        "profile-load": _source_hash(
+            [
+                path
+                for path in (DIRECTORY / "profile").rglob("*.py")
+                if path.is_file()
+            ]
+        ),
         "telemetry-collector": _source_hash([DIRECTORY / "telemetry.py"]),
     }
 
@@ -176,14 +183,20 @@ def build_manifest(
             timeout_seconds = 10800 if executor == "raw-oci" else 600
         elif step.kind in ("profile", "ramp"):
             executor = "profile-load"
-            disposition = "missing"
+            disposition = "contract-only"
             input_contract = "coffer.load-profile-invocation/v1"
             output_contract = "coffer.load-profile-result/v1"
-            timeout_seconds = (
-                profile_limits[step.name]["duration_seconds"] + 600
-                if step.kind == "profile"
-                else 1800
-            )
+            if step.kind == "profile":
+                duration_seconds = profile_limits[step.name][
+                    "duration_seconds"
+                ]
+            else:
+                duration_seconds = next(
+                    entry["duration_seconds"]
+                    for entry in plan["ramp"]
+                    if f"clients-{entry['clients']}" == step.name
+                )
+            timeout_seconds = duration_seconds + 600
         elif step.kind == "fault":
             executor = "fault"
             disposition = "missing"

@@ -6,7 +6,7 @@
   complete; raw OCI and five real-client execution boundaries complete;
   telemetry, deterministic plan, and fixture orchestrator complete; runtime
   manifest, control/token/quota protocol core, and owner-only control CLI
-  complete; profile executor next
+  complete; checkpointed profile/ramp executor complete; fault executor next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -508,6 +508,18 @@ release contains it yet.
   race/vet suite, 14 runtime-manifest tests, and all 813 Python tests pass.
   Real targets and both-architecture runtime qualification remain gated; the
   runtime manifest remains `ready=false` with nine gaps.
+- Added the checkpointed owner-only profile/ramp executor. It revalidates the
+  exact compiled step, binds one binary/invocation/source contract and cleanup
+  owner for every operation, executes full-duration steady/burst or fixed-ramp
+  waves, serializes quota contention to at most one child per wave, and
+  atomically advances a replay-validated hash-chain state.
+- Fifteen profile tests with actual local fake executables prove
+  checkpoint/resume/idempotence, operation coverage, cadence, failure and
+  transfer refusal, state tamper, preflight drift, interruption, process
+  timeout/output bounds, fixed CLI status, and zero temporary residue. The
+  broader load matrix passes 136 tests and all 828 Python tests pass. Profile
+  entries are now source-hashed `contract-only`; the runtime manifest remains
+  `ready=false` with nine unqualified executors.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2315,11 +2327,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add the bounded owner-only profile-load executor beginning under
-`poc/load-soak/profile/`. Bind the compiled smoke/ramp/qualification/soak step,
-exact raw-OCI/control child binaries and invocations, qualified
-readiness/source evidence, finite concurrency/transfer/cleanup budgets,
-interruption-safe checkpoints, and canonical aggregate output; use local
+Add the serial owner-only fault executor under `poc/load-soak/fault/`. Bind
+each compiled fault window to exact preflight/inject/observe/recover/verify
+commands and target evidence, enforce one active fault, process/time/output
+bounds, recovery deadlines, and interruption-safe rollback using local
 executable fakes only.
 
 ## After This Work Package

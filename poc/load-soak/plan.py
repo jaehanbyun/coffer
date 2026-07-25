@@ -49,6 +49,7 @@ CONTENT_BYTES = {
     "multiarch-index": 0,
     "subject-referrer": 1024**2,
 }
+RAMP_DURATION_SECONDS = 120
 CLIENT_OPERATIONS = {
     "docker": (
         "token",
@@ -314,6 +315,7 @@ def compile_plan(
     ramp = [
         {
             "clients": clients,
+            "duration_seconds": RAMP_DURATION_SECONDS,
             "order": order,
             "transfer_ceiling_bytes": ramp_budget,
         }
