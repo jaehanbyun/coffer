@@ -1269,6 +1269,40 @@ operator-local release.
   and canonical temporary output. Unit-test it with local `httptest` only; do
   not target a registry until the release fence is qualified.
 
+### 2026-07-25 — Deterministic raw OCI protocol core completed
+
+- Artifact: Added a standalone Go 1.25 standard-library module under
+  `poc/load-soak/driver/`. It generates replayable deterministic content up to
+  256 MiB, computes canonical SHA-256 without retaining payloads, and supports
+  monolithic plus bounded chunked blob upload.
+- Transport and identity: The client requires an explicit CA pool, HTTPS, TLS
+  1.2 or newer, one exact same-origin Bearer challenge, injected finite Basic
+  credentials used only at the token endpoint, and bounded token/response
+  bodies. Ambient proxies, redirects, insecure TLS, cross-origin realms and
+  upload locations, traversal, raw URLs, and credential-bearing errors are
+  refused.
+- Retry and integrity: Replay-safe transport and 502/503/504 outcomes retry
+  finitely. Digest, `Content-Range`, upload `Location`, final blob `Location`,
+  and response ceilings are exact. Ambiguous chunk start/PATCH failures stop
+  without blind replay; status-based loss-safe recovery remains the next
+  slice.
+- Evidence: A concurrency-safe recorder exposes only fixed operation/result/
+  latency buckets, attempts, retries, transferred bytes, and digest-check
+  counts. Atomic canonical output requires an owner-only directory and writes
+  a mode-0600 regular file; symlink targets fail closed.
+- Verification: Fifteen top-level Go contract tests pass with the race
+  detector; `go vet` passes. The matrix includes exact Coffer Bearer parsing,
+  8-way concurrency, trusted/untrusted TLS, cancellation, retry exhaustion,
+  bounded responses, same-origin continuity, no-blind-PATCH replay, canonical
+  output, permissions, symlink refusal, and secret-safe failures. All servers
+  are local TLS `httptest`; no registry, credential, container, VM, network
+  service, or remote resource was used.
+- Next exact action: Extend `poc/load-soak/driver/client.go` with bounded
+  upload-status reconciliation after ambiguous chunk PATCH results. Accept
+  only the exact prior or committed range and same-origin continuation, then
+  retry or advance once; test transport/502/503/504 loss, range/location drift,
+  cancellation, and exhaustion locally before adding the CLI boundary.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1347,6 +1381,8 @@ operator-local release.
 | Full regression after load/soak lifecycle | `uv run pytest -q` | passed; 688 |
 | Canonical load evidence verifier | `uv run pytest -q tests/test_load_soak_state_machine.py tests/test_load_soak_lifecycle_cli.py tests/test_load_soak_evidence.py` | passed; 77 |
 | Full regression after load evidence verifier | `uv run pytest -q` | passed; 702 |
+| Raw OCI driver local TLS contract | `env -u GOROOT mise x go@1.25.3 -- go test -race ./...` in `poc/load-soak/driver` | passed; 15 top-level tests |
+| Raw OCI driver static analysis | `env -u GOROOT mise x go@1.25.3 -- go vet ./...` in `poc/load-soak/driver` | passed |
 
 ## Failures, Blockers, and Risks
 

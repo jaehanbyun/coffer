@@ -39,6 +39,13 @@ binding, artifact, facts, history, and topology hashes. Synthetic evidence,
 unknown fields, noncanonical files, release drift, missing phases, raw
 identities, and weakened phase results fail closed.
 
-The next layer is the raw OCI driver and real-client adapters. Live execution
-remains gated on a fresh disposable Stage 6 pilot and qualified stable
-dependencies.
+`driver/` contains the standalone Go raw-OCI protocol core. It generates
+bounded deterministic streams, follows the exact same-origin Bearer flow over
+verified TLS, performs monolithic and chunked blob uploads, validates digest,
+range, and `Location` continuity, records fixed secret-safe result/latency
+buckets, and emits canonical owner-only JSON. Its current chunk start and
+PATCH failures stop without blind replay; loss-safe status reconciliation is
+the next slice.
+
+Real-client adapters and live execution remain gated on a fresh disposable
+Stage 6 pilot and qualified stable dependencies.

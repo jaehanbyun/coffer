@@ -3,7 +3,7 @@
 - Updated: 2026-07-25
 - Status: plan 0019 active; local production observability, disposable
   filesystem GC/restore, load model/lifecycle, and canonical evidence verifier
-  complete; deterministic raw OCI driver next
+  complete; raw OCI core complete and loss-safe resumable reconciliation next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -335,6 +335,17 @@ release contains it yet.
 - Seventy-seven focused load tests and all 702 Python tests pass. The refreshed
   official metadata classifier still reports Distribution v3.1.1 and Ceph
   v20.2.2 blocked, so no live load or fresh pilot is permitted yet.
+- Added the standalone standard-library Go raw OCI core. It uses explicit CA
+  trust and TLS 1.2+, exact same-origin Bearer acquisition, bounded response
+  bodies and retries, deterministic replayable streams, monolithic and
+  chunked upload, digest/range/location checks, cancellation, fixed
+  secret-safe aggregates, and atomic mode-0600 canonical result files.
+- Fifteen top-level Go contract tests pass under the race detector and `go
+  vet`. Local `httptest` TLS is the only target. Eight simultaneous uploads
+  are aggregated safely; untrusted TLS, unsafe configuration, cross-origin or
+  traversal locations, malformed challenge, retry exhaustion, cancellation,
+  response overflow, symlink output, and credential-bearing errors fail
+  closed. Chunk start/PATCH failures are deliberately not replayed blindly.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2142,12 +2153,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add the deterministic raw OCI driver beginning with a standalone Go module
-under `poc/load-soak/driver/`. Implement verified TLS, finite Bearer
-acquisition/retry, bounded monolithic and chunked streaming, deterministic
-digest generation, fixed latency/result buckets, cancellation, and canonical
-temporary output. Unit-test it with local `httptest` only; do not target a
-registry until the release fence is qualified.
+Extend `poc/load-soak/driver/client.go` with bounded upload-status
+reconciliation. After an ambiguous chunk `PATCH`, query only the same-origin
+upload location, accept either the exact prior offset or exact committed
+offset, then retry or advance once without duplicating bytes. Cover
+transport/502/503/504 loss, drifted range/location, cancellation, and retry
+exhaustion with local TLS `httptest`; do not target a registry.
 
 ## After This Work Package
 
