@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; Stage 6 maintenance identity local proof started
+- Status: plan 0019 active; maintenance Kolla fixture contract awaiting approval
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -92,6 +92,15 @@ release contains it yet.
   identity/private-TLS lifecycle evidence do not exist.
 - Full regression now passes 308 Python tests. The 105-test focused maintenance,
   session, schema, import, and live-inventory matrix also passes.
+- Added `docs/research/stage6-maintenance-secret-delivery.md`. It maps the
+  existing mode-0600/no-log Kolla source boundary and disposable Barbican
+  pattern to distinct per-replica application credentials and mTLS keys,
+  exact recipients, owner-only materialization, overlap rotation, revocation,
+  and teardown. It identifies a required trusted adapter from HAProxy-verified
+  certificate identity to the server-side WSGI workload value; an HTTP header
+  alone is rejected.
+- The research changed no Kolla variable, recipient, identity, credential,
+  certificate, Barbican object, frontend, endpoint, or remote state.
 
 ## Plan 0018 Activation
 
@@ -1818,10 +1827,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Create `docs/research/stage6-maintenance-secret-delivery.md` and map the
-existing Kolla owner-only file-copy and Barbican contracts to the accepted
-maintenance application credential and per-replica mTLS key lifecycle without
-changing a recipient or creating a secret.
+Obtain user approval or rejection of the fixture-only local Kolla maintenance
+contract: generated placeholder source files, exact per-process recipients,
+private mTLS frontend rendering, trusted workload adapter, and negative
+contract tests while reconciliation stays disabled and no real identity,
+secret, certificate, Barbican object, or remote deployment is created.
 
 ## After This Work Package
 

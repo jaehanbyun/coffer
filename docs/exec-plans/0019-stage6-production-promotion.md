@@ -317,6 +317,43 @@ operator-local release.
   credential plus per-replica mTLS key lifecycle without changing a recipient
   or creating a secret.
 
+### 2026-07-25 — Maintenance secret-delivery baseline completed
+
+- Completed: Added
+  `docs/research/stage6-maintenance-secret-delivery.md`. It maps the existing
+  controller-side mode-0600 precheck, per-process Kolla file copy, current
+  secret recipients, and disposable Barbican pattern to the accepted
+  maintenance identity without changing the role.
+- Recommendation: Use one finite restricted application credential and one
+  client key/certificate per reconciler replica or approved one-shot comparison
+  job. Store credential secret and client key in separate owner-only Barbican
+  records; let only the deployment owner retrieve and atomically materialize
+  per-host files; never give a runtime process the Barbican controller
+  credential.
+- Recipient boundary: Only the exact reconciler replica/job receives its
+  application-credential ID/secret and client keypair. API retains only the
+  signer and maintenance policy identifiers; HAProxy receives only the client
+  CA/mapping; edge, registry, bootstrap, and other replicas receive none of the
+  maintenance secret material.
+- Trust gap: The local API intentionally ignores an HTTP workload header and
+  consumes a server-side WSGI value. A private mTLS HAProxy frontend therefore
+  also needs a reviewed trusted adapter from verified certificate identity to
+  WSGI context. Header injection alone is not acceptable.
+- Existing evidence boundary: Current Kolla owner/mode/no-log and the
+  disposable RGW Barbican stream are reusable patterns, but they do not prove
+  maintenance ACL/consumer, per-replica rotation, mTLS mapping, or residue
+  cleanup. `coffer_enable_reconcile` remains false.
+- Changed files: Added the research document; updated this plan and
+  `.codex/state/HANDOFF.md`. No Kolla variable, recipient, role, user,
+  credential, certificate, Barbican object, frontend, endpoint, or remote
+  state changed.
+- Next exact action requiring approval: Approve or reject a local
+  fixture-only Kolla contract milestone that adds maintenance variables,
+  generated-placeholder prechecks, exact per-process `config.json` recipients,
+  private mTLS frontend rendering, trusted workload adapter, and negative
+  contract tests. It will keep reconciliation disabled and create no real
+  identity, secret, certificate, Barbican object, or remote deployment.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -336,6 +373,7 @@ operator-local release.
 | Maintenance token/API/edge focused regression | `uv run pytest -q tests/test_maintenance_api.py tests/test_maintenance_token.py tests/test_registry_proxy.py tests/test_tokens.py tests/test_quota_reconciliation.py` | passed; 85 |
 | Python compilation and diff checks | `uv run python -m compileall -q src tests`; `git diff --check` | passed |
 | Maintenance session/migration/import/live focused regression | `uv run pytest -q tests/test_maintenance_sessions.py tests/test_migrations.py tests/test_bootstrap.py tests/test_maintenance_token.py tests/test_maintenance_api.py tests/test_quota_import.py tests/test_quota_import_verification.py tests/test_live_inventory_verification.py` | passed; 105 |
+| Maintenance secret-delivery inventory | Focused inspection of Kolla defaults, prechecks, per-process config, `kolla_start` file recipients, HAProxy model, ADRs 0014/0015, and disposable Barbican evidence | passed; design only, no recipient changed |
 
 ## Failures, Blockers, and Risks
 
@@ -362,12 +400,12 @@ operator-local release.
   delivery, and real lifecycle evidence remain absent. Current stable
   dependencies remain blocked; no real identity, credential, certificate,
   recipient, endpoint, or remote state changed.
-- Exact next action: Research the owner-only maintenance application-credential
-  and per-replica mTLS delivery lifecycle without changing recipients or
-  creating secrets.
-- First file:
+- Exact next action: Obtain approval or rejection of the fixture-only Kolla
+  maintenance recipient/private-frontend contract milestone described in
   `docs/research/stage6-maintenance-secret-delivery.md`.
-- Questions requiring user input: None for the pure local proof. Separate
-  approval remains required for credential creation/delivery, Kolla secret
-  recipients and private frontend deployment, destructive GC, external
-  publication, or production deployment.
+- First file after approval: `ansible/roles/coffer/defaults/main.yml`.
+- Questions requiring user input: Approve or reject local generated-placeholder
+  Kolla recipient, private mTLS frontend rendering, trusted workload adapter,
+  and negative contract tests. This does not request approval for real
+  credential creation/delivery, Barbican mutation, reconciliation enablement,
+  destructive GC, external publication, or production deployment.
