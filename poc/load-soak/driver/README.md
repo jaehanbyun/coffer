@@ -29,8 +29,11 @@ env -u GOROOT mise x go@1.25.3 -- go test -race ./...
 env -u GOROOT mise x go@1.25.3 -- go vet ./...
 ```
 
-Chunk start and PATCH failures currently stop without blind replay; they do
-not risk creating an untracked second upload or appending the same range
-twice. The next slice adds loss-safe resumable status reconciliation and an
-owner-only CLI configuration/result boundary. Real Docker, Podman, Skopeo,
-ORAS, and nerdctl adapters remain separate.
+Chunk start failures stop without creating an untracked second upload. After
+an ambiguous PATCH transport or 502/503/504 result, the client queries the
+same upload URL. It advances only when the exact committed range is visible,
+or resends once from the exact prior range; any other offset or continuation
+fails closed.
+
+The next slice adds the owner-only CLI configuration/result boundary. Real
+Docker, Podman, Skopeo, ORAS, and nerdctl adapters remain separate.

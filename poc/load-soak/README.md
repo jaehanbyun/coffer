@@ -43,9 +43,10 @@ identities, and weakened phase results fail closed.
 bounded deterministic streams, follows the exact same-origin Bearer flow over
 verified TLS, performs monolithic and chunked blob uploads, validates digest,
 range, and `Location` continuity, records fixed secret-safe result/latency
-buckets, and emits canonical owner-only JSON. Its current chunk start and
-PATCH failures stop without blind replay; loss-safe status reconciliation is
-the next slice.
+buckets, and emits canonical owner-only JSON. After an ambiguous chunk PATCH,
+it queries the same upload URL and only advances or resends from an exact
+committed or prior offset; partial or drifted state fails closed.
 
-Real-client adapters and live execution remain gated on a fresh disposable
-Stage 6 pilot and qualified stable dependencies.
+The owner-only CLI boundary and real-client adapters remain next. Live
+execution is still gated on a fresh disposable Stage 6 pilot and qualified
+stable dependencies.

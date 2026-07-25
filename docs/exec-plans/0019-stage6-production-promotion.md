@@ -1303,6 +1303,34 @@ operator-local release.
   retry or advance once; test transport/502/503/504 loss, range/location drift,
   cancellation, and exhaustion locally before adding the CLI boundary.
 
+### 2026-07-25 — Loss-safe resumable upload reconciliation completed
+
+- Protocol correction: The official Distribution API exposes upload progress
+  through authenticated GET on the latest opaque upload `Location`, returning
+  204 plus inclusive `Range` and a refreshed `Location`. The driver now uses
+  that status operation instead of replaying an ambiguous non-idempotent PATCH.
+- Recovery: After transport loss or 502/503/504, an exact prior offset permits
+  a finite bounded resend and an exact committed offset permits forward progress.
+  Partial progress, the empty/one-byte ambiguous case, malformed/missing
+  ranges, cross-origin/traversal continuation, unexpected status, cancellation,
+  and exhaustion fail closed. Chunk-start POST remains non-replayed because no
+  owned upload location exists after an ambiguous response.
+- Integrity: Both `Range: 0-N` and the documented `Range: bytes=0-N` are
+  normalized, but only exact expected offsets are accepted. Transferred-byte
+  aggregates include bytes sent before a lost response and any verified
+  resend; completion still requires the locally computed digest.
+- Verification: Eighteen top-level Go contract tests pass under the race
+  detector and `go vet`. Local TLS cases cover response lost before and after
+  commit, status-query 502/503 retry exhaustion, range and location drift,
+  cancellation, and byte-exact completion with no duplicate append. No
+  external registry, credential, container, VM, or remote resource was used.
+- Next exact action: Add the owner-only executable boundary beginning with
+  `poc/load-soak/driver/cmd/coffer-raw-oci-driver/main.go`. Load exact
+  mode-0600 invocation, CA, and credential files without environment or secret
+  arguments; require independently verified qualified readiness; execute only
+  bounded monolithic/chunked operations; atomically emit canonical aggregates
+  and remove temporary state. Test with local TLS only.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1383,6 +1411,7 @@ operator-local release.
 | Full regression after load evidence verifier | `uv run pytest -q` | passed; 702 |
 | Raw OCI driver local TLS contract | `env -u GOROOT mise x go@1.25.3 -- go test -race ./...` in `poc/load-soak/driver` | passed; 15 top-level tests |
 | Raw OCI driver static analysis | `env -u GOROOT mise x go@1.25.3 -- go vet ./...` in `poc/load-soak/driver` | passed |
+| Loss-safe upload-status reconciliation | `env -u GOROOT mise x go@1.25.3 -- go test -race -count=1 ./...` in `poc/load-soak/driver` | passed; 18 top-level tests |
 
 ## Failures, Blockers, and Risks
 

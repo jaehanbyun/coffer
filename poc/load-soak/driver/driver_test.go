@@ -266,6 +266,7 @@ func TestChunkedUploadMaintainsLocationRangeAndDigest(t *testing.T) {
 				"Location",
 				"/v2/"+testRepository+"/blobs/uploads/upload-1?state=opaque",
 			)
+			response.Header().Set("Range", "bytes=0-0")
 			response.WriteHeader(http.StatusAccepted)
 		case request.Method == http.MethodPatch &&
 			request.URL.Path == "/v2/"+testRepository+"/blobs/uploads/upload-1":
@@ -319,9 +320,204 @@ func TestChunkedUploadMaintainsLocationRangeAndDigest(t *testing.T) {
 	}
 }
 
-func TestChunkPatchFailureIsNotBlindlyReplayed(t *testing.T) {
+func TestChunkPatchAmbiguityReconcilesCommittedOrPriorRange(t *testing.T) {
+	for _, committedBeforeFailure := range []bool{false, true} {
+		name := "prior"
+		if committedBeforeFailure {
+			name = "committed"
+		}
+		t.Run(name, func(t *testing.T) {
+			content := mustContent(t, "resume-"+name, 8)
+			digest, err := content.Digest(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			var server *httptest.Server
+			var uploaded []byte
+			var patches atomic.Int64
+			var statuses atomic.Int64
+			firstFailure := true
+			handler := http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+				if request.URL.Path == "/auth/token" {
+					serveToken(t, response, request)
+					return
+				}
+				if request.Header.Get("Authorization") != "Bearer "+testToken {
+					writeChallenge(response, server.URL)
+					return
+				}
+				location := "/v2/" + testRepository + "/blobs/uploads/upload-1"
+				switch request.Method {
+				case http.MethodPost:
+					response.Header().Set("Location", location)
+					response.Header().Set("Range", "bytes=0-0")
+					response.WriteHeader(http.StatusAccepted)
+				case http.MethodPatch:
+					body, readErr := io.ReadAll(request.Body)
+					if readErr != nil {
+						t.Error(readErr)
+						response.WriteHeader(http.StatusInternalServerError)
+						return
+					}
+					patches.Add(1)
+					if firstFailure {
+						firstFailure = false
+						if committedBeforeFailure {
+							uploaded = append(uploaded, body...)
+						}
+						response.Header().Set("Retry-After", "0")
+						response.WriteHeader(http.StatusServiceUnavailable)
+						return
+					}
+					expectedStart := len(uploaded)
+					if request.Header.Get("Content-Range") !=
+						fmt.Sprintf("%d-%d", expectedStart, expectedStart+len(body)-1) {
+						t.Error("replayed chunk offset changed")
+						response.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
+						return
+					}
+					uploaded = append(uploaded, body...)
+					response.Header().Set("Location", location)
+					response.Header().Set("Range", fmt.Sprintf("0-%d", len(uploaded)-1))
+					response.WriteHeader(http.StatusAccepted)
+				case http.MethodGet:
+					statuses.Add(1)
+					response.Header().Set("Location", location)
+					if len(uploaded) == 0 {
+						response.Header().Set("Range", "bytes=0-0")
+					} else {
+						response.Header().Set(
+							"Range",
+							fmt.Sprintf("bytes=0-%d", len(uploaded)-1),
+						)
+					}
+					response.WriteHeader(http.StatusNoContent)
+				case http.MethodPut:
+					actual := fmt.Sprintf("sha256:%x", sha256.Sum256(uploaded))
+					if actual != digest || request.URL.Query().Get("digest") != digest {
+						t.Error("resumed upload digest changed")
+						response.WriteHeader(http.StatusBadRequest)
+						return
+					}
+					response.Header().Set("Docker-Content-Digest", digest)
+					response.WriteHeader(http.StatusCreated)
+				default:
+					t.Errorf("unexpected method: %s", request.Method)
+					response.WriteHeader(http.StatusMethodNotAllowed)
+				}
+			})
+			server = startTLSServer(t, handler)
+			client := clientFor(t, server, nil)
+
+			if err := client.UploadChunked(
+				context.Background(),
+				testRepository,
+				content,
+				4,
+			); err != nil {
+				t.Fatalf("resumable upload failed: %v", err)
+			}
+			expectedPatches := int64(3)
+			if committedBeforeFailure {
+				expectedPatches = 2
+			}
+			if patches.Load() != expectedPatches || statuses.Load() != 1 ||
+				int64(len(uploaded)) != content.Size() {
+				t.Fatalf(
+					"recovery changed: patches=%d statuses=%d bytes=%d",
+					patches.Load(),
+					statuses.Load(),
+					len(uploaded),
+				)
+			}
+		})
+	}
+}
+
+func TestChunkStatusDriftAndExhaustionFailClosed(t *testing.T) {
+	for _, mode := range []string{"drift-range", "drift-location", "exhausted"} {
+		t.Run(mode, func(t *testing.T) {
+			var server *httptest.Server
+			var statuses atomic.Int64
+			handler := http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+				if request.URL.Path == "/auth/token" {
+					serveToken(t, response, request)
+					return
+				}
+				if request.Header.Get("Authorization") != "Bearer "+testToken {
+					writeChallenge(response, server.URL)
+					return
+				}
+				location := "/v2/" + testRepository + "/blobs/uploads/upload-1"
+				switch request.Method {
+				case http.MethodPost:
+					response.Header().Set("Location", location)
+					response.Header().Set("Range", "bytes=0-0")
+					response.WriteHeader(http.StatusAccepted)
+				case http.MethodPatch:
+					response.Header().Set("Retry-After", "0")
+					response.WriteHeader(http.StatusBadGateway)
+				case http.MethodGet:
+					statuses.Add(1)
+					if mode == "exhausted" {
+						response.Header().Set("Retry-After", "0")
+						response.WriteHeader(http.StatusServiceUnavailable)
+						return
+					}
+					if mode == "drift-location" {
+						response.Header().Set(
+							"Location",
+							"https://example.invalid/v2/other/blobs/uploads/id",
+						)
+						response.Header().Set("Range", "bytes=0-0")
+					} else {
+						response.Header().Set("Location", location)
+						response.Header().Set("Range", "bytes=0-2")
+					}
+					response.WriteHeader(http.StatusNoContent)
+				default:
+					t.Errorf("unexpected method: %s", request.Method)
+					response.WriteHeader(http.StatusMethodNotAllowed)
+				}
+			})
+			server = startTLSServer(t, handler)
+			client := clientFor(t, server, func(config *Config) {
+				config.MaxAttempts = 3
+			})
+
+			err := client.UploadChunked(
+				context.Background(),
+				testRepository,
+				mustContent(t, "status-"+mode, 8),
+				4,
+			)
+			expected := FailureProtocol
+			expectedStatuses := int64(1)
+			if mode == "exhausted" {
+				expected = FailureRetryExhausted
+				expectedStatuses = 3
+			}
+			if failureKind(err) != expected || statuses.Load() != expectedStatuses {
+				t.Fatalf(
+					"status failure changed: kind=%s statuses=%d",
+					failureKind(err),
+					statuses.Load(),
+				)
+			}
+		})
+	}
+}
+
+func TestChunkPatchTransportLossUsesStatusBeforeContinuing(t *testing.T) {
+	content := mustContent(t, "transport-loss", 8)
+	digest, err := content.Digest(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
 	var server *httptest.Server
-	var patches atomic.Int64
+	var uploaded []byte
+	var lost atomic.Bool
+	var statuses atomic.Int64
 	handler := http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/auth/token" {
 			serveToken(t, response, request)
@@ -331,36 +527,114 @@ func TestChunkPatchFailureIsNotBlindlyReplayed(t *testing.T) {
 			writeChallenge(response, server.URL)
 			return
 		}
+		location := "/v2/" + testRepository + "/blobs/uploads/upload-1"
 		switch request.Method {
 		case http.MethodPost:
-			response.Header().Set(
-				"Location",
-				"/v2/"+testRepository+"/blobs/uploads/upload-1",
-			)
+			response.Header().Set("Location", location)
+			response.Header().Set("Range", "bytes=0-0")
 			response.WriteHeader(http.StatusAccepted)
 		case http.MethodPatch:
-			patches.Add(1)
-			response.Header().Set("Retry-After", "0")
-			response.WriteHeader(http.StatusServiceUnavailable)
+			body, readErr := io.ReadAll(request.Body)
+			if readErr != nil {
+				t.Error(readErr)
+				return
+			}
+			uploaded = append(uploaded, body...)
+			if lost.CompareAndSwap(false, true) {
+				hijacker, ok := response.(http.Hijacker)
+				if !ok {
+					t.Error("test server cannot model transport loss")
+					return
+				}
+				connection, _, hijackErr := hijacker.Hijack()
+				if hijackErr != nil {
+					t.Error(hijackErr)
+					return
+				}
+				_ = connection.Close()
+				return
+			}
+			response.Header().Set("Location", location)
+			response.Header().Set("Range", fmt.Sprintf("0-%d", len(uploaded)-1))
+			response.WriteHeader(http.StatusAccepted)
+		case http.MethodGet:
+			statuses.Add(1)
+			response.Header().Set("Location", location)
+			response.Header().Set("Range", fmt.Sprintf("bytes=0-%d", len(uploaded)-1))
+			response.WriteHeader(http.StatusNoContent)
+		case http.MethodPut:
+			actual := fmt.Sprintf("sha256:%x", sha256.Sum256(uploaded))
+			if actual != digest {
+				t.Error("transport-loss recovery duplicated data")
+				response.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			response.Header().Set("Docker-Content-Digest", digest)
+			response.WriteHeader(http.StatusCreated)
 		default:
-			t.Fatalf("unexpected method: %s", request.Method)
+			t.Errorf("unexpected method: %s", request.Method)
 		}
 	})
 	server = startTLSServer(t, handler)
 	client := clientFor(t, server, nil)
 
-	err := client.UploadChunked(
+	if err := client.UploadChunked(
 		context.Background(),
 		testRepository,
-		mustContent(t, "no-blind-replay", 8),
+		content,
 		4,
-	)
-	if failureKind(err) != FailureDependency || patches.Load() != 1 {
-		t.Fatalf(
-			"non-idempotent PATCH was replayed: kind=%s patches=%d",
-			failureKind(err),
-			patches.Load(),
+	); err != nil {
+		t.Fatalf("transport-loss recovery failed: %v", err)
+	}
+	if statuses.Load() != 1 || int64(len(uploaded)) != content.Size() {
+		t.Fatalf("transport-loss recovery changed: statuses=%d bytes=%d", statuses.Load(), len(uploaded))
+	}
+}
+
+func TestChunkStatusQueryHonorsCancellation(t *testing.T) {
+	var server *httptest.Server
+	statusStarted := make(chan struct{}, 1)
+	handler := http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if request.URL.Path == "/auth/token" {
+			serveToken(t, response, request)
+			return
+		}
+		if request.Header.Get("Authorization") != "Bearer "+testToken {
+			writeChallenge(response, server.URL)
+			return
+		}
+		location := "/v2/" + testRepository + "/blobs/uploads/upload-1"
+		switch request.Method {
+		case http.MethodPost:
+			response.Header().Set("Location", location)
+			response.Header().Set("Range", "bytes=0-0")
+			response.WriteHeader(http.StatusAccepted)
+		case http.MethodPatch:
+			response.WriteHeader(http.StatusServiceUnavailable)
+		case http.MethodGet:
+			statusStarted <- struct{}{}
+			<-request.Context().Done()
+		default:
+			t.Errorf("unexpected method: %s", request.Method)
+		}
+	})
+	server = startTLSServer(t, handler)
+	client := clientFor(t, server, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	content := mustContent(t, "status-cancel", 8)
+	result := make(chan error, 1)
+	go func() {
+		result <- client.UploadChunked(
+			ctx,
+			testRepository,
+			content,
+			4,
 		)
+	}()
+	<-statusStarted
+	cancel()
+	if err := <-result; failureKind(err) != FailureCancelled {
+		t.Fatalf("status cancellation changed: %v", err)
 	}
 }
 
@@ -442,6 +716,7 @@ func TestCrossOriginAndTraversalLocationsAreRefused(t *testing.T) {
 					return
 				}
 				response.Header().Set("Location", location)
+				response.Header().Set("Range", "bytes=0-0")
 				response.WriteHeader(http.StatusAccepted)
 			})
 			server = startTLSServer(t, handler)

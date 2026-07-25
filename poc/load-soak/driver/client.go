@@ -603,6 +603,37 @@ func (c *Client) validateBlobLocation(
 	return nil
 }
 
+func matchUploadRange(value string, offsets ...int64) (int64, error) {
+	if strings.HasPrefix(value, "bytes=") {
+		value = strings.TrimPrefix(value, "bytes=")
+	}
+	start, end, found := strings.Cut(value, "-")
+	if !found || start != "0" || end == "" {
+		return 0, newFailure(FailureProtocol)
+	}
+	last, err := strconv.ParseInt(end, 10, 64)
+	if err != nil || last < 0 {
+		return 0, newFailure(FailureProtocol)
+	}
+	var matched []int64
+	for _, offset := range offsets {
+		if offset < 0 {
+			return 0, newFailure(FailureProtocol)
+		}
+		expectedLast := offset - 1
+		if offset == 0 {
+			expectedLast = 0
+		}
+		if last == expectedLast {
+			matched = append(matched, offset)
+		}
+	}
+	if len(matched) != 1 {
+		return 0, newFailure(FailureProtocol)
+	}
+	return matched[0], nil
+}
+
 func newRequest(
 	ctx context.Context,
 	method string,
@@ -621,6 +652,148 @@ func newRequest(
 		request.Header.Set("Authorization", authorization)
 	}
 	return request, nil
+}
+
+type chunkResult struct {
+	attempts    int
+	location    *url.URL
+	transferred int64
+}
+
+func (c *Client) queryUploadStatus(
+	ctx context.Context,
+	scope string,
+	repository string,
+	location *url.URL,
+	priorOffset int64,
+	committedOffset int64,
+) (chunkResult, int64, error) {
+	result, err := c.perform(
+		ctx,
+		scope,
+		func(authorization string) (*http.Request, *byteCounter, error) {
+			request, requestErr := newRequest(
+				ctx,
+				http.MethodGet,
+				location,
+				nil,
+				0,
+				authorization,
+			)
+			return request, nil, requestErr
+		},
+		map[int]bool{http.StatusNoContent: true},
+		true,
+	)
+	status := chunkResult{attempts: result.attempts}
+	if err != nil {
+		return status, 0, err
+	}
+	if err := consumeBounded(result.response.Body, c.maxResponseBytes); err != nil {
+		return status, 0, err
+	}
+	status.location, err = c.resolveUploadLocation(
+		repository,
+		result.response.Header.Get("Location"),
+	)
+	if err != nil {
+		return status, 0, err
+	}
+	offset, err := matchUploadRange(
+		result.response.Header.Get("Range"),
+		priorOffset,
+		committedOffset,
+	)
+	if err != nil {
+		return status, 0, err
+	}
+	return status, offset, nil
+}
+
+func (c *Client) uploadChunk(
+	ctx context.Context,
+	scope string,
+	repository string,
+	location *url.URL,
+	chunk []byte,
+	offset int64,
+) (chunkResult, error) {
+	var total chunkResult
+	committedOffset := offset + int64(len(chunk))
+	currentLocation := location
+	for cycle := 0; cycle < c.maxAttempts; cycle++ {
+		result, err := c.perform(
+			ctx,
+			scope,
+			func(authorization string) (*http.Request, *byteCounter, error) {
+				counter := &byteCounter{}
+				body := &countedReader{
+					reader:  bytes.NewReader(chunk),
+					counter: counter,
+				}
+				request, requestErr := newRequest(
+					ctx,
+					http.MethodPatch,
+					currentLocation,
+					body,
+					int64(len(chunk)),
+					authorization,
+				)
+				if requestErr == nil {
+					request.Header.Set("Content-Type", "application/octet-stream")
+					request.Header.Set(
+						"Content-Range",
+						fmt.Sprintf("%d-%d", offset, committedOffset-1),
+					)
+				}
+				return request, counter, requestErr
+			},
+			map[int]bool{http.StatusAccepted: true},
+			false,
+		)
+		total.attempts += result.attempts
+		total.transferred += result.transferred
+		if err == nil {
+			if err := consumeBounded(result.response.Body, c.maxResponseBytes); err != nil {
+				return total, err
+			}
+			if _, err := matchUploadRange(
+				result.response.Header.Get("Range"),
+				committedOffset,
+			); err != nil {
+				return total, err
+			}
+			total.location, err = c.resolveUploadLocation(
+				repository,
+				result.response.Header.Get("Location"),
+			)
+			return total, err
+		}
+		if failureKind(err) != FailureDependency {
+			return total, err
+		}
+		status, remoteOffset, statusErr := c.queryUploadStatus(
+			ctx,
+			scope,
+			repository,
+			currentLocation,
+			offset,
+			committedOffset,
+		)
+		total.attempts += status.attempts
+		if statusErr != nil {
+			return total, statusErr
+		}
+		currentLocation = status.location
+		if remoteOffset == committedOffset {
+			total.location = currentLocation
+			return total, nil
+		}
+		if remoteOffset != offset {
+			return total, newFailure(FailureProtocol)
+		}
+	}
+	return total, newFailure(FailureRetryExhausted)
 }
 
 func (c *Client) UploadMonolithic(
@@ -763,6 +936,13 @@ func (c *Client) UploadChunked(
 		resultKind = failureKind(err)
 		return err
 	}
+	if _, err := matchUploadRange(
+		startResult.response.Header.Get("Range"),
+		0,
+	); err != nil {
+		resultKind = failureKind(err)
+		return err
+	}
 	location, err := c.resolveUploadLocation(
 		repository,
 		startResult.response.Header.Get("Location"),
@@ -783,55 +963,21 @@ func (c *Client) UploadChunked(
 			resultKind = FailureProtocol
 			return newFailure(FailureProtocol)
 		}
-		currentLocation := location
-		currentOffset := offset
-		patchResult, err := c.perform(ctx, scope, func(authorization string) (*http.Request, *byteCounter, error) {
-			counter := &byteCounter{}
-			body := &countedReader{
-				reader:  bytes.NewReader(chunk),
-				counter: counter,
-			}
-			request, requestErr := newRequest(
-				ctx,
-				http.MethodPatch,
-				currentLocation,
-				body,
-				int64(len(chunk)),
-				authorization,
-			)
-			if requestErr == nil {
-				request.Header.Set("Content-Type", "application/octet-stream")
-				request.Header.Set(
-					"Content-Range",
-					fmt.Sprintf("%d-%d", currentOffset, currentOffset+int64(len(chunk))-1),
-				)
-			}
-			return request, counter, requestErr
-		}, map[int]bool{http.StatusAccepted: true}, false)
+		patchResult, err := c.uploadChunk(
+			ctx,
+			scope,
+			repository,
+			location,
+			chunk,
+			offset,
+		)
 		totalAttempts += patchResult.attempts
 		transferred += patchResult.transferred
 		if err != nil {
 			resultKind = failureKind(err)
 			return err
 		}
-		if err := consumeBounded(patchResult.response.Body, c.maxResponseBytes); err != nil {
-			resultKind = failureKind(err)
-			return err
-		}
-		expectedRange := fmt.Sprintf("0-%d", offset+int64(len(chunk))-1)
-		if actualRange := patchResult.response.Header.Get("Range"); actualRange != "" &&
-			actualRange != expectedRange {
-			resultKind = FailureProtocol
-			return newFailure(FailureProtocol)
-		}
-		location, err = c.resolveUploadLocation(
-			repository,
-			patchResult.response.Header.Get("Location"),
-		)
-		if err != nil {
-			resultKind = failureKind(err)
-			return err
-		}
+		location = patchResult.location
 		offset += int64(len(chunk))
 	}
 	finalURL := *location

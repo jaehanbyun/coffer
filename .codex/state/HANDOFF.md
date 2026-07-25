@@ -3,7 +3,7 @@
 - Updated: 2026-07-25
 - Status: plan 0019 active; local production observability, disposable
   filesystem GC/restore, load model/lifecycle, and canonical evidence verifier
-  complete; raw OCI core complete and loss-safe resumable reconciliation next
+  complete; loss-safe raw OCI resume complete and owner-only CLI boundary next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -346,6 +346,16 @@ release contains it yet.
   traversal locations, malformed challenge, retry exhaustion, cancellation,
   response overflow, symlink output, and credential-bearing errors fail
   closed. Chunk start/PATCH failures are deliberately not replayed blindly.
+- Added bounded loss-safe PATCH recovery using the official Distribution
+  upload-status GET. After transport loss or 502/503/504, only the exact prior
+  offset permits a bounded resend and only the exact committed offset
+  permits forward progress. Partial, ambiguous, malformed, cross-origin, or
+  traversal state fails closed; chunk-start failures still never create an
+  untracked retry.
+- Eighteen top-level Go tests pass under the race detector and `go vet`.
+  Local TLS tests cover response-lost-after-commit, response-before-commit,
+  status retry exhaustion, range/location drift, cancellation, and byte-exact
+  completion without duplicate append. No external registry was contacted.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2153,12 +2163,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Extend `poc/load-soak/driver/client.go` with bounded upload-status
-reconciliation. After an ambiguous chunk `PATCH`, query only the same-origin
-upload location, accept either the exact prior offset or exact committed
-offset, then retry or advance once without duplicating bytes. Cover
-transport/502/503/504 loss, drifted range/location, cancellation, and retry
-exhaustion with local TLS `httptest`; do not target a registry.
+Add the owner-only executable boundary beginning with
+`poc/load-soak/driver/cmd/coffer-raw-oci-driver/main.go`. Load exact mode-0600
+invocation, CA, and credential files without environment or secret arguments;
+require a separately verified qualified-readiness binding; run only bounded
+monolithic/chunked operations; atomically emit canonical aggregates and erase
+temporary state. Test with local TLS only and keep external execution fenced.
 
 ## After This Work Package
 
