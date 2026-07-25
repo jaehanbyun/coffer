@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0018 active; teardown partial at clean tenant boundary
+- Status: plan 0018 active; teardown partial at Coffer-stopped boundary
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
@@ -67,6 +67,12 @@ Kolla `stop` refused to run without its required explicit confirmation flag.
 The boundary audit retained nine healthy Coffer containers and healthy
 storage. The runner now supplies that flag only for the allowlisted companion
 stop action; the idempotent top-level sequence is ready to resume.
+The resumed teardown then stopped all nine Coffer process containers with
+zero Kolla failures while keeping Kolla, database/catalog, HAProxy, and Ceph
+healthy. S3 cleanup did not run: its status guard exited 141 from an expected
+`tee | grep -q` SIGPIPE. The guard now captures status fully before checking
+the stopped predicate. Both RGW users/buckets and all libvirt resources remain
+present.
 
 ## Plan 0018 Activation
 
@@ -1793,10 +1799,10 @@ stop action; the idempotent top-level sequence is ready to resume.
 
 ## Exact Next Action
 
-Validate and commit the Kolla stop-confirmation correction, then resume
+Validate and commit the S3 stopped-guard correction, then resume
 `poc/kolla-ha/teardown-stage5.sh run
-jh.byun@100.123.168.66`. Require adoption of the already clean tenant
-boundary, Coffer-only stop, zero RGW users/buckets and credential residue,
+jh.byun@100.123.168.66`. Require adoption of the clean-tenant and
+Coffer-stopped boundaries, zero RGW users/buckets and credential residue,
 exact Stage 5 libvirt removal, and unchanged unrelated-host signatures.
 
 ## After This Work Package

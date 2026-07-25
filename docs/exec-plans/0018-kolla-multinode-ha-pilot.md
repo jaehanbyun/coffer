@@ -2493,6 +2493,24 @@ promotion while ADR 0006 remains blocked.
   rerun top-level teardown `run`, and require it to adopt the clean tenant
   state before stopping Coffer and continuing to S3/libvirt cleanup.
 
+### 2026-07-25 — Coffer stopped; S3 gate pipeline corrected
+
+- Applied state: The resumed teardown adopted the clean tenant boundary and
+  stopped only the nine Coffer process containers. All three Kolla recaps had
+  zero failed/unreachable hosts. Exact stopped status is nine containers,
+  zero running/healthy, nine HAProxy listeners, twelve configurations, and
+  the retained database/catalog. External Ceph remains `HEALTH_OK`.
+- Failure: The S3 wrapper exited 141 before invoking its guest cleanup. Its
+  stopped-state guard used `tee | grep -q` under `pipefail`; once `grep`
+  matched and exited, `tee` received SIGPIPE. No bucket, object, RGW user,
+  credential state, guest, volume, or network was removed.
+- Correction: Companion status is now captured to completion, printed, and
+  then checked separately. The exact stopped-state predicate is unchanged,
+  but no producer can receive an expected SIGPIPE from a successful match.
+- Next exact action: Validate and commit the S3 guard correction, resume
+  top-level teardown from tenant-clean/Coffer-stopped/S3-prepared, and require
+  exact S3 cleanup before libvirt destroy.
+
 ## Verification
 
 | Check | Command or method | Result |

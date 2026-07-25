@@ -40,13 +40,15 @@ ssh_options=(
     -o UserKnownHostsFile="${known_hosts}"
 )
 
-"${harness}/run-coffer-companion-lifecycle.sh" status "${ssh_target}" |
-    tee /dev/stderr |
-    if test "${action}" = cleanup; then
-        grep -Fq 'coffer_companion_lifecycle state=stopped '
-    else
-        cat >/dev/null
-    fi
+companion_status="$(
+    "${harness}/run-coffer-companion-lifecycle.sh" status "${ssh_target}"
+)"
+printf '%s\n' "${companion_status}"
+if test "${action}" = cleanup; then
+    grep -Fq \
+        'coffer_companion_lifecycle state=stopped ' \
+        <<<"${companion_status}"
+fi
 
 ssh "${ssh_options[@]}" "ubuntu@${primary_management_address}" \
     sudo env LC_ALL=C LANG=C bash -s -- "${action}" \
