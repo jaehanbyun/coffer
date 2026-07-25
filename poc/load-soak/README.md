@@ -74,5 +74,14 @@ phase payload. Until a typed live collector exists it accepts only explicit
 `source=fixture`, `synthetic=true` evidence, so this local proof cannot be
 mistaken for production telemetry.
 
+`plan.py` compiles one exact, synthetic execution envelope from the checked-in
+topology and qualified release/image/configuration/client/driver hashes. The
+plan fixes all six client capability requirements, twelve operations, nine
+content classes, three profiles, seven ramp levels, ten serial faults,
+transfer ceilings, and three telemetry windows. Its matrix marks every
+executor and verified-TLS behavior as required rather than claiming those
+runtime adapters have executed. The owner-only CLI emits a deterministic,
+canonical mode-0600 envelope and cannot start a subprocess or network client.
+
 Live execution remains gated on a fresh disposable Stage 6 pilot and qualified
 stable dependencies.

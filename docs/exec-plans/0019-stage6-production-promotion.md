@@ -1573,6 +1573,39 @@ operator-local release.
   schedule; bind readiness, client, driver, image, and configuration evidence;
   emit owner-only canonical plan hashes without starting a workload.
 
+### 2026-07-25 — Deterministic load execution manifest completed
+
+- Binding: Added the exact `coffer.load-execution-plan-request/v1` contract.
+  It requires both architectures, literal qualified readiness, newer
+  Distribution and Tentacle v20.2 releases, full source revisions, exact
+  readiness/image/configuration/client/driver hashes, and the checked-in load
+  topology hash.
+- Matrix: The compiler fixes all six clients, twelve operation requirements,
+  nine deterministic content classes and byte sizes, three ordered profiles,
+  seven ramp levels, ten serial faults, thirteen lifecycle phases, and
+  before/during/after telemetry windows. Capability union must exactly cover
+  the topology.
+- Budgets: Smoke, qualification, and soak ceilings are copied byte-exact from
+  the topology; the seven ramp allocations together cannot exceed the
+  qualification ceiling; the overall plan cannot exceed the soak ceiling.
+- Honesty boundary: Each client matrix entry says that an executor contract
+  and verified TLS are required; it does not claim execution. The entire
+  envelope remains `synthetic=true`, so compilation cannot satisfy a measured
+  load phase.
+- File boundary: A canonical owner-only request and mode-0700 output parent
+  produce one deterministic atomic mode-0600 envelope with a canonical plan
+  hash. Inputs and output are distinct; symlink, mode, canonicalization,
+  binding, version, capability, and topology drift fail closed.
+- Verification: Twenty-three focused compiler tests and all 784 Python tests
+  pass. Static inspection confirms no network or subprocess adapter. No
+  client, workload, credential, service, container, VM, network, or remote
+  resource was used.
+- Next exact action: Add `poc/load-soak/orchestrator.py` with typed executor,
+  fault, and telemetry seams. Replay the compiled profile/matrix/ramp/fault
+  order and cumulative transfer budgets through fixture-only executors,
+  checkpoint owner-only canonical state, reject every live adapter, and expose
+  the missing real executor capabilities without starting a workload.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1665,6 +1698,8 @@ operator-local release.
 | Full regression after owner-only client runner | `uv run pytest -q` | passed; 728 |
 | Canonical load telemetry adapter | `uv run pytest -q tests/test_load_soak_telemetry.py` | passed; 33 |
 | Full regression after load telemetry adapter | `uv run pytest -q` | passed; 761 |
+| Deterministic load execution manifest | `uv run pytest -q tests/test_load_soak_plan.py` | passed; 23 |
+| Full regression after execution manifest | `uv run pytest -q` | passed; 784 |
 
 ## Failures, Blockers, and Risks
 
@@ -1695,11 +1730,10 @@ operator-local release.
   Real RGW lifecycle evidence and current stable dependencies remain blocked;
   no real identity, credential, certificate, endpoint, or remote state
   changed.
-- Exact next action: Add `poc/load-soak/plan.py` as a pure deterministic
-  execution-manifest compiler for the exact client/operation/content,
-  profile/ramp/fault, transfer-budget, and telemetry schedule. Bind all
-  qualified inputs and emit owner-only canonical plan evidence without
-  starting a workload.
+- Exact next action: Add `poc/load-soak/orchestrator.py` with typed executor,
+  fault, and telemetry seams. Replay the compiled profile/matrix/ramp/fault
+  order and transfer budgets through fixture-only adapters under owner-only
+  canonical checkpoints; reject all live adapters.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

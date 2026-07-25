@@ -4,7 +4,7 @@
 - Status: plan 0019 active; local production observability, disposable
   filesystem GC/restore, load model/lifecycle, and canonical evidence verifier
   complete; raw OCI and five real-client execution boundaries complete;
-  telemetry adapter complete; deterministic execution plan next
+  telemetry and deterministic execution plan complete; orchestrator next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -463,6 +463,14 @@ release contains it yet.
   typed live collector exists, the adapter accepts only explicit fixture,
   synthetic evidence; a claimed production export fails closed. No service,
   network, credential, or remote state changed.
+- Added the pure deterministic execution-manifest compiler. Exact qualified
+  bindings expand into all six clients, twelve operations, nine content
+  classes, three profiles, seven ramp levels, ten serial faults, transfer
+  ceilings, lifecycle phases, and telemetry windows without claiming any
+  executor ran.
+- Twenty-three compiler tests and all 784 Python tests pass. Owner-only
+  canonical output, deterministic hashes, version/topology/capability drift,
+  and no-network/no-subprocess scope are proven.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2270,10 +2278,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/load-soak/plan.py` as a pure deterministic execution-manifest
-compiler. Expand the exact client/operation/content, profile/ramp/fault,
-transfer-budget, and telemetry schedule; bind qualified evidence and emit
-owner-only canonical plan hashes without starting a workload.
+Add `poc/load-soak/orchestrator.py` with typed executor, fault, and telemetry
+seams. Replay the compiled profile/matrix/ramp/fault order and transfer
+budgets through fixture-only adapters under owner-only canonical checkpoints;
+reject every live adapter.
 
 ## After This Work Package
 
