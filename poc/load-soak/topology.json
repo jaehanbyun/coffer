@@ -1,0 +1,169 @@
+{
+  "schema": "coffer.load-soak-topology/v1",
+  "target_class": "disposable-stage6-pilot",
+  "invocation_prefix": "coffer-load",
+  "phases": [
+    "preflighted",
+    "dependencies-qualified",
+    "topology-verified",
+    "clients-qualified",
+    "seed-loaded",
+    "smoke-complete",
+    "ramp-complete",
+    "baseline-complete",
+    "faults-complete",
+    "soak-complete",
+    "data-verified",
+    "metrics-verified",
+    "torn-down"
+  ],
+  "profiles": {
+    "smoke": {
+      "duration_seconds": 120,
+      "steady_clients": 4,
+      "burst_clients": 4,
+      "transfer_ceiling_bytes": 2147483648
+    },
+    "qualification": {
+      "duration_seconds": 1800,
+      "steady_clients": 16,
+      "burst_clients": 32,
+      "transfer_ceiling_bytes": 42949672960
+    },
+    "soak": {
+      "duration_seconds": 7200,
+      "steady_clients": 8,
+      "burst_clients": 32,
+      "transfer_ceiling_bytes": 171798691840
+    }
+  },
+  "ramp_clients": [1, 2, 4, 8, 16, 32, 64],
+  "clients": [
+    "docker",
+    "podman",
+    "skopeo",
+    "oras",
+    "nerdctl",
+    "raw-oci"
+  ],
+  "operations": [
+    "control",
+    "token",
+    "manifest-read",
+    "manifest-publish",
+    "blob-read",
+    "blob-monolithic",
+    "blob-resumable",
+    "blob-cross-mount",
+    "quota-contention",
+    "index",
+    "artifact",
+    "abandoned-upload"
+  ],
+  "content_classes": [
+    "zero-byte",
+    "one-byte",
+    "one-mib",
+    "thirty-two-mib",
+    "two-hundred-fifty-six-mib",
+    "five-layer",
+    "shared-cross-mount",
+    "multiarch-index",
+    "subject-referrer"
+  ],
+  "latency_milliseconds": {
+    "control-token": {"p95": 1000, "p99": 2000},
+    "manifest-read": {"p95": 500, "p99": 2000},
+    "manifest-publish": {"p95": 2000, "p99": 5000},
+    "blob-control": {"p95": 1000, "p99": 5000},
+    "blob-first-byte": {"p95": 1000, "p99": 3000}
+  },
+  "availability_percent": {
+    "pull": 99.9,
+    "publish": 99.5,
+    "control-token": 99.9
+  },
+  "resource_gates": {
+    "minimum_headroom_percent": 30,
+    "maximum_limit_usage_percent": 70,
+    "maximum_unexpected_errors": 0,
+    "maximum_transaction_attempts": 3
+  },
+  "replicas": {
+    "api": 3,
+    "edge": 3,
+    "registry": 3,
+    "galera": 3,
+    "rgw": 3,
+    "rgw-ingress": 2,
+    "reconcile": 2
+  },
+  "faults": {
+    "api-replica": {"window_seconds": 60, "recovery_seconds": 30},
+    "edge-replica": {"window_seconds": 60, "recovery_seconds": 30},
+    "registry-mid-upload": {"window_seconds": 60, "recovery_seconds": 30},
+    "haproxy-vip-owner": {"window_seconds": 60, "recovery_seconds": 15},
+    "galera-writer": {"window_seconds": 90, "recovery_seconds": 30},
+    "rgw-daemon": {"window_seconds": 90, "recovery_seconds": 30},
+    "rgw-ingress": {"window_seconds": 60, "recovery_seconds": 30},
+    "barbican-kms": {"window_seconds": 60, "recovery_seconds": 30},
+    "reconciler-claim": {"window_seconds": 180, "recovery_seconds": 180},
+    "rolling-registry-edge": {"window_seconds": 300, "recovery_seconds": 30}
+  },
+  "required_architectures": ["aarch64", "x86_64"],
+  "required_recording_rules": [
+    "coffer:slo_pull_good:ratio_rate5m",
+    "coffer:slo_publish_good:ratio_rate5m",
+    "coffer:slo_control_good:ratio_rate5m",
+    "coffer:reconciliation_fresh:ratio",
+    "coffer:target_up:sum",
+    "coffer:error_budget_burn:ratio"
+  ],
+  "required_alerts": [
+    "CofferTargetDown",
+    "CofferNoHealthyBackend",
+    "CofferErrorBudgetFastBurn",
+    "CofferErrorBudgetSlowBurn",
+    "CofferReconciliationStalled",
+    "CofferStaleClaims",
+    "CofferDependencyUnavailable",
+    "CofferMetricsSchemaMismatch"
+  ],
+  "resource_keys": [
+    "identities",
+    "credentials",
+    "certificates",
+    "secrets",
+    "repositories",
+    "bucket",
+    "object-versions",
+    "multipart-uploads",
+    "database",
+    "load-clients",
+    "fault-state",
+    "metrics-snapshots",
+    "temporary-files",
+    "networks",
+    "virtual-machines"
+  ],
+  "residue_keys": [
+    "identities",
+    "credentials",
+    "certificates",
+    "secrets",
+    "repositories",
+    "buckets",
+    "objects",
+    "object_versions",
+    "delete_markers",
+    "multipart_uploads",
+    "databases",
+    "containers",
+    "images",
+    "networks",
+    "virtual_machines",
+    "volumes",
+    "temporary_files",
+    "locks"
+  ]
+}

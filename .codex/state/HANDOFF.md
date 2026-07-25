@@ -309,6 +309,15 @@ release contains it yet.
 - Existing Stage 5 evidence is reusable for functional fault contracts but
   does not claim sustained load, latency, capacity, ORAS, or
   containerd/nerdctl compatibility. No load or external mutation occurred.
+- Added the load/soak topology and pure state machine. Qualified stable
+  dependencies on aarch64 and x86_64 are a mandatory early fence; exact
+  profiles, client/operation/content matrices, ramp, latency/resource/
+  availability gates, ten fault recoveries, Galera/quota/data invariants,
+  metrics, tamper history, secret safety, and eighteen zero-residue categories
+  now fail closed.
+- Fifty-five focused tests and all 680 Python tests pass. Compilation,
+  topology parsing, static no-runtime/external-adapter inspection, and diff
+  checks pass. No external client or resource was used.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2116,11 +2125,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/load-soak/topology.json` and `poc/load-soak/state_machine.py`. Prove
-the exact profiles, phases, content/client matrices, ramp/latency/resource
-gates, serial fault windows and recovery outcomes, canonical evidence,
-secret safety, and zero residue without network, subprocess, credential,
-database, registry, or infrastructure access.
+Add fixture-only `poc/load-soak/lifecycle.py` and a versioned evidence fixture.
+Replay the exact phase machine through owner-only atomic state under a
+nonblocking lock, reject every non-fixture adapter, prove fixed failures and
+idempotent teardown, and retain only canonical secret-safe output. Do not
+start a load client or external service.
 
 ## After This Work Package
 

@@ -1187,6 +1187,34 @@ operator-local release.
   canonical evidence, secret safety, and zero residue without network,
   subprocess, credential, database, registry, or infrastructure access.
 
+### 2026-07-25 — Pure load and soak state contract completed
+
+- Topology: Added exact smoke/qualification/two-hour soak profiles, seven ramp
+  levels, six clients, twelve operations, nine content classes, five
+  p95/p99 latency gates, three availability objectives, resource/retry/replica
+  boundaries, ten fault windows, direct metrics/rules/alerts, fifteen owned
+  resources, and eighteen residue categories.
+- Dependency fence: No load phase can pass until signed Distribution and Ceph
+  evidence is `qualified` on aarch64 and x86_64. Candidate or blocked inputs,
+  one missing architecture, non-private/edge-only/shared topology, an insecure
+  client, or replica drift fail before seed data.
+- State model: Tamper-evident ordered history validates deterministic bounded
+  seed, smoke, measured ramp with the next higher failure, qualification,
+  bounded secure fault recovery, soak, exact digest/inventory/quota/claim/
+  Galera/upload invariants, direct restart-correct metrics, and zero residue.
+- Secret safety: Raw endpoints, tenant/repository/object/upload/credential
+  identities, bearer/JWT/private-key material, and unsupported retained types
+  are rejected; state retains only hashes and bounded aggregates.
+- Verification: Fifty-five focused tests and all 680 Python tests pass;
+  compilation, topology JSON, static no-runtime/external-adapter inspection,
+  and diff checks pass. The model made no network, subprocess, credential,
+  database, registry, storage, infrastructure, or remote call.
+- Next exact action: Add fixture-only `poc/load-soak/lifecycle.py` plus a
+  versioned evidence fixture. Replay the exact phase machine through owner-only
+  atomic state under a nonblocking lock, reject every non-fixture adapter,
+  prove fixed failure cases and idempotent teardown, and retain only canonical
+  secret-safe output. Do not start a load client or external service.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1259,6 +1287,8 @@ operator-local release.
 | Filesystem GC adapter/model regression | `uv run pytest -q tests/test_gc_filesystem_fixture.py tests/test_gc_collector_output.py tests/test_gc_retention_state_machine.py tests/test_gc_retention_lifecycle_cli.py` | passed; 84 |
 | Disposable exact-image filesystem GC | persistent-PTY `make -C poc/gc-retention/filesystem verify` | passed; candidates 5, survivors 9, reclaimed 613 bytes, restore passed, residue 0 |
 | Full regression after filesystem GC | `uv run pytest -q` | passed; 625 |
+| Pure load/soak state contract | `uv run pytest -q tests/test_load_soak_state_machine.py` | passed; 55 |
+| Full regression after load/soak state contract | `uv run pytest -q` | passed; 680 |
 
 ## Failures, Blockers, and Risks
 
