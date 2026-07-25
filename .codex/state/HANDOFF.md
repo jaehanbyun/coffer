@@ -262,6 +262,14 @@ release contains it yet.
   topology JSON, no-network/import inspection, and diff checks pass. No
   registry, S3, SQL, KMS, subprocess, container, network, credential, or
   remote resource was used. ADR 0017 remains proposed.
+- Added the fixture-only GC lifecycle CLI. Owner-only atomic state,
+  nonblocking/no-follow locking, explicit fixture adapter, exact phase replay,
+  bounded fake collection, single-use authority, secret-safe status/cleanup
+  plan, idempotent teardown, and unchanged-state failures are executable.
+- Sixty combined GC model/CLI tests and all 601 Python tests pass. Compilation,
+  CLI/JSON, static no-network/SQL/S3/subprocess inspection, and diff checks
+  pass. No registry binary or external resource was used; ADR 0017 remains
+  proposed.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2069,11 +2077,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add fixture-only `poc/gc-retention/lifecycle.py` and a fake adapter. Use
-owner-only atomic state/evidence, a nonblocking lock, exact phase replay,
-bounded failure injection, single-use collection, idempotent teardown, and
-zero residue. Refuse every non-fixture adapter and do not invoke the
-Distribution binary.
+Add `poc/gc-retention/collector_output.py` with captured exact-v3.1.1 dry-run
+fixtures. Normalize only bounded repository, summary, and manifest/blob/link
+candidate lines into sorted hashed sets and aggregate counts. Reject unknown,
+malformed, duplicate, mixed-version, secret-like, retained-intersecting, or
+over-limit output without invoking the collector.
 
 ## After This Work Package
 

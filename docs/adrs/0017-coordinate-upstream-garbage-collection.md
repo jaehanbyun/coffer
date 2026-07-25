@@ -139,6 +139,14 @@ restore, full repository regression, and secret checks pass. Production
 acceptance additionally requires the released dependency, disposable RGW/KMS
 copy, fresh Kolla HA pilot, and zero-residue teardown.
 
+The pure topology/state model and fixture-only lifecycle now pass locally.
+They prove owner-only atomic state, nonblocking locking, exact phase replay,
+compound fence/backup/candidate/authority/survivor/reclaim/restore contracts,
+fixed failure refusal, secret-safe public evidence, idempotent teardown, and
+zero reported fixture residue without invoking a registry, storage, SQL, KMS,
+subprocess, container, or network. This evidence does not yet accept the ADR;
+the exact-release output adapter and real temporary collection remain open.
+
 ## Primary References
 
 - [CNCF Distribution garbage collection](https://distribution.github.io/distribution/about/garbage-collection/)

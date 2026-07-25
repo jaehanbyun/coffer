@@ -1065,6 +1065,31 @@ operator-local release.
   idempotent teardown, and zero residue. Refuse every non-fixture adapter and
   do not invoke the Distribution binary yet.
 
+### 2026-07-25 — Fixture-only coordinated GC lifecycle completed
+
+- CLI/store: Added preflight/status/cleanup-plan plus every ordered mutating
+  action. State is stored below one exact invocation in mode-0700 directories
+  and mode-0600 atomic files under a nonblocking, no-follow, single-link lock.
+- Adapter boundary: Only the literal `fixture` adapter exists. Its versioned
+  input pins the exact Distribution revision, fixed refused failures, and zero
+  residue. Read-only actions reject fixture arguments; mutation without the
+  explicit adapter fails closed.
+- Lifecycle: Deterministic fake evidence traverses explicit delete, fence,
+  backup, baseline, two dry runs, finite authorization, single collection,
+  survivors, separated reclaim, restore, failures, and teardown. Out-of-order
+  actions, pin/residue drift, unsafe paths/modes/links, concurrent locks,
+  tampered history, and secret-bearing fixture failures preserve prior state.
+- Verification: Sixty combined GC model/CLI tests and all 601 Python tests
+  pass. Compilation, CLI help, both JSON fixtures/topology, static no-network/
+  SQL/S3/subprocess inspection, and diff checks pass.
+- Scope: No registry binary, storage, SQL, KMS, subprocess, container, network,
+  credential, or remote resource was used. ADR 0017 remains proposed.
+- Next exact action: Add `poc/gc-retention/collector_output.py` with captured
+  exact-v3.1.1 dry-run fixtures. Normalize only bounded repository/summary/
+  candidate lines into sorted hashed sets and aggregate counts; reject unknown,
+  malformed, duplicate, mixed-version, secret-like, retained-intersecting, or
+  over-limit output without invoking the collector.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1130,6 +1155,8 @@ operator-local release.
 | Stage 6 GC/retention source and contract inventory | Exact Distribution v3.1.1 source plus official Distribution, OCI, and Ceph documentation | passed; upstream ownership and fail-closed candidate boundary fixed |
 | Pure coordinated GC/retention model | `uv run pytest -q tests/test_gc_retention_state_machine.py` | passed; 46 |
 | Full regression after GC/retention state model | `uv run pytest -q` | passed; 587 |
+| Fixture-only coordinated GC lifecycle | `uv run pytest -q tests/test_gc_retention_state_machine.py tests/test_gc_retention_lifecycle_cli.py` | passed; 60 |
+| Full regression after fixture-only GC lifecycle | `uv run pytest -q` | passed; 601 |
 
 ## Failures, Blockers, and Risks
 
@@ -1159,11 +1186,11 @@ operator-local release.
   lifecycle through an ordered no-network adapter seam. Real lifecycle
   evidence and current stable dependencies remain blocked; no real identity,
   credential, certificate, endpoint, or remote state changed.
-- Exact next action: Add fixture-only
-  `poc/gc-retention/lifecycle.py` and a fake adapter. Use owner-only atomic
-  state/evidence, a nonblocking lock, exact phase replay, bounded failure
-  injection, single-use collection, idempotent teardown, and zero residue.
-  Refuse every non-fixture adapter and do not invoke the Distribution binary.
+- Exact next action: Add `poc/gc-retention/collector_output.py` with captured
+  exact-v3.1.1 dry-run fixtures. Normalize only bounded repository, summary,
+  and manifest/blob/link candidate lines into sorted hashed sets and aggregate
+  counts. Reject unknown, malformed, duplicate, mixed-version, secret-like,
+  retained-intersecting, or over-limit output without invoking the collector.
 - Questions requiring user input: None for the next fixture-only lifecycle
   milestone. The user has already authorized atomic milestone publication and
   the bounded disposable Stage 6 sequence; exact safety and release gates

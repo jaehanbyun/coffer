@@ -39,13 +39,22 @@ The model stores immutable resource IDs only in owner-local state. Its public
 evidence hashes those IDs and refuses credentials, tokens, keys, endpoints,
 tenant/content identifiers, secret-like values, and dependency exception text.
 
-Run the focused proof with:
+Run the focused pure model and fixture-only lifecycle proof with:
 
 ```bash
-uv run pytest -q tests/test_gc_retention_state_machine.py
+uv run pytest -q \
+  tests/test_gc_retention_state_machine.py \
+  tests/test_gc_retention_lifecycle_cli.py
 ```
 
-The next layer is a fixture-only lifecycle CLI and fake adapter. A later
-filesystem fixture may invoke the exact upstream collector against a temporary
-directory only after the pure gates pass. Disposable RGW/KMS and Kolla HA
-execution remain later Stage 6 gates.
+`lifecycle.py` stores state below `work/gc-retention/<invocation>` using
+mode-0700 directories and mode-0600 atomic files under a nonblocking lock.
+`preflight`, `status`, and `cleanup-plan` are local contract operations.
+Every later phase requires `--adapter fixture --fixture
+tests/fixtures/gc_retention.json`; no other adapter exists. The checked-in
+fixture produces deterministic hashed evidence and fixed failure outcomes but
+does not emulate a registry implementation or claim storage behavior.
+
+The next layer is an exact-v3.1.1 collector-output normalizer followed by a
+filesystem-backed temporary Distribution fixture. Disposable RGW/KMS and
+Kolla HA execution remain later Stage 6 gates.

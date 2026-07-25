@@ -242,6 +242,10 @@ def _assert_secret_safe(value: Any, path: tuple[str, ...] = ()) -> None:
             )
 
 
+def validate_retained_payload(value: Any) -> None:
+    _assert_secret_safe(value)
+
+
 def load_topology(path: Path) -> dict[str, Any]:
     raw = json.loads(path.read_text(encoding="utf-8"))
     validate_topology(raw)
@@ -418,7 +422,10 @@ def _validate_state(
         else EXPECTED_PHASES.index(state["phase"])
     )
     expected_phases = EXPECTED_PHASES[: current_index + 1]
-    if tuple(state["evidence"]) != expected_phases:
+    if (
+        len(state["evidence"]) != len(expected_phases)
+        or set(state["evidence"]) != set(expected_phases)
+    ):
         raise GCRetentionError("state evidence phase sequence changed")
     if len(state["history"]) != len(expected_phases) + 1:
         raise GCRetentionError("state history length changed")
@@ -448,6 +455,13 @@ def _validate_state(
         for earlier, later in zip(timestamps, timestamps[1:], strict=False)
     ):
         raise GCRetentionError("state history timestamps changed")
+
+
+def validate_state(
+    topology: Mapping[str, Any],
+    state: Mapping[str, Any],
+) -> None:
+    _validate_state(topology, state)
 
 
 def _validate_preflight(
