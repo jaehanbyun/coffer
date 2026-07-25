@@ -1,8 +1,8 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; no-network data-protection backup seam complete;
-  Stage 6 observability contract next
+- Status: plan 0019 active; Stage 6 restart-correct observability contract
+  fixed; ADR 0016 and pure contract model next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -211,6 +211,17 @@ release contains it yet.
 - Live backup execution remains part of the fresh disposable convergence
   pilot after a target contract and acceptable released dependencies exist.
   No external resource was touched.
+- Added `docs/research/stage6-observability.md`. Source/config inspection
+  confirms process-local API metrics plus multiple workers and a VIP scrape
+  are incomplete; edge/reconciler/Distribution and rules/dashboard/SLO
+  surfaces are also missing.
+- The Stage 6 candidate uses one API/edge worker per container, replica
+  scale-out, direct verified-TLS per-replica scrapes, private Distribution and
+  reconciler metrics, Kolla native HAProxy/MariaDB metrics, and external Ceph
+  mgr metrics. It fixes bounded labels, log/leak rules, initial SLO budgets,
+  alerts, dashboard rows, and restart/stale-series acceptance.
+- Official Prometheus, Kolla-Ansible, Distribution, and Ceph documents were
+  checked. No local runtime configuration or external state changed.
 
 ## Plan 0018 Activation
 
@@ -1937,11 +1948,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Inspect the current API, edge, registry, reconciler, database, RGW/KMS, and
-HAProxy metrics/logging contracts, then create
-`docs/research/stage6-observability.md` defining restart-correct ownership,
-bounded labels, protected collection, alerts, dashboards, and an initial
-SLO/failure budget. Do not contact a remote service.
+Add proposed ADR 0016 and a pure observability contract model with tests for
+fixed labels, per-replica targets, one-worker enforcement, public operational
+path denial, recording/alert/dashboard references, restart/stale transitions,
+and secret-safe retained evidence. Do not contact a remote service.
 
 ## After This Work Package
 

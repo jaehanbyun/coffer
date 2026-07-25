@@ -108,6 +108,7 @@ operator-local release.
 | Keep official Kolla upstream work outside Stage 6 | Companion-role contracts may still change as production identity, data protection, and operations gates close | Starting governance review around provisional deployment contracts | 2026-07-25 |
 | Approve the dedicated expiring maintenance identity boundary for pure local implementation | A separate service user, exact dual-role policy, server-side SQL authority, pull-only token reduction, and private mTLS bound cross-project reads without sharing tenant, signer, or RGW credentials | Per-project credential fan-out; API middleware password/admin reuse; service/system or mTLS-only authority; signer key in the worker; separate read proxy | 2026-07-25 |
 | Represent live-comparison authority as a finite SQL session bound to the imported digest, workload, and writer-exclusion evidence reference | The broker needs current server-side authority that can expire, complete, revoke, and replay safely without storing a credential or repository path | Caller-supplied route/action; static configuration flag; a bearer token as approval; claiming that the SQL row itself proves external writer exclusion | 2026-07-25 |
+| Use direct per-replica scrapes and one API/edge worker per container as the Stage 6 observability candidate | Current process-local collectors plus VIP scraping are incomplete; multiple HA replicas and gthread concurrency provide a simpler initial scale boundary whose resets have normal Prometheus semantics | VIP/public-FQDN scrape; unproven Python multiprocess mode; Pushgateway; parsing logs as the sole SLI source | 2026-07-25 |
 
 ## Tasks
 
@@ -730,6 +731,43 @@ operator-local release.
   bounded labels, protected collection, alerts, dashboards, and an initial
   SLO/failure budget. Do not contact a remote service.
 
+### 2026-07-25 — Restart-correct observability contract fixed
+
+- Current-state result: API owns an optional private process-local collector
+  but defaults to multiple Gunicorn workers; edge has no operational
+  application; reconciler counters have no endpoint; Prometheus targets one
+  API FQDN/VIP; Distribution metrics are disabled; and there are no Coffer
+  rules, alerts, dashboards, or failure-budget documents.
+- Candidate decision: Start with one API/edge worker per container, retain
+  thread concurrency, scale with HA replicas, and scrape every replica
+  directly over verified backend TLS. A worker count above one fails the
+  production metrics precheck until another aggregation ADR is accepted.
+- Dependency ownership: Use Distribution's private metrics-only debug
+  listener, Kolla's native HAProxy and MariaDB surfaces, and the external Ceph
+  mgr Prometheus endpoint. Coffer/Kolla does not provision Ceph. Barbican
+  HTTP health and the RGW KMS functional signal remain distinct.
+- Completed contract: Added
+  `docs/research/stage6-observability.md` with restart/stale-series semantics,
+  protected target topology, fixed labels and metric families, reconciler
+  freshness gauges, structured log/leak rules, initial 30-day SLO budgets,
+  alerts, dashboard rows, Kolla changes, pilot acceptance, and ADR 0016
+  candidates.
+- Primary-source check: Prometheus Python multiprocess mode requires an
+  externally initialized/wiped directory and has collector/Gauge/exemplar
+  limitations. Current Kolla uses native HAProxy Prometheus support and
+  supports protected Prometheus, while Distribution warns its debug endpoint
+  must remain private. Ceph mgr owns cluster metric aggregation.
+- Scope: Read-only source/config and official-document inspection only. No
+  config, metric endpoint, Prometheus, Grafana, HAProxy, Ceph, registry,
+  container, network, or remote state changed.
+- Changed files: `docs/research/stage6-observability.md`, this plan, and
+  `HANDOFF.md`.
+- Next exact action: Add proposed ADR 0016 and a pure observability contract
+  model with tests for exact component/route/method/status/result/dependency
+  labels, per-replica target generation, one-worker enforcement,
+  public-path denial, recording/alert/dashboard references, restart/stale
+  transitions, and secret-safe evidence. Do not contact a remote service.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -770,6 +808,8 @@ operator-local release.
 | Full regression after canonical backup verifier | `uv run pytest -q` | passed; 428 |
 | No-network backup adapter and integrated backup gate | `uv run pytest -q tests/test_data_protection_backup_adapter.py tests/test_data_protection_backup_manifest.py tests/test_data_protection_lifecycle_cli.py tests/test_data_protection_state_machine.py` | passed; 80 |
 | Full regression after no-network backup adapter | `uv run pytest -q` | passed; 439 |
+| Stage 6 observability source/config inventory | Focused inspection of Coffer metrics/runners, Distribution config, Kolla scrape/log/HAProxy model, and prior M3 evidence | passed; gaps and owners fixed |
+| Stage 6 observability primary sources | Official Prometheus client, Kolla-Ansible, Distribution, and Ceph documentation | passed; candidate is consistent with supported surfaces |
 
 ## Failures, Blockers, and Risks
 
@@ -799,9 +839,10 @@ operator-local release.
   lifecycle through an ordered no-network adapter seam. Real lifecycle
   evidence and current stable dependencies remain blocked; no real identity,
   credential, certificate, endpoint, or remote state changed.
-- Exact next action: Inventory the current observability surfaces and create
-  the Stage 6 restart-correct metrics/logs/alerts/dashboard/SLO contract
-  without contacting a remote service.
+- Exact next action: Add proposed ADR 0016 and a pure observability contract
+  model proving the fixed labels, targets, worker boundary, restart semantics,
+  rule/dashboard references, public denial, and secret-safe evidence without
+  contacting a remote service.
 - Questions requiring user input: None for the next fixture-only lifecycle
   milestone. The user has already authorized atomic milestone publication and
   the bounded disposable Stage 6 sequence; exact safety and release gates
