@@ -18,6 +18,30 @@ Run with an already-running Podman machine:
 make -C poc/inventory verify
 ```
 
-The fixture is a filesystem-backed PoC for the selected read-only evidence seam.
-It does not import quota state, qualify RGW credentials/configuration, authorize a
-production cutover, or make the helper an upstream-supported Distribution API.
+The helper now has two mutually exclusive storage adapters:
+
+- `--root` retains the filesystem fixture contract; and
+- `--config`, `--expected-distribution-version`, and
+  `--expected-config-sha256` construct the exact release's registered
+  `s3`/`s3aws` driver from one owner-only Distribution configuration.
+
+The S3 adapter refuses a configuration that is not a regular single-link
+mode-0600 file owned by the process, any `REGISTRY_*` override or ambient AWS
+credential selector, a release/config digest mismatch, multiple/non-S3
+drivers, storage middleware, proxy mode, missing static credentials, insecure
+or unverified TLS, non-v4 auth, non-path-style RGW access, a root bucket
+prefix, or request/body debug logging. Its total scan timeout is bounded from
+one second through one hour and defaults to ten minutes.
+
+Both adapters construct only a storage namespace and use the same repository
+and manifest scan core. The helper does not start Distribution's HTTP
+application, upload purger, events, health checks, cache, or delete/GC
+behavior. S3/driver failures are reported as fixed categories without
+configuration or backend detail.
+
+The checked-in fixture still exercises only filesystem storage. The S3
+adapter has configuration-contract tests but has not connected to RGW and does
+not yet attach exact helper/config/backend provenance to the canonical
+inventory/import artifact. It therefore does not qualify RGW credentials,
+authorize a production cutover, or make the helper an upstream-supported
+Distribution API.

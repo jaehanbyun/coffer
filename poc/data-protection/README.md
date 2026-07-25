@@ -292,7 +292,7 @@ zero-residue results.
 
 ## Implementation Sequence
 
-The next local milestone should:
+The exact-release helper adapter milestone completed steps 1 through 4:
 
 1. extract the current canonical scan/evidence logic from
    `poc/inventory/main.go` without changing its filesystem result;
@@ -301,8 +301,19 @@ The next local milestone should:
 3. reject middleware, proxy, insecure TLS, ambient credentials, and mismatched
    release/config evidence before driver construction;
 4. add fixture tests for configuration and secret-safe failures;
-5. build an immutable non-root helper image with no registry server entry
-   point; and
-6. preserve filesystem fixture regression before any live RGW execution.
+5. preserve filesystem fixture regression before any live RGW execution.
+
+The implementation now shares the namespace scan core between filesystem and
+S3, parses the selected Distribution configuration, constructs only the
+registered S3 driver/namespace, refuses the prohibited configuration and
+ambient credential paths, and bounds both scans with one context. Seven Go
+configuration tests, Go vet, the existing filesystem Podman fixture, and its
+zero-residue cleanup pass. No RGW connection was attempted.
+
+The next local milestone must extend the S3 evidence schema with the exact
+Distribution revision, canonical module graph, helper binary, configuration,
+storage type, endpoint, bucket, and root hashes; teach the verifier/importer
+to preserve and validate that provenance; and build an immutable non-root
+helper image with no registry server entry point.
 
 No external resource may be created by that implementation milestone.

@@ -10,9 +10,11 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"time"
 
 	distribution "github.com/distribution/distribution/v3"
 	"github.com/distribution/distribution/v3/registry/storage"
+	storagedriver "github.com/distribution/distribution/v3/registry/storage/driver"
 	"github.com/distribution/distribution/v3/registry/storage/driver/filesystem"
 	"github.com/distribution/reference"
 	digest "github.com/opencontainers/go-digest"
@@ -113,15 +115,15 @@ type scanResult struct {
 	Facts        []manifestFact
 }
 
-func scan(ctx context.Context, root string) (scanResult, error) {
-	driver := filesystem.New(filesystem.DriverParameters{
-		RootDirectory: root,
-		MaxThreads:    25,
-	})
+func namespaceFromDriver(ctx context.Context, driver storagedriver.StorageDriver) (distribution.Namespace, error) {
 	namespace, err := storage.NewRegistry(ctx, driver)
 	if err != nil {
-		return scanResult{}, fmt.Errorf("construct registry namespace: %w", err)
+		return nil, fmt.Errorf("construct registry namespace: %w", err)
 	}
+	return namespace, nil
+}
+
+func scan(ctx context.Context, namespace distribution.Namespace) (scanResult, error) {
 	repositoryEnumerator, ok := namespace.(distribution.RepositoryEnumerator)
 	if !ok {
 		return scanResult{}, errors.New("namespace lacks repository enumeration")
@@ -271,13 +273,12 @@ func evidenceScan(phase string, result scanResult, pageSize int) (scanEvidence, 
 	}, nil
 }
 
-func run(root string, pageSize int) error {
-	ctx := context.Background()
-	startFacts, err := scan(ctx, root)
+func run(ctx context.Context, namespace distribution.Namespace, pageSize int) error {
+	startFacts, err := scan(ctx, namespace)
 	if err != nil {
 		return fmt.Errorf("start scan: %w", err)
 	}
-	endFacts, err := scan(ctx, root)
+	endFacts, err := scan(ctx, namespace)
 	if err != nil {
 		return fmt.Errorf("end scan: %w", err)
 	}
@@ -306,14 +307,54 @@ func run(root string, pageSize int) error {
 
 func main() {
 	root := flag.String("root", "", "read-only Distribution filesystem root")
+	configPath := flag.String("config", "", "owner-only Distribution S3 configuration")
+	expectedVersion := flag.String("expected-distribution-version", "", "exact Distribution release")
+	expectedConfigSHA256 := flag.String("expected-config-sha256", "", "sha256:<hex> of the configuration")
 	pageSize := flag.Int("page-size", maxPageSize, "bounded evidence page size")
+	scanTimeout := flag.Duration("scan-timeout", 10*time.Minute, "finite total scan timeout")
 	flag.Parse()
-	if *root == "" || *pageSize < 1 || *pageSize > maxPageSize || flag.NArg() != 0 {
+	if (*root == "") == (*configPath == "") ||
+		*pageSize < 1 ||
+		*pageSize > maxPageSize ||
+		*scanTimeout < time.Second ||
+		*scanTimeout > time.Hour ||
+		flag.NArg() != 0 {
 		fmt.Fprintln(os.Stderr, "inventory enumeration failed: invalid arguments")
 		os.Exit(2)
 	}
-	if err := run(*root, *pageSize); err != nil {
-		fmt.Fprintf(os.Stderr, "inventory enumeration failed: %v\n", err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), *scanTimeout)
+	defer cancel()
+	var namespace distribution.Namespace
+	var err error
+	if *root != "" {
+		if *expectedVersion != "" || *expectedConfigSHA256 != "" {
+			fmt.Fprintln(os.Stderr, "inventory enumeration failed: invalid arguments")
+			os.Exit(2)
+		}
+		driver := filesystem.New(filesystem.DriverParameters{
+			RootDirectory: *root,
+			MaxThreads:    25,
+		})
+		namespace, err = namespaceFromDriver(ctx, driver)
+	} else {
+		namespace, err = s3Namespace(
+			ctx,
+			*configPath,
+			*expectedVersion,
+			*expectedConfigSHA256,
+		)
+	}
+	if err != nil {
+		if errors.Is(err, errS3ConfigRefused) {
+			fmt.Fprintln(os.Stderr, "inventory enumeration failed: s3 configuration refused")
+		} else {
+			fmt.Fprintln(os.Stderr, "inventory enumeration failed: storage unavailable")
+		}
+		os.Exit(1)
+	}
+	if err := run(ctx, namespace, *pageSize); err != nil {
+		fmt.Fprintln(os.Stderr, "inventory enumeration failed: bounded scan unavailable")
 		os.Exit(1)
 	}
 }

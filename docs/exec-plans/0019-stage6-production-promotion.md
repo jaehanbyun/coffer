@@ -515,6 +515,40 @@ operator-local release.
   `factory.Create` with fixture tests for middleware/proxy/TLS/ambient-
   credential refusal. Do not connect to RGW.
 
+### 2026-07-25 — Exact-release S3 inventory adapter completed locally
+
+- Completed: Refactored the canonical scan to accept one constructed
+  Distribution namespace. Filesystem retains its direct read-only driver;
+  the new S3 path parses an owner-only config, registers the exact release's
+  `s3-aws` driver, calls `factory.Create` and `storage.NewRegistry`, and runs
+  the same two scans under one finite context. It never starts the registry
+  HTTP application, upload purger, cache, events, health, delete, or GC.
+- Fail-closed configuration: Exact release/config digest, mode-0600 regular
+  single-link ownership, static distinct credentials, HTTPS endpoint,
+  secure/verified TLS, v4/path-style RGW access, non-root prefix, and disabled
+  body/request logging are mandatory. `REGISTRY_*`, ambient AWS credentials,
+  middleware, proxy, multiple/non-S3 drivers, insecure transport, symlink/
+  hardlink, and mismatches are refused before driver construction.
+- Verification: Seven Go tests and vet pass under the pinned Go 1.25.3
+  toolchain. The host had an ambient Homebrew `GOROOT` for Go 1.26.5; removing
+  only that command-local override restored the matching mise toolchain.
+  Full Python regression passes 346 tests. The existing filesystem Podman
+  fixture still proves equal scans, digest-only enumeration, SQL/storage
+  nonmutation, and zero container/volume/network/state residue; the Podman VM
+  was returned to stopped.
+- Dependency lock: The exact S3 path adds Distribution's pinned AWS SDK,
+  JMESPath, and YAML dependencies to the module sums.
+- Scope: No RGW, registry, SQL, identity, KMS, certificate, endpoint, remote
+  file, or infrastructure resource was contacted or changed.
+- Changed files: `poc/inventory/main.go`, `s3_config.go`,
+  `s3_config_test.go`, `go.mod`, `go.sum`, `poc/inventory/README.md`,
+  `poc/data-protection/README.md`, this plan, and `HANDOFF.md`.
+- Next exact action: Add an S3 evidence/provenance schema binding the exact
+  Distribution revision, canonical module graph, helper binary, config,
+  storage type, endpoint, bucket, and root hashes. Extend
+  `coffer-inventory-verify` and `coffer-import-inventory` to preserve and
+  validate that provenance while keeping filesystem v1 byte-compatible.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -540,6 +574,8 @@ operator-local release.
 | Full regression after lifecycle model | `uv run pytest -q` | passed; 335 |
 | Maintenance lifecycle CLI | `uv run pytest -q tests/test_maintenance_identity_lifecycle_cli.py` | passed; 11 |
 | Full regression after lifecycle CLI | `uv run pytest -q` | passed; 346 |
+| Exact-release S3 config adapter | `env -u GOROOT "$(mise which go)" test ./...`; `vet ./...` in `poc/inventory` | passed; 7 tests |
+| Filesystem inventory compatibility | persistent-PTY `make -C poc/inventory verify` | passed; equal scans, immutable SQL/storage, zero residue |
 
 ## Failures, Blockers, and Risks
 

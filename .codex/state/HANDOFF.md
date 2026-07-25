@@ -1,8 +1,8 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; data-protection/cutover contract fixed;
-  exact-release RGW inventory helper next
+- Status: plan 0019 active; exact-release S3 inventory adapter complete;
+  provenance-bound artifact next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -154,6 +154,16 @@ release contains it yet.
   Production-compatible enumeration must parse the exact Distribution config,
   create the registered S3 driver, and construct only the storage namespace;
   it must not start the registry application or its purge/event/HTTP behavior.
+- Implemented that S3 adapter without connecting to RGW. Exact release/config
+  digest, owner-only file, static credentials, verified HTTPS, v4/path style,
+  root prefix, no middleware/proxy/ambient credentials, and finite timeout are
+  enforced before the shared two-scan core. Failures emit fixed categories.
+- Seven Go tests and vet, all 346 Python tests, and the original filesystem
+  Podman inventory fixture pass. The fixture again proved storage/SQL
+  nonmutation and zero residue; the Podman VM was restored to stopped.
+- The host exposed an ambient Go 1.26.5 `GOROOT` while mise supplied Go 1.25.3.
+  Go verification succeeded with only `GOROOT` removed for those commands;
+  no shell configuration was changed.
 
 ## Plan 0018 Activation
 
@@ -1880,11 +1890,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Refactor the canonical scan/evidence code out of `poc/inventory/main.go`,
-preserve the filesystem result, then add an exact-release S3 configuration
-adapter using `configuration.Parse` and `factory.Create` with fixture tests
-for middleware, proxy, insecure TLS, ambient credentials, and configuration
-mismatch. Do not connect to RGW.
+Add an S3 evidence/provenance schema binding the exact Distribution revision,
+canonical module graph, helper binary, config, storage type, endpoint, bucket,
+and root hashes. Extend `coffer-inventory-verify` and
+`coffer-import-inventory` to preserve and validate the provenance while
+keeping filesystem v1 byte-compatible.
 
 ## After This Work Package
 
