@@ -308,6 +308,8 @@ class RegistryEdgeProxy:
         api_origin: UpstreamOrigin | None,
         registry_origin: UpstreamOrigin,
     ) -> UpstreamOrigin | None:
+        if path == "/v1/internal" or path.startswith("/v1/internal/"):
+            return None
         if path == "/auth/token" or path == "/v1" or path.startswith("/v1/"):
             return api_origin
         if path == "/v2" or path.startswith("/v2/"):

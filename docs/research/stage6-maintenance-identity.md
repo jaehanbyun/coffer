@@ -55,6 +55,13 @@ blast radii and would copy a static privileged password into another process.
 Reducing or replacing this middleware credential is a related Stage 6
 hardening task, not a reason to reuse it.
 
+The first local proof now implements the recommended reconciliation boundary:
+exact maintenance application-credential/access-rule/user/project/role policy,
+trusted workload context, live SQL claim fencing, server-resolved route,
+pull-only JWT reduction, and public-edge denial. The internal resource remains
+optional and unconfigured. Live-comparison sessions, mTLS workload injection,
+Kolla secret delivery, and real identity lifecycle evidence remain open.
+
 ## Authority Separation
 
 Four authorities must remain distinct:

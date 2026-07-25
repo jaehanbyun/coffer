@@ -251,6 +251,36 @@ operator-local release.
   injectable maintenance authorization/token-broker core beginning in
   `src/coffer/maintenance_token.py`.
 
+### 2026-07-25 — Reconciliation maintenance-token local core completed
+
+- Completed: Added the optional middleware-protected internal token resource,
+  exact maintenance user/project/dual-role/application-credential/access-rule
+  policy, trusted non-HTTP workload context, strict typed request parser,
+  read-only live reconciliation claim authority, server-side repository route
+  resolution, and one-repository pull-only JWT reduction.
+- Edge and secret safety: The public edge now rejects `/v1/internal` and all
+  descendants before opening either upstream. Password tokens, unrestricted
+  application credentials, wrong user/project/roles/workload, caller-selected
+  project/repository/action/audience/subject, stale claim/token/version/worker/
+  expiry, and dependency exception text fail with fixed secret-safe results.
+- Scope boundary: The resource is injectable for local proof and is not enabled
+  by `build_product_application`. No configuration, identity, credential,
+  certificate, Barbican secret, Kolla recipient, endpoint, remote service, or
+  production data changed. The live-comparison request is typed but still has
+  no approved-session SQL authority, so ADR 0015 remains proposed and the
+  maintenance-identity task remains open.
+- Verification: 291 Python tests pass, including 30 new maintenance/API/edge
+  cases; all 52 Kolla companion-role checks pass; compilation and diff checks
+  pass.
+- Changed files: `src/coffer/maintenance_token.py`, `src/coffer/quota.py`,
+  `src/coffer/registry_proxy.py`, `src/coffer/tokens.py`,
+  `src/coffer/wsgi.py`, `tests/test_maintenance_api.py`,
+  `tests/test_maintenance_token.py`, `tests/test_registry_proxy.py`, ADR 0015,
+  this plan, and `.codex/state/HANDOFF.md`.
+- Next exact action: Define the approved live-comparison session lifecycle in
+  ADR 0015, then begin its local SQL schema with
+  `src/coffer/migrations/versions/0005_maintenance_comparison_sessions.py`.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -262,11 +292,13 @@ operator-local release.
 | Plan/HANDOFF structure | Markdown inspection and local-link check | passed |
 | Upstream classifier fixtures | `uv run pytest -q tests/test_upstream_readiness.py` | passed; 10 |
 | Live upstream classifier | `make -C poc/production-images check-upstream` | passed; valid `blocked` result |
-| Full Python regression | `uv run pytest -q` | passed; 261 |
+| Full Python regression | `uv run pytest -q` | passed; 291 |
 | Kolla companion-role regression | `make -C poc/kolla-ansible-role verify` | passed; 52 |
 | Maintenance identity code/config inventory | Focused inspection of live comparison, reconciliation runner/probe, WSGI, Kolla config, secrets, and Stage 5 inputs | passed |
 | Maintenance identity primary sources | Current Keystone, keystonemiddleware, Barbican, and Distribution specifications | passed |
 | ADR 0015 contract consistency | Focused comparison with ADRs 0008, 0013, 0014 and the Stage 6 identity research | passed; proposed pending local proof |
+| Maintenance token/API/edge focused regression | `uv run pytest -q tests/test_maintenance_api.py tests/test_maintenance_token.py tests/test_registry_proxy.py tests/test_tokens.py tests/test_quota_reconciliation.py` | passed; 85 |
+| Python compilation and diff checks | `uv run python -m compileall -q src tests`; `git diff --check` | passed |
 
 ## Failures, Blockers, and Risks
 
@@ -288,13 +320,15 @@ operator-local release.
 
 - Current state: Stage 5 is complete and committed. Stage 6 has a deterministic
   upstream release gate and proposed ADR 0015 for the user-approved maintenance
-  identity boundary. Current stable dependencies remain blocked; no real
-  identity, credential, certificate, recipient, endpoint, or remote state
-  changed.
-- Exact next action: Inspect the current token, SQL authority, reconciliation
-  claim, and edge routing seams, then begin the injectable pure local broker
-  core in `src/coffer/maintenance_token.py`.
-- First file: `src/coffer/maintenance_token.py`.
+  identity boundary. Its reconciliation broker and internal API contract pass
+  pure local tests, while the live-comparison session authority, production
+  configuration, mTLS adapter, and secret delivery remain absent. Current
+  stable dependencies remain blocked; no real identity, credential,
+  certificate, recipient, endpoint, or remote state changed.
+- Exact next action: Define the approved live-comparison session lifecycle in
+  ADR 0015, then add the first local schema migration at
+  `src/coffer/migrations/versions/0005_maintenance_comparison_sessions.py`.
+- First file: `docs/adrs/0015-use-expiring-maintenance-identity.md`.
 - Questions requiring user input: None for the pure local proof. Separate
   approval remains required for credential creation/delivery, Kolla secret
   recipients and private frontend deployment, destructive GC, external

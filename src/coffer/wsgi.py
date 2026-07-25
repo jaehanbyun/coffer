@@ -13,6 +13,7 @@ from coffer.authorization import RegistryScopeAuthorizer
 from coffer.config import parse_config, setup_logging
 from coffer.db import RepositoryStore
 from coffer.keystone import create_authenticator
+from coffer.maintenance_token import INTERNAL_TOKEN_PATH
 from coffer.observability import (
     CofferMetrics,
     HTTPMetricsMiddleware,
@@ -54,6 +55,7 @@ def build_application(
     operational_application: Any | None = None,
     enforcer: Any | None = None,
     metrics: CofferMetrics | None = None,
+    maintenance_resource: Any | None = None,
 ) -> Any:
     store = store or RepositoryStore(conf.database.connection)
     enforcer = enforcer or create_enforcer(conf)
@@ -64,6 +66,8 @@ def build_application(
     repository = RepositoryResource(store, enforcer)
     application.add_route("/v1/repositories", collection)
     application.add_route("/v1/repositories/{repository_id}", repository)
+    if maintenance_resource is not None:
+        application.add_route(INTERNAL_TOKEN_PATH, maintenance_resource)
 
     middleware_config: dict[str, Any]
     if auth_config is None:

@@ -105,6 +105,34 @@ must remain disabled by default until authenticated private-TLS end-to-end,
 rotation, revocation, outage, replica failover, log scan, and residue teardown
 all pass.
 
+## Local Proof Status
+
+The first pure local implementation milestone is complete:
+
+- the optional internal Falcon resource stays behind
+  `keystonemiddleware.auth_token`;
+- the middleware and resource require the exact `oci-registry`, `POST`,
+  internal-path access rule and reject unrestricted or password-issued tokens;
+- policy exact-matches the immutable maintenance user, service project,
+  `service` plus `registry_maintenance` roles, and a trusted WSGI workload
+  identity that cannot be supplied by an HTTP header;
+- a read-only SQL query validates the reconciliation reservation, repository,
+  worker, claim token, row version, state, and lease expiry;
+- the broker resolves the current repository route server-side and emits only
+  one short-lived `pull` claim bounded by both Keystone-token and authority
+  expiry;
+- the public edge returns a fixed 404 for the internal namespace without API or
+  registry upstream I/O; and
+- fixed denial/unavailable responses and decision logs omit caller-selected
+  repository authority, claim tokens, and dependency exception text.
+
+ADR 0015 remains proposed. The typed live-comparison request and authority seam
+fail closed, but there is no approved-session SQL schema or lifecycle yet.
+There is also no production configuration, trusted mTLS-to-WSGI adapter, real
+credential, Kolla recipient, or secret materialization. Those gaps cannot be
+represented by a permissive fake or by enabling the resource in
+`build_product_application`.
+
 ## Consequences
 
 - Coffer gains one explicit, auditable cross-project authorization boundary

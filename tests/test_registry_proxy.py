@@ -241,6 +241,32 @@ def test_unknown_and_operational_public_paths_fail_closed(path: str) -> None:
     assert b"NOT_FOUND" in b"".join(chunks)
 
 
+@pytest.mark.parametrize(
+    "path",
+    (
+        "/v1/internal",
+        "/v1/internal/",
+        "/v1/internal/maintenance/registry-token",
+    ),
+)
+def test_internal_control_paths_are_never_forwarded_by_public_edge(path: str) -> None:
+    with backend(response_body=b"api") as (api_server, api_records), backend(
+        response_body=b"registry"
+    ) as (registry_server, registry_records):
+        application = RegistryEdgeProxy(
+            manifest_application,
+            origin(registry_server),
+            api_origin=origin(api_server),
+        )
+
+        status, _headers, chunks = invoke(application, path, method="POST")
+
+    assert status == "404 Not Found"
+    assert b"NOT_FOUND" in b"".join(chunks)
+    assert api_records == []
+    assert registry_records == []
+
+
 def test_residual_percent_escape_is_rejected_before_backend_routing() -> None:
     unavailable = UpstreamOrigin.from_url(
         "http://127.0.0.1:1",

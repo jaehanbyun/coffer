@@ -74,6 +74,17 @@ release contains it yet.
   its pure local acceptance tests pass.
 - No credential, role, endpoint, ACL, certificate, secret recipient, policy,
   or runtime setting changed.
+- Added the pure local maintenance token core and optional internal resource.
+  Exact maintenance user/project/roles, restricted application credential and
+  access rule, trusted workload context, live SQL reconciliation claim/version/
+  worker/lease, server-resolved route, pull-only JWT, public-edge denial, and
+  fixed secret-safe failures now have local evidence. The product builder does
+  not enable the resource.
+- Full regression now passes 291 Python tests and 52 Kolla companion-role
+  checks. Compilation and diff checks pass.
+- ADR 0015 remains proposed because an approved live-comparison session SQL
+  authority, mTLS workload adapter, production configuration, owner-only secret
+  delivery, and real lifecycle evidence do not exist.
 
 ## Plan 0018 Activation
 
@@ -1800,11 +1811,9 @@ release contains it yet.
 
 ## Exact Next Action
 
-Inspect `src/coffer/tokens.py`, `src/coffer/quota.py`, `src/coffer/db.py`, and
-the current edge routing tests. Then add the smallest injectable maintenance
-authorization and pull-token core beginning in
-`src/coffer/maintenance_token.py`, without creating a credential or Kolla
-recipient.
+Define the approved live-comparison session lifecycle in ADR 0015, then add the
+first local SQL schema migration at
+`src/coffer/migrations/versions/0005_maintenance_comparison_sessions.py`.
 
 ## After This Work Package
 

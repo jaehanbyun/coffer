@@ -253,6 +253,10 @@ class StaleReconciliationClaim(Exception):
     pass
 
 
+class ReconciliationReadNotAuthorized(Exception):
+    pass
+
+
 def _retryable_transaction_error(exc: SQLAlchemyError) -> bool:
     original = getattr(exc, "orig", None)
     arguments = getattr(original, "args", ())
@@ -432,6 +436,14 @@ class ReconciliationClaim:
 class ReconciliationClaimPage:
     claims: tuple[ReconciliationClaim, ...]
     next_cursor: ReconciliationCursor | None
+
+
+@dataclass(frozen=True, slots=True)
+class ReconciliationReadAuthority:
+    project_id: str
+    repository_id: str
+    reservation_id: str
+    expires_at: datetime
 
 
 def _descriptor(value: object) -> Descriptor:
@@ -814,6 +826,76 @@ class QuotaStore:
                 )
             )
             return result.rowcount == 1
+
+    def authorize_reconciliation_read(
+        self,
+        *,
+        reservation_id: str,
+        repository_id: str,
+        claim_token: str,
+        expected_version: int,
+        worker_id: str,
+        checked_at: datetime,
+    ) -> ReconciliationReadAuthority:
+        if (
+            not reservation_id
+            or len(reservation_id) > 36
+            or not repository_id
+            or len(repository_id) > 36
+            or not claim_token
+            or len(claim_token) > 36
+            or not worker_id
+            or worker_id.strip() != worker_id
+            or len(worker_id) > 128
+            or isinstance(expected_version, bool)
+            or not isinstance(expected_version, int)
+            or expected_version <= 0
+            or checked_at.tzinfo is None
+            or checked_at.utcoffset() is None
+        ):
+            raise ReconciliationReadNotAuthorized(
+                "reconciliation read is not authorized"
+            )
+
+        statement = (
+            select(
+                quota_reservations.c.project_id,
+                quota_reservations.c.repository_id,
+                quota_reservations.c.id.label("reservation_id"),
+                quota_reconciliation_claims.c.expires_at,
+            )
+            .select_from(
+                quota_reservations.join(
+                    quota_reconciliation_claims,
+                    quota_reconciliation_claims.c.reservation_id
+                    == quota_reservations.c.id,
+                )
+            )
+            .where(
+                quota_reservations.c.id == reservation_id,
+                quota_reservations.c.repository_id == repository_id,
+                quota_reservations.c.state.in_(RECONCILIATION_STATES),
+                quota_reservations.c.version == expected_version,
+                quota_reconciliation_claims.c.claim_token == claim_token,
+                quota_reconciliation_claims.c.worker_id == worker_id,
+                quota_reconciliation_claims.c.expires_at > checked_at,
+            )
+        )
+        with self._reader() as conn:
+            row = conn.execute(statement).first()
+        if row is None:
+            raise ReconciliationReadNotAuthorized(
+                "reconciliation read is not authorized"
+            )
+        expires_at = row.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        return ReconciliationReadAuthority(
+            project_id=row.project_id,
+            repository_id=row.repository_id,
+            reservation_id=row.reservation_id,
+            expires_at=expires_at,
+        )
 
     @staticmethod
     def _reservation_descriptors(conn: object, reservation_id: str) -> list[Descriptor]:

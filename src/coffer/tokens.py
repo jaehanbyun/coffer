@@ -9,14 +9,12 @@ import json
 import os
 import re
 import stat
+from typing import Protocol
 import uuid
 
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 import jwt
-
-from coffer.keystone import ApplicationCredentialPrincipal
-
 
 ALLOWED_QUERY_PARAMETERS = {
     "account",
@@ -207,6 +205,11 @@ def public_jwk(public_key: rsa.RSAPublicKey, *, key_id: str | None = None) -> di
 Clock = Callable[[], datetime]
 
 
+class TokenPrincipal(Protocol):
+    user_id: str
+    expires_at: datetime
+
+
 class TokenIssuer:
     def __init__(
         self,
@@ -257,7 +260,7 @@ class TokenIssuer:
 
     def issue(
         self,
-        principal: ApplicationCredentialPrincipal,
+        principal: TokenPrincipal,
         access: Sequence[AccessGrant],
     ) -> IssuedToken:
         issued_at = self._clock().astimezone(UTC).replace(microsecond=0)
