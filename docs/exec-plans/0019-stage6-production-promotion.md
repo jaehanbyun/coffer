@@ -488,6 +488,33 @@ operator-local release.
   SQL/RGW backup, exact-release inventory, import/comparison, cutover,
   rollback, restore, and residue phases without accessing a live registry.
 
+### 2026-07-25 — Data-protection and cutover contract fixed
+
+- Source result: The filesystem PoC constructs `filesystem.New` directly and
+  cannot qualify RGW. Distribution v3.1.1 constructs the runtime S3 path from
+  `configuration.Parse`, `Storage.Type/Parameters`, blank driver
+  registration, `factory.Create`, and `storage.NewRegistry`. Starting
+  `handlers.NewApp` would also activate unrelated HTTP, purge, cache, event,
+  middleware, and health behavior and is rejected for the helper.
+- Completed: Added `poc/data-protection/README.md` with the exact-release
+  helper construction/refusal boundary, immutable disposable topology,
+  owner-only state, writer exclusion, immediately restored SQL/RGW backups,
+  double inventory, import/idempotency, authenticated comparison, admission
+  cutover, rollback, recovery, bounded failures, and exact teardown.
+- Backup decision: Treat raw S3/RGW object identifiers only as backup
+  transport. Repository authority remains the selected Distribution
+  enumerators. Accept a backup only after isolated SQL and RGW restore plus
+  inventory/client digest verification, never from a zero exit code alone.
+- Scope: No registry, RGW, SQL, KMS, identity, credential, certificate,
+  endpoint, container, VM, network, volume, object, database, or remote file
+  was created, read, modified, or deleted.
+- Changed files: `poc/data-protection/README.md`, this plan, and `HANDOFF.md`.
+- Next exact action: Refactor the canonical scan/evidence code out of
+  `poc/inventory/main.go`, preserve the filesystem result, then add an
+  exact-release S3 configuration adapter using `configuration.Parse` and
+  `factory.Create` with fixture tests for middleware/proxy/TLS/ambient-
+  credential refusal. Do not connect to RGW.
+
 ## Verification
 
 | Check | Command or method | Result |

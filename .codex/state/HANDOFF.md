@@ -1,8 +1,8 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; maintenance lifecycle local proof complete;
-  data-protection/cutover contract next
+- Status: plan 0019 active; data-protection/cutover contract fixed;
+  exact-release RGW inventory helper next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -146,6 +146,14 @@ release contains it yet.
   final Stage 6 maintenance done criterion still requires real private-TLS,
   credential/Barbican rotation, outage, audit, and residue evidence in the
   fresh disposable pilot.
+- Added `poc/data-protection/README.md`. It fixes exact-release S3 helper
+  construction, immutable ownership, writer exclusion, immediately restored
+  SQL/RGW backups, double inventory, import/comparison, admission cutover,
+  rollback/recovery, bounded failures, and exact residue teardown.
+- Source inspection confirms the existing helper is filesystem-only.
+  Production-compatible enumeration must parse the exact Distribution config,
+  create the registered S3 driver, and construct only the storage namespace;
+  it must not start the registry application or its purge/event/HTTP behavior.
 
 ## Plan 0018 Activation
 
@@ -1872,11 +1880,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Inspect and pin the selected Distribution release's storage enumerator plus
-S3/RGW driver construction, then create `poc/data-protection/README.md`
-defining disposable writer exclusion, SQL/RGW backup, exact-release inventory,
-import/comparison, cutover, rollback, restore, and residue phases without
-accessing a live registry.
+Refactor the canonical scan/evidence code out of `poc/inventory/main.go`,
+preserve the filesystem result, then add an exact-release S3 configuration
+adapter using `configuration.Parse` and `factory.Create` with fixture tests
+for middleware, proxy, insecure TLS, ambient credentials, and configuration
+mismatch. Do not connect to RGW.
 
 ## After This Work Package
 
