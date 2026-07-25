@@ -582,6 +582,47 @@ operator-local release.
   cutover/rollback transitions, fixed failures, cleanup planning, and
   secret-safe evidence. Do not call an external service.
 
+### 2026-07-25 — Data-protection rehearsal state model completed locally
+
+- Completed: Added the versioned disposable topology and pure state machine
+  for preflight, immutable resource registration, fixture creation, writer
+  exclusion, restored SQL/RGW backup, equal exact-release inventory scans,
+  transactional import, authenticated comparison, admission cutover,
+  rollback, restore, the fixed failure matrix, and teardown.
+- Integrity boundary: The model binds every phase to an exact evidence-key set
+  and canonical monotonic history. The cutover marker commits to the writer
+  fence, backup, inventory provenance, import database, maintenance session,
+  workload, routing, and cutover database. Rollback requires an exact manifest
+  and equal created/removed post-cutover write counts.
+- Cleanup boundary: Every resource requires a complete allowlisted name,
+  kind, and immutable ID. Cleanup is dependency ordered, mutation targets
+  must match the retained immutable tuple, unrelated resources must keep the
+  same signature, and all 16 fixed residue categories must be explicit
+  zeroes before terminal state.
+- Fail-closed coverage: Tests refuse topology expansion/reordering,
+  incomplete, renamed, or duplicate resources, phase skips, open writer
+  paths, unstable source signatures, unrestored or divergent backups,
+  multipart residue, unequal scans, import/live/cutover/rollback/restore
+  gaps, partial cleanup/residue reports, tampered evidence/history, and
+  secret fields or patterns.
+- Verification: Twenty-seven focused state-model tests, all 386 Python tests,
+  and all 68 Kolla companion-role checks pass. Compilation, topology JSON
+  parsing, diff checks, and Gitleaks pass.
+- Scope: The implementation imports no service client and performs no
+  network, SSH, Ansible, Kolla, OpenStack, RGW, SQL, KMS, registry, identity,
+  certificate, VM, or remote-file operation.
+- Changed files: `poc/data-protection/topology.json`,
+  `poc/data-protection/state_machine.py`,
+  `tests/test_data_protection_state_machine.py`,
+  `poc/data-protection/README.md`, this plan, and `HANDOFF.md`.
+- Next exact action: Add fixture-only
+  `poc/data-protection/lifecycle.py`,
+  `tests/fixtures/data_protection.json`, and CLI tests for read-only
+  preflight/status, atomic mode-0600 state, nonblocking locks, exact
+  target/adapter gates, every ordered phase, deterministic cleanup, fixed
+  failures, and idempotent zero-residue teardown. Do not contact a remote
+  service.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -613,6 +654,9 @@ operator-local release.
 | Provenance helper Go regression | pinned Go 1.25.3 `test ./...`; `vet ./...` | passed; 8 tests |
 | Static helper image contract | ARM64 Podman build, inspect, no-network `--help`, exact image removal | passed; non-root scratch image, zero tagged image/container residue |
 | Full regression after provenance helper | `uv run pytest -q` | passed; 359 |
+| Data-protection state model | `uv run pytest -q tests/test_data_protection_state_machine.py` | passed; 27 |
+| Full regression after data-protection state model | `uv run pytest -q` | passed; 386 |
+| Kolla role after data-protection state model | `make -C poc/kolla-ansible-role verify` | passed; 68 |
 
 ## Failures, Blockers, and Risks
 
@@ -635,14 +679,16 @@ operator-local release.
 - Current state: Stage 5 is complete and committed. Stage 6 has deterministic
   upstream release gates plus an accepted local maintenance broker/session
   design. The opt-in generated Kolla recipient/private-frontend fixture and
-  trusted workload adapter are complete; defaults and reconciliation remain
-  disabled. Real lifecycle evidence and current stable dependencies remain
-  blocked; no real identity, credential, certificate, endpoint, or remote state
-  changed.
-- Exact next action: Create `poc/maintenance-identity/README.md` and define the
-  abort-safe disposable create/rotate/revoke/teardown harness and exact
-  allowlists without executing or creating external resources.
-- Questions requiring user input: None for the next local harness-design
-  milestone. Real credential/certificate/Barbican creation, remote deployment,
-  reconciliation enablement, destructive GC, and publication remain outside
-  that local step.
+  trusted workload adapter and fixture-only lifecycle are complete; defaults
+  and reconciliation remain disabled. The provenance-bound S3 inventory helper
+  and pure data-protection rehearsal state model are complete. Real lifecycle
+  evidence and current stable dependencies remain blocked; no real identity,
+  credential, certificate, endpoint, or remote state changed.
+- Exact next action: Add fixture-only
+  `poc/data-protection/lifecycle.py`,
+  `tests/fixtures/data_protection.json`, and CLI tests for the complete
+  phase/cleanup flow without contacting an external service.
+- Questions requiring user input: None for the next fixture-only lifecycle
+  milestone. The user has already authorized atomic milestone publication and
+  the bounded disposable Stage 6 sequence; exact safety and release gates
+  remain fail closed.

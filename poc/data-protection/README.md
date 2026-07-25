@@ -324,10 +324,26 @@ exposed port, and accepts only the helper entry point. A local ARM64 build and
 no-network CLI inspection passed, then the exact image and Podman VM were
 removed.
 
-The next local milestone should implement a pure data-protection topology and
-state machine for exact phase ordering, immutable ownership, writer-fence
-evidence, backup/restore manifests, cutover/rollback transitions, failure
-categories, cleanup planning, and secret-safe retained evidence. It must use
-fixtures only and create no external resource.
+The pure topology and state-machine milestone is complete locally. The model
+pins every disposable resource, phase, failure case, cleanup dependency, and
+residue category. It accepts a transition only when the preceding phase,
+phase-specific evidence set, canonical history, stable source signature,
+restored SQL/RGW manifests, equal exact-release inventory scans,
+provenance-bound cutover marker, exact rollback manifest, complete failure
+matrix, and unchanged unrelated-resource signature all agree.
+
+The model also refuses incomplete or renamed resources, duplicate immutable
+IDs, out-of-order transitions, partial writer fences, unrestored backups,
+multipart residue, inventory drift, incomplete import/live/cutover/rollback
+proofs, partial cleanup targets, partial residue reports, tampered histories,
+extra phase evidence, and secret-bearing retained payloads. Terminal state
+requires all fixed residue categories to be explicit zeroes.
+
+The next local milestone should add a fixture-only `lifecycle.py` command
+adapter. It must provide read-only `preflight` and `status`, atomic mode-0600
+state replacement under a nonblocking invocation lock, exact fixture-gated
+phase commands, deterministic dry-run cleanup, fixed secret-safe failures,
+and idempotent zero-residue teardown. It must refuse every mutating command
+unless the fixture adapter and exact target signature are selected.
 
 No external resource may be created by that implementation milestone.

@@ -1,8 +1,8 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; provenance-bound S3 helper artifact complete;
-  data-protection state model next
+- Status: plan 0019 active; pure data-protection state model complete;
+  fixture-only lifecycle adapter next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -175,6 +175,15 @@ release contains it yet.
 - Fifty-three focused inventory/import/image tests, eight Go tests and vet,
   all 359 Python tests, compilation, and diff checks pass. This remains local
   evidence only; no RGW connection or signed/x86_64 promotion occurred.
+- Added the versioned data-protection topology and pure state machine. Exact
+  phase evidence/history, immutable ownership, writer exclusion, restored
+  SQL/RGW manifests, equal inventory scans, provenance-bound cutover,
+  manifest-bound rollback, fixed failures, dependency cleanup, all fixed
+  zero-residue categories, and unchanged unrelated state now fail closed.
+- Twenty-seven focused model tests, all 386 Python tests, and all 68 Kolla
+  companion-role checks pass. Compilation, topology parsing, diff checks, and
+  Gitleaks pass. The model performs no network, OpenStack, registry, RGW, SQL,
+  KMS, Kolla, VM, or remote-file operation.
 
 ## Plan 0018 Activation
 
@@ -1901,11 +1910,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/data-protection/topology.json`,
-`poc/data-protection/state_machine.py`, and fixture-driven tests for exact
-phase ordering, immutable ownership, writer-fence evidence, backup/restore
-manifests, cutover/rollback transitions, fixed failures, cleanup planning, and
-secret-safe evidence. Do not call an external service.
+Add fixture-only `poc/data-protection/lifecycle.py`,
+`tests/fixtures/data_protection.json`, and CLI tests for read-only
+preflight/status, atomic mode-0600 state, nonblocking locks, exact
+target/adapter gates, every ordered phase, deterministic cleanup, fixed
+failures, and idempotent zero-residue teardown. Do not call an external
+service.
 
 ## After This Work Package
 
