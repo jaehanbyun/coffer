@@ -7,8 +7,8 @@
   telemetry, deterministic plan, and fixture orchestrator complete; runtime
   manifest, control/token/quota protocol core, and owner-only control CLI
   complete; checkpointed profile/ramp and recovery-first fault executors
-  complete; owner-only telemetry collection boundary complete; native
-  Prometheus/exporter surface parsing next
+  complete; owner-only telemetry collection boundary and native
+  Prometheus/exporter parser seam complete; versioned native target next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -545,10 +545,30 @@ release contains it yet.
   manifest tests pass 66, the broader load matrix 204, and all 863 Python
   tests pass.
 - The current HTTPS endpoints expose normalized surface schemas. Native
-  Prometheus API and HAProxy/MariaDB/Ceph/node exporter parsing and exact
-  pilot adapter qualification remain open. Telemetry entries are now
-  source-hashed `contract-only`; the runtime manifest still has nine
-  unqualified executors and remains `ready=false`.
+  Prometheus API and HAProxy/MariaDB/Ceph/node exporter parsing was still open
+  at this checkpoint. Telemetry entries are source-hashed `contract-only`; the
+  runtime manifest still has nine unqualified executors and remains
+  `ready=false`.
+- Added the native telemetry parser seam and direct verified-TLS/no-proxy
+  client. It normalizes exact Prometheus v1 query/rule, HAProxy, stock
+  mysqld-exporter/Galera, Ceph mgr/ceph-exporter/RGW ingress, and node-exporter
+  series into the seven existing payload shapes while refusing selected
+  series/label/identity/rule drift.
+- Galera readiness is reduced only from up, synced local state, matching state
+  UUIDs, one shared cluster identity, and exact cluster size. CPU/session-OOM
+  require Prometheus interval-query vectors; quota/claim/fencing,
+  KMS/multipart, and workload-error facts remain explicit auxiliary evidence.
+  Nothing is inferred from a non-equivalent metric.
+- The normalized v1 target remains unchanged. A separately versioned native
+  target must still bind exact PromQL/URL hashes and source/auxiliary
+  allowlists before `collector/run.py` can select this seam. Fourteen native
+  parser/TLS tests, 80 focused tests, the 253-test broad load matrix, and all
+  878 Python tests pass.
+- Concurrent focused/full verification exposed the existing Darwin
+  exited-child `killpg()` `EPERM` race. Commit `a9c341d` reaps only that exact
+  completed child and fails closed for a still-live inaccessible group. The
+  noisy-child case passed 20 repetitions, all 16 profile tests pass, and the
+  standalone 878-test regression passes.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2356,11 +2376,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/load-soak/collector/native_surfaces.py`. Parse bounded Prometheus HTTP
-API and strict HAProxy, mysqld-exporter, Ceph mgr/RGW, and node-exporter
-responses from their exact verified-TLS URLs into the seven internal surface
-schemas. Pin query/metric/label allowlists, refuse missing or extra series, and
-prove each parser with captured local TLS fakes only.
+Add `poc/load-soak/collector/native_target.py` with a versioned native target
+contract. Bind exact source URLs, URL-encoded PromQL and hashes,
+component/backend/daemon/host allowlists, auxiliary evidence URLs and content
+types, then compose one phase snapshot through `native_surfaces.py` using
+local TLS fakes before selecting it from `collector/run.py`.
 
 ## After This Work Package
 

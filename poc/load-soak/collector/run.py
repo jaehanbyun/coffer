@@ -39,6 +39,10 @@ telemetry = _module(
     "coffer_load_collector_telemetry",
     LOAD_DIRECTORY / "telemetry.py",
 )
+native_surfaces = _module(
+    "coffer_load_collector_native_surfaces",
+    DIRECTORY / "native_surfaces.py",
+)
 
 INVOCATION_SCHEMA = "coffer.load-telemetry-collection/v1"
 TARGET_SCHEMA = "coffer.load-telemetry-target/v1"
@@ -146,7 +150,11 @@ def _file_hash(payload: bytes) -> str:
 def _source_hash() -> str:
     digest = hashlib.sha256()
     for path in sorted(
-        (DIRECTORY / "run.py", LOAD_DIRECTORY / "telemetry.py"),
+        (
+            DIRECTORY / "native_surfaces.py",
+            DIRECTORY / "run.py",
+            LOAD_DIRECTORY / "telemetry.py",
+        ),
         key=lambda item: str(item),
     ):
         payload = path.read_bytes()

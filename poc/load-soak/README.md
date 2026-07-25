@@ -122,6 +122,14 @@ bundle for independent verification. Local TLS fakes qualify only this
 transport and state boundary, not a pilot adapter or native exporter
 deployment.
 
+`collector/native_surfaces.py` adds the bounded raw-source parser seam for the
+Prometheus v1 API, HAProxy, mysqld-exporter/Galera, Ceph mgr/ceph-exporter/RGW
+ingress, and node-exporter. It produces the existing seven internal payload
+shapes while keeping quota/reconciliation/KMS/multipart/workload error fields
+as explicit auxiliary evidence instead of inventing native metrics. The v1
+collector target does not select this seam yet; exact source URLs, PromQL, and
+allowlists require a versioned native target before pilot use.
+
 `runtime_manifest.py` maps every schedule entry and operation to the current
 runtime capability baseline. It binds a canonical owner-only compiled plan,
 qualified readiness file, exact client pins, checked-in runner source hashes,

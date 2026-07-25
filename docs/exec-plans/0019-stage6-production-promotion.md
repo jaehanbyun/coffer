@@ -110,6 +110,7 @@ operator-local release.
 | Represent live-comparison authority as a finite SQL session bound to the imported digest, workload, and writer-exclusion evidence reference | The broker needs current server-side authority that can expire, complete, revoke, and replay safely without storing a credential or repository path | Caller-supplied route/action; static configuration flag; a bearer token as approval; claiming that the SQL row itself proves external writer exclusion | 2026-07-25 |
 | Use direct per-replica scrapes and one API/edge worker per container as the Stage 6 observability candidate | Current process-local collectors plus VIP scraping are incomplete; multiple HA replicas and gthread concurrency provide a simpler initial scale boundary whose resets have normal Prometheus semantics | VIP/public-FQDN scrape; unproven Python multiprocess mode; Pushgateway; parsing logs as the sole SLI source | 2026-07-25 |
 | Use upstream stop-the-world GC without `--delete-untagged`, and separate Distribution logical reclamation from RGW physical-version cleanup | Digest-only manifests are valid content; the pinned collector is the reachability authority; S3 versioning means a sweep need not reclaim physical bytes immediately | Coffer reachability implementation; global untagged deletion; online GC; automatic RGW orphan/lifecycle deletion | 2026-07-25 |
+| Add native Prometheus/exporter parsing beside the normalized v1 telemetry target, then introduce a separately versioned target before pilot use | The existing v1 contract is already verified and one raw node scrape cannot yield interval CPU/OOM data; quota, claim/fencing, KMS, multipart, and workload-error facts also have no equivalent native metric | Silently changing v1 semantics; deriving interval or control-plane evidence from unrelated gauges; treating parser fixtures as a qualified pilot adapter | 2026-07-25 |
 
 ## Tasks
 
@@ -1889,6 +1890,45 @@ operator-local release.
   surface schemas. Pin query/metric/label allowlists, refuse missing or extra
   series, and prove each parser with captured local TLS fakes only.
 
+### 2026-07-25 — Native Prometheus and exporter parser seam completed
+
+- Completed: Added a direct verified-TLS/no-proxy JSON and exposition client
+  plus strict parsers for Prometheus v1 vector/scalar/rules responses, HAProxy
+  server status, stock mysqld-exporter Galera status, Ceph mgr RGW metadata,
+  ceph-exporter daemon sockets, HAProxy RGW ingress, and node-exporter resource
+  gauges. The parsers emit the existing seven internal payload shapes.
+- Series contract: Selected metrics, labels, target identities, rule names,
+  backend servers, Galera instances/cluster UUID, RGW daemons/hosts, and node
+  roles are finite and exact. Missing, duplicate, or extra selected series,
+  partial warnings, pagination, unhealthy rules, nonfinite values, selected
+  timestamps/exemplars, split Galera identity, unknown RGW daemons, and
+  ambiguous root filesystems fail closed. Unrelated exporter families remain
+  ignored within the global byte/line cap.
+- Honest derivation: Galera primary/ready/synced requires `mysql_up=1`,
+  local-state 4, equal local/cluster UUID, one shared cluster UUID, and exact
+  cluster size. Node CPU and session OOM values require allowlisted Prometheus
+  interval-query vectors because a one-point exporter scrape cannot derive
+  them. Quota/claim/fencing, KMS/multipart, and workload-error facts remain
+  explicit auxiliary evidence rather than invented native metrics.
+- Compatibility: The existing normalized `coffer.load-telemetry-target/v1`
+  and collector behavior are unchanged. The collector source hash now includes
+  the native parser. Exact PromQL text/URL hashes and source/auxiliary
+  allowlists still need a separately versioned native target before pilot use.
+- Evidence: The implementation was checked against current primary Prometheus,
+  HAProxy, mysqld-exporter v0.19.0, Ceph Tentacle v20.2.2, and node-exporter
+  v1.11.1 source/documentation. Fourteen parser/TLS tests, 80 focused
+  parser/collector/telemetry/manifest tests, the 253-test broad load matrix,
+  and all 878 Python tests pass. Compilation and diff checks pass. No endpoint,
+  exporter, Prometheus query, container, VM, credential, or remote state
+  changed.
+- Next exact action: Add
+  `poc/load-soak/collector/native_target.py` with a versioned native target
+  contract. Bind exact source URLs, URL-encoded PromQL and hashes,
+  component/backend/daemon/host allowlists, auxiliary evidence URLs and
+  content types, then compose one phase snapshot through
+  `native_surfaces.py` using local TLS fakes before selecting it from
+  `collector/run.py`.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2003,9 +2043,20 @@ operator-local release.
 | Owner-only telemetry collector and canonical verifier | `uv run pytest -q tests/test_load_telemetry_collector_run.py tests/test_load_soak_telemetry.py tests/test_load_soak_runtime_manifest.py` | passed; 66 |
 | Broader load matrix after telemetry collector | collector, telemetry, fault, profile, plan, orchestrator, runtime manifest, state machine, and evidence tests | passed; 204 |
 | Full Python regression after telemetry collector | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 863 collected |
+| Native Prometheus/exporter parser and verified-TLS client | `uv run pytest -q tests/test_load_native_surfaces.py` | passed; 14 |
+| Native parser plus collector/telemetry/runtime manifest | `uv run pytest -q tests/test_load_native_surfaces.py tests/test_load_telemetry_collector_run.py tests/test_load_soak_telemetry.py tests/test_load_soak_runtime_manifest.py` | passed; 80 |
+| Broad load matrix after native parser seam | `uv run pytest -q tests/test_load_*.py` | passed; 253 |
+| Full Python regression after native parser seam and child-reaping fix | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 878 collected |
 
 ## Failures, Blockers, and Risks
 
+- A full regression run launched concurrently with the focused native suite
+  exposed a pre-existing Darwin race in profile child cleanup: an already
+  exited, unreaped session leader can make `killpg()` return `EPERM` rather
+  than `ESRCH`. Commit `a9c341d` now reaps only that exact completed child and
+  still fails closed if an inaccessible group remains live. The noisy-child
+  case passed 20 repetitions, all 16 profile tests pass, and the subsequent
+  standalone full regression passes.
 - Distribution v3.1.1 remains the latest signed stable release and fails ADR
   0006. Stage 6 can progress independent contracts but cannot produce a final
   production candidate until a release or reviewable VEX closes this gate.
