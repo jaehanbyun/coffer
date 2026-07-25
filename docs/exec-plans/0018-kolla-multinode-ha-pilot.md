@@ -1,6 +1,6 @@
 ---
 title: "Kolla multinode and HA pilot"
-status: active
+status: complete
 updated: 2026-07-25
 owner: primary-agent
 ---
@@ -54,7 +54,7 @@ promotion while ADR 0006 remains blocked.
       rollback is rehearsed. An incompatible-schema path stops and exercises
       the documented maintenance/restore decision instead of invoking a blind
       Alembic downgrade.
-- [ ] Exact Stage 5 resources and credentials are removed after retained,
+- [x] Exact Stage 5 resources and credentials are removed after retained,
       redacted aggregate evidence passes. Repository-wide focused tests,
       Ansible/config/template checks, secret scans, local-link checks, diff
       checks, and remote residue audits pass.
@@ -123,7 +123,7 @@ promotion while ADR 0006 remains blocked.
       non-bypass, digest, replica distribution, and secret/log acceptance.
 - [x] Run allowlisted replica, Galera, RGW, reconciler fencing, signing-key
       overlap, rolling-upgrade, compatible rollback, and recovery rehearsals.
-- [ ] Remove exact pilot resources, verify shared-host and credential residue,
+- [x] Remove exact pilot resources, verify shared-host and credential residue,
       run final regressions, and close the plan and handoff.
 
 ## Progress Log
@@ -2528,6 +2528,36 @@ promotion while ADR 0006 remains blocked.
   resume top-level teardown, and require clean/stopped/prepared adoption
   followed by exact S3 and libvirt cleanup.
 
+### 2026-07-25 — Stage 5 teardown and final regression accepted
+
+- Teardown: The approved resumable run removed exactly two tenant application
+  credentials, users, and projects; stopped the nine Coffer process
+  containers with zero Kolla failures; purged the two allowlisted RGW buckets
+  and users; removed the sole credential directory; and destroyed/undefined
+  only the six Stage 5 guests, sixteen volumes, and three networks.
+- Residue audit: Repeated teardown `status` reports six domains, sixteen
+  volumes, and three networks absent with `marker=complete`. Before/after
+  signatures retain 18 unrelated running domains, eight unrelated networks,
+  three unrelated Coffer-pool volumes, sixteen host containers, shared-host
+  service state, and the running autostart-disabled `coffer-rgw-poc`.
+  Post-cleanup capacity is about 124.3 GiB available memory, 875.0 GiB
+  filesystem space, and 936.0 GiB in the Coffer libvirt pool.
+- Final regression: 251 Python tests, dependency lock, Python compilation,
+  52 Kolla role contract checks, every tracked Bash parse,
+  warning-or-higher ShellCheck, Go format/test/vet, 41 YAML files, one JSON
+  file, 71 Markdown files, 44 local links, tracked-tree Gitleaks, and diff
+  checks pass.
+- Rejected evidence: The first Go command used the stale system Go 1.19.3 and
+  rejected the `go 1.25.0` directive before compiling source. The corrected
+  explicit Homebrew Go 1.26.5 run passed format/test/vet and is the accepted
+  result.
+- Completion: Every Stage 5 done criterion is satisfied. This closes the
+  disposable multinode/HA evidence package but does not promote the
+  vulnerability-blocked Distribution artifact or resolve Stage 6 production
+  gates.
+- Next exact action: None for plan 0018. Start a fresh execution plan before
+  Stage 6 production hardening or official Kolla upstream work.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2565,66 +2595,29 @@ promotion while ADR 0006 remains blocked.
 | Fault and recovery matrix | Galera concurrency/retry and reconciler faults plus restore checks | passed; periodic maintenance identity remains a production decision |
 | Upgrade, key rotation, rollback | bounded rolling rehearsals | passed; forward rotation and zero-failure compatible rollback accepted |
 | Pre-cleanup repository regression | full local focused checks before teardown | passed; 251 tests and 52 role-contract checks |
-| Cleanup and final residue regression | exact remote/local residue and post-destroy checks | pending |
+| Cleanup and final residue regression | exact remote/local residue and post-destroy checks | passed; identities/S3/libvirt residue 0, unrelated signatures unchanged, final regression green |
 
 ## Failures, Blockers, and Risks
 
 - The latest signed Distribution v3.1.1 binary remains production-blocked.
   Stage 5 HA evidence cannot override the image gate.
-- Capacity and unrelated guest load on `bb00` are time-sensitive. No Stage 5
-  topology is selected until the read-only audit demonstrates a conservative
-  host margin.
-- A six-guest preferred topology may exceed safe concurrent memory or storage.
-  If so, execute independent storage and controller tracks only when their
-  failure claims remain valid, or obtain a different isolated substrate;
-  never silently collapse quorum or failure domains.
-- Cross-host TLS, Galera recovery, Ceph quorum, and rolling changes can fail in
-  long-running ways. Every harness phase needs bounded timeouts, persistent
-  aggregate evidence, exact target allowlists, and recovery before continuing.
 - The production reconciliation maintenance identity remains unresolved.
-  Stage 5 may use a disposable, least-privilege pilot identity but cannot
-  convert it into the production decision.
+  The disposable pilot identity does not decide the production design.
+- This plan proves a bounded disposable multinode deployment and failure
+  matrix. It does not close production image, existing-data
+  backup/restore/cutover, authenticated reconciliation, load, observability,
+  destructive GC, or official Kolla upstream governance.
 
 ## Handoff
 
-- Current state: Active; the Ceph control plane and exact three-host replicated
-  OSD baseline plus three-RGW/two-ingress TLS endpoint are healthy. The two
-  owner-limited S3 identities and buckets are provisioned; the deterministic
-  private sentinel passed two identical baseline round trips and ten reads
-  across one RGW and one active-ingress fault. All services are restored. The
-  exact storage-3 VM power-loss cycle and full recovery passed. All services
-  are healthy and all six domains are running. The three-controller Kolla
-  inventory and lifecycle are deployed with three-node Galera/RabbitMQ
-  quorums, 36 healthy containers, and one owner for each Kolla VIP. The
-  mutation-free Coffer `clean` boundary passes across controller runtime,
-  Galera, Keystone, companion inputs, and the external RGW fixture. The Kolla
-  production profile and its guarded reconfigure are accepted: internal and
-  external certificate identities, ProxySQL TLS recipients, four production
-  globals, internal HTTPS, the sole external port 443 frontend, catalog URLs,
-  three-member Galera/RabbitMQ quorums, seven protected logs, and zero Coffer
-  state all pass. The companion inputs are now complete: four exact
-  three-host groups, production globals, controller-1-only secret/public
-  inputs, verified backend/RGW TLS, and durable owner/input/completion markers
-  pass both integrated ready and repeated metadata-idempotency checks. The
-  accepted deploy has nine healthy service containers, twelve configs,
-  eighteen backend/frontend listeners, migration head, exact catalog,
-  verified internal and external routing, denied private-port bypass, and a
-  root-only deploy marker. Repeated deploy is metadata-idempotent, and the
-  nine-container runtime log hygiene gate passes without retained audit
-  residue. The controller-3 API, edge, and Distribution single-replica matrix
-  also passes: nine authenticated outage probes retained both project-A
-  digests and project-B denial, every container recovered healthy, and a
-  metadata-stable replay skipped all completed faults. The active-owner
-  HAProxy cycle also passes: paired VIPs moved together, all three bounded
-  tenant probes passed, the exact HAProxy recovered, and replay was
-  metadata-idempotent.
-- Exact next action: Inspect the real deployed quota transaction retry
-  surface, then implement a bounded concurrent/deadlock Galera probe with
-  exact row and quota restoration.
-- First file or command: Read `src/coffer/quota.py` transaction/retry helpers
-  and the accepted shared-SQL deadlock tests before adding the Stage 5
-  concurrent database phase.
-- Questions requiring user input: None for read-only inventory and local
-  harness work. Ask before expanding to a different substrate, production
-  credentials/data, a private Distribution fork, external publication, or an
-  operation outside the exact disposable Stage 5 allowlist.
+- Current state: Complete. All functional, HA, failure, rotation, upgrade,
+  rollback, cleanup, residue, and final-regression gates in this plan passed.
+  Every disposable identity, object namespace, guest, volume, and network is
+  removed; unrelated shared-host resources and `coffer-rgw-poc` are retained.
+- Exact next action: None for this completed plan.
+- First file or command: Create a new execution plan from
+  `docs/exec-plans/TEMPLATE.md` before Stage 6 work.
+- Questions requiring user input: Select the next work package. The leading
+  production blocker remains a supported vulnerability-cleared Distribution
+  release/image; production reconciliation identity and data
+  backup/restore/cutover follow.

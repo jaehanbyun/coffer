@@ -1,82 +1,30 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0018 active; teardown partial at Coffer-stopped boundary
-- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`
+- Status: plan 0018 complete; Stage 5 multinode/HA pilot accepted and removed
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
-- Active execution plan: `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
+- Active execution plan: none
 
 ## Current Objective
 
-Plan 0018 is active to complete the disposable Kolla multinode and HA pilot.
-The read-only `bb00` refresh, preferred six-guest topology, immutable Ubuntu
-image pin, exact-target lifecycle harness, VM create, and guest readiness
-checks are complete. Three controller and three storage guests are running on
-dedicated autostart-disabled networks; every domain is autostart-disabled.
-The three-node Ceph control plane has three MONs, two MGRs, three `up`/`in`
-OSDs, three RGW backends, and two ingress pairs behind a verified-TLS VIP.
-Stage 5 requires replicated
-Kolla/Coffer/Galera and an independent external RGW HA failure domain; a
-controller-only pilot against the retained one-node RGW is partial evidence
-and cannot close the plan. ADR 0006 still blocks production promotion on the
-signed Distribution v3.1.1 binary. The replicated Coffer companion baseline
-is now accepted with nine healthy containers, eighteen HAProxy sockets,
-verified internal/external TLS routing, exact catalog/schema state,
-private-port denial, idempotent replay, and all-node runtime log hygiene.
-The controller-3 API, edge, and Distribution replica matrix is also accepted:
-nine authenticated outage probes retained project-A digests and project-B
-denial, all targets recovered healthy, and replay was marker-idempotent.
-The active Kolla HAProxy fault is accepted as well: both VIPs moved together
-from controller-3 to controller-2, three bounded tenant probes passed,
-controller-3 recovered healthy, and replay was marker-idempotent.
-The controller-3 Galera reader-member fault is accepted: size 2 remained
-Primary/Synced, all ProxySQL instances moved it offline, three quota
-write/read/restore probes passed, and size 3/Synced recovery plus
-marker-idempotent replay passed.
-The real Galera concurrency/retry and separate-worker fencing gates are
-accepted. The serial Coffer upgrade and overlapping signing-key rotation are
-also accepted: old/new tokens passed every replica during overlap, old trust
-was retired after the recorded lifetime, new-only trust is healthy, token
-residue is absent, and replay preserved completion-marker metadata.
-The compatible image rollback is accepted after correcting handler-level
-all-replica restarts: three limited update phases and three limited rollback
-phases preserved 59 first-attempt tenant probes, restored the original image
-with the new key intact, passed every final gate, and replay preserved
-rollback-marker metadata.
-The non-destructive pre-cleanup repository regression is also accepted:
-251 tests, 52 companion-role contract checks, dependency lock, compilation,
-shell, Go, structured-document, local-link, tracked-tree secret, and diff
-checks pass. The only correction makes the disposable role fixture emit the
-current `certificates/ca/root.crt` public-CA input in addition to its legacy
-fixture name.
-The final cleanup path is now explicitly ordered and guarded: tenant identity
-cleanup precedes Coffer-only stop, exact S3 bucket/user removal precedes VM
-destruction, and every phase has a read-only or idempotent acceptance
-boundary. Live S3 status confirms exactly two users/two buckets and no
-secondary credential recipient; an attempted cleanup while Coffer was still
-deployed failed at the stopped-state guard before any deletion.
-The top-level teardown preflight is accepted. It classifies the live state as
-tenant prepared, companion deployed, S3 prepared, and libvirt present; exact
-inventory is six domains, sixteen volumes, and three networks, with retained
-`coffer-rgw-poc` unchanged. A synthetic post-destroy audit proves the residue
-and unrelated-resource comparison contract. No destructive teardown action
-has run.
-The approved teardown has now removed the exact two tenant credentials,
-users, and projects. Coffer, S3, Ceph, and libvirt remain unchanged because
-Kolla `stop` refused to run without its required explicit confirmation flag.
-The boundary audit retained nine healthy Coffer containers and healthy
-storage. The runner now supplies that flag only for the allowlisted companion
-stop action; the idempotent top-level sequence is ready to resume.
-The resumed teardown then stopped all nine Coffer process containers with
-zero Kolla failures while keeping Kolla, database/catalog, HAProxy, and Ceph
-healthy. S3 cleanup did not run: its status guard exited 141 from an expected
-`tee | grep -q` SIGPIPE. The guard now captures status fully before checking
-the stopped predicate. Both RGW users/buckets and all libvirt resources remain
-present.
-The next resume stopped read-only because tenant clean-state preflight still
-required `coffer_api` running. It now permits only `preflight|cleanup` after
-verifying the exact owner-only companion stop marker; all mutating tenant
-setup/renewal paths still require the API. S3 and libvirt remain unchanged.
+Plan 0018 is complete. The disposable three-controller Kolla/Galera/HAProxy
+and independent three-storage-node Ceph/RGW topology passed tenant OCI,
+isolation, quota, replica loss, VIP movement, database-member loss,
+concurrent retry, worker fencing, signing-key overlap, rolling update, and
+compatible rollback acceptance.
+
+The approved teardown removed every exact Stage 5 identity, credential,
+bucket, object namespace, guest, volume, and network. Repeated status reports
+zero Stage 5 residue and a complete marker. Before/after signatures preserve
+18 unrelated domains, eight unrelated networks, three unrelated Coffer-pool
+volumes, host containers/services, and the running autostart-disabled
+`coffer-rgw-poc`.
+
+Post-destroy regression passes 251 tests, 52 role-contract checks, dependency
+lock, compilation, shell, Go, structured-document/link, Gitleaks, and diff
+gates. There is no active execution plan. ADR 0006 still blocks production
+promotion of the signed Distribution v3.1.1 artifact.
 
 ## Plan 0018 Activation
 
@@ -1803,14 +1751,13 @@ setup/renewal paths still require the API. S3 and libvirt remain unchanged.
 
 ## Exact Next Action
 
-Validate and commit the stopped-state tenant audit correction, then resume
-`poc/kolla-ha/teardown-stage5.sh run
-jh.byun@100.123.168.66`. Require adoption of the clean-tenant and
-Coffer-stopped boundaries, zero RGW users/buckets and credential residue,
-exact Stage 5 libvirt removal, and unchanged unrelated-host signatures.
+No action remains in plan 0018. Before Stage 6, create a fresh execution plan.
+The leading next decision is selection and qualification of a supported
+vulnerability-cleared Distribution release/image; production reconciliation
+identity and existing-data backup/restore/cutover remain separate gates.
 
 ## After This Work Package
 
-After tenant OCI/isolation acceptance, run replica and Galera failure work
-before signing-key rotation, upgrade, rollback, or final cleanup. The signed
-Distribution v3.1.1 input remains production-blocked.
+Stage 5 is closed. The signed Distribution v3.1.1 input remains
+production-blocked, so Stage 6 must begin with image/release remediation
+rather than production deployment or official upstream promotion.
