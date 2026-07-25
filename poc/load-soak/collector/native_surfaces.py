@@ -30,7 +30,6 @@ PROMETHEUS_QUERY_KEYS = frozenset(
         "direct_targets",
         "schema_mismatches",
         "scrape_interval_seconds",
-        "secret_leaks",
         "stale_series",
     }
 )
@@ -626,6 +625,7 @@ def parse_prometheus_surface(
     expected_instances: Mapping[str, Sequence[str]],
     required_recording_rules: Sequence[str],
     required_alerts: Sequence[str],
+    secret_leaks: int,
 ) -> dict[str, Any]:
     if set(query_documents) != PROMETHEUS_QUERY_KEYS:
         raise NativeSurfaceError("Prometheus query set changed")
@@ -719,7 +719,7 @@ def parse_prometheus_surface(
             minimum=1,
         ),
         "secret_leaks": _integer(
-            parse_prometheus_scalar(query_documents["secret_leaks"]),
+            secret_leaks,
             "Prometheus secret leak evidence",
         ),
         "stale_series": _integer(

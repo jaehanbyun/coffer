@@ -37,9 +37,9 @@ Fixture results are explicitly synthetic and exit 3. Pilot results use
 the fresh disposable multinode pilot qualify the exact adapter binary and
 surface contract.
 
-## Native source parser boundary
+## Native source adapter boundary
 
-`native_surfaces.py` is the next adapter seam. It adds a direct, no-proxy HTTPS
+`native_surfaces.py` adds a direct, no-proxy HTTPS
 client with TLS 1.2-or-newer verification and strict JSON/OpenMetrics response
 limits. Its parsers normalize:
 
@@ -75,6 +75,44 @@ exist as equivalent native exporter metrics today. They remain explicit
 auxiliary evidence inputs and are never inferred from a convenient but
 different metric.
 
+`native_target.py` owns the separately versioned
+`coffer.load-telemetry-native-target/v1` contract. It leaves the normalized
+target unchanged and binds all of the following into one canonical target
+hash:
+
+- the exact Prometheus instant-query URLs, PromQL text, and independent
+  PromQL hashes;
+- the filtered rules URL containing every required recording rule and alert;
+- exact API, edge, reconciler, registry, HAProxy backend, Galera, RGW daemon,
+  RGW ingress, controller, and storage identities;
+- the expected JSON or Prometheus exposition content types for every source;
+  and
+- three distinct `before`, `during`, and `after` auxiliary-evidence URLs for
+  secret scanning, unexpected errors, Galera attempts, KMS/multipart state,
+  quota invariants, and reconciliation claims/fencing.
+
+All URLs require HTTPS, an explicit port, no user information, and no
+fragment. Prometheus URLs must carry one canonical URL-encoded allowlisted
+query; the rules URL must carry exactly the repeated `rule_name[]` filters.
+All source URLs are unique. Direct service host identities must agree with
+the controller topology, Galera targets, HAProxy backends, node roles, RGW
+daemon placement, and ingress membership.
+
+The direct registry restart signal uses the upstream Prometheus client
+`process_start_time_seconds`, and its monotonic activity signal uses
+Distribution's debug-instrumented `registry_http_requests_total`. API and edge
+use `coffer_http_requests_total`; reconciliation uses
+`coffer_reconciliation_cycles_total`. Secret scanning remains phase-bound
+auxiliary evidence because no equivalent Prometheus series exists.
+
+`compose_phase_snapshot()` fetches one complete phase from the exact target
+through the verified-TLS client and normalizes it into the existing seven
+surface shapes. Auxiliary JSON is additionally bound to the target surface
+and requested phase with
+`coffer.load-telemetry-native-evidence/v1`. A mismatched phase, surface,
+schema, PromQL, URL encoding, content type, identity, or target hash fails
+before a snapshot is accepted.
+
 The implementation contract was checked against these primary sources:
 
 - [Prometheus 3.12 HTTP API](https://prometheus.io/docs/prometheus/3.12/querying/api/)
@@ -84,10 +122,11 @@ The implementation contract was checked against these primary sources:
 - [Ceph daemon and RGW monitoring metrics](https://docs.ceph.com/en/latest/monitoring/)
 - [node-exporter v1.11.1 collectors](https://github.com/prometheus/node_exporter/tree/v1.11.1/collector)
 
-This seam is not selected by the existing
-`coffer.load-telemetry-target/v1`. The current target still proves the
-normalized HTTPS/state transaction. A later versioned target must bind exact
-native URLs, PromQL text/hashes, target allowlists, auxiliary evidence URLs,
-and per-source content types before the parser can replace that adapter in a
-pilot. Until then this remains local parser evidence, not production
-telemetry qualification.
+The native target is not yet selected by `collector/run.py`. The normalized
+`coffer.load-telemetry-target/v1` still proves the existing HTTPS/state
+transaction byte-for-byte. The next milestone must dispatch the two schemas
+without fallback, include the native target source in the collector source
+hash, and prove all three native phases through the canonical bundle
+transaction. Until that integration and a fresh disposable pilot pass, this
+remains local adapter evidence rather than production telemetry
+qualification.

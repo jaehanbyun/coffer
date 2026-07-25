@@ -177,7 +177,6 @@ def query_documents() -> dict:
         "direct_targets": direct_vector(),
         "schema_mismatches": api_scalar(0),
         "scrape_interval_seconds": api_scalar(30),
-        "secret_leaks": api_scalar(0),
         "stale_series": api_scalar(0),
     }
 
@@ -462,10 +461,6 @@ def test_all_seven_surfaces_normalize_from_local_verified_tls(
             "application/json",
             json.dumps(api_scalar(30)).encode(),
         ),
-        "/prom/secrets": (
-            "application/json",
-            json.dumps(api_scalar(0)).encode(),
-        ),
         "/prom/stale": (
             "application/json",
             json.dumps(api_scalar(0)).encode(),
@@ -567,13 +562,13 @@ def test_all_seven_surfaces_normalize_from_local_verified_tls(
                     "direct_targets": json_source("/prom/direct"),
                     "schema_mismatches": json_source("/prom/schema"),
                     "scrape_interval_seconds": json_source("/prom/scrape"),
-                    "secret_leaks": json_source("/prom/secrets"),
                     "stale_series": json_source("/prom/stale"),
                 },
                 json_source("/prom/rules"),
                 expected_instances=EXPECTED_INSTANCES,
                 required_recording_rules=RECORDING_RULES,
                 required_alerts=ALERTS,
+                secret_leaks=0,
             ),
             "haproxy": NATIVE.parse_haproxy_surface(
                 exporter("/export/haproxy"),
@@ -665,6 +660,7 @@ def test_prometheus_api_and_rules_normalize_exact_surface() -> None:
         expected_instances=EXPECTED_INSTANCES,
         required_recording_rules=RECORDING_RULES,
         required_alerts=ALERTS,
+        secret_leaks=0,
     )
     assert result["recording_rules_loaded"] == list(RECORDING_RULES)
     assert result["alerts_loaded"] == list(ALERTS)
@@ -710,6 +706,7 @@ def test_prometheus_surface_refuses_ambiguous_or_extra_series(
             expected_instances=EXPECTED_INSTANCES,
             required_recording_rules=RECORDING_RULES,
             required_alerts=ALERTS,
+            secret_leaks=0,
         )
 
 

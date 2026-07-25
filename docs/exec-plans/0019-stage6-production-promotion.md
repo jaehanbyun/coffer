@@ -1,7 +1,7 @@
 ---
 title: "Stage 6 production promotion"
 status: active
-updated: 2026-07-25
+updated: 2026-07-26
 owner: primary-agent
 ---
 
@@ -1929,6 +1929,44 @@ operator-local release.
   `native_surfaces.py` using local TLS fakes before selecting it from
   `collector/run.py`.
 
+### 2026-07-26 — Versioned native telemetry target completed locally
+
+- Contract: Added `coffer.load-telemetry-native-target/v1` beside the unchanged
+  normalized v1 target. One canonical hash now binds the adapter contract,
+  load topology, exact source URLs and content types, URL-encoded allowlisted
+  PromQL plus independent text hashes, filtered rule names, every direct/
+  backend/Galera/RGW/ingress/node identity, and every phase-specific auxiliary
+  evidence URL.
+- Honest sources: API/edge counters use `coffer_http_requests_total`,
+  reconciliation uses `coffer_reconciliation_cycles_total`, and Distribution
+  uses the verified upstream `registry_http_requests_total` plus the default
+  Prometheus `process_start_time_seconds`. CPU and OOM use finite interval
+  PromQL. Secret scanning, quota/claim/fencing, transaction attempts,
+  KMS/multipart state, and unexpected errors remain explicit auxiliary
+  evidence because no equivalent native metric exists.
+- Cross-topology refusal: Direct API/edge/registry instances must equal the
+  controller hosts; reconciler instances are an exact-size controller subset;
+  HAProxy servers agree with direct instances; Galera matches controllers; RGW
+  daemons map one-to-one to storage hosts; ingress is an exact-size storage
+  subset; and node roles match the Stage 6 replica topology. Duplicate URLs,
+  URL credentials, missing ports, non-HTTPS transports, query/rule/content
+  drift, and target hash changes fail closed.
+- Phase composition: `compose_phase_snapshot()` fetched and normalized one
+  complete phase through 26 requests to a real local TLS server. Auxiliary
+  documents use `coffer.load-telemetry-native-evidence/v1` and are bound to the
+  requested phase and surface. A mismatched phase fails before snapshot
+  acceptance.
+- Compatibility and evidence: The normalized collector path remains
+  unchanged and unselected. Twenty-three native target/parser tests and the
+  262-test broad load matrix pass. Full regression and collection both report
+  887 tests. No Prometheus, exporter, endpoint, credential, container, VM, or
+  remote state changed.
+- Next exact action: Import and source-hash `native_target.py` from
+  `poc/load-soak/collector/run.py`, dispatch only the two exact target schemas,
+  and prove the complete before/during/after native transaction and canonical
+  bundle through local verified-TLS fakes while retaining normalized v1
+  compatibility.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2047,6 +2085,9 @@ operator-local release.
 | Native parser plus collector/telemetry/runtime manifest | `uv run pytest -q tests/test_load_native_surfaces.py tests/test_load_telemetry_collector_run.py tests/test_load_soak_telemetry.py tests/test_load_soak_runtime_manifest.py` | passed; 80 |
 | Broad load matrix after native parser seam | `uv run pytest -q tests/test_load_*.py` | passed; 253 |
 | Full Python regression after native parser seam and child-reaping fix | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 878 collected |
+| Native target and one-phase TLS composition | `uv run pytest -q tests/test_load_native_target.py tests/test_load_native_surfaces.py` | passed; 23 |
+| Broad load matrix after native target | `uv run pytest -q tests/test_load_*.py` | passed; 262 |
+| Full regression after native target | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 887 |
 
 ## Failures, Blockers, and Risks
 
@@ -2081,15 +2122,15 @@ operator-local release.
   complete. The canonical restored SQL/RGW backup verifier now gates the
   lifecycle through an ordered no-network adapter seam. The controlled
   filesystem GC/restore gate is complete with live exact-image evidence.
-  Real RGW lifecycle evidence and current stable dependencies remain blocked;
-  no real identity, credential, certificate, endpoint, or remote state
-  changed.
-- Exact next action: Add
-  `poc/load-soak/collector/native_surfaces.py`. Parse bounded Prometheus HTTP
-  API and strict HAProxy, mysqld-exporter, Ceph mgr/RGW, and node-exporter
-  responses from their exact verified-TLS URLs into the seven internal
-  surface schemas. Pin query/metric/label allowlists, refuse missing or extra
-  series, and prove each parser with captured local TLS fakes only.
+  The native parser and separately versioned, hash-bound native target now
+  compose one complete local TLS phase without changing normalized v1. Real
+  RGW lifecycle evidence and current stable dependencies remain blocked; no
+  real identity, credential, certificate, endpoint, or remote state changed.
+- Exact next action: Import and source-hash
+  `poc/load-soak/collector/native_target.py` from `collector/run.py`, select it
+  only for `coffer.load-telemetry-native-target/v1`, and prove all three native
+  phases produce the canonical verified bundle while normalized v1 remains
+  unchanged.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

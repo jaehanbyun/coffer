@@ -1,14 +1,15 @@
 # Coffer Handoff
 
-- Updated: 2026-07-25
+- Updated: 2026-07-26
 - Status: plan 0019 active; local production observability, disposable
   filesystem GC/restore, load model/lifecycle, and canonical evidence verifier
   complete; raw OCI and five real-client execution boundaries complete;
   telemetry, deterministic plan, and fixture orchestrator complete; runtime
   manifest, control/token/quota protocol core, and owner-only control CLI
   complete; checkpointed profile/ramp and recovery-first fault executors
-  complete; owner-only telemetry collection boundary and native
-  Prometheus/exporter parser seam complete; versioned native target next
+  complete; owner-only telemetry collection boundary, native
+  Prometheus/exporter parser seam, and versioned native target complete;
+  collector schema dispatch next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -569,6 +570,22 @@ release contains it yet.
   completed child and fails closed for a still-live inaccessible group. The
   noisy-child case passed 20 repetitions, all 16 profile tests pass, and the
   standalone 878-test regression passes.
+- Added the separate `coffer.load-telemetry-native-target/v1`. Its canonical
+  hash binds the exact Prometheus queries and PromQL text hashes, filtered
+  rules, content types, every component/backend/Galera/RGW/node allowlist, and
+  all phase-specific auxiliary evidence URLs while leaving normalized v1
+  unchanged.
+- The target cross-checks direct and HAProxy instances with controller hosts,
+  Galera membership, RGW daemon-to-storage placement, ingress membership, and
+  node roles. Distribution restart/activity use the verified upstream process
+  and HTTP counters; non-equivalent secret/quota/claim/KMS/error facts remain
+  explicit `coffer.load-telemetry-native-evidence/v1` documents.
+- One complete phase composed through 26 requests to a real local TLS server.
+  Phase/surface mismatch and query/hash/encoding/rule/content/identity/URL
+  drift fail closed. Twenty-three focused native tests, all 262 broad load
+  tests, and all 887 Python tests pass. Collection also reports 887 tests. The
+  target is not yet selected by `collector/run.py`; no endpoint, credential,
+  container, VM, or remote state changed.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2376,11 +2393,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/load-soak/collector/native_target.py` with a versioned native target
-contract. Bind exact source URLs, URL-encoded PromQL and hashes,
-component/backend/daemon/host allowlists, auxiliary evidence URLs and content
-types, then compose one phase snapshot through `native_surfaces.py` using
-local TLS fakes before selecting it from `collector/run.py`.
+Import and source-hash `poc/load-soak/collector/native_target.py` from
+`collector/run.py`. Dispatch only the exact normalized and native target
+schemas, use `compose_phase_snapshot()` for native collection, and prove the
+full before/during/after native transaction plus canonical bundle through
+local verified-TLS fakes without changing normalized v1 behavior.
 
 ## After This Work Package
 
