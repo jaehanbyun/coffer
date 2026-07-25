@@ -107,6 +107,7 @@ operator-local release.
 | Treat merged Ceph PR 69277 as a release candidate signal, not a closed gate | The backport is in `tentacle` but absent from released v20.2.2; exact zero-byte and failure-mode behavior still needs an official image and live test | Claiming source inspection or upstream tests as Coffer runtime acceptance | 2026-07-25 |
 | Keep official Kolla upstream work outside Stage 6 | Companion-role contracts may still change as production identity, data protection, and operations gates close | Starting governance review around provisional deployment contracts | 2026-07-25 |
 | Approve the dedicated expiring maintenance identity boundary for pure local implementation | A separate service user, exact dual-role policy, server-side SQL authority, pull-only token reduction, and private mTLS bound cross-project reads without sharing tenant, signer, or RGW credentials | Per-project credential fan-out; API middleware password/admin reuse; service/system or mTLS-only authority; signer key in the worker; separate read proxy | 2026-07-25 |
+| Represent live-comparison authority as a finite SQL session bound to the imported digest, workload, and writer-exclusion evidence reference | The broker needs current server-side authority that can expire, complete, revoke, and replay safely without storing a credential or repository path | Caller-supplied route/action; static configuration flag; a bearer token as approval; claiming that the SQL row itself proves external writer exclusion | 2026-07-25 |
 
 ## Tasks
 
@@ -281,6 +282,41 @@ operator-local release.
   ADR 0015, then begin its local SQL schema with
   `src/coffer/migrations/versions/0005_maintenance_comparison_sessions.py`.
 
+### 2026-07-25 — Live-comparison session authority completed
+
+- Completed: Added Alembic revision
+  `0005_maintenance_comparison_sessions` and matching quota-store lifecycle.
+  An owner-controlled approval request is finite, idempotent, bound to the
+  imported digest, workload, and non-secret writer-exclusion evidence
+  reference, and refuses missing import authority or active reconciliation
+  claims. Completion/revocation is irreversible and idempotent.
+- Authorization: Each live token request rechecks the exact session/digest/
+  workload/state/expiry, baseline marker, absence of active reconciliation
+  claims, and a committed imported repository before resolving the current
+  route and reducing it to one pull-only JWT. Stale, mismatched, unknown,
+  completed, revoked, and expired sessions fail with fixed secret-safe errors.
+- Schema safety: Revision 0005 adds no credentials, tokens, repository names,
+  manifest digests, or tenant paths. Downgrade refuses to discard retained
+  session evidence. The current schema revision and bootstrap/migration
+  contracts now use revision 0005.
+- Decision: Accept ADR 0015 for the architecture and pure local contract. This
+  is not production acceptance: the resource remains optional/unconfigured and
+  there is still no mTLS workload adapter, Kolla recipient, Barbican
+  materialization, real identity lifecycle, or disposable private-TLS
+  end-to-end evidence.
+- Verification: 105 focused maintenance/session/migration/import/live-inventory
+  tests pass. Full regression passes 308 Python tests, all 52 Kolla
+  companion-role checks pass, and compilation and diff checks pass.
+- Changed files: ADRs 0010/0015, the schema runbook, revision 0005,
+  `src/coffer/schema.py`, `src/coffer/quota.py`,
+  `src/coffer/maintenance_token.py`, maintenance/session/migration/bootstrap
+  tests, this plan, and `.codex/state/HANDOFF.md`.
+- Next exact action: Create
+  `docs/research/stage6-maintenance-secret-delivery.md` and map the existing
+  Kolla owner-only file-copy and Barbican contracts to the accepted application
+  credential plus per-replica mTLS key lifecycle without changing a recipient
+  or creating a secret.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -292,13 +328,14 @@ operator-local release.
 | Plan/HANDOFF structure | Markdown inspection and local-link check | passed |
 | Upstream classifier fixtures | `uv run pytest -q tests/test_upstream_readiness.py` | passed; 10 |
 | Live upstream classifier | `make -C poc/production-images check-upstream` | passed; valid `blocked` result |
-| Full Python regression | `uv run pytest -q` | passed; 291 |
+| Full Python regression | `uv run pytest -q` | passed; 308 |
 | Kolla companion-role regression | `make -C poc/kolla-ansible-role verify` | passed; 52 |
 | Maintenance identity code/config inventory | Focused inspection of live comparison, reconciliation runner/probe, WSGI, Kolla config, secrets, and Stage 5 inputs | passed |
 | Maintenance identity primary sources | Current Keystone, keystonemiddleware, Barbican, and Distribution specifications | passed |
 | ADR 0015 contract consistency | Focused comparison with ADRs 0008, 0013, 0014 and the Stage 6 identity research | passed; proposed pending local proof |
 | Maintenance token/API/edge focused regression | `uv run pytest -q tests/test_maintenance_api.py tests/test_maintenance_token.py tests/test_registry_proxy.py tests/test_tokens.py tests/test_quota_reconciliation.py` | passed; 85 |
 | Python compilation and diff checks | `uv run python -m compileall -q src tests`; `git diff --check` | passed |
+| Maintenance session/migration/import/live focused regression | `uv run pytest -q tests/test_maintenance_sessions.py tests/test_migrations.py tests/test_bootstrap.py tests/test_maintenance_token.py tests/test_maintenance_api.py tests/test_quota_import.py tests/test_quota_import_verification.py tests/test_live_inventory_verification.py` | passed; 105 |
 
 ## Failures, Blockers, and Risks
 
@@ -320,15 +357,16 @@ operator-local release.
 
 - Current state: Stage 5 is complete and committed. Stage 6 has a deterministic
   upstream release gate and proposed ADR 0015 for the user-approved maintenance
-  identity boundary. Its reconciliation broker and internal API contract pass
-  pure local tests, while the live-comparison session authority, production
-  configuration, mTLS adapter, and secret delivery remain absent. Current
-  stable dependencies remain blocked; no real identity, credential,
-  certificate, recipient, endpoint, or remote state changed.
-- Exact next action: Define the approved live-comparison session lifecycle in
-  ADR 0015, then add the first local schema migration at
-  `src/coffer/migrations/versions/0005_maintenance_comparison_sessions.py`.
-- First file: `docs/adrs/0015-use-expiring-maintenance-identity.md`.
+  identity boundary. ADR 0015 is accepted for its pure local reconciliation and
+  live-comparison contract. Production configuration, mTLS adapter, secret
+  delivery, and real lifecycle evidence remain absent. Current stable
+  dependencies remain blocked; no real identity, credential, certificate,
+  recipient, endpoint, or remote state changed.
+- Exact next action: Research the owner-only maintenance application-credential
+  and per-replica mTLS delivery lifecycle without changing recipients or
+  creating secrets.
+- First file:
+  `docs/research/stage6-maintenance-secret-delivery.md`.
 - Questions requiring user input: None for the pure local proof. Separate
   approval remains required for credential creation/delivery, Kolla secret
   recipients and private frontend deployment, destructive GC, external

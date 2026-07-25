@@ -46,6 +46,8 @@ PENDING_STATES = ("pending", "release_pending")
 RECONCILIATION_STATES = ("pending", "release_pending", "committed")
 MAX_RECONCILIATION_BATCH = 1000
 MAX_RECONCILIATION_LEASE_SECONDS = 3600
+MIN_COMPARISON_SESSION_SECONDS = 60
+MAX_COMPARISON_SESSION_SECONDS = 3600
 OCI_IMAGE_MANIFEST = "application/vnd.oci.image.manifest.v1+json"
 OCI_IMAGE_INDEX = "application/vnd.oci.image.index.v1+json"
 DOCKER_IMAGE_MANIFEST = "application/vnd.docker.distribution.manifest.v2+json"
@@ -223,6 +225,50 @@ quota_inventory_imports = Table(
         "inventory_digest", name="uq_quota_inventory_import_digest"
     ),
 )
+maintenance_comparison_sessions = Table(
+    "maintenance_comparison_sessions",
+    quota_metadata,
+    Column("id", String(36), primary_key=True),
+    Column("request_id", String(128), nullable=False),
+    Column(
+        "inventory_digest",
+        String(71),
+        ForeignKey(
+            "quota_inventory_imports.inventory_digest",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+    ),
+    Column("workload_id", String(128), nullable=False),
+    Column("writer_exclusion_ref", String(128), nullable=False),
+    Column("state", String(16), nullable=False),
+    Column("approved_at", DateTime(timezone=True), nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    Column("closed_at", DateTime(timezone=True), nullable=True),
+    CheckConstraint(
+        "state IN ('approved', 'completed', 'revoked')",
+        name="ck_maintenance_comparison_session_state",
+    ),
+    CheckConstraint(
+        "expires_at > approved_at",
+        name="ck_maintenance_comparison_session_window",
+    ),
+    CheckConstraint(
+        "(state = 'approved' AND closed_at IS NULL) OR "
+        "(state IN ('completed', 'revoked') AND closed_at IS NOT NULL)",
+        name="ck_maintenance_comparison_session_lifecycle",
+    ),
+    UniqueConstraint(
+        "request_id",
+        name="uq_maintenance_comparison_session_request",
+    ),
+)
+Index(
+    "ix_maintenance_comparison_sessions_state_expires",
+    maintenance_comparison_sessions.c.state,
+    maintenance_comparison_sessions.c.expires_at,
+    maintenance_comparison_sessions.c.id,
+)
 
 
 class InvalidManifest(Exception):
@@ -255,6 +301,21 @@ class StaleReconciliationClaim(Exception):
 
 class ReconciliationReadNotAuthorized(Exception):
     pass
+
+
+class ComparisonSessionNotReady(Exception):
+    def __init__(self) -> None:
+        super().__init__("comparison session is not ready")
+
+
+class ComparisonSessionConflict(Exception):
+    def __init__(self) -> None:
+        super().__init__("comparison session conflicts with current authority")
+
+
+class ComparisonSessionNotAuthorized(Exception):
+    def __init__(self) -> None:
+        super().__init__("comparison session read is not authorized")
 
 
 def _retryable_transaction_error(exc: SQLAlchemyError) -> bool:
@@ -443,6 +504,48 @@ class ReconciliationReadAuthority:
     project_id: str
     repository_id: str
     reservation_id: str
+    expires_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class ComparisonSession:
+    id: str
+    request_id: str
+    inventory_digest: str
+    workload_id: str
+    writer_exclusion_ref: str
+    state: str
+    approved_at: datetime
+    expires_at: datetime
+    closed_at: datetime | None
+
+    @classmethod
+    def from_row(cls, row: object) -> ComparisonSession:
+        mapping = row._mapping  # type: ignore[attr-defined]
+
+        def aware(value: datetime | None) -> datetime | None:
+            if value is not None and value.tzinfo is None:
+                return value.replace(tzinfo=UTC)
+            return value
+
+        return cls(
+            id=mapping["id"],
+            request_id=mapping["request_id"],
+            inventory_digest=mapping["inventory_digest"],
+            workload_id=mapping["workload_id"],
+            writer_exclusion_ref=mapping["writer_exclusion_ref"],
+            state=mapping["state"],
+            approved_at=aware(mapping["approved_at"]),  # type: ignore[arg-type]
+            expires_at=aware(mapping["expires_at"]),  # type: ignore[arg-type]
+            closed_at=aware(mapping["closed_at"]),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class LiveComparisonReadAuthority:
+    project_id: str
+    repository_id: str
+    session_id: str
     expires_at: datetime
 
 
@@ -894,6 +997,244 @@ class QuotaStore:
             project_id=row.project_id,
             repository_id=row.repository_id,
             reservation_id=row.reservation_id,
+            expires_at=expires_at,
+        )
+
+    def approve_live_comparison_session(
+        self,
+        *,
+        request_id: str,
+        inventory_digest: str,
+        workload_id: str,
+        writer_exclusion_ref: str,
+        approved_at: datetime,
+        lifetime: timedelta,
+    ) -> ComparisonSession:
+        lifetime_seconds = lifetime.total_seconds()
+        if (
+            not request_id
+            or request_id.strip() != request_id
+            or len(request_id) > 128
+            or SHA256_DIGEST.fullmatch(inventory_digest) is None
+            or not workload_id
+            or workload_id.strip() != workload_id
+            or len(workload_id) > 128
+            or not writer_exclusion_ref
+            or writer_exclusion_ref.strip() != writer_exclusion_ref
+            or len(writer_exclusion_ref) > 128
+            or approved_at.tzinfo is None
+            or approved_at.utcoffset() is None
+            or not MIN_COMPARISON_SESSION_SECONDS
+            <= lifetime_seconds
+            <= MAX_COMPARISON_SESSION_SECONDS
+        ):
+            raise ComparisonSessionNotReady()
+        approved_at = approved_at.astimezone(UTC)
+        try:
+            expires_at = approved_at + lifetime
+        except OverflowError:
+            raise ComparisonSessionNotReady() from None
+
+        with self._writer() as conn:
+            marker = conn.execute(
+                select(quota_inventory_imports)
+                .where(
+                    quota_inventory_imports.c.scope == "baseline",
+                    quota_inventory_imports.c.inventory_digest
+                    == inventory_digest,
+                )
+                .with_for_update()
+            ).first()
+            if marker is None:
+                raise ComparisonSessionNotReady()
+            inventory_request_id = (
+                f"inventory:{inventory_digest.removeprefix('sha256:')}"
+            )
+            imported_rows = tuple(
+                conn.execute(
+                    select(
+                        quota_reservations.c.repository_id,
+                        quota_reservations.c.project_id,
+                    ).where(
+                        quota_reservations.c.request_id == inventory_request_id,
+                        quota_reservations.c.state == "committed",
+                    )
+                )
+            )
+            if (
+                len(imported_rows) != marker.manifest_count
+                or len({row.repository_id for row in imported_rows})
+                != marker.repository_count
+            ):
+                raise ComparisonSessionNotReady()
+
+            existing_row = conn.execute(
+                select(maintenance_comparison_sessions)
+                .where(
+                    maintenance_comparison_sessions.c.request_id == request_id
+                )
+                .with_for_update()
+            ).first()
+            if existing_row is not None:
+                existing = ComparisonSession.from_row(existing_row)
+                if (
+                    existing.inventory_digest != inventory_digest
+                    or existing.workload_id != workload_id
+                    or existing.writer_exclusion_ref != writer_exclusion_ref
+                    or existing.approved_at != approved_at
+                    or existing.expires_at != expires_at
+                ):
+                    raise ComparisonSessionConflict()
+                return existing
+
+            active_claim = conn.execute(
+                select(quota_reconciliation_claims.c.reservation_id).where(
+                    quota_reconciliation_claims.c.expires_at > approved_at
+                )
+            ).first()
+            if active_claim is not None:
+                raise ComparisonSessionNotReady()
+
+            session_id = str(uuid.uuid4())
+            conn.execute(
+                insert(maintenance_comparison_sessions).values(
+                    id=session_id,
+                    request_id=request_id,
+                    inventory_digest=inventory_digest,
+                    workload_id=workload_id,
+                    writer_exclusion_ref=writer_exclusion_ref,
+                    state="approved",
+                    approved_at=approved_at,
+                    expires_at=expires_at,
+                    closed_at=None,
+                )
+            )
+            row = conn.execute(
+                select(maintenance_comparison_sessions).where(
+                    maintenance_comparison_sessions.c.id == session_id
+                )
+            ).one()
+            return ComparisonSession.from_row(row)
+
+    def close_live_comparison_session(
+        self,
+        session_id: str,
+        *,
+        final_state: str,
+        closed_at: datetime,
+    ) -> ComparisonSession:
+        if (
+            not session_id
+            or len(session_id) > 36
+            or final_state not in {"completed", "revoked"}
+            or closed_at.tzinfo is None
+            or closed_at.utcoffset() is None
+        ):
+            raise ComparisonSessionConflict()
+        closed_at = closed_at.astimezone(UTC)
+        with self._writer() as conn:
+            row = conn.execute(
+                select(maintenance_comparison_sessions)
+                .where(maintenance_comparison_sessions.c.id == session_id)
+                .with_for_update()
+            ).first()
+            if row is None:
+                raise ComparisonSessionConflict()
+            current = ComparisonSession.from_row(row)
+            if closed_at < current.approved_at:
+                raise ComparisonSessionConflict()
+            if current.state == final_state:
+                return current
+            if current.state != "approved":
+                raise ComparisonSessionConflict()
+            conn.execute(
+                update(maintenance_comparison_sessions)
+                .where(maintenance_comparison_sessions.c.id == session_id)
+                .values(state=final_state, closed_at=closed_at)
+            )
+            updated = conn.execute(
+                select(maintenance_comparison_sessions).where(
+                    maintenance_comparison_sessions.c.id == session_id
+                )
+            ).one()
+            return ComparisonSession.from_row(updated)
+
+    def authorize_live_comparison_read(
+        self,
+        *,
+        session_id: str,
+        inventory_digest: str,
+        repository_id: str,
+        workload_id: str,
+        checked_at: datetime,
+    ) -> LiveComparisonReadAuthority:
+        if (
+            not session_id
+            or len(session_id) > 36
+            or SHA256_DIGEST.fullmatch(inventory_digest) is None
+            or not repository_id
+            or len(repository_id) > 36
+            or not workload_id
+            or workload_id.strip() != workload_id
+            or len(workload_id) > 128
+            or checked_at.tzinfo is None
+            or checked_at.utcoffset() is None
+        ):
+            raise ComparisonSessionNotAuthorized()
+        checked_at = checked_at.astimezone(UTC)
+        inventory_request_id = (
+            f"inventory:{inventory_digest.removeprefix('sha256:')}"
+        )
+        with self._reader() as conn:
+            session = conn.execute(
+                select(maintenance_comparison_sessions).select_from(
+                    maintenance_comparison_sessions.join(
+                        quota_inventory_imports,
+                        quota_inventory_imports.c.inventory_digest
+                        == maintenance_comparison_sessions.c.inventory_digest,
+                    )
+                )
+                .where(
+                    maintenance_comparison_sessions.c.id == session_id,
+                    maintenance_comparison_sessions.c.inventory_digest
+                    == inventory_digest,
+                    maintenance_comparison_sessions.c.workload_id == workload_id,
+                    maintenance_comparison_sessions.c.state == "approved",
+                    maintenance_comparison_sessions.c.expires_at > checked_at,
+                    quota_inventory_imports.c.scope == "baseline",
+                )
+            ).first()
+            if session is None:
+                raise ComparisonSessionNotAuthorized()
+            if (
+                conn.execute(
+                    select(quota_reconciliation_claims.c.reservation_id).where(
+                        quota_reconciliation_claims.c.expires_at > checked_at
+                    )
+                ).first()
+                is not None
+            ):
+                raise ComparisonSessionNotAuthorized()
+            project_ids = tuple(
+                conn.execute(
+                    select(quota_reservations.c.project_id)
+                    .where(
+                        quota_reservations.c.repository_id == repository_id,
+                        quota_reservations.c.request_id == inventory_request_id,
+                        quota_reservations.c.state == "committed",
+                    )
+                    .distinct()
+                ).scalars()
+            )
+        if len(project_ids) != 1:
+            raise ComparisonSessionNotAuthorized()
+        expires_at = session.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        return LiveComparisonReadAuthority(
+            project_id=project_ids[0],
+            repository_id=repository_id,
+            session_id=session_id,
             expires_at=expires_at,
         )
 

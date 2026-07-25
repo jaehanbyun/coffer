@@ -34,6 +34,7 @@ def test_installed_migration_environment_is_package_local() -> None:
         "0002_reconciliation_claims.py",
         "0003_repository_metadata.py",
         "0004_inventory_import.py",
+        "0005_maintenance_comparison_sessions.py",
     ]
 
 
@@ -51,6 +52,7 @@ def test_bootstrap_is_repeat_safe_and_validates_the_current_schema(
     try:
         assert set(inspect(engine).get_table_names()) == {
             "alembic_version",
+            "maintenance_comparison_sessions",
             "project_quotas",
             "quota_descriptors",
             "quota_inventory_imports",

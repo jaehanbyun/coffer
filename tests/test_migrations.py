@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import logging
 from pathlib import Path
 
@@ -15,7 +15,11 @@ from coffer.db import (
     metadata as repository_metadata,
     repositories,
 )
-from coffer.quota import QuotaSchemaNotReady, QuotaStore
+from coffer.quota import (
+    QuotaSchemaNotReady,
+    QuotaStore,
+    quota_inventory_imports,
+)
 from coffer.schema import CURRENT_SCHEMA_REVISION
 
 
@@ -151,6 +155,7 @@ def test_alembic_upgrade_is_repeatable_and_downgrade_is_bounded(
     schema = inspect(create_engine(database_url))
     assert set(schema.get_table_names()) == {
         "alembic_version",
+        "maintenance_comparison_sessions",
         "project_quotas",
         "quota_descriptors",
         "quota_inventory_imports",
@@ -196,6 +201,32 @@ def test_alembic_upgrade_is_repeatable_and_downgrade_is_bounded(
         constraint["name"]
         for constraint in schema.get_unique_constraints("quota_inventory_imports")
     } == {"uq_quota_inventory_import_digest"}
+    assert {
+        index["name"]
+        for index in schema.get_indexes("maintenance_comparison_sessions")
+    } == {"ix_maintenance_comparison_sessions_state_expires"}
+    assert {
+        constraint["name"]
+        for constraint in schema.get_unique_constraints(
+            "maintenance_comparison_sessions"
+        )
+    } == {"uq_maintenance_comparison_session_request"}
+    assert {
+        constraint["name"]
+        for constraint in schema.get_check_constraints(
+            "maintenance_comparison_sessions"
+        )
+    } == {
+        "ck_maintenance_comparison_session_lifecycle",
+        "ck_maintenance_comparison_session_state",
+        "ck_maintenance_comparison_session_window",
+    }
+    session_foreign_keys = schema.get_foreign_keys(
+        "maintenance_comparison_sessions"
+    )
+    assert len(session_foreign_keys) == 1
+    assert session_foreign_keys[0]["referred_table"] == "quota_inventory_imports"
+    assert session_foreign_keys[0]["options"] == {"ondelete": "RESTRICT"}
     claim_foreign_keys = schema.get_foreign_keys("quota_reconciliation_claims")
     assert len(claim_foreign_keys) == 1
     assert claim_foreign_keys[0]["referred_table"] == "quota_reservations"
@@ -234,3 +265,42 @@ def test_alembic_logging_preserves_existing_application_loggers(
         assert not logger.disabled
     finally:
         logger.disabled = original_disabled
+
+
+def test_retained_comparison_session_blocks_schema_downgrade(
+    tmp_path: Path,
+) -> None:
+    database_url = f"sqlite:///{tmp_path / 'retained-session.sqlite'}"
+    config = migration_config(database_url)
+    command.upgrade(config, "head")
+    store = QuotaStore(database_url)
+    now = datetime.now(UTC).replace(microsecond=0)
+    inventory_digest = f"sha256:{'1' * 64}"
+    with store._writer() as connection:
+        connection.execute(
+            insert(quota_inventory_imports).values(
+                scope="baseline",
+                inventory_digest=inventory_digest,
+                project_count=0,
+                repository_count=0,
+                manifest_count=0,
+                descriptor_count=0,
+                imported_at=now,
+            )
+        )
+    store.approve_live_comparison_session(
+        request_id="retained-session",
+        inventory_digest=inventory_digest,
+        workload_id="comparison-a",
+        writer_exclusion_ref="writer-exclusion-evidence-1",
+        approved_at=now,
+        lifetime=timedelta(minutes=5),
+    )
+
+    with pytest.raises(RuntimeError, match="retained maintenance"):
+        command.downgrade(config, "0004_inventory_import")
+
+    with create_engine(database_url).connect() as connection:
+        assert connection.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one() == CURRENT_SCHEMA_REVISION

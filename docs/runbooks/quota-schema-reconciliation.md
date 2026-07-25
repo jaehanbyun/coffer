@@ -43,7 +43,16 @@ uv run alembic upgrade head
 unset COFFER_DATABASE_URL
 ```
 
-The current head is `0004_inventory_import`. A fresh database receives repository and quota tables. A database containing the exact older PoC `repositories` table is migrated online: revision `0003` validates its five columns, primary key, string bounds, nullability, and named project/name uniqueness, then adopts it without rewriting rows. Revision `0004` creates the singleton baseline-import marker; it refuses downgrade when that marker contains a committed import. Structural drift aborts before the relevant revision is recorded. Do not use `alembic stamp` to bypass validation.
+The current head is `0005_maintenance_comparison_sessions`. A fresh database
+receives repository and quota tables. A database containing the exact older PoC
+`repositories` table is migrated online: revision `0003` validates its five
+columns, primary key, string bounds, nullability, and named project/name
+uniqueness, then adopts it without rewriting rows. Revision `0004` creates the
+singleton baseline-import marker; it refuses downgrade when that marker contains
+a committed import. Revision `0005` adds finite live-comparison authorization
+sessions bound to that marker and refuses downgrade while any session evidence
+is retained. Structural drift aborts before the relevant revision is recorded.
+Do not use `alembic stamp` to bypass validation.
 
 The conditional create-or-adopt decision cannot be made safely by offline `--sql` generation, so that path is rejected. Downgrade across revision `0003` deliberately retains repository rows; normal processes still reject the downgraded revision until re-upgrade validates and adopts them again. This is disposable recovery evidence, not a production rollback prescription.
 

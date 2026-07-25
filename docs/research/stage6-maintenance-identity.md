@@ -1,7 +1,7 @@
 # Stage 6 Production Maintenance Identity
 
 - Date: 2026-07-25
-- Status: design research; architecture approved for pure local proof
+- Status: architecture accepted in ADR 0015; deployment evidence pending
 - Scope: authenticated Distribution reads for reconciliation and existing-data
   live comparison
 - Related ADRs: `docs/adrs/0008-finite-application-credentials-as-provisioning-contract.md`,
@@ -55,12 +55,15 @@ blast radii and would copy a static privileged password into another process.
 Reducing or replacing this middleware credential is a related Stage 6
 hardening task, not a reason to reuse it.
 
-The first local proof now implements the recommended reconciliation boundary:
+The local proof now implements the recommended reconciliation boundary:
 exact maintenance application-credential/access-rule/user/project/role policy,
 trusted workload context, live SQL claim fencing, server-resolved route,
 pull-only JWT reduction, and public-edge denial. The internal resource remains
-optional and unconfigured. Live-comparison sessions, mTLS workload injection,
-Kolla secret delivery, and real identity lifecycle evidence remain open.
+optional and unconfigured. Finite SQL live-comparison sessions now bind the
+exact imported digest, comparison workload, writer-exclusion evidence
+reference, and expiry, and fail after completion/revocation or while an active
+reconciliation claim exists. mTLS workload injection, Kolla secret delivery,
+and real identity lifecycle evidence remain open.
 
 ## Authority Separation
 

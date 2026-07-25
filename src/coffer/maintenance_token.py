@@ -11,7 +11,11 @@ import uuid
 import falcon
 
 from coffer.db import RepositoryStore
-from coffer.quota import QuotaStore, ReconciliationReadNotAuthorized
+from coffer.quota import (
+    ComparisonSessionNotAuthorized,
+    QuotaStore,
+    ReconciliationReadNotAuthorized,
+)
 from coffer.tokens import (
     AccessGrant,
     CredentialExpiresTooSoon,
@@ -306,6 +310,79 @@ class ReconciliationMaintenanceAuthority:
             authority_id=authority.reservation_id,
             expires_at=authority.expires_at,
         )
+
+
+class LiveComparisonMaintenanceAuthority:
+    def __init__(
+        self,
+        quotas: QuotaStore,
+        repositories: RepositoryStore,
+    ) -> None:
+        self._quotas = quotas
+        self._repositories = repositories
+
+    def authorize(
+        self,
+        request: MaintenanceRequest,
+        *,
+        workload_id: str,
+        checked_at: datetime,
+    ) -> AuthorizedRepositoryRead:
+        if not isinstance(request, LiveComparisonTokenRequest):
+            raise MaintenanceAuthorityDenied()
+        try:
+            authority = self._quotas.authorize_live_comparison_read(
+                session_id=request.session_id,
+                inventory_digest=request.inventory_digest,
+                repository_id=request.repository_id,
+                workload_id=workload_id,
+                checked_at=checked_at,
+            )
+        except ComparisonSessionNotAuthorized:
+            raise MaintenanceAuthorityDenied() from None
+        repository = self._repositories.get(
+            authority.project_id,
+            authority.repository_id,
+        )
+        if repository is None:
+            raise MaintenanceAuthorityDenied()
+        return AuthorizedRepositoryRead(
+            project_id=repository.project_id,
+            repository_name=repository.name,
+            authority_id=authority.session_id,
+            expires_at=authority.expires_at,
+        )
+
+
+class MaintenanceAuthorityRouter:
+    def __init__(
+        self,
+        reconciliation: ReconciliationMaintenanceAuthority,
+        live_comparison: LiveComparisonMaintenanceAuthority,
+    ) -> None:
+        self._reconciliation = reconciliation
+        self._live_comparison = live_comparison
+
+    def authorize(
+        self,
+        request: MaintenanceRequest,
+        *,
+        workload_id: str,
+        checked_at: datetime,
+    ) -> AuthorizedRepositoryRead:
+        if isinstance(request, ReconciliationTokenRequest):
+            return self._reconciliation.authorize(
+                request,
+                workload_id=workload_id,
+                checked_at=checked_at,
+            )
+        if isinstance(request, LiveComparisonTokenRequest):
+            return self._live_comparison.authorize(
+                request,
+                workload_id=workload_id,
+                checked_at=checked_at,
+            )
+        raise MaintenanceAuthorityDenied()
 
 
 @dataclass(frozen=True, slots=True)

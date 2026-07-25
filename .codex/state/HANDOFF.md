@@ -82,9 +82,16 @@ release contains it yet.
   not enable the resource.
 - Full regression now passes 291 Python tests and 52 Kolla companion-role
   checks. Compilation and diff checks pass.
-- ADR 0015 remains proposed because an approved live-comparison session SQL
-  authority, mTLS workload adapter, production configuration, owner-only secret
-  delivery, and real lifecycle evidence do not exist.
+- Added revision `0005_maintenance_comparison_sessions`. Finite idempotent
+  sessions now bind the exact imported digest, workload, writer-exclusion
+  evidence reference, and expiry; active reconciliation claims and stale,
+  mismatched, completed, revoked, or expired sessions fail closed. Downgrade
+  refuses to discard retained session evidence.
+- ADR 0015 is accepted for the architecture and pure local contract. Production
+  configuration, mTLS workload adapter, owner-only secret delivery, and real
+  identity/private-TLS lifecycle evidence do not exist.
+- Full regression now passes 308 Python tests. The 105-test focused maintenance,
+  session, schema, import, and live-inventory matrix also passes.
 
 ## Plan 0018 Activation
 
@@ -1811,9 +1818,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Define the approved live-comparison session lifecycle in ADR 0015, then add the
-first local SQL schema migration at
-`src/coffer/migrations/versions/0005_maintenance_comparison_sessions.py`.
+Create `docs/research/stage6-maintenance-secret-delivery.md` and map the
+existing Kolla owner-only file-copy and Barbican contracts to the accepted
+maintenance application credential and per-replica mTLS key lifecycle without
+changing a recipient or creating a secret.
 
 ## After This Work Package
 

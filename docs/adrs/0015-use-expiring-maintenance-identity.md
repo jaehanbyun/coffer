@@ -1,6 +1,6 @@
 # ADR 0015: Use an Expiring Maintenance Identity for Registry Reads
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-07-25
 - Decision owners: Coffer maintainers and deployment operators
 - Related plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -63,6 +63,40 @@ owned by the current worker. Live-comparison issuance requires an approved,
 unexpired, read-only session tied to the exact artifact and writer-exclusion
 window. Stale, mismatched, completed, or absent authority fails closed.
 
+### Live-comparison session lifecycle
+
+The local control schema owns a bounded
+`maintenance_comparison_sessions` record; it is authorization metadata, not a
+credential.
+
+- An owner-controlled one-shot action supplies a unique idempotency request ID,
+  exact imported inventory digest, exact comparison workload ID, a non-secret
+  writer-exclusion evidence reference, approval time, and a lifetime from 60
+  through 3600 seconds. Coffer generates the session UUID.
+- Approval requires the exact immutable baseline-import marker and no active
+  reconciliation claims. The marker counts must match committed reservations
+  in the baseline importer's exact `inventory:<digest>` request namespace.
+  Those checks prevent known local conflicts but do not prove that external
+  Distribution writers are excluded. The operator still owns writer exclusion
+  and its evidence.
+- Exact request replay returns the existing record. Reuse of the request ID
+  with different fields fails closed.
+- State is `approved`, `completed`, or `revoked`. Only `approved`, unexpired
+  sessions issue tokens. Completion and revocation set a close time, are
+  idempotent for the same terminal state, and cannot be reversed.
+- Each token request must repeat the session ID, exact inventory digest, and
+  repository UUID. SQL rechecks the baseline marker, session workload/state/
+  expiry, absence of active reconciliation claims, and that the repository has
+  committed manifests in that exact baseline-import namespace. Post-import
+  repositories are not session authority. It resolves the project and current
+  repository name server-side.
+- Session rows contain no token, application-credential ID/secret, certificate,
+  manifest digest, repository name, or tenant path. They do not enable
+  admission, mutate quota, or authorize Distribution writes.
+- Downgrade refuses to discard any retained session row. An owner must first
+  audit and explicitly remove or archive session evidence under a later
+  approved procedure.
+
 One successful exchange returns one short-lived Distribution JWT with exactly
 one `repository:<server-resolved-name>:pull` grant. It contains no push, delete,
 catalog, registry-wide, refresh, or offline authority. The existing API signer
@@ -88,7 +122,7 @@ issues it; `coffer-reconcile` never receives the private signing key.
 
 ## Acceptance Boundary
 
-This ADR remains proposed until pure local evidence proves:
+Acceptance is based on pure local evidence proving:
 
 - exact service-project and dual-role admission, with `admin` explicitly
   rejected;
@@ -98,7 +132,7 @@ This ADR remains proposed until pure local evidence proves:
 - one-repository pull-only JWT claims, bounded expiry, and no refresh token;
 - fixed secret-safe failures and output.
 
-Acceptance of the local contract will not make the feature production-ready.
+Acceptance of the local contract does not make the feature production-ready.
 Credential creation/delivery and the Kolla recipient/frontend contract require
 a separate explicit approval and disposable-region evidence. The reconciler
 must remain disabled by default until authenticated private-TLS end-to-end,
@@ -107,7 +141,7 @@ all pass.
 
 ## Local Proof Status
 
-The first pure local implementation milestone is complete:
+The pure local implementation boundary is complete:
 
 - the optional internal Falcon resource stays behind
   `keystonemiddleware.auth_token`;
@@ -125,12 +159,16 @@ The first pure local implementation milestone is complete:
   registry upstream I/O; and
 - fixed denial/unavailable responses and decision logs omit caller-selected
   repository authority, claim tokens, and dependency exception text.
+- revision `0005_maintenance_comparison_sessions` provides finite, idempotent,
+  irreversible approved/completed/revoked sessions; exact imported-digest,
+  workload, active-claim, committed-repository, expiry, completion, and
+  revocation checks drive the live-comparison authority; and
+- schema downgrade refuses to discard retained session evidence.
 
-ADR 0015 remains proposed. The typed live-comparison request and authority seam
-fail closed, but there is no approved-session SQL schema or lifecycle yet.
-There is also no production configuration, trusted mTLS-to-WSGI adapter, real
-credential, Kolla recipient, or secret materialization. Those gaps cannot be
-represented by a permissive fake or by enabling the resource in
+ADR 0015 is accepted for this architecture and local contract. There is still
+no production configuration, trusted mTLS-to-WSGI adapter, real credential,
+Kolla recipient, or secret materialization. Those production gates cannot be
+represented by a permissive fixture or by enabling the resource in
 `build_product_application`.
 
 ## Consequences

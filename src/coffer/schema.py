@@ -7,7 +7,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 
-CURRENT_SCHEMA_REVISION = "0004_inventory_import"
+CURRENT_SCHEMA_REVISION = "0005_maintenance_comparison_sessions"
 
 
 class SchemaNotReady(Exception):
