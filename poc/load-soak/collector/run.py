@@ -43,6 +43,10 @@ native_surfaces = _module(
     "coffer_load_collector_native_surfaces",
     DIRECTORY / "native_surfaces.py",
 )
+native_target = _module(
+    "coffer_load_collector_native_target",
+    DIRECTORY / "native_target.py",
+)
 
 INVOCATION_SCHEMA = "coffer.load-telemetry-collection/v1"
 TARGET_SCHEMA = "coffer.load-telemetry-target/v1"
@@ -151,6 +155,7 @@ def _source_hash() -> str:
     digest = hashlib.sha256()
     for path in sorted(
         (
+            DIRECTORY / "native_target.py",
             DIRECTORY / "native_surfaces.py",
             DIRECTORY / "run.py",
             LOAD_DIRECTORY / "telemetry.py",
@@ -613,6 +618,7 @@ def execute_invocation(
     invocation_path: Path,
     *,
     client: SourceClient | None = None,
+    native_client: Any | None = None,
     clock: Clock | None = None,
 ) -> bool:
     try:
@@ -749,15 +755,34 @@ def execute_invocation(
             target_payload,
             "telemetry target",
         )
-        endpoints, target_sha256 = _endpoints(
-            target_value,
-            topology_sha256=plan["topology_sha256"],
-        )
         observability_topology = (
             telemetry.observability_contract.load_topology(
                 LOAD_DIRECTORY.parent / "observability" / "topology.json"
             )
         )
+        target_schema = (
+            target_value.get("schema")
+            if isinstance(target_value, Mapping)
+            else None
+        )
+        if target_schema == TARGET_SCHEMA:
+            endpoints, target_sha256 = _endpoints(
+                target_value,
+                topology_sha256=plan["topology_sha256"],
+            )
+            native_target_value: object | None = None
+        elif target_schema == native_target.TARGET_SCHEMA:
+            validated_native_target = native_target.validate_target(
+                target_value,
+                topology_sha256=plan["topology_sha256"],
+                load_topology=load_topology,
+                observability_topology=observability_topology,
+            )
+            endpoints = None
+            native_target_value = target_value
+            target_sha256 = validated_native_target.target_sha256
+        else:
+            raise CollectorError("telemetry target schema changed")
         session_paths_sha256 = _hash(
             {
                 key: invocation[key]
@@ -782,6 +807,7 @@ def execute_invocation(
         orchestrator.plan_contract.PlanError,
         orchestrator.plan_contract.state_machine.LoadSoakError,
         telemetry.observability_contract.ContractError,
+        native_target.NativeTargetError,
     ) as error:
         raise CommandError("contract-refused") from error
 
@@ -843,14 +869,27 @@ def execute_invocation(
             raise CommandError("contract-refused")
         if len(state["snapshots"]) == phase_index:
             try:
-                snapshot = _collect_snapshot(
-                    endpoints,
-                    ca_file=ca_file,
-                    client=chosen_client,
-                    clock=chosen_clock,
-                    phase=phase,
-                    timeout_seconds=invocation["timeout_seconds"],
-                )
+                if endpoints is not None:
+                    snapshot = _collect_snapshot(
+                        endpoints,
+                        ca_file=ca_file,
+                        client=chosen_client,
+                        clock=chosen_clock,
+                        phase=phase,
+                        timeout_seconds=invocation["timeout_seconds"],
+                    )
+                else:
+                    snapshot = native_target.compose_phase_snapshot(
+                        native_target_value,
+                        ca_file=ca_file,
+                        phase=phase,
+                        timeout_seconds=invocation["timeout_seconds"],
+                        topology_sha256=plan["topology_sha256"],
+                        load_topology=load_topology,
+                        observability_topology=observability_topology,
+                        client=native_client,
+                        clock=chosen_clock,
+                    )
                 previous_targets: dict[str, tuple[float, float]] = {}
                 previous_observed = -1.0
                 for previous_phase, previous in zip(
@@ -901,6 +940,7 @@ def execute_invocation(
                 OSError,
                 telemetry.TelemetryError,
                 telemetry.observability_contract.ContractError,
+                native_target.NativeTargetError,
             ) as error:
                 raise CommandError("collection-unavailable") from error
 

@@ -8,8 +8,8 @@
   manifest, control/token/quota protocol core, and owner-only control CLI
   complete; checkpointed profile/ramp and recovery-first fault executors
   complete; owner-only telemetry collection boundary, native
-  Prometheus/exporter parser seam, and versioned native target complete;
-  collector schema dispatch next
+  Prometheus/exporter parser seam, versioned native target, and exact-schema
+  collector dispatch complete; disposable-pilot target renderer next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -584,8 +584,19 @@ release contains it yet.
   Phase/surface mismatch and query/hash/encoding/rule/content/identity/URL
   drift fail closed. Twenty-three focused native tests, all 262 broad load
   tests, and all 887 Python tests pass. Collection also reports 887 tests. The
-  target is not yet selected by `collector/run.py`; no endpoint, credential,
-  container, VM, or remote state changed.
+  target was not yet selected by `collector/run.py` at that boundary; no
+  endpoint, credential, container, VM, or remote state changed.
+- `collector/run.py` now dispatches only the exact normalized or native target
+  schema, repeats native topology validation before state mutation, and
+  includes `native_target.py` in its source hash. Unknown schemas fail before
+  transport and no compatibility fallback exists.
+- A complete native before/during/after transaction made 78 verified-TLS
+  requests, captured bounded service/dependency loss and recovery plus one
+  edge restart, and emitted the canonical independently verified bundle.
+  Normalized v1 remains compatible. The focused native/collector matrix passes
+  91 tests, the broad load matrix passes 264, and full regression and
+  collection both report 889 tests. This remains local adapter evidence; no
+  pilot endpoint or remote state changed.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2393,11 +2404,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Import and source-hash `poc/load-soak/collector/native_target.py` from
-`collector/run.py`. Dispatch only the exact normalized and native target
-schemas, use `compose_phase_snapshot()` for native collection, and prove the
-full before/during/after native transaction plus canonical bundle through
-local verified-TLS fakes without changing normalized v1 behavior.
+Add `poc/load-soak/collector/render_target.py` as a no-network owner-only
+renderer from a versioned disposable-pilot inventory and explicit telemetry
+origins to canonical mode-0600 native-target JSON. Bind the adapter source hash
+and topology hashes, and prove deterministic output plus drift refusal before
+Kolla harness wiring.
 
 ## After This Work Package
 

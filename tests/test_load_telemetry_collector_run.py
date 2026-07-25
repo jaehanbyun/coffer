@@ -661,6 +661,7 @@ def test_verified_tls_refuses_hostname_mismatch_before_checkpoint(
         "invocation-mode",
         "plan-hash",
         "target-hash",
+        "target-schema",
         "source-hash",
         "insecure-url",
         "path-alias",
@@ -693,6 +694,12 @@ def test_preflight_drift_is_refused_before_collection(
             owner_file(invocation_path, canonical(document))
         elif mutation == "source-hash":
             document["collector_source_sha256"] = f"sha256:{'0' * 64}"
+            owner_file(invocation_path, canonical(document))
+        elif mutation == "target-schema":
+            target["schema"] = "coffer.load-telemetry-target/v2"
+            payload = canonical(target)
+            owner_file(paths["target"], payload)
+            document["target_file_sha256"] = digest(payload)
             owner_file(invocation_path, canonical(document))
         elif mutation == "insecure-url":
             target["surface_urls"]["prometheus"] = target[

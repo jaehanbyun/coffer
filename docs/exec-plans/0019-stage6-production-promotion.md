@@ -1967,6 +1967,36 @@ operator-local release.
   bundle through local verified-TLS fakes while retaining normalized v1
   compatibility.
 
+### 2026-07-26 — Native telemetry collector dispatch completed locally
+
+- Exact dispatch: `collector/run.py` now selects only
+  `coffer.load-telemetry-target/v1` or
+  `coffer.load-telemetry-native-target/v1`. An unknown schema is rejected
+  before any request and there is no normalized/native fallback.
+- Provenance: The collector source hash now includes `native_target.py` as
+  well as the parser, collector, and telemetry contracts. Native target
+  validation is repeated against the compiled topology and observability
+  topology before the state lock is entered.
+- Transaction evidence: One local verified-TLS transaction collected the
+  exact before/during/after steps through 78 requests. It represented one
+  unavailable direct replica per component, a firing target-down alert,
+  HAProxy/Galera/RGW/ingress degradation, stale series, multipart residue,
+  reduced reconciler workers, full recovery, and one edge restart. The final
+  canonical bundle passed the independent telemetry verifier with one restart
+  and owner-only state, lock, result, and bundle files.
+- Compatibility and evidence: The normalized v1 regression remains
+  unchanged; an unknown target schema makes no transport call. The focused
+  native/collector/parser/telemetry/runtime matrix passes 91 tests, the broad
+  load matrix passes 264, and full regression and collection both report 889
+  tests. No Prometheus, exporter, endpoint, credential, container, VM, or
+  remote state changed.
+- Next exact action: Add
+  `poc/load-soak/collector/render_target.py` as a no-network, owner-only
+  renderer. Convert a versioned disposable-pilot inventory plus explicit
+  telemetry origins into the exact native target, bind the adapter source hash
+  and topology hashes, emit canonical mode-0600 JSON, and prove deterministic
+  rendering and drift refusal before wiring it into the Kolla pilot harness.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2088,6 +2118,9 @@ operator-local release.
 | Native target and one-phase TLS composition | `uv run pytest -q tests/test_load_native_target.py tests/test_load_native_surfaces.py` | passed; 23 |
 | Broad load matrix after native target | `uv run pytest -q tests/test_load_*.py` | passed; 262 |
 | Full regression after native target | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 887 |
+| Native target collector dispatch and three-window transaction | `uv run pytest -q tests/test_load_native_target.py tests/test_load_native_surfaces.py tests/test_load_telemetry_collector_run.py tests/test_load_soak_telemetry.py tests/test_load_soak_runtime_manifest.py` | passed; 91 |
+| Broad load matrix after native collector dispatch | `uv run pytest -q tests/test_load_*.py` | passed; 264 |
+| Full regression after native collector dispatch | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 889 |
 
 ## Failures, Blockers, and Risks
 
@@ -2122,15 +2155,17 @@ operator-local release.
   complete. The canonical restored SQL/RGW backup verifier now gates the
   lifecycle through an ordered no-network adapter seam. The controlled
   filesystem GC/restore gate is complete with live exact-image evidence.
-  The native parser and separately versioned, hash-bound native target now
-  compose one complete local TLS phase without changing normalized v1. Real
-  RGW lifecycle evidence and current stable dependencies remain blocked; no
-  real identity, credential, certificate, endpoint, or remote state changed.
-- Exact next action: Import and source-hash
-  `poc/load-soak/collector/native_target.py` from `collector/run.py`, select it
-  only for `coffer.load-telemetry-native-target/v1`, and prove all three native
-  phases produce the canonical verified bundle while normalized v1 remains
-  unchanged.
+  The native parser and separately versioned, hash-bound native target now run
+  through the owner-only collector for a complete local three-window TLS
+  transaction without changing normalized v1. Real RGW lifecycle evidence and
+  current stable dependencies remain blocked; no real identity, credential,
+  certificate, endpoint, or remote state changed.
+- Exact next action: Add
+  `poc/load-soak/collector/render_target.py` as a no-network owner-only
+  renderer from a versioned disposable-pilot inventory and explicit telemetry
+  origins to canonical mode-0600 native-target JSON. Bind the adapter source
+  hash and topology hashes, and prove deterministic output plus drift refusal
+  before Kolla harness wiring.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

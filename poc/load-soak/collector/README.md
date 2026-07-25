@@ -122,11 +122,16 @@ The implementation contract was checked against these primary sources:
 - [Ceph daemon and RGW monitoring metrics](https://docs.ceph.com/en/latest/monitoring/)
 - [node-exporter v1.11.1 collectors](https://github.com/prometheus/node_exporter/tree/v1.11.1/collector)
 
-The native target is not yet selected by `collector/run.py`. The normalized
-`coffer.load-telemetry-target/v1` still proves the existing HTTPS/state
-transaction byte-for-byte. The next milestone must dispatch the two schemas
-without fallback, include the native target source in the collector source
-hash, and prove all three native phases through the canonical bundle
-transaction. Until that integration and a fresh disposable pilot pass, this
-remains local adapter evidence rather than production telemetry
-qualification.
+`collector/run.py` dispatches only the exact normalized or native target
+schema and has no compatibility fallback. Its source hash covers
+`native_target.py`, `native_surfaces.py`, the collector, and both telemetry
+contracts. The normalized v1 path remains byte-compatible. A complete local
+native before/during/after transaction performs 78 verified-TLS requests,
+captures bounded dependency loss plus one service restart, and produces the
+same independently verified canonical bundle transaction.
+
+This is local adapter and transaction evidence, not production telemetry
+qualification. The native target still needs to be rendered from the exact
+disposable pilot inventory, all named sources and auxiliary views must exist
+on that pilot, and both architecture lanes must qualify the bound runtime
+before the load/soak gate can pass.

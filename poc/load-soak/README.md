@@ -127,8 +127,11 @@ Prometheus v1 API, HAProxy, mysqld-exporter/Galera, Ceph mgr/ceph-exporter/RGW
 ingress, and node-exporter. It produces the existing seven internal payload
 shapes while keeping quota/reconciliation/KMS/multipart/workload error fields
 as explicit auxiliary evidence instead of inventing native metrics. The v1
-collector target does not select this seam yet; exact source URLs, PromQL, and
-allowlists require a versioned native target before pilot use.
+collector remains byte-compatible. A separately versioned native target binds
+the exact source URLs, PromQL, and allowlists, and `collector/run.py` selects
+the normalized or native path only by exact schema without fallback. Local
+three-window TLS evidence qualifies dispatch and state handling, not the
+uncreated pilot endpoints or their runtime data.
 
 `runtime_manifest.py` maps every schedule entry and operation to the current
 runtime capability baseline. It binds a canonical owner-only compiled plan,
