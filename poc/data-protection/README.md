@@ -371,11 +371,22 @@ not create or repair unsafe directories. The lifecycle now derives its SQL and
 RGW phase evidence only from this verifier; an unverified bundle cannot enter
 `backups-verified`.
 
-The next local milestone should add a no-network backup adapter seam with fake
-MariaDB and versioned-S3 clients. It must build this exact bundle from typed
-adapter observations, keep credentials out of arguments/results, prove
-complete pagination and isolated restore order, and refuse a real adapter
-unless an explicit disposable target contract is supplied. No subprocess or
-network call is permitted in the first adapter milestone.
+The no-network backup adapter milestone is complete locally. Typed MariaDB and
+versioned-S3 seams expose only inspection, backup/copy, and isolated-restore
+observations. The implementation accepts only the exact in-process fixture
+client classes; a lookalike or future real client is rejected until a separate
+disposable target contract exists. It enforces SQL inspect/backup/restore
+ordering, bounded nonempty S3 pagination with cursor-cycle refusal, an exact
+version-set copy digest, isolated restore ordering, canonical verification,
+and byte-for-byte reconstruction of the accepted fixture bundle.
 
-No external resource may be created by that implementation milestone.
+The adapter API and results contain no credential parameters or fields and the
+module imports no network, subprocess, S3, SQL, or HTTP runtime. The lifecycle
+now reaches `backups-verified` only through this ordered adapter and the
+canonical verifier.
+
+Live MariaDB/RGW adapters and the disposable rehearsal remain deferred until
+an explicit target contract and acceptable released dependency inputs can be
+bound to a fresh isolated pilot. The next independent Stage 6 workstream is
+restart-correct observability; this data-protection boundary must not be
+weakened when live clients are added.

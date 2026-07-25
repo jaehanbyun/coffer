@@ -692,6 +692,44 @@ operator-local release.
   from typed observations, keep credentials outside arguments/results, prove
   phase order and pagination, and refuse any real adapter or external call.
 
+### 2026-07-25 — No-network backup adapter seam completed locally
+
+- Completed: Added typed MariaDB and versioned-S3 backup client seams plus
+  exact fixture implementations. The builder reconstructs the canonical
+  bundle from observations rather than trusting the checked-in bundle as
+  phase evidence.
+- Order and completeness: SQL source inspection must precede backup and
+  isolated restore. S3 source inspection must precede bounded nonempty
+  version pages, exact version-set copy, and isolated restore. Repeated
+  cursors, page-bound exhaustion, empty pages, copy-set drift, observation
+  drift, and restore mismatch are refused.
+- Real-client gate: The builder checks the exact fixture client types, not
+  merely a claimed adapter name. No future real client can enter this path
+  without a deliberate code and target-contract change.
+- Lifecycle integration: `verify-backups` now invokes the ordered adapter,
+  canonical verifier, and state transition in that order. Invalid bundle or
+  adapter evidence leaves the last accepted state unchanged.
+- Secret/network boundary: Public adapter parameters and results contain no
+  credential fields. Static inspection proves no boto, HTTP, socket, SQL, or
+  subprocess runtime import in this milestone.
+- Verification: Eleven adapter tests plus the 29 backup, 13 lifecycle, and 27
+  state-model tests pass together (80 focused); all 439 Python tests pass.
+  Compilation, fixture JSON, and diff checks pass.
+- Scope: No database, S3/RGW, KMS, registry, network, subprocess, SSH,
+  Ansible, Kolla, VM, identity, certificate, or remote-file operation occurs.
+- Deferral: A live backup adapter and disposable data rehearsal remain gated
+  on an explicit target contract and the fresh isolated convergence pilot.
+  The fixture boundary is sufficient to proceed with independent Stage 6
+  observability work without recreating the six-VM lab.
+- Changed files: `poc/data-protection/backup_adapter.py`, lifecycle
+  integration, adapter tests, `poc/data-protection/README.md`, this plan, and
+  `HANDOFF.md`.
+- Next exact action: Inspect current API, edge, registry, reconciler,
+  database, RGW/KMS, and HAProxy metrics/logging contracts, then create
+  `docs/research/stage6-observability.md` defining restart-correct ownership,
+  bounded labels, protected collection, alerts, dashboards, and an initial
+  SLO/failure budget. Do not contact a remote service.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -730,6 +768,8 @@ operator-local release.
 | Full regression after data-protection lifecycle | `uv run pytest -q` | passed; 398 |
 | Canonical backup bundle and lifecycle integration | `uv run pytest -q tests/test_data_protection_backup_manifest.py tests/test_data_protection_lifecycle_cli.py tests/test_data_protection_state_machine.py` | passed; 69 |
 | Full regression after canonical backup verifier | `uv run pytest -q` | passed; 428 |
+| No-network backup adapter and integrated backup gate | `uv run pytest -q tests/test_data_protection_backup_adapter.py tests/test_data_protection_backup_manifest.py tests/test_data_protection_lifecycle_cli.py tests/test_data_protection_state_machine.py` | passed; 80 |
+| Full regression after no-network backup adapter | `uv run pytest -q` | passed; 439 |
 
 ## Failures, Blockers, and Risks
 
@@ -756,12 +796,12 @@ operator-local release.
   and reconciliation remain disabled. The provenance-bound S3 inventory helper
   plus the pure state model and fixture-only data-protection lifecycle are
   complete. The canonical restored SQL/RGW backup verifier now gates the
-  lifecycle. Real lifecycle evidence and current stable dependencies remain
-  blocked; no real identity, credential, certificate, endpoint, or remote state
-  changed.
-- Exact next action: Add a no-network backup adapter seam with fake MariaDB and
-  versioned-S3 clients that builds the exact verified bundle without accepting
-  credentials or invoking an external service.
+  lifecycle through an ordered no-network adapter seam. Real lifecycle
+  evidence and current stable dependencies remain blocked; no real identity,
+  credential, certificate, endpoint, or remote state changed.
+- Exact next action: Inventory the current observability surfaces and create
+  the Stage 6 restart-correct metrics/logs/alerts/dashboard/SLO contract
+  without contacting a remote service.
 - Questions requiring user input: None for the next fixture-only lifecycle
   milestone. The user has already authorized atomic milestone publication and
   the bounded disposable Stage 6 sequence; exact safety and release gates

@@ -25,16 +25,16 @@ state_machine = importlib.util.module_from_spec(MODULE_SPEC)
 sys.modules[MODULE_SPEC.name] = state_machine
 MODULE_SPEC.loader.exec_module(state_machine)
 
-BACKUP_MODULE_PATH = Path(__file__).with_name("backup_manifest.py")
-BACKUP_MODULE_SPEC = importlib.util.spec_from_file_location(
-    "coffer_data_protection_backup_manifest_runtime",
-    BACKUP_MODULE_PATH,
+BACKUP_ADAPTER_PATH = Path(__file__).with_name("backup_adapter.py")
+BACKUP_ADAPTER_SPEC = importlib.util.spec_from_file_location(
+    "coffer_data_protection_backup_adapter_runtime",
+    BACKUP_ADAPTER_PATH,
 )
-if BACKUP_MODULE_SPEC is None or BACKUP_MODULE_SPEC.loader is None:
-    raise RuntimeError("data-protection backup verifier is unavailable")
-backup_manifest = importlib.util.module_from_spec(BACKUP_MODULE_SPEC)
-sys.modules[BACKUP_MODULE_SPEC.name] = backup_manifest
-BACKUP_MODULE_SPEC.loader.exec_module(backup_manifest)
+if BACKUP_ADAPTER_SPEC is None or BACKUP_ADAPTER_SPEC.loader is None:
+    raise RuntimeError("data-protection backup adapter is unavailable")
+backup_adapter = importlib.util.module_from_spec(BACKUP_ADAPTER_SPEC)
+sys.modules[BACKUP_ADAPTER_SPEC.name] = backup_adapter
+BACKUP_ADAPTER_SPEC.loader.exec_module(backup_adapter)
 
 FIXTURE_SCHEMA = "coffer.data-protection-fixture/v1"
 FAILURE_SCHEMA = "coffer.data-protection-failure/v1"
@@ -295,14 +295,14 @@ def load_fixture(
     if not isinstance(writer_fence, Mapping):
         raise CommandError("fixture-refused")
     try:
-        backup_manifest.verify_backup_bundle(
-            value.get("backup_bundle"),
+        backup_adapter.build_fixture_backup(
+            value,
             invocation_id=invocation_id,
             target_signature=target_signature,
             topology_digest=topology.digest,
             source_signature=str(writer_fence.get("source_signature", "")),
         )
-    except backup_manifest.ManifestError:
+    except backup_adapter.AdapterError:
         raise CommandError("fixture-refused") from None
     failures = value.get("failure_outcomes")
     if (
@@ -474,8 +474,8 @@ def _run_action(
             assert isinstance(writer_fence, Mapping)
             writer_fence = writer_fence["writer_fence"]
             assert isinstance(writer_fence, Mapping)
-            backup_evidence = backup_manifest.verify_backup_bundle(
-                fixture["backup_bundle"],
+            backup_result = backup_adapter.build_fixture_backup(
+                fixture,
                 invocation_id=str(state["invocation_id"]),
                 target_signature=str(state["target_signature"]),
                 topology_digest=topology.digest,
@@ -484,8 +484,8 @@ def _run_action(
             state = state_machine.mark_backups_verified(
                 topology,
                 state,
-                backup_evidence["sql_backup"],
-                backup_evidence["rgw_backup"],
+                backup_result.evidence["sql_backup"],
+                backup_result.evidence["rgw_backup"],
             )
         elif action == "verify-inventory":
             state = state_machine.mark_inventory_verified(
@@ -558,7 +558,7 @@ def _run_action(
             raise CommandError("contract-refused")
     except (
         KeyError,
-        backup_manifest.ManifestError,
+        backup_adapter.AdapterError,
         state_machine.DataProtectionError,
     ) as error:
         raise CommandError("contract-refused") from error
