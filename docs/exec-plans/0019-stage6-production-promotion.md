@@ -1849,6 +1849,46 @@ operator-local release.
   emit the existing canonical telemetry bundle, and prove transport behavior
   with local TLS fakes only.
 
+### 2026-07-25 — Owner-only telemetry collection boundary completed
+
+- Invocation/target boundary: Added exact owner-only before/during/after
+  invocations bound to one compiled plan step, checked collector/telemetry
+  source, CA, disposable target, shared state/lock/bundle paths, and distinct
+  result paths. The target binds seven unique credential-free HTTPS URLs for
+  Prometheus, HAProxy, Galera, RGW, quota, reconciliation, and host surfaces.
+- Transport safety: The client ignores ambient proxies, requires verified TLS
+  1.2 or newer and hostname validation, refuses insecure URLs, redirects,
+  content-type drift, content encoding, noncanonical or misbound documents,
+  and caps per-surface bytes, total bytes, JSON depth, keys, arrays, and
+  strings. Local tests use a real TLS server and certificate.
+- State/evidence: Each semantic snapshot advances an atomic replay-validated
+  hash chain. Phases cannot skip or reorder. Each phase emits one redacted
+  `coffer.load-telemetry-collection-result/v1`; `after` additionally emits the
+  existing canonical telemetry bundle. Raw instance identities remain only in
+  owner-only state/bundle input.
+- Promotion safety: Standalone verification still rejects a caller-labelled
+  live bundle. `prometheus-export` is accepted only when the final result
+  independently matches the expected plan, collector source, target, bundle,
+  snapshot, and history hashes. Fixture output remains synthetic.
+- Qualification boundary: The seven local endpoints return normalized
+  phase-bound surfaces. They prove collection/state/transport, not parsing of
+  real Prometheus HTTP API, HAProxy, mysqld-exporter, Ceph mgr/RGW, or
+  node-exporter output. All three telemetry schedule entries are now
+  source-hashed `contract-only`; the runtime manifest remains `ready=false`
+  with nine unqualified executors and no executable hashes.
+- Verification: Nineteen collector tests cover the three-window transaction,
+  idempotence, independent pilot binding, verified TLS, redirects, response
+  and semantic drift, size/canonical limits, exact preflight, phase order,
+  tamper, lock, and fixed CLI behavior. Collector, telemetry, and runtime
+  manifest tests pass 66 cases; the broader load matrix passes 204; all 863
+  Python tests and compilation pass.
+- Next exact action: Add
+  `poc/load-soak/collector/native_surfaces.py`. Parse bounded Prometheus HTTP
+  API and strict HAProxy, mysqld-exporter, Ceph mgr/RGW, and node-exporter
+  responses from their exact verified-TLS URLs into the seven internal
+  surface schemas. Pin query/metric/label allowlists, refuse missing or extra
+  series, and prove each parser with captured local TLS fakes only.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1960,6 +2000,9 @@ operator-local release.
 | Serial recovery-first fault executor | `uv run pytest -q tests/test_load_fault_run.py` | passed; 16 |
 | Broader load matrix after fault executor | fault, profile, plan, orchestrator, runtime manifest, state machine, and evidence tests | passed; 152 |
 | Full Python regression after fault executor | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 844 collected |
+| Owner-only telemetry collector and canonical verifier | `uv run pytest -q tests/test_load_telemetry_collector_run.py tests/test_load_soak_telemetry.py tests/test_load_soak_runtime_manifest.py` | passed; 66 |
+| Broader load matrix after telemetry collector | collector, telemetry, fault, profile, plan, orchestrator, runtime manifest, state machine, and evidence tests | passed; 204 |
+| Full Python regression after telemetry collector | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 863 collected |
 
 ## Failures, Blockers, and Risks
 
@@ -1990,12 +2033,12 @@ operator-local release.
   Real RGW lifecycle evidence and current stable dependencies remain blocked;
   no real identity, credential, certificate, endpoint, or remote state
   changed.
-- Exact next action: Add the owner-only live telemetry collector under
-  `poc/load-soak/collector/`. Fetch exact direct Prometheus targets and native
-  HAProxy/MariaDB/Ceph surfaces over verified TLS, bind each
-  before/during/after window to the compiled plan, cap samples/series/labels,
-  emit the existing canonical telemetry bundle, and prove transport behavior
-  with local TLS fakes only.
+- Exact next action: Add
+  `poc/load-soak/collector/native_surfaces.py`. Parse bounded Prometheus HTTP
+  API and strict HAProxy, mysqld-exporter, Ceph mgr/RGW, and node-exporter
+  responses from their exact verified-TLS URLs into the seven internal
+  surface schemas. Pin query/metric/label allowlists, refuse missing or extra
+  series, and prove each parser with captured local TLS fakes only.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

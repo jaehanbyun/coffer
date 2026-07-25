@@ -556,11 +556,76 @@ def _validate_hosts(value: object) -> None:
         raise TelemetryError("host role topology changed")
 
 
+def validate_snapshot(
+    value: object,
+    *,
+    expected_phase: str,
+    load_topology: Mapping[str, Any],
+    observability_topology: Any,
+    previous_targets: Mapping[str, tuple[float, float]],
+) -> tuple[dict[str, tuple[float, float]], int, float]:
+    if expected_phase not in PHASES:
+        raise TelemetryError("telemetry phase is invalid")
+    snapshot = _exact(
+        value,
+        {
+            "galera",
+            "haproxy",
+            "hosts",
+            "observed_at_seconds",
+            "phase",
+            "prometheus",
+            "quota",
+            "reconciliation",
+            "rgw",
+        },
+        "telemetry snapshot",
+    )
+    observed_at = _number(
+        snapshot["observed_at_seconds"],
+        category="observation time",
+    )
+    if snapshot["phase"] != expected_phase:
+        raise TelemetryError("telemetry window order changed")
+    current_targets, resets = _validate_prometheus(
+        snapshot["prometheus"],
+        observed_at=observed_at,
+        phase=expected_phase,
+        load_topology=load_topology,
+        observability_topology=observability_topology,
+        previous=previous_targets,
+    )
+    _validate_galera(
+        snapshot["galera"],
+        phase=expected_phase,
+        load_topology=load_topology,
+    )
+    _validate_rgw(
+        snapshot["rgw"],
+        phase=expected_phase,
+        load_topology=load_topology,
+    )
+    _validate_quota(snapshot["quota"], load_topology=load_topology)
+    _validate_reconciliation(
+        snapshot["reconciliation"],
+        phase=expected_phase,
+        load_topology=load_topology,
+    )
+    _validate_haproxy(
+        snapshot["haproxy"],
+        phase=expected_phase,
+        load_topology=load_topology,
+    )
+    _validate_hosts(snapshot["hosts"])
+    return current_targets, resets, observed_at
+
+
 def verify_document(
     document: object,
     *,
     load_topology: Mapping[str, Any],
     observability_topology: Any,
+    allow_live: bool = False,
 ) -> dict[str, Any]:
     checked = _exact(
         document,
@@ -575,13 +640,18 @@ def verify_document(
         "telemetry bundle",
     )
     expected_load_hash = _hash(load_topology)
+    source_binding = (checked["source"], checked["synthetic"])
     if (
         checked["schema"] != BUNDLE_SCHEMA
         or checked["load_topology_sha256"] != expected_load_hash
         or checked["observability_topology_sha256"]
         != observability_topology.digest
-        or checked["source"] != "fixture"
-        or checked["synthetic"] is not True
+        or source_binding
+        not in (
+            {("fixture", True), ("prometheus-export", False)}
+            if allow_live
+            else {("fixture", True)}
+        )
     ):
         raise TelemetryError("telemetry binding changed")
     snapshots = _array(checked["snapshots"], len(PHASES), "telemetry snapshots")
@@ -589,60 +659,18 @@ def verify_document(
     previous_targets: dict[str, tuple[float, float]] = {}
     reset_count = 0
     for expected_phase, snapshot_value in zip(PHASES, snapshots):
-        snapshot = _exact(
+        current_targets, resets, observed_at = validate_snapshot(
             snapshot_value,
-            {
-                "galera",
-                "haproxy",
-                "hosts",
-                "observed_at_seconds",
-                "phase",
-                "prometheus",
-                "quota",
-                "reconciliation",
-                "rgw",
-            },
-            "telemetry snapshot",
-        )
-        observed_at = _number(
-            snapshot["observed_at_seconds"],
-            category="observation time",
-        )
-        if snapshot["phase"] != expected_phase or observed_at <= previous_observed:
-            raise TelemetryError("telemetry window order changed")
-        previous_observed = observed_at
-        current_targets, resets = _validate_prometheus(
-            snapshot["prometheus"],
-            observed_at=observed_at,
-            phase=expected_phase,
+            expected_phase=expected_phase,
             load_topology=load_topology,
             observability_topology=observability_topology,
-            previous=previous_targets,
+            previous_targets=previous_targets,
         )
+        if observed_at <= previous_observed:
+            raise TelemetryError("telemetry window order changed")
+        previous_observed = observed_at
         previous_targets = current_targets
         reset_count += resets
-        _validate_galera(
-            snapshot["galera"],
-            phase=expected_phase,
-            load_topology=load_topology,
-        )
-        _validate_rgw(
-            snapshot["rgw"],
-            phase=expected_phase,
-            load_topology=load_topology,
-        )
-        _validate_quota(snapshot["quota"], load_topology=load_topology)
-        _validate_reconciliation(
-            snapshot["reconciliation"],
-            phase=expected_phase,
-            load_topology=load_topology,
-        )
-        _validate_haproxy(
-            snapshot["haproxy"],
-            phase=expected_phase,
-            load_topology=load_topology,
-        )
-        _validate_hosts(snapshot["hosts"])
     if reset_count < 1:
         raise TelemetryError("restart transition is missing")
     metrics_phase = {
@@ -671,6 +699,62 @@ def verify_document(
     load_contract.validate_retained_evidence(result)
     observability_contract.validate_retained_payload(result)
     return result
+
+
+def verify_collected_document(
+    document: object,
+    collection_result: object,
+    *,
+    collector_source_sha256: str,
+    load_topology: Mapping[str, Any],
+    observability_topology: Any,
+    plan_sha256: str,
+    target_sha256: str,
+) -> dict[str, Any]:
+    result = _exact(
+        collection_result,
+        {
+            "bundle_sha256",
+            "collector_source_sha256",
+            "complete",
+            "execution_source",
+            "history_sha256",
+            "phase",
+            "plan_sha256",
+            "schema",
+            "snapshot_count",
+            "snapshots_sha256",
+            "synthetic",
+            "target_sha256",
+            "unexpected_errors",
+        },
+        "telemetry collection result",
+    )
+    if not isinstance(document, Mapping):
+        raise TelemetryError("telemetry bundle is invalid")
+    if (
+        result["schema"] != "coffer.load-telemetry-collection-result/v1"
+        or result["complete"] is not True
+        or result["execution_source"] != "pilot"
+        or result["phase"] != "after"
+        or result["synthetic"] is not False
+        or result["snapshot_count"] != len(PHASES)
+        or result["unexpected_errors"] != 0
+        or result["collector_source_sha256"] != collector_source_sha256
+        or result["plan_sha256"] != plan_sha256
+        or result["target_sha256"] != target_sha256
+        or result["bundle_sha256"] != _hash(document)
+        or result["snapshots_sha256"] != _hash(document.get("snapshots"))
+        or not isinstance(result["history_sha256"], str)
+        or load_contract.HASH.fullmatch(result["history_sha256"]) is None
+    ):
+        raise TelemetryError("live telemetry collection binding changed")
+    return verify_document(
+        document,
+        load_topology=load_topology,
+        observability_topology=observability_topology,
+        allow_live=True,
+    )
 
 
 def _read_owner_file(path: Path) -> bytes:

@@ -133,7 +133,16 @@ def _contract_hashes() -> dict[str, str]:
                 ],
             ]
         ),
-        "telemetry-collector": _source_hash([DIRECTORY / "telemetry.py"]),
+        "telemetry-collector": _source_hash(
+            [
+                DIRECTORY / "telemetry.py",
+                *[
+                    path
+                    for path in (DIRECTORY / "collector").rglob("*.py")
+                    if path.is_file()
+                ],
+            ]
+        ),
     }
 
 
@@ -219,9 +228,9 @@ def build_manifest(
             )
         else:
             executor = "telemetry-collector"
-            disposition = "missing"
+            disposition = "contract-only"
             input_contract = "coffer.load-telemetry-collection/v1"
-            output_contract = "coffer.load-telemetry-bundle/v1"
+            output_contract = "coffer.load-telemetry-collection-result/v1"
             timeout_seconds = 300
         if disposition != "qualified":
             gaps.add(executor)

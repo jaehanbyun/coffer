@@ -136,7 +136,7 @@ def test_current_runtime_manifest_exposes_every_gap_without_claiming_ready() -> 
         ]
     )
     assert all(
-        entry["disposition"] in ("contract-only", "missing")
+        entry["disposition"] == "contract-only"
         for entry in manifest["entries"]
     )
     assert all(
@@ -174,6 +174,21 @@ def test_current_runtime_manifest_exposes_every_gap_without_claiming_ready() -> 
         entry["disposition"] == "contract-only"
         and entry["contract_sha256"].startswith("sha256:")
         for entry in fault_entries
+    )
+    telemetry_entries = [
+        entry
+        for entry in manifest["entries"]
+        if entry["executor"] == "telemetry-collector"
+    ]
+    assert len(telemetry_entries) == 3
+    assert all(
+        entry["disposition"] == "contract-only"
+        and entry["contract_sha256"].startswith("sha256:")
+        and entry["input_contract"]
+        == "coffer.load-telemetry-collection/v1"
+        and entry["output_contract"]
+        == "coffer.load-telemetry-collection-result/v1"
+        for entry in telemetry_entries
     )
     operations = {
         entry["operation"]: entry

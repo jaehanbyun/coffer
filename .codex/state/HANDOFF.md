@@ -7,7 +7,8 @@
   telemetry, deterministic plan, and fixture orchestrator complete; runtime
   manifest, control/token/quota protocol core, and owner-only control CLI
   complete; checkpointed profile/ramp and recovery-first fault executors
-  complete; live telemetry collector next
+  complete; owner-only telemetry collection boundary complete; native
+  Prometheus/exporter surface parsing next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -532,6 +533,22 @@ release contains it yet.
   source-hashed `contract-only`; live telemetry is the last missing schedule
   executor. The broader load matrix passes 152 tests and all 844 Python tests
   pass.
+- Added the owner-only three-window telemetry collector. Exact source, CA,
+  plan, target, session paths, phase order, distinct seven-surface HTTPS URLs,
+  strict TLS/hostname, response size/shape, semantic snapshots, atomic
+  hash-chain state, redacted per-phase results, and canonical final bundle are
+  enforced.
+- Arbitrary non-synthetic bundles remain refused. Independent live
+  verification requires the final result to match the expected plan,
+  collector source, target, bundle, snapshot, and history hashes. Nineteen
+  collector tests pass against a real local TLS server; collector/telemetry/
+  manifest tests pass 66, the broader load matrix 204, and all 863 Python
+  tests pass.
+- The current HTTPS endpoints expose normalized surface schemas. Native
+  Prometheus API and HAProxy/MariaDB/Ceph/node exporter parsing and exact
+  pilot adapter qualification remain open. Telemetry entries are now
+  source-hashed `contract-only`; the runtime manifest still has nine
+  unqualified executors and remains `ready=false`.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2339,12 +2356,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add the owner-only live telemetry collector under
-`poc/load-soak/collector/`. Fetch exact direct Prometheus targets and native
-HAProxy/MariaDB/Ceph surfaces over verified TLS, bind each
-before/during/after window to the compiled plan, cap samples/series/labels,
-emit the existing canonical telemetry bundle, and prove transport behavior
-with local TLS fakes only.
+Add `poc/load-soak/collector/native_surfaces.py`. Parse bounded Prometheus HTTP
+API and strict HAProxy, mysqld-exporter, Ceph mgr/RGW, and node-exporter
+responses from their exact verified-TLS URLs into the seven internal surface
+schemas. Pin query/metric/label allowlists, refuse missing or extra series, and
+prove each parser with captured local TLS fakes only.
 
 ## After This Work Package
 

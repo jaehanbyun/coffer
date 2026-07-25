@@ -112,16 +112,25 @@ action failure, or recovery deadline can only end in retryable recovery state
 or `failed-recovered`; it can never produce success evidence. Local action
 fixtures remain explicitly synthetic.
 
+`collector/run.py` is the owner-only three-window telemetry executor. It binds
+the compiled before/during/after steps to checked source, CA, target and shared
+state, fetches seven explicit verified-TLS normalized surfaces for Prometheus
+and the native-exporter domains, caps transport and JSON shape, and checkpoints
+semantic snapshots in a replay-validated hash chain. Every step emits a
+redacted collection result; the final step also emits the canonical telemetry
+bundle for independent verification. Local TLS fakes qualify only this
+transport and state boundary, not a pilot adapter or native exporter
+deployment.
+
 `runtime_manifest.py` maps every schedule entry and operation to the current
 runtime capability baseline. It binds a canonical owner-only compiled plan,
 qualified readiness file, exact client pins, checked-in runner source hashes,
 target class, per-step input/output schemas, timeout, cleanup owner, verified
 TLS, and owner-only requirements. Current client/raw paths are only
-`contract-only`; the profile and fault executors plus standalone control,
-token, and quota-contention operations are also `contract-only`; the live
-telemetry collector remains missing. No executable has qualified binary
-evidence, so every executable SHA remains null and the manifest always
-reports `ready=false` with explicit gaps.
+`contract-only`; profile, fault, telemetry, standalone control, token, and
+quota-contention operations are also `contract-only`. No executable has
+qualified binary evidence, so every executable SHA remains null and the
+manifest always reports `ready=false` with explicit gaps.
 
 `control/` adds the verified-TLS protocol core for finite Keystone
 application-credential token acquisition, Coffer repository control probing,

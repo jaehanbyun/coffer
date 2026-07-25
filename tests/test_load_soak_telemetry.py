@@ -214,13 +214,44 @@ def test_exact_windows_produce_load_metrics_phase_without_raw_identities() -> No
         assert identity not in serialized
 
 
-def test_non_synthetic_export_is_refused_before_live_collector_exists() -> None:
+def test_live_collector_export_requires_the_exact_collection_binding() -> None:
+    document = bundle(synthetic=False)
     with pytest.raises(TELEMETRY.TelemetryError):
         TELEMETRY.verify_document(
-            bundle(synthetic=False),
+            document,
             load_topology=LOAD_TOPOLOGY,
             observability_topology=OBSERVABILITY_TOPOLOGY,
         )
+    plan_sha256 = f"sha256:{'7' * 64}"
+    source_sha256 = f"sha256:{'8' * 64}"
+    target_sha256 = f"sha256:{'9' * 64}"
+    collection_result = {
+        "bundle_sha256": TELEMETRY._hash(document),
+        "collector_source_sha256": source_sha256,
+        "complete": True,
+        "execution_source": "pilot",
+        "history_sha256": f"sha256:{'6' * 64}",
+        "phase": "after",
+        "plan_sha256": plan_sha256,
+        "schema": "coffer.load-telemetry-collection-result/v1",
+        "snapshot_count": 3,
+        "snapshots_sha256": TELEMETRY._hash(document["snapshots"]),
+        "synthetic": False,
+        "target_sha256": target_sha256,
+        "unexpected_errors": 0,
+    }
+    result = TELEMETRY.verify_collected_document(
+        document,
+        collection_result,
+        collector_source_sha256=source_sha256,
+        load_topology=LOAD_TOPOLOGY,
+        observability_topology=OBSERVABILITY_TOPOLOGY,
+        plan_sha256=plan_sha256,
+        target_sha256=target_sha256,
+    )
+
+    assert result["source"] == "prometheus-export"
+    assert result["synthetic"] is False
 
 
 @pytest.mark.parametrize(
