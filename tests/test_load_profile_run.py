@@ -6,6 +6,7 @@ import io
 import json
 import os
 from pathlib import Path
+import signal
 import stat
 import sys
 
@@ -679,6 +680,36 @@ def test_subprocess_output_bound_terminates_group_and_removes_stream_files(
         path.name.startswith((".profile-stdout-", ".profile-stderr-"))
         for path in tmp_path.iterdir()
     )
+
+
+def test_terminate_reaps_darwin_exited_child_after_group_permission_race(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class ExitedChild:
+        pid = 12345
+
+        def __init__(self) -> None:
+            self.returncode = None
+            self.waited = False
+
+        def poll(self):
+            return self.returncode
+
+        def wait(self, *, timeout: float):
+            assert timeout in {0.1, 5}
+            self.waited = True
+            self.returncode = 0
+            return 0
+
+    child = ExitedChild()
+
+    def permission_race(_pid: int, _signal: signal.Signals) -> None:
+        raise PermissionError(1, "Operation not permitted")
+
+    monkeypatch.setattr(PROFILE.os, "killpg", permission_race)
+    PROFILE._terminate([child])
+    assert child.waited is True
+    assert child.returncode == 0
 
 
 def test_profile_cli_argument_failure_is_fixed() -> None:

@@ -393,29 +393,46 @@ def _load_jobs(
     return jobs
 
 
+def _signal_process_group(
+    process: subprocess.Popen[bytes],
+    requested_signal: signal.Signals,
+) -> None:
+    if process.poll() is not None:
+        return
+    try:
+        os.killpg(process.pid, requested_signal)
+    except ProcessLookupError:
+        process.poll()
+    except PermissionError as error:
+        # On Darwin an exited, unreaped session leader can briefly return
+        # EPERM rather than ESRCH for killpg(). Reap that exact Popen child;
+        # a genuinely running process with an inaccessible group still fails
+        # closed instead of being treated as terminated.
+        try:
+            process.wait(timeout=0.1)
+        except subprocess.TimeoutExpired as timeout_error:
+            raise ProfileError(
+                "profile child termination failed"
+            ) from timeout_error
+
+
 def _terminate(processes: Sequence[subprocess.Popen[bytes]]) -> None:
     for process in processes:
-        if process.poll() is None:
-            try:
-                os.killpg(process.pid, signal.SIGTERM)
-            except ProcessLookupError:
-                pass
+        _signal_process_group(process, signal.SIGTERM)
     deadline = time.monotonic() + 5
     while any(process.poll() is None for process in processes):
         if time.monotonic() >= deadline:
             break
         time.sleep(0.02)
     for process in processes:
-        if process.poll() is None:
-            try:
-                os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
+        _signal_process_group(process, signal.SIGKILL)
     for process in processes:
         try:
             process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            pass
+        except subprocess.TimeoutExpired as error:
+            raise ProfileError(
+                "profile child termination failed"
+            ) from error
 
 
 class SubprocessBatchRunner:
