@@ -1215,6 +1215,32 @@ operator-local release.
   prove fixed failure cases and idempotent teardown, and retain only canonical
   secret-safe output. Do not start a load client or external service.
 
+### 2026-07-25 — Fixture-only load lifecycle completed
+
+- Lifecycle: Added a one-shot/resumable fixture adapter that traverses every
+  state phase, atomically checkpoints after each transition, and emits only a
+  bounded public history/facts hash. It marks all output `synthetic=true`; it
+  cannot be mistaken for measured performance or dependency qualification.
+- Local safety: Exact invocation paths, mode-0700 directories, mode-0600
+  state/lock files, no-follow open, nonblocking flock, atomic fsync/replace,
+  tamper validation, exact rerun/status, and idempotent cleanup are enforced.
+- Fixture boundary: The versioned fixture must contain the exact twenty fixed
+  refusals and eighteen zero-residue categories. Only the literal `fixture`
+  adapter exists; missing, drifted, identity-bearing, or secret-like input
+  fails before state mutation.
+- Verification: Eight lifecycle tests plus fifty-five state tests pass
+  together (63 focused); all 688 Python tests pass. Compilation, fixture/
+  topology JSON, static no-network/subprocess/database/registry adapter
+  inspection, and diff checks pass.
+- Scope: No client, load, credential, registry, SQL, RGW, KMS, Kolla,
+  container, VM, network, or remote resource was used. This is executable
+  lifecycle evidence only.
+- Next exact action: Add `poc/load-soak/evidence.py` with a canonical
+  `coffer.load-soak-evidence/v1` parser. Bind exact topology/release/image/
+  configuration hashes, bounded histograms and fault windows, inventory/quota/
+  Galera/metrics/cleanup facts, and reject raw identities, secrets, unknown
+  fields, over-limit cardinality, or synthetic input in production mode.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1289,6 +1315,8 @@ operator-local release.
 | Full regression after filesystem GC | `uv run pytest -q` | passed; 625 |
 | Pure load/soak state contract | `uv run pytest -q tests/test_load_soak_state_machine.py` | passed; 55 |
 | Full regression after load/soak state contract | `uv run pytest -q` | passed; 680 |
+| Fixture-only load/soak lifecycle | `uv run pytest -q tests/test_load_soak_state_machine.py tests/test_load_soak_lifecycle_cli.py` | passed; 63 |
+| Full regression after load/soak lifecycle | `uv run pytest -q` | passed; 688 |
 
 ## Failures, Blockers, and Risks
 

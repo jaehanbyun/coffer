@@ -2,6 +2,7 @@
   "schema": "coffer.load-soak-topology/v1",
   "target_class": "disposable-stage6-pilot",
   "invocation_prefix": "coffer-load",
+  "work_root": "work/load-soak",
   "phases": [
     "preflighted",
     "dependencies-qualified",
@@ -128,6 +129,28 @@
     "CofferStaleClaims",
     "CofferDependencyUnavailable",
     "CofferMetricsSchemaMismatch"
+  ],
+  "failure_cases": [
+    "non-disposable-target",
+    "incomplete-ownership",
+    "dependency-not-qualified",
+    "architecture-not-qualified",
+    "insecure-client",
+    "replica-topology-drift",
+    "transfer-ceiling-exceeded",
+    "latency-gate-failed",
+    "availability-gate-failed",
+    "resource-headroom-exhausted",
+    "ramp-boundary-invalid",
+    "fault-recovery-timeout",
+    "digest-mismatch",
+    "quota-invariant-failed",
+    "stale-claim-applied",
+    "galera-not-converged",
+    "metrics-target-missing",
+    "secret-like-evidence",
+    "cleanup-residue",
+    "unrelated-state-changed"
   ],
   "resource_keys": [
     "identities",

@@ -143,6 +143,8 @@ def load_topology(path: Path) -> dict[str, Any]:
         raise LoadSoakError("load target class changed")
     if topology.get("invocation_prefix") != "coffer-load":
         raise LoadSoakError("load invocation prefix changed")
+    if topology.get("work_root") != "work/load-soak":
+        raise LoadSoakError("load work root changed")
     profiles = _exact_keys(
         topology.get("profiles"),
         {"smoke", "qualification", "soak"},
@@ -181,6 +183,7 @@ def load_topology(path: Path) -> dict[str, Any]:
         "required_architectures",
         "required_recording_rules",
         "required_alerts",
+        "failure_cases",
         "resource_keys",
         "residue_keys",
     ):

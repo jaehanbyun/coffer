@@ -24,6 +24,13 @@ history, unchanged unrelated state, and zero residue.
 
 The model does not start a client, registry, database, RGW, KMS, Kolla,
 container, VM, subprocess, socket, or network request. It is not load evidence.
-The next layer is a fixture-only lifecycle and canonical evidence verifier,
-followed by the raw OCI driver and real-client adapters. Live execution remains
-gated on a fresh disposable Stage 6 pilot and qualified stable dependencies.
+`lifecycle.py` adds the fixture-only lifecycle. It atomically checkpoints all
+thirteen phases below one exact invocation, uses an owner-only nonblocking
+lock, rejects every adapter except the explicit versioned fixture, identifies
+its dependency evidence as synthetic, detects state/history tampering, resumes
+or returns an exact terminal result idempotently, and removes its local state
+without residue.
+
+The next layer is a canonical real-driver evidence verifier, followed by the
+raw OCI driver and real-client adapters. Live execution remains gated on a
+fresh disposable Stage 6 pilot and qualified stable dependencies.

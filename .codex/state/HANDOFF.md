@@ -318,6 +318,14 @@ release contains it yet.
 - Fifty-five focused tests and all 680 Python tests pass. Compilation,
   topology parsing, static no-runtime/external-adapter inspection, and diff
   checks pass. No external client or resource was used.
+- Added the fixture-only load lifecycle. It replays all thirteen phases
+  through owner-only atomic state under a nonblocking lock, marks dependency
+  and result evidence synthetic, rejects non-fixture adapters and contract
+  drift, resumes idempotently, detects tampering/contention, and cleans its
+  exact state to zero residue.
+- Sixty-three focused state/lifecycle tests and all 688 Python tests pass.
+  Compilation, topology/fixture JSON, static no-external-adapter inspection,
+  and diff checks pass. No load or external resource was used.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2125,11 +2133,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add fixture-only `poc/load-soak/lifecycle.py` and a versioned evidence fixture.
-Replay the exact phase machine through owner-only atomic state under a
-nonblocking lock, reject every non-fixture adapter, prove fixed failures and
-idempotent teardown, and retain only canonical secret-safe output. Do not
-start a load client or external service.
+Add `poc/load-soak/evidence.py` with a canonical
+`coffer.load-soak-evidence/v1` parser. Bind exact topology/release/image/
+configuration hashes, bounded histograms and fault windows, inventory/quota/
+Galera/metrics/cleanup facts, and reject raw identities, secrets, unknown
+fields, over-limit cardinality, or synthetic input in production mode.
 
 ## After This Work Package
 
