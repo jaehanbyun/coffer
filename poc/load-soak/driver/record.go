@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -185,14 +187,31 @@ func validateOutputDestination(path string) error {
 		info.Mode().Perm()&0o077 != 0 {
 		return newFailure(FailureProtocol)
 	}
+	if runtime.GOOS != "windows" {
+		stat, ok := info.Sys().(*syscall.Stat_t)
+		if !ok || int(stat.Uid) != os.Geteuid() {
+			return newFailure(FailureProtocol)
+		}
+	}
 	if existing, statErr := os.Lstat(path); statErr == nil {
 		if !existing.Mode().IsRegular() || existing.Mode().Perm()&0o077 != 0 {
 			return newFailure(FailureProtocol)
+		}
+		if runtime.GOOS != "windows" {
+			stat, ok := existing.Sys().(*syscall.Stat_t)
+			if !ok || int(stat.Uid) != os.Geteuid() || stat.Nlink != 1 {
+				return newFailure(FailureProtocol)
+			}
 		}
 	} else if !os.IsNotExist(statErr) {
 		return newFailure(FailureProtocol)
 	}
 	return nil
+}
+
+// ValidateOutputDestination checks the shared owner-only output boundary.
+func ValidateOutputDestination(path string) error {
+	return validateOutputDestination(path)
 }
 
 func WriteCanonical(path string, snapshot Snapshot) error {
@@ -241,4 +260,51 @@ func WriteCanonical(path string, snapshot Snapshot) error {
 		return newFailure(FailureProtocol)
 	}
 	return nil
+}
+
+// WriteCanonicalValue atomically writes a canonical owner-only JSON value.
+func WriteCanonicalValue(path string, value any) error {
+	if err := validateOutputDestination(path); err != nil {
+		return err
+	}
+	payload, err := json.Marshal(value)
+	if err != nil {
+		return newFailure(FailureProtocol)
+	}
+	payload = append(payload, '\n')
+	directory := filepath.Dir(path)
+	file, err := os.CreateTemp(directory, "."+filepath.Base(path)+".")
+	if err != nil {
+		return newFailure(FailureProtocol)
+	}
+	temporary := file.Name()
+	cleanup := true
+	defer func() {
+		_ = file.Close()
+		if cleanup {
+			_ = os.Remove(temporary)
+		}
+	}()
+	if err := file.Chmod(0o600); err != nil {
+		return newFailure(FailureProtocol)
+	}
+	if _, err := file.Write(payload); err != nil {
+		return newFailure(FailureProtocol)
+	}
+	if err := file.Sync(); err != nil {
+		return newFailure(FailureProtocol)
+	}
+	if err := file.Close(); err != nil {
+		return newFailure(FailureProtocol)
+	}
+	if err := os.Rename(temporary, path); err != nil {
+		return newFailure(FailureProtocol)
+	}
+	cleanup = false
+	directoryHandle, err := os.Open(directory)
+	if err != nil {
+		return newFailure(FailureProtocol)
+	}
+	defer directoryHandle.Close()
+	return directoryHandle.Sync()
 }

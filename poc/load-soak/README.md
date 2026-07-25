@@ -106,8 +106,12 @@ manifest always reports `ready=false` with explicit gaps.
 application-credential token acquisition, Coffer repository control probing,
 standalone registry-token acquisition, and concurrent 201/429 quota admission
 with independent cleanup of every owner-created manifest digest. It retains
-only fixed aggregates and is still contract-only until its owner-only
-executable boundary and real runtime qualification exist.
+only fixed aggregates. Its owner-only executable now binds the running binary,
+checked-source provenance, qualified release evidence, explicit CA and
+credential, distinct SHA-bound manifests, exact quota outcomes, target class,
+timeouts, concurrency, and canonical output before any request. Local TLS
+proves the boundary; real execution on both architectures remains
+`contract-only` until the disposable pilot qualifies it.
 
 Live execution remains gated on a fresh disposable Stage 6 pilot and qualified
 stable dependencies.

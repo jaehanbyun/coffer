@@ -18,6 +18,7 @@ import (
 type testServerState struct {
 	mu             sync.Mutex
 	deletes        int
+	requests       int
 	secretObserved bool
 	tokenObserved  bool
 	cleanupFailure bool
@@ -26,6 +27,9 @@ type testServerState struct {
 func testServer(t *testing.T, state *testServerState) *httptest.Server {
 	t.Helper()
 	handler := http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		state.mu.Lock()
+		state.requests++
+		state.mu.Unlock()
 		body, err := io.ReadAll(request.Body)
 		if err != nil {
 			t.Errorf("read body: %v", err)

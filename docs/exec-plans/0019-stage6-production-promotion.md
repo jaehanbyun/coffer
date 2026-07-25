@@ -1714,6 +1714,48 @@ operator-local release.
   and binary/source evidence; atomically emit canonical aggregates and prove
   unsafe-file, interruption, failure, and residue behavior with local TLS.
 
+### 2026-07-25 — Owner-only control load execution boundary completed
+
+- Executable: Added `cmd/coffer-control-load` with one fixed
+  `--invocation <absolute-path>` interface and fixed secret-safe success,
+  invalid-argument, and execution-failure messages.
+- Preflight: The exact invocation now binds the disposable Stage 6 target,
+  three HTTPS origins, project-scoped repository/service, finite timeout and
+  concurrency, exact positive 201/429 counts, the running executable SHA-256,
+  source-contract SHA-256, qualified readiness SHA-256, explicit CA and
+  application credential files, two through 64 distinct SHA-bound manifests,
+  and one canonical output. All files are absolute, distinct, owner-matched,
+  mode 0600, regular, single-link, and no-follow; the output parent is
+  owner-only and a stale existing output is refused. Binary, release, output,
+  and all manifest checks complete before a request.
+- Execution/evidence: One finite context obtains and probes a Keystone token,
+  obtains a standalone registry token, executes the exact concurrent
+  contention counts, and finishes independent digest cleanup before success.
+  The atomic mode-0600 result contains only executable, source-contract,
+  readiness, and ordered-manifest-set hashes plus sorted fixed aggregates.
+  URLs, paths, credential material, tokens, project/repository identities,
+  manifests, manifest digests, and cleanup identities are excluded.
+- Failure safety: Unsafe modes, links, aliases, unknown fields, executable,
+  readiness, or manifest drift, blocked dependencies, duplicate manifests,
+  quota mismatch, and cancellation fail closed. Preflight never reaches the
+  local TLS server; runtime failure performs cleanup and writes no success
+  result. The shared canonical-output boundary now also verifies process
+  ownership and single-link outputs.
+- Qualification boundary: The source-contract digest is provenance for
+  independent comparison with `runtime_manifest.py`; the executable verifies
+  only its actual binary digest. Local TLS is contract evidence, not
+  both-architecture or disposable-pilot qualification. The runtime manifest
+  therefore still reports nine gaps and `ready=false`.
+- Verification: Control and command packages pass the Go race detector and
+  `go vet`; the raw OCI driver passes the same checks after the shared output
+  strengthening. Runtime-manifest and full repository regression are recorded
+  below after the final milestone gate.
+- Next exact action: Add the bounded owner-only profile executor beginning
+  under `poc/load-soak/profile/`. Compile smoke, ramp, qualification, and soak
+  steps into finite concurrent raw-OCI/control child invocations, enforce
+  transfer and cleanup budgets, checkpoint interruption-safe aggregate
+  evidence, and prove only local executable fakes before any live pilot.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1815,6 +1857,10 @@ operator-local release.
 | Control/token/quota local TLS core | pinned Go 1.25.3 `go test -race -count=1 ./...`; `go vet ./...` in `poc/load-soak/control` | passed; 4 top-level tests |
 | Runtime manifest after control core | `uv run pytest -q tests/test_load_soak_runtime_manifest.py` | passed; 14; runtime gaps 9 |
 | Full Python regression after control core | `uv run pytest -q` | passed; 813 |
+| Owner-only control load executable | pinned Go 1.25.3 `go test -race -count=1 ./...`; `go vet ./...`; `go build ./cmd/coffer-control-load` in `poc/load-soak/control` | passed; 11 control plus 2 command tests |
+| Raw driver after shared output strengthening | pinned Go 1.25.3 `go test -race -count=1 ./...`; `go vet ./...` in `poc/load-soak/driver` | passed |
+| Runtime manifest after control CLI | `uv run pytest -q tests/test_load_soak_runtime_manifest.py` | passed; 14; runtime gaps 9 |
+| Full Python regression after control CLI | `uv run pytest -q` | passed; 813 |
 
 ## Failures, Blockers, and Risks
 
@@ -1845,10 +1891,12 @@ operator-local release.
   Real RGW lifecycle evidence and current stable dependencies remain blocked;
   no real identity, credential, certificate, endpoint, or remote state
   changed.
-- Exact next action: Add the owner-only
-  `coffer-control-load` executable/invocation boundary. Bind exact CA,
-  credential, readiness, manifest, output, target, timeout, expected quota,
-  and source evidence; use local TLS only.
+- Exact next action: Add the bounded owner-only profile-load executor under
+  `poc/load-soak/profile/`. Bind the compiled profile/ramp step, exact
+  raw-OCI/control child binaries and invocations, qualified readiness/source
+  evidence, finite concurrency/transfer/cleanup budgets, interruption-safe
+  checkpoints, and canonical aggregate output; use local executable fakes
+  only.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

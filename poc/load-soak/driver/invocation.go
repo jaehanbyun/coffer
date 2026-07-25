@@ -149,6 +149,11 @@ func readOwnerOnly(path string, maximum int64) ([]byte, error) {
 	return payload, nil
 }
 
+// ReadOwnerOnly is the shared Stage 6 no-follow owner-only file boundary.
+func ReadOwnerOnly(path string, maximum int64) ([]byte, error) {
+	return readOwnerOnly(path, maximum)
+}
+
 func decodeExact(payload []byte, destination any) error {
 	decoder := json.NewDecoder(bytes.NewReader(payload))
 	decoder.DisallowUnknownFields()
@@ -174,6 +179,11 @@ func validateAbsoluteDistinct(paths ...string) error {
 		seen[cleaned] = true
 	}
 	return nil
+}
+
+// ValidateAbsoluteDistinct rejects relative or aliasing invocation paths.
+func ValidateAbsoluteDistinct(paths ...string) error {
+	return validateAbsoluteDistinct(paths...)
 }
 
 func versionParts(value string) ([3]int, error) {
@@ -252,6 +262,11 @@ func validateReadiness(payload []byte, expectedDigest string) error {
 	return nil
 }
 
+// ValidateQualifiedReadiness applies the exact Stage 6 release fence.
+func ValidateQualifiedReadiness(payload []byte, expectedDigest string) error {
+	return validateReadiness(payload, expectedDigest)
+}
+
 func loadCertPool(payload []byte) (*x509.CertPool, error) {
 	roots := x509.NewCertPool()
 	remaining := bytes.TrimSpace(payload)
@@ -277,6 +292,11 @@ func loadCertPool(payload []byte) (*x509.CertPool, error) {
 		return nil, newFailure(FailureProtocol)
 	}
 	return roots, nil
+}
+
+// LoadCertPool accepts only complete PEM certificate blocks.
+func LoadCertPool(payload []byte) (*x509.CertPool, error) {
+	return loadCertPool(payload)
 }
 
 func isManifestOperation(operation string) bool {

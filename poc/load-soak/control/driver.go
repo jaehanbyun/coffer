@@ -184,6 +184,7 @@ func New(config Config) (*Client, error) {
 		config.Timeout > 10*time.Minute ||
 		config.MaxConcurrency < 1 || config.MaxConcurrency > 64 ||
 		config.CredentialProvider == nil ||
+		len(config.Repository) > 255 ||
 		!repositoryPattern.MatchString(config.Repository) ||
 		!servicePattern.MatchString(config.Service) {
 		return nil, fail(FailureProtocol)
@@ -492,6 +493,18 @@ func (c *Client) QuotaContention(
 		expectedSuccess < 1 || expectedQuota < 1 ||
 		expectedSuccess+expectedQuota != len(manifests) {
 		return fail(FailureProtocol)
+	}
+	digestsSeen := make(map[string]bool, len(manifests))
+	for _, manifest := range manifests {
+		if len(manifest) == 0 || len(manifest) > maxManifestBytes ||
+			!json.Valid(manifest) {
+			return fail(FailureProtocol)
+		}
+		digest := manifestDigest(manifest)
+		if digestsSeen[digest] {
+			return fail(FailureProtocol)
+		}
+		digestsSeen[digest] = true
 	}
 	results := make(chan quotaResult, len(manifests))
 	var group sync.WaitGroup
