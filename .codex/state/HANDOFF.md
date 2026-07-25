@@ -1,8 +1,8 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; pure maintenance lifecycle model complete;
-  fixture command adapter next
+- Status: plan 0019 active; maintenance lifecycle local proof complete;
+  data-protection/cutover contract next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -137,6 +137,15 @@ release contains it yet.
 - Twenty-five focused lifecycle tests and all 335 Python tests pass. The Kolla
   companion role still passes 68 checks; compilation, topology JSON parsing,
   and diff checks pass.
+- Added the fixture-only lifecycle CLI. Read-only preflight/status, atomic
+  owner-only state, nonblocking locks, fixture-gated mutations, exact target
+  replay, hashed cleanup, fixed errors, two-generation rotation, failure
+  verification, and zero-residue teardown pass 11 focused tests. Full Python
+  regression passes 346 tests; compile, JSON, CLI-help, and diff checks pass.
+- The plan's no-real-credential maintenance lifecycle task is complete. The
+  final Stage 6 maintenance done criterion still requires real private-TLS,
+  credential/Barbican rotation, outage, audit, and residue evidence in the
+  fresh disposable pilot.
 
 ## Plan 0018 Activation
 
@@ -1863,11 +1872,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/maintenance-identity/lifecycle.py` as a fixture-driven command adapter
-with read-only `preflight` and `status`, atomic mode-0600 state writes,
-nonblocking locks, fixed failure categories, and deterministic dry-run cleanup
-output. Refuse mutating actions unless a fixture adapter is selected and do
-not contact a remote service.
+Inspect and pin the selected Distribution release's storage enumerator plus
+S3/RGW driver construction, then create `poc/data-protection/README.md`
+defining disposable writer exclusion, SQL/RGW backup, exact-release inventory,
+import/comparison, cutover, rollback, restore, and residue phases without
+accessing a live registry.
 
 ## After This Work Package
 

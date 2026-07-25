@@ -116,7 +116,7 @@ operator-local release.
 - [x] Add a deterministic upstream-release readiness check that distinguishes
       signed stable artifacts from merged-but-unreleased fixes and feeds the
       existing fail-closed production-image and RGW/KMS harnesses.
-- [ ] Select and prove the production maintenance identity and owner-only
+- [x] Select and prove the production maintenance identity and owner-only
       secret-delivery lifecycle without creating a real credential.
 - [ ] Package and qualify the exact-release RGW inventory helper and complete
       the disposable backup/import/comparison/cutover/rollback rehearsal.
@@ -452,6 +452,42 @@ operator-local release.
   cleanup output. It must refuse mutating actions unless a fixture adapter is
   selected and must not contact a remote service.
 
+### 2026-07-25 — Fixture-only lifecycle command boundary completed
+
+- Completed: Added `lifecycle.py` with read-only preflight/status, an exact
+  invocation-local store, mode-0700 directory, atomic mode-0600 state,
+  nonblocking lock, deterministic hashed cleanup output, and fixed
+  secret-safe failure categories. Create, verify, rotate, revoke-old,
+  failure-matrix, and teardown actions refuse to run without the exact fixture
+  adapter and target signature.
+- Lifecycle evidence: The CLI fixture reaches generation-1 verification,
+  generation-2 overlap, bounded drain, old-generation revocation, failure
+  verification, dependency-ordered teardown, and explicit zero residue.
+  Repeated preflight is idempotent; mismatched replay, missing adapter,
+  out-of-order action, target mismatch, nonzero residue, concurrent lock,
+  unsafe file mode, symlink lock, and invalid secret-bearing fixture all fail
+  without changing state or exposing details.
+- Decision: Close the plan task that selects and proves the maintenance
+  identity and owner-only lifecycle without a real credential. The Stage 6
+  done criterion remains open until a fresh pilot supplies real expiring
+  identity, Barbican, private-TLS, rotation, revocation, outage, audit, and
+  residue evidence.
+- Verification: Eleven CLI tests plus 25 model tests pass; full Python
+  regression passes 346 tests; compilation, both JSON fixtures, CLI help, and
+  diff checks pass.
+- Scope: The adapter imports no OpenStack client and performs no network, SSH,
+  Ansible, Kolla, Keystone, Barbican, certificate, SQL, VM, or remote-file
+  operation.
+- Changed files: `poc/maintenance-identity/lifecycle.py`,
+  `tests/fixtures/maintenance_identity.json`,
+  `tests/test_maintenance_identity_lifecycle_cli.py`,
+  `poc/maintenance-identity/README.md`, this plan, and `HANDOFF.md`.
+- Next exact action: Inspect and pin the selected Distribution release's
+  storage enumerator plus S3/RGW driver construction, then create
+  `poc/data-protection/README.md` defining the disposable writer-exclusion,
+  SQL/RGW backup, exact-release inventory, import/comparison, cutover,
+  rollback, restore, and residue phases without accessing a live registry.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -475,6 +511,8 @@ operator-local release.
 | Maintenance proxy/Kolla fixture focused regression | `uv run pytest -q tests/test_maintenance_api.py tests/test_maintenance_token.py tests/test_config_validator.py tests/test_api_runner.py tests/test_registry_proxy.py tests/test_tokens.py tests/test_quota_reconciliation.py tests/test_maintenance_sessions.py`; pinned role harness | passed; 115 tests and 68 role checks |
 | Maintenance lifecycle model | `uv run pytest -q tests/test_maintenance_identity_state_machine.py` | passed; 25 |
 | Full regression after lifecycle model | `uv run pytest -q` | passed; 335 |
+| Maintenance lifecycle CLI | `uv run pytest -q tests/test_maintenance_identity_lifecycle_cli.py` | passed; 11 |
+| Full regression after lifecycle CLI | `uv run pytest -q` | passed; 346 |
 
 ## Failures, Blockers, and Risks
 

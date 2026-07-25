@@ -1,0 +1,19 @@
+{
+  "schema": "coffer.maintenance-identity-fixture/v1",
+  "target_signature": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "seed": "coffer-stage6-fixture-001",
+  "maintenance_role_owned": false,
+  "rotation": {
+    "elapsed_seconds": 60,
+    "keystone_cache_seconds": 30,
+    "registry_token_seconds": 60
+  },
+  "residue_counts": {
+    "credentials": 0,
+    "identities": 0,
+    "mappings": 0,
+    "materializations": 0,
+    "secrets": 0,
+    "sessions": 0
+  }
+}

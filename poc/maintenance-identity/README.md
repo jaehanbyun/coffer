@@ -135,6 +135,29 @@ The eventual command surface is intentionally small:
 preflight record, prior transition, disposable-region marker, and owner
 confirmation encoded in the topology—not an interactive prompt.
 
+The current pure local implementation exposes the same state transitions
+through `lifecycle.py`. It accepts no SSH target or remote adapter. Mutating
+model actions require the explicit checked fixture:
+
+```console
+uv run python poc/maintenance-identity/lifecycle.py preflight \
+  --invocation-id <lowercase-ulid> \
+  --target-signature <sha256> \
+  --workload reconcile-1 \
+  --workload reconcile-2
+
+uv run python poc/maintenance-identity/lifecycle.py create \
+  --invocation-id <lowercase-ulid> \
+  --target-signature <sha256> \
+  --adapter fixture \
+  --fixture tests/fixtures/maintenance_identity.json
+```
+
+`verify`, `rotate`, `revoke-old`, `verify-failures`, and `teardown` use the
+same fixture arguments. `status` and `cleanup-plan` reject adapter arguments.
+Cleanup output hashes immutable IDs; the exact IDs stay only in the owner-only
+state used internally by teardown.
+
 ### Preflight
 
 Preflight must:
@@ -260,11 +283,14 @@ The pure local model now implements:
   rejection.
 
 The model and tests call no external service. The next local milestone may add
-fixture-driven command adapters plus read-only `preflight` and `status`. It
-must still not create a Keystone object, Barbican secret, certificate,
-endpoint, Kolla recipient, SQL session, VM, network, or remote file.
+an explicitly reviewed disposable remote adapter. The current command adapter
+provides read-only `preflight`/`status`, fixture-only mutations, mode-0600
+atomic state, nonblocking invocation locks, fixed secret-safe failures, and
+hashed dry-run cleanup. It does not create a Keystone object, Barbican secret,
+certificate, endpoint, Kolla recipient, SQL session, VM, network, or remote
+file.
 
-Real execution is permitted only after the command adapter proves exact
-ownership, resume, rollback, rotation, revocation, teardown, and secret-safe
-evidence against fixtures, and the active plan records the disposable target
-and its before-state signature.
+Real execution remains part of the final fresh-pilot convergence gate. It is
+permitted only when the active plan records the disposable target and its
+before-state signature and the remote adapter independently preserves every
+contract proven by this fixture model.
