@@ -239,6 +239,19 @@ release contains it yet.
   all 96 pinned Kolla lifecycle checks pass. Local Stage 6 observability
   implementation is complete; fresh-pilot target, fault-alert, rolling
   compatibility, and teardown evidence remains in the convergence pilot.
+- Added `docs/research/stage6-gc-retention.md`. Exact Distribution v3.1.1
+  source confirms stop-the-world recursive mark/sweep through the selected
+  driver, a human CLI output contract, and global `--delete-untagged`
+  semantics. The current role has no global fence/read-only/one-shot/restore
+  lifecycle.
+- The candidate keeps upstream reachability, forbids `--delete-untagged`,
+  permits only explicit digest deletion, requires every writer/background
+  mutator fenced, binds two equal dry runs to one finite authorization, and
+  proves shared/index/digest-only/referrer survival plus isolated restore.
+- Distribution current-visible reclamation, complete versioned-RGW
+  objects/delete markers, and Ceph physical usage are separate evidence. RGW
+  lifecycle, internal GC, and experimental orphan cleanup remain separately
+  owned. No live data or service changed.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2046,12 +2059,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Create `docs/research/stage6-gc-retention.md` and inspect Distribution
-deletion/GC, the SQL quota ledger, RGW versioning/SSE-KMS, inventory/backup,
-and OCI Referrers boundaries. Define a versioned, dry-run-first coordinated
-GC/retention topology with writer fencing, restore verification, failure
-injection, and exact zero-residue ownership before implementing a mutation
-adapter.
+Add proposed ADR 0017 plus `poc/gc-retention/topology.json` and a pure state
+machine. Prove exact phase order, immutable ownership, compound writer
+fencing, two equal normalized candidate sets, finite single-use collection
+authority, survivor/reclaim/restore evidence, fixed failures, secret safety,
+and zero residue without a registry, object storage, SQL, subprocess, or
+network.
 
 ## After This Work Package
 

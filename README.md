@@ -153,6 +153,7 @@ Do not place Keystone, database, signing, or cache secrets in the repository. Th
 - [M3 RGW/Barbican KMS capability and executed evidence](docs/research/m3-rgw-kms-capability.md)
 - [M3 bounded quota design and validation](docs/research/m3-quota-enforcement-spike.md)
 - [M3 existing-content inventory boundary](docs/research/m3-existing-content-inventory.md)
+- [Stage 6 coordinated GC and retention baseline](docs/research/stage6-gc-retention.md)
 - [ADR 0010: Alembic repository metadata adoption](docs/adrs/0010-adopt-repository-metadata-into-alembic.md)
 - [Proposed ADR 0011: pinned Distribution storage inventory](docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md)
 - [Proposed ADR 0012: transactional empty-ledger inventory import](docs/adrs/0012-import-existing-content-into-empty-quota-ledger.md)

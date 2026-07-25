@@ -109,6 +109,7 @@ operator-local release.
 | Approve the dedicated expiring maintenance identity boundary for pure local implementation | A separate service user, exact dual-role policy, server-side SQL authority, pull-only token reduction, and private mTLS bound cross-project reads without sharing tenant, signer, or RGW credentials | Per-project credential fan-out; API middleware password/admin reuse; service/system or mTLS-only authority; signer key in the worker; separate read proxy | 2026-07-25 |
 | Represent live-comparison authority as a finite SQL session bound to the imported digest, workload, and writer-exclusion evidence reference | The broker needs current server-side authority that can expire, complete, revoke, and replay safely without storing a credential or repository path | Caller-supplied route/action; static configuration flag; a bearer token as approval; claiming that the SQL row itself proves external writer exclusion | 2026-07-25 |
 | Use direct per-replica scrapes and one API/edge worker per container as the Stage 6 observability candidate | Current process-local collectors plus VIP scraping are incomplete; multiple HA replicas and gthread concurrency provide a simpler initial scale boundary whose resets have normal Prometheus semantics | VIP/public-FQDN scrape; unproven Python multiprocess mode; Pushgateway; parsing logs as the sole SLI source | 2026-07-25 |
+| Use upstream stop-the-world GC without `--delete-untagged`, and separate Distribution logical reclamation from RGW physical-version cleanup | Digest-only manifests are valid content; the pinned collector is the reachability authority; S3 versioning means a sweep need not reclaim physical bytes immediately | Coffer reachability implementation; global untagged deletion; online GC; automatic RGW orphan/lifecycle deletion | 2026-07-25 |
 
 ## Tasks
 
@@ -1008,6 +1009,35 @@ operator-local release.
   backup, and Referrers boundaries. Fix an exact dry-run-first coordinated GC
   topology and restore gate before implementing any mutation adapter.
 
+### 2026-07-25 — Coordinated GC and retention boundary researched
+
+- Source findings: The pinned Distribution collector recursively marks
+  manifests/references and sweeps through the configured driver, requires
+  read-only/stopped writers, and emits human rather than versioned JSON
+  candidate output. The current Kolla role enables delete/upload purging but
+  has no cluster-wide fence, read-only transition, one-shot collector,
+  candidate authority, or restore gate.
+- Decision: Keep the upstream collector as reachability authority and normalize
+  only exact-release bounded output. Forbid `--delete-untagged` because
+  digest-only manifests are valid Coffer content and no accepted global
+  retention resource exists. Apply only an explicit authorized digest delete.
+- Data boundary: Treat current-visible Distribution reclamation, complete S3
+  object versions/delete markers, and Ceph physical bytes as separate evidence.
+  RGW lifecycle, internal GC, and experimental orphan tooling remain separately
+  owned and cannot authorize or substitute for Distribution GC.
+- Safety: Require every ingress/direct backend and background mutator fenced,
+  complete restorable SQL/versioned-RGW backup, two equal dry runs, immutable
+  finite authorization, shared/index/digest-only/referrer survivor proof,
+  isolated restore, fixed failure injection, and exact zero-residue teardown.
+- Scope: Research and checked-in design only. No manifest, object, SQL row,
+  registry configuration, container, credential, network, or remote resource
+  changed.
+- Next exact action: Add proposed ADR 0017 plus
+  `poc/gc-retention/topology.json` and a pure state machine. Prove phase order,
+  immutable ownership, writer fence, two equal candidate sets, single-use
+  authorization, survivor/reclaim/restore evidence, fixed failures, secret
+  safety, and zero residue without a registry, S3, SQL, subprocess, or network.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1070,6 +1100,7 @@ operator-local release.
 | Observability artifact/runtime focused regression | `uv run pytest -q tests/test_observability_artifacts.py tests/test_observability_contract.py tests/test_observability.py tests/test_reconciliation_runner.py` | passed; 99 |
 | Full regression after operator observability assets | `uv run pytest -q` | passed; 541 |
 | Kolla observability enable/disable lifecycle | `make -C poc/kolla-ansible-role verify` | passed; 96 |
+| Stage 6 GC/retention source and contract inventory | Exact Distribution v3.1.1 source plus official Distribution, OCI, and Ceph documentation | passed; upstream ownership and fail-closed candidate boundary fixed |
 
 ## Failures, Blockers, and Risks
 
@@ -1099,12 +1130,12 @@ operator-local release.
   lifecycle through an ordered no-network adapter seam. Real lifecycle
   evidence and current stable dependencies remain blocked; no real identity,
   credential, certificate, endpoint, or remote state changed.
-- Exact next action: Create `docs/research/stage6-gc-retention.md` and inspect
-  Distribution deletion/GC, the SQL quota ledger, RGW versioning/SSE-KMS,
-  inventory/backup, and OCI Referrers boundaries. Define a versioned,
-  dry-run-first coordinated GC/retention topology with writer fencing,
-  restore verification, failure injection, and exact zero-residue ownership
-  before implementing a mutation adapter.
+- Exact next action: Add proposed ADR 0017 plus
+  `poc/gc-retention/topology.json` and a pure state machine. Prove exact phase
+  order, immutable ownership, compound writer fencing, two equal normalized
+  candidate sets, finite single-use collection authority, survivor/reclaim/
+  restore evidence, fixed failures, secret safety, and zero residue without a
+  registry, object storage, SQL, subprocess, or network.
 - Questions requiring user input: None for the next fixture-only lifecycle
   milestone. The user has already authorized atomic milestone publication and
   the bounded disposable Stage 6 sequence; exact safety and release gates
