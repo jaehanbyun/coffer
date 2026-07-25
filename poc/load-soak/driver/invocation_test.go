@@ -535,6 +535,101 @@ func TestInvocationExposesManifestBlobRangeAndCrossMount(t *testing.T) {
 			t.Fatalf("cross-mount invocation failed: %v", err)
 		}
 	})
+
+	t.Run("artifact", func(t *testing.T) {
+		payload := artifactPayload(t)
+		index := referrersResponse(t, payload)
+		var server *httptest.Server
+		handler := http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			if request.URL.Path == "/auth/token" {
+				serveToken(t, response, request)
+				return
+			}
+			if request.Header.Get("Authorization") != "Bearer "+testToken {
+				writeChallenge(response, server.URL)
+				return
+			}
+			if request.Method == http.MethodPut {
+				serveArtifactPublish(t, response, request, payload, "sbom")
+				return
+			}
+			response.Header().Set("Content-Type", OCIImageIndex)
+			response.Header().Set("OCI-Filters-Applied", "artifactType")
+			_, _ = response.Write(index)
+		})
+		server = startTLSServer(t, handler)
+		fixture := createInvocationFixture(t, server, qualifiedReadiness(), nil)
+		manifestPath := filepath.Join(fixture.directory, "artifact.json")
+		writeOwnerFile(t, manifestPath, payload)
+		rewriteInvocation(t, fixture.invocation, func(document *invocationDocument) {
+			document.Operation = "artifact"
+			document.ManifestFile = manifestPath
+			document.ManifestMedia = OCIImageManifest
+			document.Reference = "sbom"
+			document.Seed = ""
+			document.SizeBytes = 0
+		})
+
+		if err := ExecuteInvocation(context.Background(), fixture.invocation); err != nil {
+			t.Fatalf("artifact invocation failed: %v", err)
+		}
+		resultPayload, err := os.ReadFile(fixture.output)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(resultPayload), `"operation":"artifact"`) {
+			t.Fatal("artifact invocation result changed")
+		}
+	})
+
+	t.Run("abandoned-upload", func(t *testing.T) {
+		var server *httptest.Server
+		var started atomic.Int64
+		handler := http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			if request.URL.Path == "/auth/token" {
+				serveToken(t, response, request)
+				return
+			}
+			if request.Header.Get("Authorization") != "Bearer "+testToken {
+				writeChallenge(response, server.URL)
+				return
+			}
+			switch request.Method {
+			case http.MethodPost:
+				identity := started.Add(1)
+				response.Header().Set(
+					"Location",
+					fmt.Sprintf(
+						"/v2/%s/blobs/uploads/invocation-%d",
+						testRepository,
+						identity,
+					),
+				)
+				response.Header().Set("Range", "0-0")
+				response.WriteHeader(http.StatusAccepted)
+			case http.MethodPatch:
+				_, _ = io.Copy(io.Discard, request.Body)
+				response.Header().Set("Location", request.URL.String())
+				response.Header().Set("Range", "0-15")
+				response.WriteHeader(http.StatusAccepted)
+			case http.MethodDelete:
+				response.WriteHeader(http.StatusNoContent)
+			default:
+				t.Fatalf("unexpected request: %s", request.Method)
+			}
+		})
+		server = startTLSServer(t, handler)
+		fixture := createInvocationFixture(t, server, qualifiedReadiness(), nil)
+		rewriteInvocation(t, fixture.invocation, func(document *invocationDocument) {
+			document.Operation = "abandoned-upload"
+			document.ChunkBytes = 16
+			document.LengthBytes = 16
+		})
+
+		if err := ExecuteInvocation(context.Background(), fixture.invocation); err != nil {
+			t.Fatalf("abandoned-upload invocation failed: %v", err)
+		}
+	})
 }
 
 func TestInvocationOperationFieldsAreExact(t *testing.T) {
@@ -580,11 +675,19 @@ func TestInvocationOperationFieldsAreExact(t *testing.T) {
 			value.SourceRepository = mountSource
 			return value
 		}(),
+		func() invocationDocument {
+			value := base
+			value.Operation = "abandoned-upload"
+			value.ChunkBytes = 4
+			value.LengthBytes = 16
+			return value
+		}(),
 	}
 	for _, operation := range []string{
 		"manifest-publish",
 		"manifest-head",
 		"manifest-get",
+		"artifact",
 	} {
 		value := base
 		value.Operation = operation

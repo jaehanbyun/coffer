@@ -1421,6 +1421,44 @@ operator-local release.
   fallback-tag disposition, then add bounded partial-upload ownership and
   cancellation for the abandoned-upload shape. Test local TLS only.
 
+### 2026-07-25 — Artifact/referrers and abandoned-upload slice completed
+
+- Artifact validation: A bounded subject-bearing OCI image manifest now
+  requires exact schema/media/artifact types, SHA-256 descriptors, portable
+  config/layer descriptors, annotations, and subject. Publication still uses
+  the existing digest and same-origin manifest contract.
+- Referrers disposition: The driver queries the filtered OCI 1.1 endpoint and
+  requires the exact OCI index, `OCI-Filters-Applied`, and one byte-exact
+  descriptor. Only a 404 activates the standard `sha256-<encoded>` fallback
+  tag. The bounded existing index is preserved, the descriptor is inserted
+  when absent, and manifest digest plus descriptor are verified on read-back.
+  This path records `fallback`, never native success, because a registry
+  without conditional manifest publication retains a concurrent lost-update
+  limitation.
+- Abandoned uploads: One operation creates exactly two distinct partial
+  uploads, sends one exact bounded prefix to each, tracks opaque same-origin
+  locations only in memory, and cancels every owned upload on success or
+  failure with a separate bounded cleanup context. A known location from a
+  malformed start response is still cleaned; unknown or drifted ownership
+  fails closed.
+- Executable: The owner-only invocation now exposes eleven operations,
+  including `artifact` and `abandoned-upload`. Artifact files reuse the
+  mode-0600 single-link input boundary; partial upload size is exact and must
+  be smaller than the deterministic content.
+- Verification: Forty-two driver plus two command top-level tests pass under
+  the race detector and `go vet`. Local TLS covers native and fallback
+  discovery, exact descriptor/digest mismatch, invalid subject refusal,
+  two-upload cleanup, failure cleanup, malformed-start cleanup, and both new
+  invocation dispatch paths. Retained evidence contains no subject, tag,
+  reference, repository, upload identity, URL, payload, or credential. No
+  external registry or infrastructure was used.
+- Next exact action: Add the real-client adapter boundary beginning with
+  `poc/load-soak/clients/contract.py`. Pin Docker, Podman, Skopeo, ORAS, and
+  nerdctl/containerd versions; fix each client's verified-TLS, stdin
+  credential, owner-only state, bounded command, digest-verification, and
+  cleanup contract; and prove argv/environment/log safety with fake
+  executables before any release-gated pilot execution.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1506,6 +1544,7 @@ operator-local release.
 | Raw OCI executable build/static analysis | `env -u GOROOT mise x go@1.25.3 -- go vet ./...`; `go build ./cmd/coffer-raw-oci-driver` | passed |
 | Raw manifest/blob-read integrity | `env -u GOROOT mise x go@1.25.3 -- go test -race -count=1 ./...` in `poc/load-soak/driver` | passed; 29 driver plus 2 command tests |
 | Nine-operation invocation and cross-mount | `env -u GOROOT mise x go@1.25.3 -- go test -race -count=1 ./...` in `poc/load-soak/driver` | passed; 35 driver plus 2 command tests |
+| Artifact/referrers and abandoned uploads | `env -u GOROOT mise x go@1.25.3 -- go test -race -count=1 ./...` in `poc/load-soak/driver` | passed; 42 driver plus 2 command tests |
 
 ## Failures, Blockers, and Risks
 
@@ -1536,11 +1575,11 @@ operator-local release.
   Real RGW lifecycle evidence and current stable dependencies remain blocked;
   no real identity, credential, certificate, endpoint, or remote state
   changed.
-- Exact next action: Add `docs/research/stage6-load-soak.md`. Inventory the
-  accepted clients, request shapes, private-TLS/shared-SQL/RGW topology,
-  concurrency/fault seams, metrics, limits, and existing Stage 5 evidence,
-  then fix a bounded disposable load/soak matrix before implementation.
-- Questions requiring user input: None for the next fixture-only lifecycle
-  milestone. The user has already authorized atomic milestone publication and
-  the bounded disposable Stage 6 sequence; exact safety and release gates
+- Exact next action: Add `poc/load-soak/clients/contract.py` and exact client
+  version pins. Implement the five real-client command/state/credential/CA
+  adapters behind a fake-executable test seam, then prove bounded cleanup and
+  secret-safe retained results before release-gated pilot execution.
+- Questions requiring user input: None for the next local adapter milestone.
+  The user has already authorized atomic milestone publication and the bounded
+  disposable Stage 6 sequence; exact safety and release gates
   remain fail closed.

@@ -14,8 +14,13 @@ and soak harness. It currently implements:
 - exact content digest and chunk range verification;
 - OCI image manifest/index PUT, HEAD, and GET with exact local digest, media
   type, length, and same-origin publication location;
+- subject-bearing OCI artifact publication plus exact filtered native OCI 1.1
+  Referrers discovery, with a separately classified standard fallback-tag
+  update and read-back path;
 - blob HEAD plus full and range GET with exact response length/range and
   streaming byte comparison against the deterministic local source;
+- exactly two bounded partial uploads whose start/range/location ownership is
+  tracked and cancelled on both success and failure paths;
 - context cancellation, bounded response bodies, and fixed secret-safe failure
   classes; and
 - concurrency-safe, fixed-bucket aggregates written as canonical owner-only
@@ -36,8 +41,8 @@ The invocation binds:
 
 - the exact `disposable-stage6-pilot` target class and HTTPS origin;
 - one canonical repository, deterministic seed or owner-only manifest,
-  bounded size/range/chunk/timeout/retry, and one of nine upload/read/publish/
-  mount operations;
+  bounded size/range/chunk/timeout/retry, and one of eleven upload/read/
+  publish/mount/artifact/abandonment operations;
 - separate CA and credential files;
 - the SHA-256 of an exact `coffer.upstream-readiness/v1` document whose overall
   and component states are all `candidate-qualified`; and
@@ -63,11 +68,17 @@ or resends once from the exact prior range; any other offset or continuation
 fails closed.
 
 The executable exposes monolithic/resumable upload, blob HEAD/full/range GET,
-same-project cross-mount, and manifest PUT/HEAD/GET. Cross-mount requests bind
-destination `pull,push` plus source `pull` scopes. A 202 fallback upload is
-validated and cancelled immediately, then recorded separately from a native
-201 mount.
+same-project cross-mount, manifest PUT/HEAD/GET, subject artifact/referrers,
+and abandoned-upload cleanup. Cross-mount requests bind destination
+`pull,push` plus source `pull` scopes. A 202 fallback upload is validated and
+cancelled immediately, then recorded separately from a native 201 mount.
 
-The next slice adds OCI artifact/referrers disposition and bounded abandoned
-upload ownership. Real Docker, Podman, Skopeo, ORAS, and nerdctl adapters
-remain separate.
+Native Referrers are recorded as success. A 404 alone activates the OCI 1.1
+fallback-tag algorithm; the driver preserves an existing bounded index,
+inserts the exact descriptor, publishes it, and verifies the manifest digest
+and descriptor on read-back. That outcome remains `fallback`, not success,
+because fallback index updates have an unavoidable concurrent lost-update
+limit when a registry offers no conditional manifest publication.
+
+The next slice adds real Docker, Podman, Skopeo, ORAS, and nerdctl adapters
+with exact version/image pins and owner-only disposable state.

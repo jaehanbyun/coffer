@@ -52,6 +52,8 @@ credential, and SHA-bound `candidate-qualified` readiness files, and verifies
 its output destination before any request. All upload, blob-read,
 manifest-read/publish, and same-project cross-mount operations are now exposed
 through the invocation. Cross-mount fallback is cleaned and classified.
-Artifact/referrers disposition, abandoned-upload ownership, and real-client
+Subject-bearing artifacts now distinguish exact native OCI 1.1 Referrers from
+the standard fallback-tag path, and exactly two partial uploads are cancelled
+without retaining their identities on success or failure. Real-client
 adapters remain next. Live execution is still gated on a fresh disposable
 Stage 6 pilot and qualified stable dependencies.

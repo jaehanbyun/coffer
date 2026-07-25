@@ -282,7 +282,8 @@ func loadCertPool(payload []byte) (*x509.CertPool, error) {
 func isManifestOperation(operation string) bool {
 	return operation == "manifest-publish" ||
 		operation == "manifest-head" ||
-		operation == "manifest-get"
+		operation == "manifest-get" ||
+		operation == "artifact"
 }
 
 func validateInvocationOperation(invocation invocationDocument) error {
@@ -296,6 +297,8 @@ func validateInvocationOperation(invocation invocationDocument) error {
 		if invocation.ManifestFile == "" ||
 			(invocation.ManifestMedia != OCIImageManifest &&
 				invocation.ManifestMedia != OCIImageIndex) ||
+			(invocation.Operation == "artifact" &&
+				invocation.ManifestMedia != OCIImageManifest) ||
 			(!tagPattern.MatchString(invocation.Reference) &&
 				!sha256Pattern.MatchString(invocation.Reference)) ||
 			invocation.Seed != "" || invocation.SizeBytes != 0 ||
@@ -352,6 +355,15 @@ func validateInvocationOperation(invocation invocationDocument) error {
 		if invocation.ChunkBytes != 0 || invocation.OffsetBytes != 0 ||
 			invocation.LengthBytes != 0 ||
 			invocation.SourceRepository == "" {
+			return newFailure(FailureProtocol)
+		}
+	case "abandoned-upload":
+		if invocation.ChunkBytes < 1 ||
+			invocation.ChunkBytes > MaxChunkBytes ||
+			invocation.LengthBytes < 1 ||
+			invocation.LengthBytes >= invocation.SizeBytes ||
+			invocation.OffsetBytes != 0 ||
+			invocation.SourceRepository != "" {
 			return newFailure(FailureProtocol)
 		}
 	default:
@@ -576,6 +588,21 @@ func ExecuteInvocation(ctx context.Context, path string) error {
 			loaded.reference,
 			loaded.manifestMedia,
 			loaded.manifest,
+		)
+	case "artifact":
+		_, err = loaded.client.PublishArtifactAndDiscover(
+			runContext,
+			loaded.repository,
+			loaded.reference,
+			loaded.manifest,
+		)
+	case "abandoned-upload":
+		err = loaded.client.ExerciseAbandonedUploads(
+			runContext,
+			loaded.repository,
+			loaded.content,
+			loaded.lengthBytes,
+			loaded.chunkBytes,
 		)
 	default:
 		err = newFailure(FailureProtocol)
