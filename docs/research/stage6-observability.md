@@ -10,13 +10,17 @@
 
 ## Outcome
 
-Coffer has a useful single-process observability seam, but the installed
-Kolla topology is not production-correct:
+Coffer now has a bounded single-process API/edge/reconciliation metric schema
+and a fail-closed one-worker runtime gate, but the installed Kolla topology is
+not production-correct:
 
-- `CofferMetrics` owns a private in-memory registry inside each process;
+- `CofferMetrics` owns one private in-memory registry and process-start
+  timestamp inside each process;
 - API Gunicorn defaults to `openstack_service_workers`, so one scrape sees
-  only the selected worker's copied registry;
-- the quota edge creates no metrics collector or operational routes;
+  only the selected worker's copied registry unless the new metrics-enabled
+  one-worker startup gate is satisfied;
+- the quota edge records bounded request classes when metrics are enabled but
+  still has no private scrape application;
 - the reconciler creates process-local counters but exposes no scrape
   endpoint, and one-shot counters disappear at exit;
 - Prometheus scrapes one API FQDN/VIP target rather than every service replica;
@@ -47,8 +51,8 @@ endpoint, or pilot evidence.
 
 | Component | Current surface | Production gap |
 |---|---|---|
-| `coffer-api` | `/healthz`, SQL `/readyz`, optional process-local `/metrics`; HTTP, token, readiness, and reconciliation counters | multiple workers; VIP scrape; no dependency/admission/session gauges; public denial not proven |
-| `coffer-edge` | listener health and fixed startup logs | no health/readiness/metrics application; no admission or upstream result metrics |
+| `coffer-api` | `/healthz`, SQL `/readyz`, optional process-local `/metrics`; process-start, bounded HTTP, token, readiness, and reconciliation counters; metrics-enabled worker count must be one | VIP scrape; no dependency/admission/session gauges; public denial not proven |
+| `coffer-edge` | bounded route/method/status request counters and process-start when metrics are enabled; listener health and fixed startup logs | no private health/readiness/metrics application; no admission or upstream result metrics |
 | Distribution | `/v2/` health through HAProxy; JSON logs | private debug/Prometheus server disabled; no per-replica scrape |
 | `coffer-reconcile` | aggregate cycle logs and process-local result counters | no scrape listener; counters disappear; no cycle/backlog/lease gauges |
 | MariaDB/Galera | Kolla service health; existing exporter available when enabled | Coffer dashboard/alerts and transaction retry/deadlock correlation absent |

@@ -132,3 +132,12 @@ restart/counter-reset/stale-series transitions, and redacted evidence. This
 accepts the architecture and local contract only; it does not claim that the
 runtime endpoints, Kolla discovery, Prometheus rules, Grafana dashboard, or
 fresh pilot evidence already exist.
+
+The first runtime slice now binds API, edge, and reconciliation collectors to
+the same allowlists, exports a process-start timestamp, collapses status codes
+to bounded classes, removes raw edge paths from labels, and rejects
+metrics-enabled API/edge processes with any worker count other than one.
+The Gunicorn post-fork hook refreshes the timestamp inside each worker, so a
+worker replacement cannot reset counters while retaining the old start time.
+This still does not expose an edge or reconciler management endpoint or
+install any Kolla/Prometheus/Grafana artifact.

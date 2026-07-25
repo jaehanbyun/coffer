@@ -10,7 +10,9 @@ from coffer.db import RepositoryStore
 from coffer.observability import (
     CofferMetrics,
     HTTPMetricsMiddleware,
+    WSGIHTTPMetricsMiddleware,
     build_operational_application,
+    edge_route_class,
 )
 
 
@@ -21,14 +23,17 @@ class FailingStore:
 
 class ItemResource:
     def on_get(
-        self, req: falcon.Request, resp: falcon.Response, item_id: str
+        self,
+        req: falcon.Request,
+        resp: falcon.Response,
+        repository_id: str,
     ) -> None:
-        resp.media = {"id": item_id}
+        resp.media = {"id": repository_id}
 
 
 def test_health_readiness_and_metrics_have_bounded_output() -> None:
     store = RepositoryStore("sqlite://", bootstrap_schema=True)
-    metrics = CofferMetrics()
+    metrics = CofferMetrics(wall_clock=lambda: 123.0)
     client = testing.TestClient(
         build_operational_application(store, metrics, metrics_enabled=True)
     )
@@ -48,9 +53,27 @@ def test_health_readiness_and_metrics_have_bounded_output() -> None:
     assert rendered.content_type.startswith("text/plain")
     assert "coffer_build_info{version=\"0.1.0\"} 1.0" in rendered.text
     assert (
+        'coffer_process_start_time_seconds{component="api",version="0.1.0"} '
+        "123.0"
+    ) in rendered.text
+    assert (
         'coffer_readiness_checks_total{result="ready"} 1.0'
         in rendered.text
     )
+
+
+def test_process_start_is_refreshed_after_the_worker_fork() -> None:
+    starts = iter((123.0, 456.0))
+    metrics = CofferMetrics(wall_clock=lambda: next(starts))
+
+    metrics.mark_process_started()
+    rendered = metrics.render().decode()
+
+    assert (
+        'coffer_process_start_time_seconds{component="api",version="0.1.0"} '
+        "456.0"
+    ) in rendered
+    assert " 123.0" not in rendered
 
 
 def test_readiness_failure_is_neutral_and_counted() -> None:
@@ -90,36 +113,47 @@ def test_metrics_route_is_absent_when_disabled() -> None:
 
 
 def test_http_metrics_use_route_templates_not_resource_identifiers() -> None:
-    metrics = CofferMetrics()
-    application = falcon.App(
-        middleware=[HTTPMetricsMiddleware(metrics, "control")]
+    metrics = CofferMetrics(component="api")
+    application = falcon.App(middleware=[HTTPMetricsMiddleware(metrics)])
+    application.add_route(
+        "/v1/repositories/{repository_id}",
+        ItemResource(),
     )
-    application.add_route("/items/{item_id}", ItemResource())
     client = testing.TestClient(application)
     item_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 
-    assert client.simulate_get(f"/items/{item_id}").status_code == 200
+    assert (
+        client.simulate_get(f"/v1/repositories/{item_id}").status_code
+        == 200
+    )
     rendered = metrics.render().decode()
 
     assert item_id not in rendered
-    assert 'route="/items/{item_id}"' in rendered
-    assert 'component="control"' in rendered
+    assert 'route="/v1/repositories/{repository_id}"' in rendered
+    assert 'component="api"' in rendered
     assert 'method="GET"' in rendered
-    assert 'status="200"' in rendered
+    assert 'status="2xx"' in rendered
 
 
 def test_http_metrics_collapse_unknown_methods() -> None:
-    metrics = CofferMetrics()
-    application = falcon.App(
-        middleware=[HTTPMetricsMiddleware(metrics, "control")]
+    metrics = CofferMetrics(component="api")
+    application = falcon.App(middleware=[HTTPMetricsMiddleware(metrics)])
+    application.add_route(
+        "/v1/repositories/{repository_id}",
+        ItemResource(),
     )
-    application.add_route("/items/{item_id}", ItemResource())
     client = testing.TestClient(application)
 
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message="Unknown REQUEST_METHOD.*")
-        client.simulate_request(path="/items/example", method="UNBOUNDED-ONE")
-        client.simulate_request(path="/items/example", method="UNBOUNDED-TWO")
+        client.simulate_request(
+            path="/v1/repositories/example",
+            method="UNBOUNDED-ONE",
+        )
+        client.simulate_request(
+            path="/v1/repositories/example",
+            method="UNBOUNDED-TWO",
+        )
     rendered = metrics.render().decode()
 
     assert "UNBOUNDED-ONE" not in rendered
@@ -127,8 +161,84 @@ def test_http_metrics_collapse_unknown_methods() -> None:
     assert 'method="OTHER"' in rendered
 
 
+@pytest.mark.parametrize(
+    ("path", "method", "expected"),
+    [
+        ("/auth/token", "GET", "edge-auth"),
+        ("/v2/p/project/repo/manifests/latest", "PUT", "edge-manifest"),
+        ("/v2/p/project/repo/blobs/uploads/id", "PATCH", "edge-upload"),
+        ("/v2/p/project/repo/blobs/sha256:abc", "GET", "edge-blob"),
+        ("/v1/repositories", "GET", "edge-other"),
+    ],
+)
+def test_edge_routes_collapse_resource_identifiers(path, method, expected) -> None:
+    assert (
+        edge_route_class({"PATH_INFO": path, "REQUEST_METHOD": method})
+        == expected
+    )
+
+
+def test_wsgi_edge_metrics_never_retain_the_raw_path() -> None:
+    item_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+
+    def application(environ, start_response):
+        start_response("503 Service Unavailable", [("Content-Length", "0")])
+        return []
+
+    metrics = CofferMetrics(component="edge", wall_clock=lambda: 123.0)
+    middleware = WSGIHTTPMetricsMiddleware(application, metrics)
+    environ = {
+        "PATH_INFO": f"/v2/p/project/{item_id}/blobs/uploads/id",
+        "REQUEST_METHOD": "PATCH",
+    }
+    iterable = middleware(environ, lambda _status, _headers: None)
+    list(iterable)
+    rendered = metrics.render().decode()
+
+    assert item_id not in rendered
+    assert 'component="edge"' in rendered
+    assert 'route="edge-upload"' in rendered
+    assert 'method="PATCH"' in rendered
+    assert 'status="5xx"' in rendered
+
+
+@pytest.mark.parametrize(
+    ("operation", "message"),
+    [
+        (lambda: CofferMetrics(component="project-a"), "component"),
+        (
+            lambda: CofferMetrics(version="credential secret"),
+            "version",
+        ),
+        (
+            lambda: CofferMetrics().observe_http(
+                route="/v1/repositories/concrete-id",
+                method="GET",
+                status=200,
+                duration_seconds=0.1,
+            ),
+            "route",
+        ),
+        (
+            lambda: CofferMetrics().observe_token_decision(
+                "project-a",
+                0.1,
+            ),
+            "token",
+        ),
+        (
+            lambda: CofferMetrics().observe_readiness("project-a"),
+            "readiness",
+        ),
+    ],
+)
+def test_metric_schema_rejects_unbounded_values(operation, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        operation()
+
+
 def test_reconciliation_metrics_accept_only_fixed_result_classes() -> None:
-    metrics = CofferMetrics()
+    metrics = CofferMetrics(component="reconcile")
     for result in (
         "absent",
         "indeterminate",

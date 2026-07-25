@@ -17,6 +17,7 @@ from coffer.edge_runner import (
     build_product_application,
     run_with_config,
 )
+from coffer.observability import WSGIHTTPMetricsMiddleware
 from coffer.registry_proxy import RegistryEdgeProxy
 from coffer.tokens import TokenIssuer
 
@@ -115,6 +116,57 @@ def test_edge_product_factory_validates_schema_and_jwks(tmp_path: Path) -> None:
     application = build_product_application(conf, settings)
 
     assert isinstance(application, RegistryEdgeProxy)
+
+
+def test_edge_metrics_wrap_the_proxy_with_bounded_process_metrics(
+    tmp_path: Path,
+) -> None:
+    database_url = f"sqlite:///{tmp_path / 'coffer.sqlite'}"
+    upgrade_schema(database_url)
+    issuer = TokenIssuer(
+        private_key=rsa.generate_private_key(public_exponent=65537, key_size=2048),
+        issuer="coffer-edge-test",
+        service="coffer-registry",
+        clock=lambda: datetime.now(UTC),
+    )
+    jwks_path = tmp_path / "jwks.json"
+    jwks_path.write_text(json.dumps(issuer.jwks()), encoding="utf-8")
+    conf = config(jwks_file=str(jwks_path), workers=1)
+    conf.set_override("connection", database_url, group="database")
+    conf.set_override("issuer", issuer.issuer, group="token")
+    conf.set_override("service", issuer.service, group="token")
+    conf.set_override("metrics_enabled", True, group="observability")
+
+    application = build_product_application(conf, EdgeSettings.from_config(conf))
+
+    assert isinstance(application, WSGIHTTPMetricsMiddleware)
+    assert isinstance(application.application, RegistryEdgeProxy)
+    rendered = application.metrics.render().decode()
+    assert 'component="edge"' in rendered
+    assert "coffer_process_start_time_seconds" in rendered
+
+
+def test_edge_metrics_require_one_worker_before_application_construction() -> None:
+    rejected = config(workers=2)
+    rejected.set_override("metrics_enabled", True, group="observability")
+    constructed: list[object] = []
+
+    assert run_with_config(
+        rejected,
+        application_factory=lambda _conf, _settings: constructed.append(
+            object()
+        ),
+        server_runner=lambda _application, _server: None,
+    ) == EXIT_CONFIG
+    assert constructed == []
+
+    accepted = config(workers=1)
+    accepted.set_override("metrics_enabled", True, group="observability")
+    assert run_with_config(
+        accepted,
+        application_factory=lambda _conf, _settings: object(),
+        server_runner=lambda _application, _server: None,
+    ) == EXIT_OK
 
 
 def test_edge_failures_have_stable_secret_safe_exit_contracts(

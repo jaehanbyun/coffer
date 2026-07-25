@@ -1,8 +1,8 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; ADR 0016 direct-replica observability architecture
-  accepted locally; runtime instrumentation next
+- Status: plan 0019 active; bounded API/edge/reconciliation runtime metric
+  core complete; quota-admission outcomes next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -235,6 +235,20 @@ release contains it yet.
   generated `work/kolla-ansible-stage3` dependency/fixture tree and reported
   non-source findings. The milestone commit gate scans the staged source set;
   generated work content is not promotion evidence.
+- Completed the first runtime slice of ADR 0016. Collectors now bind to exact
+  API/edge/reconcile components, export process-start timestamps, validate all
+  application-controlled labels and durations, and reduce edge paths and HTTP
+  statuses to bounded classes. The runtime and topology allowlists are tested
+  for exact agreement.
+- API and edge refuse metrics-enabled startup with more or fewer than one
+  worker before application construction. The edge wrapper contains no raw
+  tenant/repository/digest/reference/upload path in its series. Gunicorn
+  refreshes the process-start gauge after each worker fork, so a counter reset
+  cannot retain the master's old timestamp. The focused runtime matrix passes
+  141 tests and full Python regression passes 507.
+- This slice added no Kolla variable/template, Prometheus target/rule, Grafana
+  dashboard, HAProxy ACL, private edge/reconciler endpoint, Distribution
+  listener, network, container, or remote change.
 
 ## Plan 0018 Activation
 
@@ -1961,11 +1975,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Begin runtime observability in `src/coffer/observability.py`. Make the
-application metric schema explicit and bounded, add process-start/restart
-evidence, instrument the API and edge without exposing tenant/repository
-values, and keep the production one-worker rule fail closed. Do not change
-Kolla or contact a remote service in that atomic milestone.
+Add bounded quota-admission outcome and duration instrumentation in
+`src/coffer/quota_admission.py`, pass the edge collector from
+`src/coffer/edge_runner.py`, and prove accepted, over-quota, missing-quota,
+invalid-manifest, unauthorized, upstream-unavailable, and internal-error
+paths without retaining a repository or token. Do not change Kolla or contact
+a remote service in that atomic milestone.
 
 ## After This Work Package
 

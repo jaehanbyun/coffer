@@ -805,6 +805,43 @@ operator-local release.
   one-worker rule fail closed. Do not change Kolla or contact a remote service
   in that atomic milestone.
 
+### 2026-07-25 — Bounded runtime metric core completed locally
+
+- Completed: `CofferMetrics` now binds each collector to exactly `api`,
+  `edge`, or `reconcile`; exports a component/version process-start timestamp;
+  and validates every HTTP route, method, status class, token result,
+  readiness result, reconciliation result, duration, component, and version
+  before touching a series.
+- API and edge: API route templates remain bounded and now use component
+  `api` rather than the provisional `control` label. The WSGI edge wrapper
+  reduces every resource-bearing path to `edge-auth`, `edge-manifest`,
+  `edge-upload`, `edge-blob`, or `edge-other`; raw tenant, repository,
+  digest, reference, and upload identifiers never enter its metrics.
+- Process boundary: API and edge startup reject a metrics-enabled
+  configuration unless Gunicorn workers equal one. The check happens before
+  application construction and logs only the fixed invalid-configuration
+  result. A Gunicorn post-fork hook refreshes the process-start gauge inside
+  the actual worker, so worker replacement cannot pair reset counters with a
+  stale master timestamp. Reconciliation identifies its own process
+  component.
+- Compatibility: Runtime allowlists are cross-checked against the checked-in
+  topology so an implementation/ADR drift fails the test suite.
+- Verification: The observability/API/edge/token/reconciliation/proxy focused
+  matrix passes 141 tests; full Python regression passes 507 tests.
+  Compilation and diff checks pass.
+- Scope: No Kolla variable/template, scrape endpoint, Prometheus target/rule,
+  Grafana dashboard, HAProxy ACL, Distribution listener, network, container,
+  or remote state changed.
+- Changed files: Runtime observability, API/edge/reconciliation runners,
+  product WSGI wiring, focused tests, ADR/research, this plan, and
+  `HANDOFF.md`.
+- Next exact action: Add bounded quota-admission outcome and duration
+  instrumentation in `src/coffer/quota_admission.py`, pass the edge collector
+  from `src/coffer/edge_runner.py`, and prove accepted, over-quota,
+  missing-quota, invalid-manifest, unauthorized, upstream-unavailable, and
+  internal-error paths without retaining a repository or token. Do not change
+  Kolla or contact a remote service in that atomic milestone.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -850,6 +887,8 @@ operator-local release.
 | Pure observability contract | `uv run pytest -q tests/test_observability_contract.py` | passed; 51 |
 | Full regression after observability contract | `uv run pytest -q` | passed; 490 |
 | Kolla role after observability contract | `make -C poc/kolla-ansible-role verify` | passed; 68 |
+| Runtime observability focused regression | `uv run pytest -q tests/test_observability_contract.py tests/test_observability.py tests/test_api_runner.py tests/test_edge_runner.py tests/test_token_api.py tests/test_quota_reconciliation.py tests/test_reconciliation_runner.py tests/test_registry_proxy.py` | passed; 141 |
+| Full regression after runtime metric core | `uv run pytest -q` | passed; 507 |
 
 ## Failures, Blockers, and Risks
 

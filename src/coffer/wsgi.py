@@ -40,10 +40,16 @@ class PathDispatcher:
         control_application: Any,
         token_application: Any | None = None,
         operational_application: Any | None = None,
+        metrics: CofferMetrics | None = None,
     ) -> None:
         self._control_application = control_application
         self._token_application = token_application
         self._operational_application = operational_application
+        self._metrics = metrics
+
+    def mark_process_started(self) -> None:
+        if self._metrics is not None:
+            self._metrics.mark_process_started()
 
     def __call__(self, environ: dict[str, Any], start_response: Any) -> Any:
         path = environ.get("PATH_INFO")
@@ -72,7 +78,7 @@ def build_application(
     store = store or RepositoryStore(conf.database.connection)
     enforcer = enforcer or create_enforcer(conf)
 
-    middleware = [HTTPMetricsMiddleware(metrics, "control")] if metrics else None
+    middleware = [HTTPMetricsMiddleware(metrics)] if metrics else None
     application = falcon.App(middleware=middleware)
     collection = RepositoryCollectionResource(store, enforcer)
     repository = RepositoryResource(store, enforcer)
@@ -104,13 +110,14 @@ def build_application(
         control_application,
         token_application,
         operational_application,
+        metrics,
     )
 
 
 def build_product_application(conf: cfg.ConfigOpts) -> Any:
     store = RepositoryStore(conf.database.connection)
     enforcer = create_enforcer(conf)
-    metrics = CofferMetrics()
+    metrics = CofferMetrics(component="api")
     operational_application = build_operational_application(
         store,
         metrics,

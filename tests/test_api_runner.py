@@ -4,7 +4,7 @@ import logging
 
 from coffer.api_runner import EXIT_CONFIG, EXIT_OK, EXIT_TEMPFAIL, run_with_config
 from coffer.config import new_config
-from coffer.runtime import WSGIServerSettings
+from coffer.runtime import WSGIApplication, WSGIServerSettings
 
 
 def config(**overrides: object):
@@ -90,3 +90,53 @@ def test_api_rejects_invalid_bind_and_has_secret_safe_failures(
         ),
     ) == EXIT_TEMPFAIL
     assert "credential-secret" not in caplog.text
+
+
+def test_api_metrics_require_one_worker_before_application_construction() -> None:
+    rejected = config(workers=2)
+    rejected.set_override("metrics_enabled", True, group="observability")
+    constructed: list[object] = []
+
+    assert run_with_config(
+        rejected,
+        application_factory=lambda _conf: constructed.append(object()),
+        server_runner=lambda _application, _server: None,
+    ) == EXIT_CONFIG
+    assert constructed == []
+
+    accepted = config(workers=1)
+    accepted.set_override("metrics_enabled", True, group="observability")
+    assert run_with_config(
+        accepted,
+        application_factory=lambda _conf: object(),
+        server_runner=lambda _application, _server: None,
+    ) == EXIT_OK
+
+
+def test_gunicorn_post_fork_refreshes_process_start() -> None:
+    class Application:
+        started = 0
+
+        def mark_process_started(self) -> None:
+            self.started += 1
+
+    application = Application()
+    server = WSGIApplication(
+        application,
+        WSGIServerSettings(
+            process_name="coffer-api",
+            host="127.0.0.1",
+            port=8787,
+            workers=1,
+            threads=4,
+            timeout_seconds=30,
+            graceful_timeout_seconds=30,
+            keepalive_seconds=5,
+            tls_certfile=None,
+            tls_keyfile=None,
+        ),
+    )
+
+    server._post_fork(object(), object())
+
+    assert application.started == 1

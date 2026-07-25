@@ -11,6 +11,7 @@ from coffer.config import parse_config, setup_logging
 from coffer.runtime import (
     RuntimeConfigurationError,
     WSGIServerSettings,
+    require_single_observable_worker,
     run_wsgi,
 )
 from coffer.schema import SchemaNotReady
@@ -33,6 +34,10 @@ def run_with_config(
         settings = WSGIServerSettings.from_options(
             conf.api,
             process_name="coffer-api",
+        )
+        require_single_observable_worker(
+            settings,
+            metrics_enabled=conf.observability.metrics_enabled,
         )
         application = application_factory(conf)
     except (RuntimeConfigurationError, SchemaNotReady, OSError, ValueError):

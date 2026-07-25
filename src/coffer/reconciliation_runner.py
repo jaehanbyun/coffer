@@ -344,7 +344,7 @@ def run_with_config(
 ) -> int:
     try:
         settings = RunnerSettings.from_config(conf)
-        metrics = CofferMetrics()
+        metrics = CofferMetrics(component="reconcile")
     except RunnerConfigurationError:
         LOG.error("reconciliation startup failed result=invalid_configuration")
         return EXIT_CONFIG

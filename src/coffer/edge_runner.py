@@ -13,6 +13,7 @@ from oslo_config import cfg
 
 from coffer.config import parse_config, setup_logging
 from coffer.db import RepositoryStore
+from coffer.observability import CofferMetrics, WSGIHTTPMetricsMiddleware
 from coffer.quota import QuotaStore
 from coffer.quota_admission import (
     ManifestAdmissionService,
@@ -27,6 +28,7 @@ from coffer.registry_proxy import (
 from coffer.runtime import (
     RuntimeConfigurationError,
     WSGIServerSettings,
+    require_single_observable_worker,
     run_wsgi,
 )
 from coffer.schema import SchemaNotReady
@@ -138,7 +140,7 @@ def load_jwks(path: str) -> Mapping[str, object]:
 def build_product_application(
     conf: cfg.ConfigOpts,
     settings: EdgeSettings,
-) -> RegistryEdgeProxy:
+) -> Any:
     repositories = RepositoryStore(conf.database.connection)
     quotas = QuotaStore(conf.database.connection)
     registry = HTTPManifestUpstream(settings.registry_origin)
@@ -152,10 +154,16 @@ def build_product_application(
         registry,
         token_realm=settings.token_realm,
     )
-    return RegistryEdgeProxy(
+    application = RegistryEdgeProxy(
         manifest_application,
         settings.registry_origin,
         api_origin=settings.api_origin,
+    )
+    if not conf.observability.metrics_enabled:
+        return application
+    return WSGIHTTPMetricsMiddleware(
+        application,
+        CofferMetrics(component="edge"),
     )
 
 
@@ -169,6 +177,10 @@ def run_with_config(
 ) -> int:
     try:
         settings = EdgeSettings.from_config(conf)
+        require_single_observable_worker(
+            settings.server,
+            metrics_enabled=conf.observability.metrics_enabled,
+        )
         application = application_factory(conf, settings)
     except (
         EdgeConfigurationError,

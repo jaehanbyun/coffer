@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 import time
 from typing import Any, Protocol
 
@@ -11,8 +12,42 @@ from prometheus_client.exposition import CONTENT_TYPE_LATEST, generate_latest
 BOUNDED_HTTP_METHODS = frozenset(
     {"DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"}
 )
+BOUNDED_COMPONENTS = frozenset({"api", "edge", "reconcile"})
+BOUNDED_ROUTES = frozenset(
+    {
+        "/auth/token",
+        "/healthz",
+        "/metrics",
+        "/readyz",
+        "/v1/internal/maintenance/registry-token",
+        "/v1/repositories",
+        "/v1/repositories/{repository_id}",
+        "edge-auth",
+        "edge-blob",
+        "edge-manifest",
+        "edge-other",
+        "edge-upload",
+        "unmatched",
+    }
+)
+BOUNDED_STATUS_CLASSES = frozenset(
+    {"1xx", "2xx", "3xx", "4xx", "5xx", "OTHER"}
+)
+TOKEN_RESULTS = frozenset(
+    {
+        "credential_expires_too_soon",
+        "identity_unavailable",
+        "invalid_credential",
+        "invalid_request",
+        "issued",
+    }
+)
+READINESS_RESULTS = frozenset({"database_unavailable", "ready"})
 RECONCILIATION_RESULTS = frozenset(
     {"absent", "indeterminate", "present", "stale_claim", "stale_version"}
+)
+EDGE_ROUTE_CLASSES = frozenset(
+    {"edge-auth", "edge-blob", "edge-manifest", "edge-other", "edge-upload"}
 )
 
 
@@ -23,7 +58,32 @@ class ReadinessStore(Protocol):
 class CofferMetrics:
     """Process-local metrics with bounded label sets."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        component: str = "api",
+        version: str = "0.1.0",
+        wall_clock: Callable[[], float] = time.time,
+    ) -> None:
+        if component not in BOUNDED_COMPONENTS:
+            raise ValueError("metric component is not bounded")
+        if (
+            not version
+            or len(version) > 64
+            or not all(
+                character.isascii()
+                and (character.isalnum() or character in ".+-")
+                for character in version
+            )
+        ):
+            raise ValueError("metric version is invalid")
+        try:
+            process_start = _duration(float(wall_clock()))
+        except (TypeError, ValueError) as error:
+            raise ValueError("metric process start is invalid") from error
+        self.component = component
+        self._version = version
+        self._wall_clock = wall_clock
         self.registry = CollectorRegistry()
         self._build = Gauge(
             "coffer_build_info",
@@ -31,7 +91,17 @@ class CofferMetrics:
             ["version"],
             registry=self.registry,
         )
-        self._build.labels(version="0.1.0").set(1)
+        self._build.labels(version=version).set(1)
+        self._process_start = Gauge(
+            "coffer_process_start_time_seconds",
+            "Unix time when the Coffer process started.",
+            ["component", "version"],
+            registry=self.registry,
+        )
+        self._process_start.labels(
+            component=self.component,
+            version=version,
+        ).set(process_start)
         self._http_requests = Counter(
             "coffer_http_requests_total",
             "Completed Coffer HTTP requests.",
@@ -73,31 +143,39 @@ class CofferMetrics:
     def observe_http(
         self,
         *,
-        component: str,
         route: str,
         method: str,
-        status: str,
+        status: int | str,
         duration_seconds: float,
     ) -> None:
+        if route not in BOUNDED_ROUTES:
+            raise ValueError("HTTP metric route is not bounded")
+        method = method if method in BOUNDED_HTTP_METHODS else "OTHER"
+        status_class = _status_class(status)
+        duration = _duration(duration_seconds)
         self._http_requests.labels(
-            component=component,
+            component=self.component,
             route=route,
             method=method,
-            status=status,
+            status=status_class,
         ).inc()
         self._http_duration.labels(
-            component=component,
+            component=self.component,
             route=route,
             method=method,
-        ).observe(duration_seconds)
+        ).observe(duration)
 
     def observe_token_decision(
         self, result: str, duration_seconds: float
     ) -> None:
+        if result not in TOKEN_RESULTS:
+            raise ValueError("token metric result is not bounded")
         self._token_decisions.labels(result=result).inc()
-        self._token_duration.observe(duration_seconds)
+        self._token_duration.observe(_duration(duration_seconds))
 
     def observe_readiness(self, result: str) -> None:
+        if result not in READINESS_RESULTS:
+            raise ValueError("readiness metric result is not bounded")
         self._readiness.labels(result=result).inc()
 
     def observe_reconciliation(self, result: str) -> None:
@@ -105,14 +183,42 @@ class CofferMetrics:
             raise ValueError("quota reconciliation metric result is not bounded")
         self._reconciliation.labels(result=result).inc()
 
+    def mark_process_started(self) -> None:
+        try:
+            process_start = _duration(float(self._wall_clock()))
+        except (TypeError, ValueError) as error:
+            raise ValueError("metric process start is invalid") from error
+        self._process_start.labels(
+            component=self.component,
+            version=self._version,
+        ).set(process_start)
+
     def render(self) -> bytes:
         return generate_latest(self.registry)
 
 
+def _duration(value: float) -> float:
+    result = float(value)
+    if result < 0 or result == float("inf") or result != result:
+        raise ValueError("metric duration is invalid")
+    return result
+
+
+def _status_class(value: int | str) -> str:
+    try:
+        status = int(value)
+    except (TypeError, ValueError):
+        return "OTHER"
+    if 100 <= status <= 599:
+        result = f"{status // 100}xx"
+        if result in BOUNDED_STATUS_CLASSES:
+            return result
+    return "OTHER"
+
+
 class HTTPMetricsMiddleware:
-    def __init__(self, metrics: CofferMetrics, component: str) -> None:
+    def __init__(self, metrics: CofferMetrics) -> None:
         self._metrics = metrics
-        self._component = component
 
     def process_request(self, req: falcon.Request, resp: falcon.Response) -> None:
         req.context.coffer_metrics_started = time.monotonic()
@@ -129,12 +235,107 @@ class HTTPMetricsMiddleware:
         status = str(resp.status_code)
         method = req.method if req.method in BOUNDED_HTTP_METHODS else "OTHER"
         self._metrics.observe_http(
-            component=self._component,
             route=route,
             method=method,
             status=status,
             duration_seconds=max(0.0, time.monotonic() - started),
         )
+
+
+def edge_route_class(environ: Mapping[str, Any]) -> str:
+    path = environ.get("PATH_INFO")
+    method = environ.get("REQUEST_METHOD")
+    if not isinstance(path, str) or not path.startswith("/"):
+        return "edge-other"
+    if path == "/auth/token":
+        return "edge-auth"
+    if path == "/v2" or path.startswith("/v2/"):
+        if method == "PUT" and "/manifests/" in path:
+            return "edge-manifest"
+        if "/blobs/uploads" in path:
+            return "edge-upload"
+        if "/blobs/" in path:
+            return "edge-blob"
+    return "edge-other"
+
+
+class _ObservedIterable:
+    def __init__(
+        self,
+        iterable: Iterable[bytes],
+        complete: Callable[[], None],
+    ) -> None:
+        self._iterable = iterable
+        self._complete = complete
+        self._completed = False
+
+    def _finish(self) -> None:
+        if not self._completed:
+            self._completed = True
+            self._complete()
+
+    def __iter__(self) -> Iterator[bytes]:
+        try:
+            yield from self._iterable
+        finally:
+            self._finish()
+
+    def close(self) -> None:
+        close = getattr(self._iterable, "close", None)
+        try:
+            if close is not None:
+                close()
+        finally:
+            self._finish()
+
+
+class WSGIHTTPMetricsMiddleware:
+    def __init__(self, application: Any, metrics: CofferMetrics) -> None:
+        if metrics.component != "edge":
+            raise ValueError("WSGI metrics middleware requires the edge component")
+        self.application = application
+        self.metrics = metrics
+
+    def mark_process_started(self) -> None:
+        self.metrics.mark_process_started()
+
+    def __call__(
+        self,
+        environ: dict[str, Any],
+        start_response: Callable[..., Any],
+    ) -> Iterable[bytes]:
+        started = time.monotonic()
+        status: int | str = "OTHER"
+
+        def observed_start_response(
+            response_status: str,
+            headers: Sequence[tuple[str, str]],
+            exc_info: object | None = None,
+        ) -> Any:
+            nonlocal status
+            status = response_status.partition(" ")[0]
+            if exc_info is None:
+                return start_response(response_status, headers)
+            return start_response(response_status, headers, exc_info)
+
+        route = edge_route_class(environ)
+        method = str(environ.get("REQUEST_METHOD", "OTHER"))
+
+        def complete() -> None:
+            self.metrics.observe_http(
+                route=route,
+                method=method,
+                status=status,
+                duration_seconds=max(0.0, time.monotonic() - started),
+            )
+
+        try:
+            iterable = self.application(environ, observed_start_response)
+        except Exception:
+            status = 500
+            complete()
+            raise
+        return _ObservedIterable(iterable, complete)
 
 
 class HealthResource:

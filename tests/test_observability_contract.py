@@ -8,6 +8,16 @@ import sys
 
 import pytest
 
+from coffer.observability import (
+    BOUNDED_COMPONENTS,
+    BOUNDED_HTTP_METHODS,
+    BOUNDED_ROUTES,
+    BOUNDED_STATUS_CLASSES,
+    READINESS_RESULTS,
+    RECONCILIATION_RESULTS,
+    TOKEN_RESULTS,
+)
+
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = ROOT / "poc" / "observability" / "contract.py"
@@ -62,6 +72,26 @@ def test_checked_in_topology_fixes_the_candidate_contract() -> None:
     assert len(loaded.raw["recording_rules"]) == 6
     assert len(loaded.raw["alerts"]) == 8
     assert len(loaded.raw["dashboard_rows"]) == 8
+
+
+def test_runtime_metric_allowlists_match_the_versioned_topology() -> None:
+    loaded = topology()
+
+    assert BOUNDED_COMPONENTS == frozenset(
+        loaded.application_labels["component"]
+    )
+    assert BOUNDED_HTTP_METHODS | {"OTHER"} == frozenset(
+        loaded.application_labels["method"]
+    )
+    assert BOUNDED_STATUS_CLASSES == frozenset(
+        loaded.application_labels["status"]
+    )
+    assert BOUNDED_ROUTES == CONTRACT.ROUTES
+    assert TOKEN_RESULTS == frozenset(loaded.result_labels["token"])
+    assert READINESS_RESULTS == frozenset(loaded.result_labels["readiness"])
+    assert RECONCILIATION_RESULTS == frozenset(
+        loaded.result_labels["reconciliation"]
+    )
 
 
 @pytest.mark.parametrize(

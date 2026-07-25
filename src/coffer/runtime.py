@@ -90,6 +90,17 @@ class WSGIServerSettings:
         return options
 
 
+def require_single_observable_worker(
+    settings: WSGIServerSettings,
+    *,
+    metrics_enabled: bool,
+) -> None:
+    if metrics_enabled and settings.workers != 1:
+        raise RuntimeConfigurationError(
+            "production metrics require exactly one worker per container"
+        )
+
+
 class WSGIApplication(BaseApplication):
     def __init__(
         self,
@@ -98,7 +109,17 @@ class WSGIApplication(BaseApplication):
     ) -> None:
         self._application = application
         self._options = settings.gunicorn_options()
+        self._options["post_fork"] = self._post_fork
         super().__init__()
+
+    def _post_fork(self, _server: object, _worker: object) -> None:
+        mark_process_started = getattr(
+            self._application,
+            "mark_process_started",
+            None,
+        )
+        if callable(mark_process_started):
+            mark_process_started()
 
     def load_config(self) -> None:
         for name, value in self._options.items():
