@@ -106,6 +106,7 @@ operator-local release.
 | Accept only signed stable upstream releases for executable promotion evidence | ADR 0006 and the unmodified-data-plane decision require reproducible supported inputs | Testing a branch build and labeling it production-ready; private dependency fork without a separate ADR | 2026-07-25 |
 | Treat merged Ceph PR 69277 as a release candidate signal, not a closed gate | The backport is in `tentacle` but absent from released v20.2.2; exact zero-byte and failure-mode behavior still needs an official image and live test | Claiming source inspection or upstream tests as Coffer runtime acceptance | 2026-07-25 |
 | Keep official Kolla upstream work outside Stage 6 | Companion-role contracts may still change as production identity, data protection, and operations gates close | Starting governance review around provisional deployment contracts | 2026-07-25 |
+| Approve the dedicated expiring maintenance identity boundary for pure local implementation | A separate service user, exact dual-role policy, server-side SQL authority, pull-only token reduction, and private mTLS bound cross-project reads without sharing tenant, signer, or RGW credentials | Per-project credential fan-out; API middleware password/admin reuse; service/system or mTLS-only authority; signer key in the worker; separate read proxy | 2026-07-25 |
 
 ## Tasks
 
@@ -226,6 +227,30 @@ operator-local release.
   proposed ADR `docs/adrs/0015-use-expiring-maintenance-identity.md`; keep it
   proposed until pure policy/token/edge-denial tests pass.
 
+### 2026-07-25 — Maintenance identity boundary approved for local proof
+
+- Approval: The user approved the recommended dedicated maintenance identity
+  boundary. The approval covers the architecture and pure local contract proof,
+  not creation or delivery of credentials, roles, certificates, Barbican
+  secrets, endpoints, remote deployment, or production-data operations.
+- Completed: Added proposed ADR 0015. It fixes the dedicated service user,
+  exact `service` plus `registry_maintenance` policy, finite access-rule
+  application credential, private mTLS frontend, public-edge denial,
+  server-side claim/session authority, one-repository pull-only JWT, signer and
+  recipient separation, rotation/revocation, secret-safety, and fail-closed
+  contracts.
+- Decision: Keep ADR 0015 proposed until pure local policy, token, stale
+  authority, edge-denial, and secret-safety tests pass. Keep reconciliation
+  disabled and do not add Kolla recipients or real credentials in this
+  milestone.
+- Changed files: Added
+  `docs/adrs/0015-use-expiring-maintenance-identity.md`; updated this plan and
+  `.codex/state/HANDOFF.md`.
+- Next exact action: Inspect `src/coffer/tokens.py`, `src/coffer/quota.py`,
+  `src/coffer/db.py`, and the edge routing tests, then add the smallest
+  injectable maintenance authorization/token-broker core beginning in
+  `src/coffer/maintenance_token.py`.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -241,6 +266,7 @@ operator-local release.
 | Kolla companion-role regression | `make -C poc/kolla-ansible-role verify` | passed; 52 |
 | Maintenance identity code/config inventory | Focused inspection of live comparison, reconciliation runner/probe, WSGI, Kolla config, secrets, and Stage 5 inputs | passed |
 | Maintenance identity primary sources | Current Keystone, keystonemiddleware, Barbican, and Distribution specifications | passed |
+| ADR 0015 contract consistency | Focused comparison with ADRs 0008, 0013, 0014 and the Stage 6 identity research | passed; proposed pending local proof |
 
 ## Failures, Blockers, and Risks
 
@@ -250,25 +276,26 @@ operator-local release.
 - Ceph's encrypted-copy fix is merged but unreleased. Branch execution may be
   useful only as explicitly labelled anticipatory evidence; it cannot satisfy
   the stable-release gate.
-- Identity selection and destructive GC change security/data boundaries. This
-  plan may prepare designs and disposable harnesses, but execution still
-  requires the approvals stated in `AGENTS.md`.
-- The local branch is 126 commits ahead of `origin/main`. This is not a
-  technical blocker, but remote publication remains a separately authorized
-  action and must use the `jaehanbyun` GitHub account.
+- The maintenance identity architecture is approved for pure local proof.
+  Creating or delivering its identity, credential, certificate, endpoint, or
+  Kolla secret recipient remains separately approval-gated. Destructive GC also
+  remains unapproved.
+- The local branch remains ahead of `origin/main`. This is not a technical
+  blocker, but remote publication remains a separately authorized action and
+  must use the `jaehanbyun` GitHub account.
 
 ## Handoff
 
 - Current state: Stage 5 is complete and committed. Stage 6 has a deterministic
-  upstream release gate and a documented maintenance-identity recommendation.
-  Current stable dependencies remain blocked; no security boundary changed.
-- Exact next action: Obtain approval or rejection of the recommended
-  maintenance identity boundary. If approved, create proposed ADR 0015 and its
-  pure local policy/token/edge-denial acceptance plan before implementation.
-- First file after approval:
-  `docs/adrs/0015-use-expiring-maintenance-identity.md`.
-- Questions requiring user input: Approve or reject the dedicated maintenance
-  service user, `registry_maintenance` role, restricted finite application
-  credential, internal Coffer token broker, and private mTLS frontend. Separate
-  approval remains required for real credential creation/delivery, destructive
-  GC, external publication, or production deployment.
+  upstream release gate and proposed ADR 0015 for the user-approved maintenance
+  identity boundary. Current stable dependencies remain blocked; no real
+  identity, credential, certificate, recipient, endpoint, or remote state
+  changed.
+- Exact next action: Inspect the current token, SQL authority, reconciliation
+  claim, and edge routing seams, then begin the injectable pure local broker
+  core in `src/coffer/maintenance_token.py`.
+- First file: `src/coffer/maintenance_token.py`.
+- Questions requiring user input: None for the pure local proof. Separate
+  approval remains required for credential creation/delivery, Kolla secret
+  recipients and private frontend deployment, destructive GC, external
+  publication, or production deployment.

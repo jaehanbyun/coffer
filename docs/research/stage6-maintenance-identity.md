@@ -1,7 +1,7 @@
 # Stage 6 Production Maintenance Identity
 
 - Date: 2026-07-25
-- Status: design research; recommendation not accepted
+- Status: design research; architecture approved for pure local proof
 - Scope: authenticated Distribution reads for reconciliation and existing-data
   live comparison
 - Related ADRs: `docs/adrs/0008-finite-application-credentials-as-provisioning-contract.md`,
@@ -24,11 +24,12 @@ authentication or Coffer policy. The registry signing private key remains in
 `coffer-api`, and the maintenance worker receives neither that key nor an RGW
 credential.
 
-This is a recommendation only. It creates a privileged cross-project boundary,
-a new Keystone role/user/credential lifecycle, an internal route, and a
-client-certificate lifecycle. It therefore requires explicit approval before
-an ADR is accepted or code, credentials, roles, endpoints, or Kolla secret
-recipients change.
+The user approved this recommendation on 2026-07-25 for proposed ADR and pure
+local contract proof. It creates a privileged cross-project boundary, a new
+Keystone role/user/credential lifecycle, an internal route, and a
+client-certificate lifecycle. That approval does not authorize creating or
+delivering credentials, roles, certificates, endpoints, or Kolla secret
+recipients; those remain separately approval-gated.
 
 ## Current Implemented Boundary
 
@@ -235,7 +236,7 @@ and cache bound define the maximum residual window.
 
 ## Required PoC and Production Evidence
 
-Before this recommendation can become accepted:
+Before proposed ADR 0015 can become accepted:
 
 1. Add a proposed ADR fixing the principal, roles, access rule, internal route,
    mTLS frontend, SQL authority, token claim, recipients, and rollback
@@ -266,18 +267,22 @@ Before this recommendation can become accepted:
    tokens, private keys, Authorization headers, repository paths, and manifest
    digests; then perform exact residue teardown.
 
-## Open Decisions Requiring Approval
+## Approval Disposition
 
-- Accept the explicit Coffer cross-project maintenance authority.
-- Create a dedicated `registry_maintenance` role and service user rather than
-  reusing the current API middleware identity.
-- Require a separate private mTLS HAProxy frontend and edge-denied internal
-  route.
-- Allow the deployment controller to create and store finite application
-  credentials in Barbican and materialize them only to the approved workers.
-- Decide the maximum application-credential lifetime, rotation interval,
-  Keystone cache interval, maintenance-session lifetime, and residual
-  revocation window after measured PoC evidence.
+Approved for proposed ADR and pure local proof:
+
+- explicit Coffer cross-project maintenance authority;
+- a dedicated `registry_maintenance` role and service user;
+- a private mTLS HAProxy frontend and edge-denied internal route; and
+- finite, restricted application credentials as the identity contract.
+
+Still requiring separate approval and measured evidence:
+
+- creation or delivery of the user, role, credential, Barbican secret,
+  certificate, endpoint, or Kolla recipient;
+- deployment-controller materialization to approved workers; and
+- maximum credential lifetime, rotation interval, Keystone cache interval,
+  maintenance-session lifetime, and residual revocation window.
 
 No credential, role, endpoint, ACL, certificate, secret recipient, policy, or
 runtime setting was created or changed by this research.

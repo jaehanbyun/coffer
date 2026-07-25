@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; Stage 6 production promotion started
+- Status: plan 0019 active; Stage 6 maintenance identity local proof started
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -64,6 +64,14 @@ release contains it yet.
   repository JWT from server-resolved SQL authority, and a private mTLS
   HAProxy frontend. The signer remains API-only and the public edge must deny
   `/v1/internal/`.
+- The user approved that maintenance identity architecture for pure local
+  proof. Added proposed ADR 0015 to fix the exact identity, role, access-rule,
+  private mTLS, edge denial, server-side authority, pull-only JWT,
+  rotation/revocation, signer-recipient, failure, and secret-safety contracts.
+  This approval does not create or authorize delivery of a real identity,
+  credential, Barbican secret, certificate, endpoint, Kolla recipient, remote
+  deployment, or production-data operation. ADR 0015 remains proposed until
+  its pure local acceptance tests pass.
 - No credential, role, endpoint, ACL, certificate, secret recipient, policy,
   or runtime setting changed.
 
@@ -1792,11 +1800,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Obtain user approval or rejection of the recommended cross-project maintenance
-identity boundary. If approved, first create proposed ADR
-`docs/adrs/0015-use-expiring-maintenance-identity.md` and define its pure local
-policy, short-lived pull-token, stale-claim/session, edge-denial, and secret
-safety tests before implementing any credential or Kolla recipient.
+Inspect `src/coffer/tokens.py`, `src/coffer/quota.py`, `src/coffer/db.py`, and
+the current edge routing tests. Then add the smallest injectable maintenance
+authorization and pull-token core beginning in
+`src/coffer/maintenance_token.py`, without creating a credential or Kolla
+recipient.
 
 ## After This Work Package
 
