@@ -659,6 +659,39 @@ operator-local release.
   multipart absence, and isolated restore comparisons without reading a live
   database, bucket, KMS key, or registry.
 
+### 2026-07-25 — Canonical SQL/RGW backup verifier completed locally
+
+- Completed: Added a versioned secret-safe backup bundle and verifier. Exact
+  invocation/target/topology provenance, SQL tool/server/schema/recovery
+  coordinates, backup artifact and logical content, and isolated SQL restore
+  must agree before evidence is accepted.
+- RGW coverage: Complete version pagination, canonical key/version hash order,
+  unique version identities, zero- and positive-size SSE-KMS objects, delete
+  markers, checksum/ETag/metadata/KMS hashes, zero multipart uploads, and an
+  isolated restore with equal inventory, metadata, counts, bytes, and client
+  pull digests are mandatory.
+- Lifecycle integration: `verify-backups` no longer trusts fixture-provided
+  phase booleans or hashes. It runs the canonical verifier, binds the emitted
+  provenance and artifact hashes into state, and refuses an invalid bundle
+  without changing the last accepted phase.
+- File boundary: The CLI reads only an owner mode-0600 regular single-link
+  manifest and atomically writes only into a pre-existing owner mode-0700
+  directory. It does not create or remediate an unsafe output path and emits
+  only fixed secret-safe failures.
+- Verification: Twenty-nine backup-verifier, 13 lifecycle, and 27 state-model
+  tests pass together (69 focused); all 428 Python tests pass. Compilation,
+  both JSON artifacts, both CLIs, and diff checks pass.
+- Scope: The verifier and fixture adapter perform no SQL, S3/RGW, KMS,
+  registry, network, subprocess, SSH, Ansible, Kolla, VM, identity, or
+  remote-file operation.
+- Changed files: `poc/data-protection/backup_manifest.py`,
+  lifecycle/state integration, the complete backup fixture, backup/lifecycle/
+  state tests, `poc/data-protection/README.md`, this plan, and `HANDOFF.md`.
+- Next exact action: Add a no-network `backup_adapter.py` seam with fake
+  MariaDB and versioned-S3 clients. It must build the exact verified bundle
+  from typed observations, keep credentials outside arguments/results, prove
+  phase order and pagination, and refuse any real adapter or external call.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -695,6 +728,8 @@ operator-local release.
 | Kolla role after data-protection state model | `make -C poc/kolla-ansible-role verify` | passed; 68 |
 | Fixture-only data-protection lifecycle | `uv run pytest -q tests/test_data_protection_lifecycle_cli.py tests/test_data_protection_state_machine.py` | passed; 39 |
 | Full regression after data-protection lifecycle | `uv run pytest -q` | passed; 398 |
+| Canonical backup bundle and lifecycle integration | `uv run pytest -q tests/test_data_protection_backup_manifest.py tests/test_data_protection_lifecycle_cli.py tests/test_data_protection_state_machine.py` | passed; 69 |
+| Full regression after canonical backup verifier | `uv run pytest -q` | passed; 428 |
 
 ## Failures, Blockers, and Risks
 
@@ -720,12 +755,13 @@ operator-local release.
   trusted workload adapter and fixture-only lifecycle are complete; defaults
   and reconciliation remain disabled. The provenance-bound S3 inventory helper
   plus the pure state model and fixture-only data-protection lifecycle are
-  complete. Real lifecycle evidence and current stable dependencies remain
+  complete. The canonical restored SQL/RGW backup verifier now gates the
+  lifecycle. Real lifecycle evidence and current stable dependencies remain
   blocked; no real identity, credential, certificate, endpoint, or remote state
   changed.
-- Exact next action: Add a canonical fixture-only SQL/RGW backup manifest
-  verifier that must pass isolated restore comparison before the lifecycle
-  accepts backup evidence.
+- Exact next action: Add a no-network backup adapter seam with fake MariaDB and
+  versioned-S3 clients that builds the exact verified bundle without accepting
+  credentials or invoking an external service.
 - Questions requiring user input: None for the next fixture-only lifecycle
   milestone. The user has already authorized atomic milestone publication and
   the bounded disposable Stage 6 sequence; exact safety and release gates

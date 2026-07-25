@@ -354,12 +354,28 @@ with hashed immutable IDs, tears down to the complete zero-residue terminal
 state, and repeats teardown idempotently. It imports no external service
 client and has no network adapter.
 
-The next local milestone should add one canonical, secret-safe SQL/RGW backup
-manifest verifier. It must bind tool/server/schema/recovery-coordinate
-metadata, versioned object identifiers, sizes/checksums/metadata/encryption
-disposition, complete pagination, zero multipart residue, and isolated
-restore comparisons before the state model can accept `backups-verified`.
-The first implementation remains fixture-only and reads no live database,
-bucket, KMS key, or registry.
+The canonical SQL/RGW backup verifier milestone is complete locally. The
+versioned bundle binds the exact invocation, target, topology, fixture adapter,
+tool and server versions, SQL schema/recovery coordinate, logical-content and
+artifact digests, and an isolated SQL restore. RGW evidence requires complete
+version pagination, canonically ordered unique key/version hashes, zero- and
+positive-size SSE-KMS object versions, delete markers, checksums, ETags,
+metadata and KMS-policy hashes, zero multipart residue, and an isolated
+bucket/root whose inventory, metadata, aggregate counts/bytes, and client-pull
+digests match the source.
+
+The verifier emits only canonical hashes, counts, versions, and booleans.
+Its CLI accepts only an owner mode-0600 regular single-link input and can
+atomically write to a pre-existing owner mode-0700 evidence directory. It does
+not create or repair unsafe directories. The lifecycle now derives its SQL and
+RGW phase evidence only from this verifier; an unverified bundle cannot enter
+`backups-verified`.
+
+The next local milestone should add a no-network backup adapter seam with fake
+MariaDB and versioned-S3 clients. It must build this exact bundle from typed
+adapter observations, keep credentials out of arguments/results, prove
+complete pagination and isolated restore order, and refuse a real adapter
+unless an explicit disposable target contract is supplied. No subprocess or
+network call is permitted in the first adapter milestone.
 
 No external resource may be created by that implementation milestone.

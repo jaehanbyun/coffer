@@ -25,6 +25,17 @@ state_machine = importlib.util.module_from_spec(MODULE_SPEC)
 sys.modules[MODULE_SPEC.name] = state_machine
 MODULE_SPEC.loader.exec_module(state_machine)
 
+BACKUP_MODULE_PATH = Path(__file__).with_name("backup_manifest.py")
+BACKUP_MODULE_SPEC = importlib.util.spec_from_file_location(
+    "coffer_data_protection_backup_manifest_runtime",
+    BACKUP_MODULE_PATH,
+)
+if BACKUP_MODULE_SPEC is None or BACKUP_MODULE_SPEC.loader is None:
+    raise RuntimeError("data-protection backup verifier is unavailable")
+backup_manifest = importlib.util.module_from_spec(BACKUP_MODULE_SPEC)
+sys.modules[BACKUP_MODULE_SPEC.name] = backup_manifest
+BACKUP_MODULE_SPEC.loader.exec_module(backup_manifest)
+
 FIXTURE_SCHEMA = "coffer.data-protection-fixture/v1"
 FAILURE_SCHEMA = "coffer.data-protection-failure/v1"
 DEFAULT_TOPOLOGY = Path(__file__).with_name("topology.json")
@@ -58,8 +69,6 @@ FIXTURE_EVIDENCE_KEYS = frozenset(
     {
         "fixture",
         "writer_fence",
-        "sql_backup",
-        "rgw_backup",
         "inventory",
         "baseline_import",
         "live_comparison",
@@ -246,6 +255,7 @@ class LifecycleStore:
 def load_fixture(
     path: Path,
     topology: state_machine.Topology,
+    invocation_id: str,
     target_signature: str,
     unrelated_signature: str,
 ) -> dict[str, object]:
@@ -259,6 +269,7 @@ def load_fixture(
         "unrelated_signature",
         "seed",
         "evidence",
+        "backup_bundle",
         "failure_outcomes",
         "residue_counts",
     }:
@@ -280,6 +291,19 @@ def load_fixture(
     evidence = value.get("evidence")
     if not isinstance(evidence, Mapping) or set(evidence) != FIXTURE_EVIDENCE_KEYS:
         raise CommandError("fixture-refused")
+    writer_fence = evidence.get("writer_fence")
+    if not isinstance(writer_fence, Mapping):
+        raise CommandError("fixture-refused")
+    try:
+        backup_manifest.verify_backup_bundle(
+            value.get("backup_bundle"),
+            invocation_id=invocation_id,
+            target_signature=target_signature,
+            topology_digest=topology.digest,
+            source_signature=str(writer_fence.get("source_signature", "")),
+        )
+    except backup_manifest.ManifestError:
+        raise CommandError("fixture-refused") from None
     failures = value.get("failure_outcomes")
     if (
         not isinstance(failures, Mapping)
@@ -446,11 +470,22 @@ def _run_action(
                 _phase_evidence(fixture, "writer_fence"),
             )
         elif action == "verify-backups":
+            writer_fence = state["evidence"]
+            assert isinstance(writer_fence, Mapping)
+            writer_fence = writer_fence["writer_fence"]
+            assert isinstance(writer_fence, Mapping)
+            backup_evidence = backup_manifest.verify_backup_bundle(
+                fixture["backup_bundle"],
+                invocation_id=str(state["invocation_id"]),
+                target_signature=str(state["target_signature"]),
+                topology_digest=topology.digest,
+                source_signature=str(writer_fence["source_signature"]),
+            )
             state = state_machine.mark_backups_verified(
                 topology,
                 state,
-                _phase_evidence(fixture, "sql_backup"),
-                _phase_evidence(fixture, "rgw_backup"),
+                backup_evidence["sql_backup"],
+                backup_evidence["rgw_backup"],
             )
         elif action == "verify-inventory":
             state = state_machine.mark_inventory_verified(
@@ -521,7 +556,11 @@ def _run_action(
             )
         else:
             raise CommandError("contract-refused")
-    except (KeyError, state_machine.DataProtectionError) as error:
+    except (
+        KeyError,
+        backup_manifest.ManifestError,
+        state_machine.DataProtectionError,
+    ) as error:
         raise CommandError("contract-refused") from error
 
     store.write(topology, state)
@@ -583,6 +622,7 @@ def run(
             fixture = load_fixture(
                 args.fixture,
                 topology,
+                args.invocation_id,
                 args.target_signature,
                 args.unrelated_signature,
             )

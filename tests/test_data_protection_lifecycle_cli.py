@@ -297,6 +297,37 @@ def test_read_only_actions_refuse_fixture_arguments(
     assert failure["category"] == "fixture-refused"
 
 
+def test_unverified_backup_bundle_cannot_advance_the_lifecycle(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    assert invoke(tmp_path, capsys, base_arguments("preflight"))[0] == 0
+    for action in ("create-source", "populate-fixture", "exclude-writers"):
+        assert invoke(
+            tmp_path,
+            capsys,
+            fixture_arguments(action),
+        )[0] == 0
+    state_path = state_root(tmp_path) / "state.json"
+    before = state_path.read_bytes()
+    changed = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+    changed["backup_bundle"]["sql"]["restore"]["content_sha256"] = (
+        f"sha256:{'f' * 64}"
+    )
+    changed_path = tmp_path / "unrestored-backup.json"
+    changed_path.write_text(json.dumps(changed), encoding="utf-8")
+
+    result, failure = invoke(
+        tmp_path,
+        capsys,
+        fixture_arguments("verify-backups", changed_path),
+    )
+
+    assert result == 2
+    assert failure["category"] == "fixture-refused"
+    assert state_path.read_bytes() == before
+
+
 def test_nonblocking_lock_refuses_concurrent_action(
     tmp_path: Path,
     capsys,

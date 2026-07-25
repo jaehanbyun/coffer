@@ -93,10 +93,12 @@ def writer_fence():
 
 def sql_backup():
     return {
+        "artifact_sha256": f"sha256:{'5' * 64}",
         "backup_sha256": f"sha256:{'6' * 64}",
         "restore_sha256": f"sha256:{'6' * 64}",
         "schema_sha256": f"sha256:{'7' * 64}",
         "recovery_coordinate_sha256": f"sha256:{'8' * 64}",
+        "provenance_sha256": f"sha256:{'9' * 64}",
         "bytes": 8192,
         "row_count": 42,
         "restored": True,
@@ -110,6 +112,7 @@ def rgw_backup():
         "restore_inventory_sha256": f"sha256:{'a' * 64}",
         "metadata_sha256": f"sha256:{'b' * 64}",
         "source_signature": SOURCE_SIGNATURE,
+        "provenance_sha256": f"sha256:{'9' * 64}",
         "bytes": 16384,
         "object_count": 12,
         "version_count": 12,

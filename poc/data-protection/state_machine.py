@@ -632,10 +632,12 @@ def mark_backups_verified(
         sql_value,
         "SQL backup",
         {
+            "artifact_sha256",
             "backup_sha256",
             "restore_sha256",
             "schema_sha256",
             "recovery_coordinate_sha256",
+            "provenance_sha256",
         },
         {"bytes", "row_count", "restored"},
     )
@@ -648,6 +650,7 @@ def mark_backups_verified(
             "restore_inventory_sha256",
             "metadata_sha256",
             "source_signature",
+            "provenance_sha256",
         },
         {
             "bytes",
@@ -664,10 +667,12 @@ def mark_backups_verified(
             "restored",
             *(
                 {
+                    "artifact_sha256",
                     "backup_sha256",
                     "restore_sha256",
                     "schema_sha256",
                     "recovery_coordinate_sha256",
+                    "provenance_sha256",
                 }
                 if label == "SQL"
                 else {
@@ -676,6 +681,7 @@ def mark_backups_verified(
                     "restore_inventory_sha256",
                     "metadata_sha256",
                     "source_signature",
+                    "provenance_sha256",
                 }
             ),
         }:

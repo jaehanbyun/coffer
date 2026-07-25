@@ -1,8 +1,8 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; fixture-only data-protection lifecycle complete;
-  canonical backup manifest verifier next
+- Status: plan 0019 active; canonical restored SQL/RGW backup verifier
+  complete; no-network backup adapter seam next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -192,6 +192,15 @@ release contains it yet.
 - Twelve lifecycle tests plus 27 model tests and all 398 Python tests pass.
   Compilation, fixture parsing, CLI help, and diff checks pass. No external
   client, network, remote service, or infrastructure resource was used.
+- Added the canonical backup bundle verifier and connected it to the lifecycle
+  gate. Exact SQL artifact/content/schema/recovery and isolated restore
+  evidence plus complete versioned RGW objects/delete markers, SSE-KMS
+  metadata, pagination, multipart absence, and isolated inventory/pull
+  equality are now mandatory.
+- The owner-only CLI refuses unsafe input/output paths and emits fixed
+  secret-safe failures. Twenty-nine backup, 13 lifecycle, and 27 model tests
+  pass together; all 428 Python tests pass. Compilation, JSON/CLI, and diff
+  checks pass. No SQL/S3/KMS/network/subprocess or remote call occurred.
 
 ## Plan 0018 Activation
 
@@ -1918,11 +1927,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add a canonical secret-safe SQL/RGW backup manifest verifier with fixture
-tests. It must bind backup provenance, versioned object identifiers,
-pagination, checksums, metadata and encryption disposition, multipart
-absence, and isolated restore comparison without reading a live database,
-bucket, KMS key, or registry.
+Add a no-network `poc/data-protection/backup_adapter.py` seam with fake
+MariaDB and versioned-S3 clients. It must build the exact canonical bundle
+from typed observations, keep credentials outside arguments/results, prove
+phase order and complete pagination, and refuse any real adapter or external
+call.
 
 ## After This Work Package
 
