@@ -7,6 +7,8 @@ enable_mariadb: false
 enable_proxysql: false
 enable_fluentd: false
 enable_prometheus: true
+enable_prometheus_alertmanager: true
+enable_grafana: true
 
 kolla_base_distro: ubuntu
 kolla_base_distro_version: noble

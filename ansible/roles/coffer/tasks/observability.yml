@@ -7,7 +7,9 @@
   loop:
     - "{{ node_custom_config }}/fluentd/input"
     - "{{ node_custom_config }}/cron"
+    - "{{ node_custom_config }}/prometheus"
     - "{{ node_custom_config }}/prometheus/prometheus.yml.d"
+    - "{{ node_custom_config }}/grafana/dashboards"
   delegate_to: localhost
   run_once: true
   become: "{{ coffer_config_controller_become }}"
@@ -47,6 +49,52 @@
     path: >-
       {{ node_custom_config
       }}/prometheus/prometheus.yml.d/15-coffer.yml
+    state: absent
+  delegate_to: localhost
+  run_once: true
+  become: "{{ coffer_config_controller_become }}"
+  when: not coffer_enable_metrics | bool
+
+- name: Install the Coffer Prometheus recording and alert rules
+  ansible.builtin.template:
+    src: "prometheus-coffer.rules.j2"
+    dest: >-
+      {{ node_custom_config
+      }}/prometheus/{{ coffer_prometheus_rules_filename }}
+    mode: "0640"
+  delegate_to: localhost
+  run_once: true
+  become: "{{ coffer_config_controller_become }}"
+  when: coffer_enable_metrics | bool
+
+- name: Remove the disabled Coffer Prometheus rules
+  ansible.builtin.file:
+    path: >-
+      {{ node_custom_config
+      }}/prometheus/{{ coffer_prometheus_rules_filename }}
+    state: absent
+  delegate_to: localhost
+  run_once: true
+  become: "{{ coffer_config_controller_become }}"
+  when: not coffer_enable_metrics | bool
+
+- name: Install the Coffer Grafana operator dashboard
+  ansible.builtin.copy:
+    src: "coffer-operator-dashboard.json"
+    dest: >-
+      {{ node_custom_config
+      }}/grafana/dashboards/{{ coffer_grafana_dashboard_filename }}
+    mode: "0640"
+  delegate_to: localhost
+  run_once: true
+  become: "{{ coffer_config_controller_become }}"
+  when: coffer_enable_metrics | bool
+
+- name: Remove the disabled Coffer Grafana operator dashboard
+  ansible.builtin.file:
+    path: >-
+      {{ node_custom_config
+      }}/grafana/dashboards/{{ coffer_grafana_dashboard_filename }}
     state: absent
   delegate_to: localhost
   run_once: true

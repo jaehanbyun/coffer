@@ -12,6 +12,8 @@ coffer_enable_reconcile: false
 coffer_enable_maintenance_identity: false
 coffer_enable_metrics: false
 coffer_manage_observability_overrides: true
+coffer_prometheus_rules_filename: "coffer.rules"
+coffer_grafana_dashboard_filename: "coffer-operator.json"
 coffer_config_controller_become: false
 coffer_metrics_ca_file: "{{ openstack_cacert }}"
 coffer_metrics_tls_server_name: "{{ coffer_internal_fqdn }}"

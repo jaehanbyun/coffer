@@ -121,7 +121,7 @@ operator-local release.
       secret-delivery lifecycle without creating a real credential.
 - [ ] Package and qualify the exact-release RGW inventory helper and complete
       the disposable backup/import/comparison/cutover/rollback rehearsal.
-- [ ] Implement restart-correct metrics, protected scrape/aggregation, alerts,
+- [x] Implement restart-correct metrics, protected scrape/aggregation, alerts,
       operational dashboards, and failure-budget documentation.
 - [ ] Implement and execute the approved coordinated GC/retention fixture and
       restore rehearsal.
@@ -977,6 +977,37 @@ operator-local release.
   references, fixed labels/annotations, enable/disable cleanup, and
   idempotency without contacting a remote service.
 
+### 2026-07-25 — Operator rules, alerts, dashboard, and runbook completed locally
+
+- Artifacts: Added six fixed Prometheus recording rules, eight bounded alerts,
+  the `Coffer Operator` Grafana dashboard with the exact eight topology rows,
+  and one runbook section per alert. The dashboard references every recording
+  rule and exposes no tenant, repository, digest, credential, or content
+  variable.
+- Kolla lifecycle: Metrics now require Prometheus, Alertmanager, and Grafana.
+  The role installs the exact mode-0640 controller rule/dashboard files and
+  reconfigures Prometheus and Grafana on both enable and disable transitions.
+  Disabling metrics removes the Coffer scrape fragment, rule file, dashboard,
+  and registry metrics sidecar; repeated disable is idempotent and re-enable
+  restores the exact contract.
+- Failure and correction: The first lifecycle run proved that generic
+  enabled-service filtering did not remove an already-running disabled
+  registry metrics sidecar. The role now performs an exact
+  `stop_and_remove_container` for that disabled Coffer-owned sidecar. The
+  complete rerun passed.
+- Verification: `promtool` accepts all 14 rules. Ninety-nine focused
+  observability/runtime tests pass; all 541 Python tests pass; and the pinned
+  Kolla lifecycle passes 96 checks including three monitoring prechecks,
+  rendered artifact/schema/permission inspection, enable/disable/re-enable
+  transitions, idempotency, secret-safe output, and zero fixture residue.
+- Scope: Local code, controller templates, static dashboard/runbook, and the
+  fixture-only Kolla harness only. No remote Prometheus, Grafana, Alertmanager,
+  container, network, or service changed.
+- Next exact action: Create `docs/research/stage6-gc-retention.md` and inspect
+  the accepted Distribution, SQL ledger, RGW versioning/SSE-KMS, inventory,
+  backup, and Referrers boundaries. Fix an exact dry-run-first coordinated GC
+  topology and restore gate before implementing any mutation adapter.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1035,6 +1066,10 @@ operator-local release.
 | Periodic reconciler management focused regression | `uv run pytest -q tests/test_observability.py tests/test_quota_reconciliation.py tests/test_reconciliation_runner.py tests/test_config_validator.py` | passed; 73 |
 | Full regression after periodic reconciler management | `uv run pytest -q` | passed; 536 |
 | Kolla periodic reconciler management contract | `make -C poc/kolla-ansible-role verify` | passed; 88 |
+| Prometheus rule syntax | `promtool check rules ansible/roles/coffer/templates/prometheus-coffer.rules.j2` | passed; 14 rules |
+| Observability artifact/runtime focused regression | `uv run pytest -q tests/test_observability_artifacts.py tests/test_observability_contract.py tests/test_observability.py tests/test_reconciliation_runner.py` | passed; 99 |
+| Full regression after operator observability assets | `uv run pytest -q` | passed; 541 |
+| Kolla observability enable/disable lifecycle | `make -C poc/kolla-ansible-role verify` | passed; 96 |
 
 ## Failures, Blockers, and Risks
 
@@ -1064,11 +1099,12 @@ operator-local release.
   lifecycle through an ordered no-network adapter seam. Real lifecycle
   evidence and current stable dependencies remain blocked; no real identity,
   credential, certificate, endpoint, or remote state changed.
-- Exact next action: Add versioned Prometheus recording and alert rules plus a
-  Grafana operator dashboard under the companion role. Validate rule/query
-  references, fixed labels/annotations, enable/disable cleanup, lifecycle
-  idempotency, and secret/cardinality safety without contacting a remote
-  service.
+- Exact next action: Create `docs/research/stage6-gc-retention.md` and inspect
+  Distribution deletion/GC, the SQL quota ledger, RGW versioning/SSE-KMS,
+  inventory/backup, and OCI Referrers boundaries. Define a versioned,
+  dry-run-first coordinated GC/retention topology with writer fencing,
+  restore verification, failure injection, and exact zero-residue ownership
+  before implementing a mutation adapter.
 - Questions requiring user input: None for the next fixture-only lifecycle
   milestone. The user has already authorized atomic milestone publication and
   the bounded disposable Stage 6 sequence; exact safety and release gates

@@ -1,4 +1,17 @@
 ---
+- name: Remove the disabled Coffer registry metrics sidecar
+  vars:
+    service: "{{ coffer_services['coffer-registry-metrics'] }}"
+  become: true
+  kolla_container:
+    action: "stop_and_remove_container"
+    common_options: "{{ docker_common_options }}"
+    name: "{{ service.container_name }}"
+    ignore_missing: true
+  when:
+    - not service.enabled | bool
+    - inventory_hostname in groups[service.group]
+
 - name: Check Coffer containers
   ansible.builtin.import_role:
     name: service-check-containers

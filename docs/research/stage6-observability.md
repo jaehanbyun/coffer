@@ -404,6 +404,15 @@ Local/fixture evidence:
 - rolling restart model with start-time/counter-reset/stale-series fixtures;
 - enable/reconfigure/disable/destroy idempotency.
 
+The local portion is implemented. The checked-in Prometheus file defines the
+six topology recording rules and eight topology alerts and passes `promtool`.
+The checked-in Grafana dashboard has the exact eight rows and references every
+recording rule without tenant/content variables. The operator runbook covers
+every alert. The pinned Kolla lifecycle requires Prometheus, Alertmanager, and
+Grafana; installs mode-0640 source artifacts; and proves enable, idempotent
+reconfigure, disable cleanup, repeated disable, re-enable restoration, and
+zero fixture residue. The fresh-pilot items below remain deliberately open.
+
 Fresh pilot evidence:
 
 - every service replica appears as a distinct healthy target;

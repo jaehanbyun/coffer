@@ -131,9 +131,9 @@ The accepted local evidence is the versioned topology and pure contract in
 bounded application labels and results, public operational-path denial,
 direct verified-TLS per-replica targets, one-worker and VIP refusal,
 restart/counter-reset/stale-series transitions, and redacted evidence. This
-accepts the architecture and local contract only; it does not claim that the
-runtime endpoints, Kolla discovery, Prometheus rules, Grafana dashboard, or
-fresh pilot evidence already exist.
+accepts the architecture and local contract only. Runtime endpoints, Kolla
+discovery, Prometheus rules, and the Grafana dashboard now have the local
+implementation evidence below; fresh-pilot evidence does not yet exist.
 
 The first runtime slice now binds API, edge, and reconciliation collectors to
 the same allowlists, exports a process-start timestamp, collapses status codes
@@ -150,7 +150,12 @@ Prometheus targets with CA/server-name verification, refuses a VIP target,
 and blocks operational/debug paths on the HAProxy service route. The
 reconciler remains disabled in the Kolla production profile until its
 maintenance identity gate closes, so the role emits no phantom scrape target.
-This still does not install recording rules, alerts, or a Grafana dashboard.
+The companion role now installs six fixed recording rules, eight bounded
+alerts, and the `Coffer Operator` Grafana dashboard through Kolla's custom
+Prometheus/Grafana paths. Metrics enablement requires Prometheus,
+Alertmanager, and Grafana. Disable/re-enable lifecycle tests prove exact
+Coffer-owned scrape, rule, dashboard, and metrics-sidecar cleanup and
+restoration.
 
 Distribution v3.1.1 cannot provide a native metrics-only listener: its debug
 server uses Go's default HTTP mux and the registry binary imports
@@ -172,3 +177,14 @@ eligible backlog, active/expired claims, oldest eligible age, and database
 dependency state. A refresh failure retains no exception text and sets only
 the bounded database-up signal to zero. These gauges do not participate in
 claiming, fencing, or scheduling correctness.
+
+The rule file passes `promtool check rules`; static artifact tests bind its
+names, labels, annotations, and runbook anchors to the versioned topology.
+The dashboard binds all six recording rules and exactly eight operator rows
+without project, repository, digest, or other tenant/content variables.
+Kolla's pinned lifecycle harness verifies mode 0640 controller artifacts,
+negative Prometheus/Alertmanager/Grafana prechecks, configuration rendering,
+disable cleanup, repeated disabled reconfigure, re-enable restoration, and
+zero fixture residue. Fresh-pilot alert firing, native exporter correlation,
+rolling compatibility, and teardown evidence remain production acceptance
+gates.

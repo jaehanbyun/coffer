@@ -110,7 +110,7 @@ coffer-reconcile --config-file /operator/secret/coffer.conf \
 
 The command also supports a serial `mode=periodic` loop with graceful signals, cursor continuation, bounded jitter, and capped dependency backoff. It rejects unsafe lease-versus-batch timing and non-loopback plaintext origins. The sample shape is [etc/coffer-reconcile.conf.sample](etc/coffer-reconcile.conf.sample); it intentionally contains no database connection or service credential.
 
-The WSGI factory also exposes process liveness at `/healthz` and database readiness at `/readyz`. Prometheus-compatible `/metrics` is disabled by default and can be enabled with `[observability] metrics_enabled=true`; it is process-local PoC evidence and requires an operator-protected endpoint plus a multi-worker aggregation design before production use.
+The WSGI factory also exposes process liveness at `/healthz` and database readiness at `/readyz`. Prometheus-compatible `/metrics` is disabled by default and can be enabled with `[observability] metrics_enabled=true`. The accepted initial production boundary runs exactly one API/edge worker per container, scales with replicas, and scrapes each replica directly over verified backend TLS. Distribution metrics pass through a metrics-only Coffer sidecar, and periodic reconciliation owns a separate private listener. The companion role installs fixed recording rules, alerts, and the `Coffer Operator` Grafana dashboard. See [ADR 0016](docs/adrs/0016-use-direct-replica-observability.md) and the [observability runbook](docs/runbooks/observability.md).
 
 ## Development
 
@@ -161,6 +161,7 @@ Do not place Keystone, database, signing, or cache secrets in the repository. Th
 - [Real Keystone and Ceph RGW PoC runbook](docs/runbooks/real-keystone-rgw-poc.md)
 - [Quota schema and reconciliation operator boundary](docs/runbooks/quota-schema-reconciliation.md)
 - [Existing-content inventory operator boundary](docs/runbooks/existing-content-inventory.md)
+- [Coffer observability alert and dashboard runbook](docs/runbooks/observability.md)
 - [Disposable Mac DevStack identity lab](poc/devstack/README.md)
 - [Completed discovery plan](docs/exec-plans/0001-product-discovery.md)
 - [Superseded thin vertical PoC](docs/exec-plans/0002-thin-vertical-poc.md)

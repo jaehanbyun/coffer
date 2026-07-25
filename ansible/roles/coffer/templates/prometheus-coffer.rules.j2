@@ -1,0 +1,178 @@
+groups:
+  - name: coffer.recording
+    interval: 30s
+    rules:
+      - record: coffer:slo_pull_good:ratio_rate5m
+        expr: >-
+          (
+            sum(rate(coffer_http_requests_total{
+              component="edge",
+              route=~"edge-(blob|manifest)",
+              method=~"GET|HEAD",
+              status=~"2xx|3xx"
+            }[5m]))
+            /
+            clamp_min(
+              sum(rate(coffer_http_requests_total{
+                component="edge",
+                route=~"edge-(blob|manifest)",
+                method=~"GET|HEAD",
+                status=~"2xx|3xx|5xx"
+              }[5m])),
+              0.000000001
+            )
+          ) or vector(1)
+      - record: coffer:slo_publish_good:ratio_rate5m
+        expr: >-
+          (
+            sum(rate(coffer_http_requests_total{
+              component="edge",
+              route="edge-manifest",
+              method="PUT",
+              status=~"2xx|3xx"
+            }[5m]))
+            /
+            clamp_min(
+              sum(rate(coffer_http_requests_total{
+                component="edge",
+                route="edge-manifest",
+                method="PUT",
+                status=~"2xx|3xx|5xx"
+              }[5m])),
+              0.000000001
+            )
+          ) or vector(1)
+      - record: coffer:slo_control_good:ratio_rate5m
+        expr: >-
+          (
+            sum(rate(coffer_http_requests_total{
+              component="api",
+              route=~"/auth/token|/v1/repositories.*",
+              status=~"2xx|3xx"
+            }[5m]))
+            /
+            clamp_min(
+              sum(rate(coffer_http_requests_total{
+                component="api",
+                route=~"/auth/token|/v1/repositories.*",
+                status=~"2xx|3xx|5xx"
+              }[5m])),
+              0.000000001
+            )
+          ) or vector(1)
+      - record: coffer:reconciliation_fresh:ratio
+        expr: >-
+          (
+            max(coffer_reconciliation_last_success_timestamp_seconds)
+            > bool (time() - 300)
+          ) or vector(0)
+      - record: coffer:target_up:sum
+        expr: >-
+          sum by (service) (
+            up{job=~"coffer-(api|edge|registry|reconcile)"}
+          )
+      - record: coffer:error_budget_burn:ratio
+        expr: >-
+          max(
+            (
+              (1 - coffer:slo_pull_good:ratio_rate5m) / 0.001
+            )
+            or
+            (
+              (1 - coffer:slo_publish_good:ratio_rate5m) / 0.005
+            )
+            or
+            (
+              (1 - coffer:slo_control_good:ratio_rate5m) / 0.001
+            )
+          )
+
+  - name: coffer.alerts
+    interval: 30s
+    rules:
+      - alert: CofferTargetDown
+        expr: up{job=~"coffer-(api|edge|registry|reconcile)"} == 0
+        for: 2m
+        labels:
+          service: coffer
+          severity: warning
+        annotations:
+          summary: A Coffer scrape target is down.
+          runbook_url: https://github.com/jaehanbyun/coffer/blob/main/docs/runbooks/observability.md#coffertargetdown
+      - alert: CofferNoHealthyBackend
+        expr: coffer:target_up:sum == 0
+        for: 0m
+        labels:
+          service: coffer
+          severity: critical
+        annotations:
+          summary: A Coffer service has no healthy backend.
+          runbook_url: https://github.com/jaehanbyun/coffer/blob/main/docs/runbooks/observability.md#coffernohealthybackend
+      - alert: CofferErrorBudgetFastBurn
+        expr: coffer:error_budget_burn:ratio > 14.4
+        for: 5m
+        labels:
+          service: coffer
+          severity: critical
+        annotations:
+          summary: The Coffer error budget is burning rapidly.
+          runbook_url: https://github.com/jaehanbyun/coffer/blob/main/docs/runbooks/observability.md#coffererrorbudgetfastburn
+      - alert: CofferErrorBudgetSlowBurn
+        expr: avg_over_time(coffer:error_budget_burn:ratio[6h]) > 1
+        for: 30m
+        labels:
+          service: coffer
+          severity: warning
+        annotations:
+          summary: The Coffer error budget has a sustained burn.
+          runbook_url: https://github.com/jaehanbyun/coffer/blob/main/docs/runbooks/observability.md#coffererrorbudgetslowburn
+      - alert: CofferReconciliationStalled
+        expr: >-
+          (
+            count(up{job="coffer-reconcile"}) > 0
+          )
+          and
+          (
+            coffer:reconciliation_fresh:ratio == 0
+          )
+        for: 5m
+        labels:
+          service: coffer
+          severity: critical
+        annotations:
+          summary: Periodic quota reconciliation is stale.
+          runbook_url: https://github.com/jaehanbyun/coffer/blob/main/docs/runbooks/observability.md#cofferreconciliationstalled
+      - alert: CofferStaleClaims
+        expr: max(coffer_reconciliation_stale_claims) > 0
+        for: 2m
+        labels:
+          service: coffer
+          severity: warning
+        annotations:
+          summary: Expired reconciliation claims remain in SQL.
+          runbook_url: https://github.com/jaehanbyun/coffer/blob/main/docs/runbooks/observability.md#cofferstaleclaims
+      - alert: CofferDependencyUnavailable
+        expr: coffer_dependency_up == 0
+        for: 2m
+        labels:
+          service: coffer
+          severity: critical
+        annotations:
+          summary: A bounded Coffer dependency signal is unavailable.
+          runbook_url: https://github.com/jaehanbyun/coffer/blob/main/docs/runbooks/observability.md#cofferdependencyunavailable
+      - alert: CofferMetricsSchemaMismatch
+        expr: >-
+          (
+            up{job=~"coffer-(api|edge|reconcile)"} == 1
+          )
+          unless on (job, instance)
+          coffer_process_start_time_seconds{
+            component=~"api|edge|reconcile"
+          }
+        for: 2m
+        labels:
+          service: coffer
+          severity: warning
+        annotations:
+          summary: A live Coffer target is missing its required metric schema.
+          runbook_url: https://github.com/jaehanbyun/coffer/blob/main/docs/runbooks/observability.md#coffermetricsschemamismatch

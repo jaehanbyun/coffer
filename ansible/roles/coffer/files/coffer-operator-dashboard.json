@@ -1,0 +1,405 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "id": 1,
+      "panels": [],
+      "title": "Service objectives",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "fieldConfig": {
+        "defaults": {
+          "max": 1,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 0.99},
+              {"color": "green", "value": 0.999}
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 7, "w": 16, "x": 0, "y": 1},
+      "id": 2,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {"expr": "coffer:slo_pull_good:ratio_rate5m", "legendFormat": "pull", "refId": "A"},
+        {"expr": "coffer:slo_publish_good:ratio_rate5m", "legendFormat": "publish", "refId": "B"},
+        {"expr": "coffer:slo_control_good:ratio_rate5m", "legendFormat": "control", "refId": "C"}
+      ],
+      "title": "Five-minute good-event ratios",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 1},
+              {"color": "red", "value": 14.4}
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 7, "w": 8, "x": 16, "y": 1},
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [
+        {"expr": "coffer:error_budget_burn:ratio", "legendFormat": "burn", "refId": "A"},
+        {"expr": "coffer:reconciliation_fresh:ratio", "legendFormat": "reconcile fresh", "refId": "B"}
+      ],
+      "title": "Budget burn and reconciliation freshness",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 8},
+      "id": 4,
+      "panels": [],
+      "title": "Requests and latency",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 9},
+      "id": 5,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "expr": "sum by (component, route, status) (rate(coffer_http_requests_total[5m]))",
+          "legendFormat": "{{component}} {{route}} {{status}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Request rate by bounded route and status",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 9},
+      "id": 6,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, component, route) (rate(coffer_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95 {{component}} {{route}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Request latency p95",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 17},
+      "id": 7,
+      "panels": [],
+      "title": "Replica health and restarts",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 7, "w": 12, "x": 0, "y": 18},
+      "id": 8,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {"expr": "coffer:target_up:sum", "legendFormat": "{{service}}", "refId": "A"}
+      ],
+      "title": "Healthy direct scrape targets",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "fieldConfig": {"defaults": {"unit": "dateTimeAsIso"}, "overrides": []},
+      "gridPos": {"h": 7, "w": 12, "x": 12, "y": 18},
+      "id": 9,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "expr": "coffer_process_start_time_seconds",
+          "legendFormat": "{{component}} {{instance}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Process start time by replica",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 25},
+      "id": 10,
+      "panels": [],
+      "title": "Identity quota and reconciliation",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 26},
+      "id": 11,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "expr": "sum by (result) (rate(coffer_quota_admissions_total[5m]))",
+          "legendFormat": "{{result}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (result) (rate(coffer_token_requests_total[5m]))",
+          "legendFormat": "token {{result}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Quota admissions and token outcomes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 26},
+      "id": 12,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {"expr": "coffer_reconciliation_backlog", "legendFormat": "backlog", "refId": "A"},
+        {"expr": "coffer_reconciliation_active_claims", "legendFormat": "active claims", "refId": "B"},
+        {"expr": "coffer_reconciliation_stale_claims", "legendFormat": "stale claims", "refId": "C"}
+      ],
+      "title": "Reconciliation queue and claims",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 34},
+      "id": 13,
+      "panels": [],
+      "title": "HAProxy",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 7, "w": 24, "x": 0, "y": 35},
+      "id": 14,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "expr": "sum by (proxy) (haproxy_backend_active_servers{proxy=~\"coffer.*\"})",
+          "legendFormat": "active {{proxy}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (proxy) (rate(haproxy_backend_connection_errors_total{proxy=~\"coffer.*\"}[5m]))",
+          "legendFormat": "errors {{proxy}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Coffer HAProxy backends",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 42},
+      "id": 15,
+      "panels": [],
+      "title": "MariaDB and Galera",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 7, "w": 24, "x": 0, "y": 43},
+      "id": 16,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {"expr": "mysql_global_status_threads_connected", "legendFormat": "connections {{instance}}", "refId": "A"},
+        {"expr": "rate(mysql_global_status_innodb_deadlocks[5m])", "legendFormat": "deadlocks {{instance}}", "refId": "B"},
+        {"expr": "mysql_global_status_wsrep_cluster_size", "legendFormat": "cluster size {{instance}}", "refId": "C"}
+      ],
+      "title": "Database connectivity, deadlocks, and Galera size",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 50},
+      "id": 17,
+      "panels": [],
+      "title": "Ceph RGW and KMS",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 7, "w": 24, "x": 0, "y": 51},
+      "id": 18,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {"expr": "ceph_health_status", "legendFormat": "Ceph health", "refId": "A"},
+        {
+          "expr": "sum(rate(ceph_rgw_req[5m]))",
+          "legendFormat": "RGW requests/s",
+          "refId": "B"
+        },
+        {
+          "expr": "max(coffer_dependency_up{dependency=~\"rgw|kms\"})",
+          "legendFormat": "Coffer RGW/KMS dependency",
+          "refId": "C"
+        }
+      ],
+      "title": "Storage health and dependency reachability",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 58},
+      "id": 19,
+      "panels": [],
+      "title": "Deploy alerts and maintenance",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 59},
+      "id": 20,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "expr": "sum by (alertname, severity) (ALERTS{service=\"coffer\",alertstate=\"firing\"})",
+          "legendFormat": "{{severity}} {{alertname}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Firing Coffer alerts",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 59},
+      "id": 21,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "expr": "changes(coffer_process_start_time_seconds[30m])",
+          "legendFormat": "restarts {{component}} {{instance}}",
+          "refId": "A"
+        },
+        {
+          "expr": "max by (dependency) (1 - coffer_dependency_up)",
+          "legendFormat": "dependency unavailable {{dependency}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Maintenance risk signals",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["coffer", "openstack", "oci-registry"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "hide": 0,
+        "includeAll": false,
+        "label": "Prometheus",
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Coffer Operator",
+  "uid": "coffer-operator",
+  "version": 1,
+  "weekStart": ""
+}

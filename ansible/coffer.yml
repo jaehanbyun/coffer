@@ -140,7 +140,7 @@
         tasks_from: config
       when:
         - enable_coffer | bool
-        - coffer_enable_metrics | bool
+        - enable_prometheus | bool
         - kolla_action in ['deploy', 'reconfigure', 'upgrade', 'config']
 
     - name: Reconcile Prometheus containers
@@ -149,8 +149,33 @@
         tasks_from: check-containers
       when:
         - enable_coffer | bool
-        - coffer_enable_metrics | bool
+        - enable_prometheus | bool
         - kolla_action in ['deploy', 'reconfigure', 'upgrade']
   tags:
     - coffer
     - prometheus
+
+- name: Reconfigure Grafana for the Coffer operator dashboard
+  hosts: grafana
+  gather_facts: false
+  tasks:
+    - name: Render Grafana after installing Coffer dashboard input
+      ansible.builtin.include_role:
+        name: grafana
+        tasks_from: config
+      when:
+        - enable_coffer | bool
+        - enable_grafana | bool
+        - kolla_action in ['deploy', 'reconfigure', 'upgrade', 'config']
+
+    - name: Reconcile Grafana container
+      ansible.builtin.include_role:
+        name: grafana
+        tasks_from: check-containers
+      when:
+        - enable_coffer | bool
+        - enable_grafana | bool
+        - kolla_action in ['deploy', 'reconfigure', 'upgrade']
+  tags:
+    - coffer
+    - grafana

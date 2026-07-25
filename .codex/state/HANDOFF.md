@@ -1,8 +1,8 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; API/edge/Distribution/reconciler private metric
-  boundaries complete; rules, alerts, and dashboard next
+- Status: plan 0019 active; local production observability complete;
+  coordinated GC/retention research and dry-run topology next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -222,6 +222,23 @@ release contains it yet.
   alerts, dashboard rows, and restart/stale-series acceptance.
 - Official Prometheus, Kolla-Ansible, Distribution, and Ceph documents were
   checked. No local runtime configuration or external state changed.
+- Added the six topology recording rules, eight bounded alerts, exact
+  eight-row `Coffer Operator` Grafana dashboard, and alert runbook. `promtool`
+  accepts all 14 rules, the dashboard references every recording rule without
+  tenant/content variables, and artifact tests bind names, labels,
+  annotations, runbook anchors, and schema to the versioned topology.
+- Kolla metrics now require Prometheus, Alertmanager, and Grafana. Exact
+  mode-0640 rule/dashboard files are installed on the controller and
+  Prometheus/Grafana reconfigure on enable and disable transitions.
+- The first disable lifecycle exposed that generic enabled-service filtering
+  left the old registry metrics sidecar running. The role now removes that
+  exact disabled Coffer-owned container. The complete rerun proves scrape,
+  rule, dashboard, and sidecar removal; idempotent repeated disable; exact
+  re-enable restoration; secret-safe output; and zero fixture residue.
+- Ninety-nine focused observability/runtime tests, all 541 Python tests, and
+  all 96 pinned Kolla lifecycle checks pass. Local Stage 6 observability
+  implementation is complete; fresh-pilot target, fault-alert, rolling
+  compatibility, and teardown evidence remains in the convergence pilot.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2029,10 +2046,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add versioned Prometheus recording and alert rules plus a Grafana operator
-dashboard under the companion role. Validate rule/query references, fixed
-labels and annotations, enable/disable cleanup, lifecycle idempotency, and
-secret/cardinality safety without contacting a remote service.
+Create `docs/research/stage6-gc-retention.md` and inspect Distribution
+deletion/GC, the SQL quota ledger, RGW versioning/SSE-KMS, inventory/backup,
+and OCI Referrers boundaries. Define a versioned, dry-run-first coordinated
+GC/retention topology with writer fencing, restore verification, failure
+injection, and exact zero-residue ownership before implementing a mutation
+adapter.
 
 ## After This Work Package
 

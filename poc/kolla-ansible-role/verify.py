@@ -360,6 +360,18 @@ def verify_disabled_and_negative_prechecks() -> None:
         "enable_prometheus=false",
     )
     assert_failure_case(
+        "metrics without Alertmanager rule loading",
+        lambda: None,
+        "-e",
+        "enable_prometheus_alertmanager=false",
+    )
+    assert_failure_case(
+        "metrics without Grafana dashboard loading",
+        lambda: None,
+        "-e",
+        "enable_grafana=false",
+    )
+    assert_failure_case(
         "metrics with multiple API workers",
         lambda: None,
         "-e",
@@ -949,6 +961,53 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
         ),
         "direct metric targets retain only stable service and instance labels",
     )
+    rules_path = (
+        WORK
+        / "source-config"
+        / "prometheus"
+        / "coffer.rules"
+    )
+    rule_document = yaml.safe_load(rules_path.read_text(encoding="utf-8"))
+    rendered_rules = [
+        rule
+        for group in rule_document["groups"]
+        for rule in group["rules"]
+    ]
+    topology = json.loads(
+        (
+            ROOT / "poc" / "observability" / "topology.json"
+        ).read_text(encoding="utf-8")
+    )
+    check(
+        [rule["record"] for rule in rendered_rules if "record" in rule]
+        == topology["recording_rules"]
+        and [rule["alert"] for rule in rendered_rules if "alert" in rule]
+        == topology["alerts"],
+        "Prometheus recording and alert rules match the fixed topology",
+    )
+    dashboard_path = (
+        WORK
+        / "source-config"
+        / "grafana"
+        / "dashboards"
+        / "coffer-operator.json"
+    )
+    dashboard = json.loads(dashboard_path.read_text(encoding="utf-8"))
+    check(
+        dashboard["uid"] == "coffer-operator"
+        and [
+            panel["title"]
+            for panel in dashboard["panels"]
+            if panel["type"] == "row"
+        ]
+        == topology["dashboard_rows"],
+        "Grafana operator dashboard matches the fixed topology",
+    )
+    check(
+        rules_path.stat().st_mode & 0o777 == 0o640
+        and dashboard_path.stat().st_mode & 0o777 == 0o640,
+        "operator rules and dashboard use controller-owner-only write modes",
+    )
     edge_config = (target / "coffer-edge" / "coffer.conf").read_text(
         encoding="utf-8"
     )
@@ -970,6 +1029,67 @@ def verify_successful_lifecycle() -> None:
     check(
         re.search(r"changed=0\b", reconfigure.stdout) is not None,
         "reconfigure is idempotent",
+    )
+    run_action("reconfigure", "-e", "coffer_enable_metrics=false")
+    disabled_state = state()["containers"]
+    check(
+        not (
+            WORK
+            / "source-config"
+            / "prometheus"
+            / "prometheus.yml.d"
+            / "15-coffer.yml"
+        ).exists()
+        and not (
+            WORK
+            / "source-config"
+            / "prometheus"
+            / "coffer.rules"
+        ).exists()
+        and not (
+            WORK
+            / "source-config"
+            / "grafana"
+            / "dashboards"
+            / "coffer-operator.json"
+        ).exists()
+        and "coffer_registry_metrics" not in disabled_state,
+        "disabling metrics removes only Coffer scrape, rule, dashboard, and sidecar state",
+    )
+    disabled_reconfigure = run_action(
+        "reconfigure",
+        "-e",
+        "coffer_enable_metrics=false",
+    )
+    check(
+        re.search(r"changed=0\b", disabled_reconfigure.stdout) is not None,
+        "disabled metrics reconfigure is idempotent",
+    )
+    run_action("reconfigure")
+    restored_state = state()["containers"]
+    check(
+        (
+            WORK
+            / "source-config"
+            / "prometheus"
+            / "prometheus.yml.d"
+            / "15-coffer.yml"
+        ).exists()
+        and (
+            WORK
+            / "source-config"
+            / "prometheus"
+            / "coffer.rules"
+        ).exists()
+        and (
+            WORK
+            / "source-config"
+            / "grafana"
+            / "dashboards"
+            / "coffer-operator.json"
+        ).exists()
+        and "coffer_registry_metrics" in restored_state,
+        "re-enabling metrics restores exact controller artifacts and sidecar",
     )
     run_action("config_validate")
     check(True, "config_validate executes for running processes")

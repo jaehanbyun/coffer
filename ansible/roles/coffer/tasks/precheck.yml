@@ -88,6 +88,8 @@
   ansible.builtin.assert:
     that:
       - enable_prometheus | bool
+      - enable_prometheus_alertmanager | bool
+      - enable_grafana | bool
       - coffer_enable_tls_backend | bool
       - coffer_api_workers | int == 1
       - coffer_edge_workers | int == 1
@@ -111,9 +113,10 @@
         not coffer_enable_reconcile | bool or
         coffer_reconcile_mode == 'periodic'
     fail_msg: >-
-      Coffer metrics require Prometheus, verified backend TLS, exactly one
-      API, edge, and registry metrics worker per container, distinct bounded
-      metrics/debug ports, a CA file, and one TLS server name.
+      Coffer metrics require Prometheus, Alertmanager, Grafana, verified
+      backend TLS, exactly one API, edge, and registry metrics worker per
+      container, distinct bounded metrics/debug ports, a CA file, and one TLS
+      server name.
   when: coffer_enable_metrics | bool
 
 - name: Refuse VIP addresses in the direct metrics target inventory
