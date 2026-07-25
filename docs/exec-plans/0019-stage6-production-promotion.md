@@ -1241,6 +1241,34 @@ operator-local release.
   Galera/metrics/cleanup facts, and reject raw identities, secrets, unknown
   fields, over-limit cardinality, or synthetic input in production mode.
 
+### 2026-07-25 — Canonical load evidence verifier completed
+
+- Artifact: Added a bounded 16 MiB canonical JSON verifier whose only accepted
+  schema contains exact qualified bindings plus thirteen ordered phase
+  evidence objects. Unknown fields, noncanonical bytes, synthetic mode, and
+  missing/reordered phases fail closed.
+- Release binding: Expected Distribution, Ceph, driver, image, client, and
+  configuration versions/revisions/hashes come from an independent caller.
+  Both architectures and literal `qualified` readiness are mandatory; the
+  evidence cannot weaken the supplied binding.
+- Replay: Every phase is revalidated through the pure state machine. The
+  output exposes only topology, binding, artifact, facts, and history hashes
+  plus the fixed phase count.
+- Current live fence: A new official metadata check still reports Distribution
+  v3.1.1 and Ceph v20.2.2 `blocked`; Ceph PR 69277 remains merged but absent
+  from a stable point release. Therefore no production-mode load execution or
+  fresh pilot is currently permitted.
+- Verification: Fourteen evidence tests plus the prior sixty-three
+  state/lifecycle tests pass (77 focused); all 702 Python tests pass.
+  Compilation, canonical/noncanonical file checks, static no-runtime adapter,
+  and diff checks pass.
+- Next exact action: Add the deterministic raw OCI driver beginning with a
+  standalone Go module under `poc/load-soak/driver/`. Implement verified TLS,
+  finite Bearer acquisition/retry, bounded monolithic and chunked streaming,
+  deterministic digest generation, fixed latency/result buckets, cancellation,
+  and canonical temporary output. Unit-test it with local `httptest` only; do
+  not target a registry until the release fence is qualified.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1317,6 +1345,8 @@ operator-local release.
 | Full regression after load/soak state contract | `uv run pytest -q` | passed; 680 |
 | Fixture-only load/soak lifecycle | `uv run pytest -q tests/test_load_soak_state_machine.py tests/test_load_soak_lifecycle_cli.py` | passed; 63 |
 | Full regression after load/soak lifecycle | `uv run pytest -q` | passed; 688 |
+| Canonical load evidence verifier | `uv run pytest -q tests/test_load_soak_state_machine.py tests/test_load_soak_lifecycle_cli.py tests/test_load_soak_evidence.py` | passed; 77 |
+| Full regression after load evidence verifier | `uv run pytest -q` | passed; 702 |
 
 ## Failures, Blockers, and Risks
 

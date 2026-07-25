@@ -31,6 +31,14 @@ its dependency evidence as synthetic, detects state/history tampering, resumes
 or returns an exact terminal result idempotently, and removes its local state
 without residue.
 
-The next layer is a canonical real-driver evidence verifier, followed by the
-raw OCI driver and real-client adapters. Live execution remains gated on a
-fresh disposable Stage 6 pilot and qualified stable dependencies.
+`evidence.py` implements the canonical production-mode verifier. It accepts
+only one sorted `coffer.load-soak-evidence/v1` document, exact caller-supplied
+qualified release/image/configuration/client/driver bindings, and the complete
+ordered phase evidence. It replays the pure state machine and returns only
+binding, artifact, facts, history, and topology hashes. Synthetic evidence,
+unknown fields, noncanonical files, release drift, missing phases, raw
+identities, and weakened phase results fail closed.
+
+The next layer is the raw OCI driver and real-client adapters. Live execution
+remains gated on a fresh disposable Stage 6 pilot and qualified stable
+dependencies.
