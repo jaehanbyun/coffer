@@ -73,6 +73,10 @@ healthy. S3 cleanup did not run: its status guard exited 141 from an expected
 `tee | grep -q` SIGPIPE. The guard now captures status fully before checking
 the stopped predicate. Both RGW users/buckets and all libvirt resources remain
 present.
+The next resume stopped read-only because tenant clean-state preflight still
+required `coffer_api` running. It now permits only `preflight|cleanup` after
+verifying the exact owner-only companion stop marker; all mutating tenant
+setup/renewal paths still require the API. S3 and libvirt remain unchanged.
 
 ## Plan 0018 Activation
 
@@ -1799,7 +1803,7 @@ present.
 
 ## Exact Next Action
 
-Validate and commit the S3 stopped-guard correction, then resume
+Validate and commit the stopped-state tenant audit correction, then resume
 `poc/kolla-ha/teardown-stage5.sh run
 jh.byun@100.123.168.66`. Require adoption of the clean-tenant and
 Coffer-stopped boundaries, zero RGW users/buckets and credential residue,

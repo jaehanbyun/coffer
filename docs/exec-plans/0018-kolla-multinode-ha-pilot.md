@@ -2511,6 +2511,23 @@ promotion while ADR 0006 remains blocked.
   top-level teardown from tenant-clean/Coffer-stopped/S3-prepared, and require
   exact S3 cleanup before libvirt destroy.
 
+### 2026-07-25 — Stopped-state tenant audit enabled
+
+- Failure: The next resume again stopped before S3 mutation because the tenant
+  fixture required `coffer_api` to be running for every action. That was valid
+  during tenant acceptance but made clean-state verification impossible after
+  the already accepted companion stop.
+- Correction: Only tenant `preflight|cleanup` may now run with the API stopped,
+  and only when the exact root-owned companion stop marker has its accepted
+  value. Prepare, status, and renewal retain the running-API requirement.
+  Keystone toolbox and immutable-name absence checks remain mandatory.
+- State: Tenant identities remain zero, Coffer remains stopped, S3 remains at
+  two users/two buckets, Ceph remains healthy, and all Stage 5 libvirt
+  resources remain present.
+- Next exact action: Validate and commit the stopped-state tenant audit,
+  resume top-level teardown, and require clean/stopped/prepared adoption
+  followed by exact S3 and libvirt cleanup.
+
 ## Verification
 
 | Check | Command or method | Result |

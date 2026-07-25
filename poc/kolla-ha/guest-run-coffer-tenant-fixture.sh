@@ -30,6 +30,7 @@ passwords="/etc/kolla/passwords.yml"
 deployment_key="/home/ubuntu/.ssh/coffer-stage5-kolla"
 known_hosts="/home/ubuntu/.ssh/coffer-stage5-known_hosts"
 companion_marker="${state_root}/companion-lifecycle/deploy.complete"
+companion_stop_marker="${state_root}/companion-lifecycle/stop.complete"
 companion_marker_value="coffer-stage5-companion-lifecycle-v1"
 toolbox_state="/run/coffer-stage5-tenant-identities.json"
 admin_password="/run/coffer-stage5-tenant-admin-password"
@@ -61,7 +62,21 @@ test "$(stat -c '%U:%G:%a' "${known_hosts}")" = ubuntu:ubuntu:644
 test "$(stat -c '%U:%G:%a' "${companion_marker}")" = root:root:600
 test "$(cat "${companion_marker}")" = "${companion_marker_value}"
 test "$(docker inspect -f '{{.State.Running}}' kolla_toolbox)" = true
-test "$(docker inspect -f '{{.State.Running}}' coffer_api)" = true
+if test "$(docker inspect -f '{{.State.Running}}' coffer_api)" != true; then
+    case "${action}" in
+        preflight|cleanup)
+            test "$(
+                stat -c '%U:%G:%a' "${companion_stop_marker}"
+            )" = root:root:600
+            test "$(cat "${companion_stop_marker}")" = \
+                "${companion_marker_value}"
+            ;;
+        *)
+            echo "tenant fixture requires a running Coffer API" >&2
+            exit 1
+            ;;
+    esac
+fi
 test ! -e "${toolbox_state}"
 test ! -e "${admin_password}"
 
