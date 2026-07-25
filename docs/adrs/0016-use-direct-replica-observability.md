@@ -142,5 +142,9 @@ worker replacement cannot reset counters while retaining the old start time.
 Manifest quota admission now emits exactly the accepted ADR result classes;
 quota absence, internal database error, upstream failure, policy denial, and
 client-invalid cases cannot create dynamic labels or retain request identity.
-This still does not expose an edge or reconciler management endpoint or
-install any Kolla/Prometheus/Grafana artifact.
+The API and edge now expose metrics on their direct verified-TLS backends
+only when enabled. The companion role pins one worker, emits per-host
+Prometheus targets with CA/server-name verification, refuses a VIP target,
+and blocks operational/debug paths on the HAProxy service route. This still
+does not expose a reconciler management endpoint, enable Distribution
+metrics, or install recording rules, alerts, or a Grafana dashboard.

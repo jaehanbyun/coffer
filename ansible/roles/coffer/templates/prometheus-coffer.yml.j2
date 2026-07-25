@@ -1,7 +1,29 @@
 scrape_configs:
-  - job_name: coffer
-    scheme: {{ internal_protocol }}
+  - job_name: coffer-api
+    scheme: {{ coffer_backend_protocol }}
     metrics_path: /metrics
+    tls_config:
+      ca_file: {{ coffer_metrics_ca_file }}
+      server_name: {{ coffer_metrics_tls_server_name }}
     static_configs:
+{% for host in groups['coffer-api'] %}
       - targets:
-          - {{ (coffer_internal_fqdn | put_address_in_context('url')) ~ ':' ~ coffer_api_port }}
+          - {{ (('api' | kolla_address(host)) | put_address_in_context('url')) ~ ':' ~ coffer_api_port }}
+        labels:
+          service: coffer-api
+          instance: {{ host }}
+{% endfor %}
+  - job_name: coffer-edge
+    scheme: {{ coffer_backend_protocol }}
+    metrics_path: /metrics
+    tls_config:
+      ca_file: {{ coffer_metrics_ca_file }}
+      server_name: {{ coffer_metrics_tls_server_name }}
+    static_configs:
+{% for host in groups['coffer-edge'] %}
+      - targets:
+          - {{ (('api' | kolla_address(host)) | put_address_in_context('url')) ~ ':' ~ coffer_edge_port }}
+        labels:
+          service: coffer-edge
+          instance: {{ host }}
+{% endfor %}

@@ -873,6 +873,43 @@ operator-local release.
   all operational/debug paths, and the Prometheus fragment must enumerate
   every API/edge backend address instead of a VIP. Do not deploy remotely.
 
+### 2026-07-25 — Direct API/edge scrape boundary completed locally
+
+- Runtime: A metrics-enabled edge now dispatches direct-backend `/healthz`,
+  SQL `/readyz`, and `/metrics` to the same collector used by its outer HTTP
+  and quota-admission instrumentation. With metrics disabled, the public edge
+  proxy continues to return its fixed 404 for every operational path.
+- Kolla precheck: Metrics require enabled Prometheus, verified backend TLS,
+  exactly one API and edge worker, a nonempty CA path and TLS server name, and
+  direct API-interface targets unequal to both Kolla VIPs. Four negative role
+  cases prove those failures occur before deployment.
+- Routing: The ordinary API frontend denies internal, health, readiness,
+  metrics, and debug paths. The edge internal frontend plus its internal and
+  shared-external mapped backends deny health, readiness, metrics, and debug
+  paths. Direct backend scrapes bypass HAProxy deliberately; tenant paths do
+  not.
+- Discovery: The Prometheus fragment has separate `coffer-api` and
+  `coffer-edge` jobs. It enumerates each inventory host address, labels only
+  stable service/instance values, verifies the operator CA and fixed TLS
+  server name, and contains no internal/external VIP or service FQDN target.
+- Verification: Edge/observability/admission/proxy focused regression passes
+  60 tests; full Python regression passes 515 tests; the complete Kolla role
+  lifecycle passes 78 checks, including negative prechecks, deploy,
+  idempotent reconfigure/pull/stop, upgrade, config validation, secret-safety,
+  rendered Prometheus/HAProxy inspection, and zero harness residue.
+- Scope: Local code, templates, and fixture-only Ansible execution only. No
+  Prometheus/HAProxy/container was changed remotely and no live scrape was
+  attempted.
+- Changed files: edge runtime/tests; Kolla defaults, prechecks, service
+  config, Prometheus template, fixture, and verifier; ADR/research, this plan,
+  and `HANDOFF.md`.
+- Next exact action: Add a private metrics-only Distribution debug listener
+  and a periodic reconciler management application to the local runtime/Kolla
+  contract. Prometheus must target each registry/reconciler backend directly,
+  profiling must remain disabled, one-shot reconciliation must not expose a
+  persistent series, and every public/ordinary service route must deny the
+  management paths. Do not deploy remotely.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -922,6 +959,9 @@ operator-local release.
 | Full regression after runtime metric core | `uv run pytest -q` | passed; 507 |
 | Quota-admission observability focused regression | `uv run pytest -q tests/test_quota_admission.py tests/test_observability.py tests/test_observability_contract.py tests/test_edge_runner.py tests/test_registry_proxy.py` | passed; 112 |
 | Full regression after quota-admission metrics | `uv run pytest -q` | passed; 515 |
+| Direct edge operational surface | `uv run pytest -q tests/test_edge_runner.py tests/test_observability.py tests/test_quota_admission.py tests/test_registry_proxy.py` | passed; 60 |
+| Kolla direct API/edge scrape contract | `make -C poc/kolla-ansible-role verify` | passed; 78 |
+| Full regression after direct API/edge scrape boundary | `uv run pytest -q` | passed; 515 |
 
 ## Failures, Blockers, and Risks
 

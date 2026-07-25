@@ -1,8 +1,8 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; bounded runtime and quota-admission metrics
-  complete; edge/Kolla private scrape boundary next
+- Status: plan 0019 active; direct API/edge private scrape boundary complete;
+  Distribution/reconciler metrics next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -258,6 +258,18 @@ release contains it yet.
   path while proving neither value nor dependency exception text enters the
   metric payload. No endpoint, Kolla, Prometheus, HAProxy, network, container,
   or remote state changed.
+- Completed the local direct API/edge scrape boundary. Metrics-enabled edge
+  serves direct-backend health/readiness/metrics from its shared collector;
+  metrics-disabled edge still refuses operational paths. API and edge
+  workers must equal one before startup.
+- The Kolla role now requires Prometheus and verified TLS inputs, rejects
+  either VIP as a metrics target, renders separate per-host API/edge jobs with
+  stable labels and TLS CA/server name, and denies operational/debug paths on
+  API and edge HAProxy service routes, including the shared-external mapped
+  backend.
+- Focused runtime tests pass 60, full Python regression passes 515, and the
+  fixture-only Kolla lifecycle passes 78 checks with zero harness residue.
+  No remote Prometheus, HAProxy, container, network, or scrape changed.
 
 ## Plan 0018 Activation
 
@@ -1984,11 +1996,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Implement a metrics-enabled edge operational dispatcher and the matching
-Kolla fail-closed boundary together. Direct backend `/metrics` must work with
-one worker, both edge HAProxy frontends must deny all operational/debug paths,
-and the Prometheus fragment must enumerate every API/edge backend address
-instead of a VIP. Do not deploy remotely.
+Add a private metrics-only Distribution debug listener and a periodic
+reconciler management application to the local runtime/Kolla contract.
+Prometheus must target each registry/reconciler backend directly, profiling
+must remain disabled, one-shot reconciliation must not expose a persistent
+series, and every public/ordinary service route must deny the management
+paths. Do not deploy remotely.
 
 ## After This Work Package
 

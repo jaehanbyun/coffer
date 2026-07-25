@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric import rsa
+from falcon import testing
 
 from coffer.bootstrap import upgrade_schema
 from coffer.config import new_config
@@ -20,6 +21,7 @@ from coffer.edge_runner import (
 from coffer.observability import WSGIHTTPMetricsMiddleware
 from coffer.registry_proxy import RegistryEdgeProxy
 from coffer.tokens import TokenIssuer
+from coffer.wsgi import PathDispatcher
 
 
 def config(**overrides: object):
@@ -140,10 +142,18 @@ def test_edge_metrics_wrap_the_proxy_with_bounded_process_metrics(
     application = build_product_application(conf, EdgeSettings.from_config(conf))
 
     assert isinstance(application, WSGIHTTPMetricsMiddleware)
-    assert isinstance(application.application, RegistryEdgeProxy)
-    rendered = application.metrics.render().decode()
+    assert isinstance(application.application, PathDispatcher)
+    client = testing.TestClient(application)
+
+    assert client.simulate_get("/healthz").status_code == 200
+    assert client.simulate_get("/readyz").status_code == 200
+    response = client.simulate_get("/metrics")
+
+    assert response.status_code == 200
+    rendered = response.text
     assert 'component="edge"' in rendered
     assert "coffer_process_start_time_seconds" in rendered
+    assert 'route="edge-other"' in rendered
 
 
 def test_edge_metrics_require_one_worker_before_application_construction() -> None:

@@ -51,8 +51,8 @@ endpoint, or pilot evidence.
 
 | Component | Current surface | Production gap |
 |---|---|---|
-| `coffer-api` | `/healthz`, SQL `/readyz`, optional process-local `/metrics`; process-start, bounded HTTP, token, readiness, and reconciliation counters; metrics-enabled worker count must be one | VIP scrape; no dependency/admission/session gauges; public denial not proven |
-| `coffer-edge` | bounded route/method/status, quota-admission outcome/duration, and process-start metrics when enabled; listener health and fixed startup logs | no private health/readiness/metrics application or generic upstream-result metrics |
+| `coffer-api` | direct-backend `/healthz`, SQL `/readyz`, optional `/metrics`; process-start, bounded HTTP, token, readiness, and reconciliation counters; metrics-enabled worker count must be one; HAProxy operational-path denial | no dependency/session gauges; live multi-replica scrape not yet proven |
+| `coffer-edge` | direct-backend `/healthz`, SQL `/readyz`, optional `/metrics`; bounded route/method/status, quota-admission outcome/duration, and process-start; HAProxy route denial | no generic upstream-result metrics; live multi-replica scrape not yet proven |
 | Distribution | `/v2/` health through HAProxy; JSON logs | private debug/Prometheus server disabled; no per-replica scrape |
 | `coffer-reconcile` | aggregate cycle logs and process-local result counters | no scrape listener; counters disappear; no cycle/backlog/lease gauges |
 | MariaDB/Galera | Kolla service health; existing exporter available when enabled | Coffer dashboard/alerts and transaction retry/deadlock correlation absent |
@@ -98,15 +98,19 @@ Fluentd
   `-- /var/log/kolla/coffer-registry/*.log
 ```
 
-The Coffer scrape fragment must use inventory-derived static or file-service
-discovery targets for each backend address. It must not target
+The Coffer scrape fragment now uses inventory-derived static targets for each
+API and edge backend address. It must not target
 `coffer_internal_fqdn`, the public registry FQDN, or an HAProxy VIP.
 
 All Coffer/Distribution targets use verified backend TLS and the operator CA.
 Metrics paths are unavailable through public registry and public control
 frontends. They are reachable only on the management/API network from the
 Prometheus source addresses. The endpoint has no tenant authentication and
-must fail the precheck if that network boundary cannot be expressed.
+must fail the precheck if that network boundary cannot be expressed. The
+current role also fails when Prometheus is disabled, workers are not exactly
+one, CA/server-name inputs are missing, or a target equals either Kolla VIP.
+This is locally rendered contract evidence; a fresh pilot must still prove
+the actual network reachability and denial behavior.
 
 Kolla's Prometheus server is itself protected with its supported HTTP
 authentication. That protects the Prometheus UI/API; it does not replace the

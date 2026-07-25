@@ -354,6 +354,30 @@ def verify_disabled_and_negative_prechecks() -> None:
         "coffer_registry_external=true",
     )
     assert_failure_case(
+        "metrics without Prometheus",
+        lambda: None,
+        "-e",
+        "enable_prometheus=false",
+    )
+    assert_failure_case(
+        "metrics with multiple API workers",
+        lambda: None,
+        "-e",
+        "coffer_api_workers=2",
+    )
+    assert_failure_case(
+        "metrics with multiple edge workers",
+        lambda: None,
+        "-e",
+        "coffer_edge_workers=2",
+    )
+    assert_failure_case(
+        "metrics target aliases the internal VIP",
+        lambda: None,
+        "-e",
+        "kolla_internal_vip_address=127.0.0.1",
+    )
+    assert_failure_case(
         "maintenance reconciliation remains disabled",
         lambda: None,
         "-e",
@@ -585,12 +609,26 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
     api_haproxy = (
         target / "haproxy" / "services.d" / "coffer-api.cfg"
     ).read_text(encoding="utf-8")
+    operational_denials = (
+        "http-request deny if { path -i /healthz }",
+        "http-request deny if { path -i /readyz }",
+        "http-request deny if { path -i /metrics }",
+        "http-request deny if { path -i -m beg /debug }",
+    )
     check(
         "http-request del-header X-Coffer-Maintenance-Workload"
         in api_haproxy
         and "http-request deny if { path -i -m beg /v1/internal/ }"
-        in api_haproxy,
-        "ordinary internal API frontend strips assertions and denies internal paths",
+        in api_haproxy
+        and all(rule in api_haproxy for rule in operational_denials),
+        "ordinary API frontend strips assertions and denies private paths",
+    )
+    edge_haproxy = (
+        target / "haproxy" / "services.d" / "coffer-edge.cfg"
+    ).read_text(encoding="utf-8")
+    check(
+        all(edge_haproxy.count(rule) >= 3 for rule in operational_denials),
+        "edge internal frontend and both mapped backends deny private paths",
     )
 
     expected_modes = {
@@ -755,6 +793,68 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
             / "cron-logrotate-global.conf"
         ).exists(),
         "logrotate extension template is installed",
+    )
+    prometheus_path = (
+        WORK
+        / "source-config"
+        / "prometheus"
+        / "prometheus.yml.d"
+        / "15-coffer.yml"
+    )
+    prometheus_document = yaml.safe_load(
+        prometheus_path.read_text(encoding="utf-8")
+    )
+    scrape_configs = prometheus_document["scrape_configs"]
+    check(
+        [job["job_name"] for job in scrape_configs]
+        == ["coffer-api", "coffer-edge"],
+        "Prometheus owns separate API and edge direct-scrape jobs",
+    )
+    targets = {
+        target_value
+        for job in scrape_configs
+        for static_config in job["static_configs"]
+        for target_value in static_config["targets"]
+    }
+    check(
+        targets == {"127.0.0.1:18787", "127.0.0.1:18788"}
+        and "127.0.0.2" not in prometheus_path.read_text(encoding="utf-8")
+        and "registry.internal.example.test:18787"
+        not in prometheus_path.read_text(encoding="utf-8"),
+        "Prometheus targets direct backend addresses and never a VIP or FQDN",
+    )
+    check(
+        all(
+            job["scheme"] == "https"
+            and job["metrics_path"] == "/metrics"
+            and job["tls_config"]
+            == {
+                "ca_file": "/etc/ssl/certs/ca-certificates.crt",
+                "server_name": "registry.internal.example.test",
+            }
+            for job in scrape_configs
+        ),
+        "direct metric scrapes use the operator CA and fixed TLS server name",
+    )
+    check(
+        all(
+            static_config["labels"]
+            == {
+                "service": job["job_name"],
+                "instance": "coffer-stage3-contract",
+            }
+            for job in scrape_configs
+            for static_config in job["static_configs"]
+        ),
+        "direct metric targets retain only stable service and instance labels",
+    )
+    edge_config = (target / "coffer-edge" / "coffer.conf").read_text(
+        encoding="utf-8"
+    )
+    check(
+        "[observability]" in edge_config
+        and "metrics_enabled = True" in edge_config,
+        "edge runtime enables its private operational dispatcher",
     )
 
 

@@ -13,6 +13,8 @@ coffer_enable_maintenance_identity: false
 coffer_enable_metrics: false
 coffer_manage_observability_overrides: true
 coffer_config_controller_become: false
+coffer_metrics_ca_file: "{{ openstack_cacert }}"
+coffer_metrics_tls_server_name: "{{ coffer_internal_fqdn }}"
 coffer_fluentd_enable_watch_timer: >-
   {{ fluentd_enable_watch_timer | default('false') }}
 
@@ -344,6 +346,10 @@ coffer_services:
         frontend_http_extra:
           - "http-request del-header X-Coffer-Maintenance-Workload"
           - "http-request deny if { path -i -m beg /v1/internal/ }"
+          - "http-request deny if { path -i /healthz }"
+          - "http-request deny if { path -i /readyz }"
+          - "http-request deny if { path -i /metrics }"
+          - "http-request deny if { path -i -m beg /debug }"
   coffer-edge:
     container_name: "coffer_edge"
     group: "coffer-edge"
@@ -365,6 +371,15 @@ coffer_services:
         backend_http_extra:
           - "option httpchk GET /v2/"
           - "http-check expect status 401"
+          - "http-request deny if { path -i /healthz }"
+          - "http-request deny if { path -i /readyz }"
+          - "http-request deny if { path -i /metrics }"
+          - "http-request deny if { path -i -m beg /debug }"
+        frontend_http_extra:
+          - "http-request deny if { path -i /healthz }"
+          - "http-request deny if { path -i /readyz }"
+          - "http-request deny if { path -i /metrics }"
+          - "http-request deny if { path -i -m beg /debug }"
       coffer_edge_external:
         enabled: "{{ enable_coffer }}"
         mode: "http"
@@ -376,6 +391,15 @@ coffer_services:
         backend_http_extra:
           - "option httpchk GET /v2/"
           - "http-check expect status 401"
+          - "http-request deny if { path -i /healthz }"
+          - "http-request deny if { path -i /readyz }"
+          - "http-request deny if { path -i /metrics }"
+          - "http-request deny if { path -i -m beg /debug }"
+        frontend_http_extra:
+          - "http-request deny if { path -i /healthz }"
+          - "http-request deny if { path -i /readyz }"
+          - "http-request deny if { path -i /metrics }"
+          - "http-request deny if { path -i -m beg /debug }"
   coffer-registry:
     container_name: "coffer_registry"
     group: "coffer-registry"

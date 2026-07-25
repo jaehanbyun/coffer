@@ -13,7 +13,11 @@ from oslo_config import cfg
 
 from coffer.config import parse_config, setup_logging
 from coffer.db import RepositoryStore
-from coffer.observability import CofferMetrics, WSGIHTTPMetricsMiddleware
+from coffer.observability import (
+    CofferMetrics,
+    WSGIHTTPMetricsMiddleware,
+    build_operational_application,
+)
 from coffer.quota import QuotaStore
 from coffer.quota_admission import (
     ManifestAdmissionService,
@@ -32,6 +36,7 @@ from coffer.runtime import (
     run_wsgi,
 )
 from coffer.schema import SchemaNotReady
+from coffer.wsgi import PathDispatcher
 
 
 LOG = logging.getLogger(__name__)
@@ -167,6 +172,15 @@ def build_product_application(
     )
     if metrics is None:
         return application
+    application = PathDispatcher(
+        application,
+        operational_application=build_operational_application(
+            repositories,
+            metrics,
+            metrics_enabled=True,
+        ),
+        metrics=metrics,
+    )
     return WSGIHTTPMetricsMiddleware(
         application,
         metrics,

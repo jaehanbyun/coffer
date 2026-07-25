@@ -6,7 +6,7 @@ enable_loadbalancer: true
 enable_mariadb: false
 enable_proxysql: false
 enable_fluentd: false
-enable_prometheus: false
+enable_prometheus: true
 
 kolla_base_distro: ubuntu
 kolla_base_distro_version: noble
@@ -39,7 +39,7 @@ coffer_maintenance_user_id: bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb
 coffer_maintenance_workloads:
   - inventory_host: coffer-stage3-contract
     workload_id: reconciler-coffer-stage3-contract
-coffer_enable_metrics: false
+coffer_enable_metrics: true
 coffer_manage_observability_overrides: true
 coffer_config_controller_become: false
 

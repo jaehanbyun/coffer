@@ -90,6 +90,9 @@ token_realm = {{ coffer_token_realm }}
 [token]
 issuer = {{ coffer_token_issuer }}
 service = {{ coffer_token_service }}
+
+[observability]
+metrics_enabled = {{ coffer_enable_metrics | bool }}
 {% elif service_name == 'coffer-reconcile' %}
 [reconciliation]
 mode = {{ coffer_reconcile_mode }}
