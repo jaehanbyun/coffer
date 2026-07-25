@@ -378,8 +378,8 @@ def _fixture_evidence(
             "baseline_hash": baseline["inventory_hash"],
             "candidate_set_hash": baseline["expected_candidate_set_hash"],
             "summary_hash": _hash(f"{seed}:dry-run-summary"),
-            "eligible_blob_count": 3,
-            "eligible_manifest_count": 1,
+            "eligible_blob_count": 4,
+            "eligible_manifest_count": 0,
             "eligible_link_count": 2,
             "candidate_total": 6,
         }

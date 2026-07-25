@@ -143,8 +143,8 @@ def evidence_for(action: str, state: dict) -> dict:
             "baseline_hash": digest("inventory"),
             "candidate_set_hash": digest("deleted"),
             "summary_hash": digest("dry-run-summary"),
-            "eligible_blob_count": 3,
-            "eligible_manifest_count": 1,
+            "eligible_blob_count": 4,
+            "eligible_manifest_count": 0,
             "eligible_link_count": 2,
             "candidate_total": 6,
         }

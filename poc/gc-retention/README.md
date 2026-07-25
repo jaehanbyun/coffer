@@ -58,3 +58,12 @@ does not emulate a registry implementation or claim storage behavior.
 The next layer is an exact-v3.1.1 collector-output normalizer followed by a
 filesystem-backed temporary Distribution fixture. Disposable RGW/KMS and
 Kolla HA execution remain later Stage 6 gates.
+
+`collector_output.py` implements the first half of that layer without starting
+the collector. It recognizes only the pinned v3.1.1 repository, mark, summary,
+blob-candidate, and layer-link-candidate line shapes. Manifest candidates are
+refused because they imply the forbidden untagged-deletion path. The parser
+requires a consistent summary, declared repositories, unique bounded
+candidates, no retained intersection, and an optional exact expected set. It
+returns raw candidates only to its in-process caller; public evidence contains
+aggregate counts and sorted hashes, never repository names or digests.

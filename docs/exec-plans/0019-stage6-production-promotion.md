@@ -1090,6 +1090,35 @@ operator-local release.
   malformed, duplicate, mixed-version, secret-like, retained-intersecting, or
   over-limit output without invoking the collector.
 
+### 2026-07-25 — Exact-release GC dry-run output contract completed
+
+- Semantic correction: Without `--delete-untagged`, an explicitly deleted
+  manifest is absent from enumeration and its data appears as unmarked blob/
+  layer-link candidates, not a manifest candidate. The pure fixture now
+  correctly models four blobs, zero manifests, and two links.
+- Parser: Added an exact-v3.1.1 normalizer for repository enumeration, mark
+  lines, the single summary, blob candidates, and layer-link candidates.
+  Candidate order is normalized; repository and digest identities are exposed
+  only to the in-process verifier and become sorted hashes in public evidence.
+- Refusals: Release drift, unknown/malformed/control/secret-like output,
+  duplicate repositories/candidates/summary, ordering violations, summary
+  mismatch, any manifest candidate, retained intersection, expected-set drift,
+  empty candidates, and the 1,000-item ceiling fail closed.
+- Verification: Fifteen parser tests plus the prior sixty model/CLI tests pass
+  together (75 focused). All 616 Python tests pass; compilation,
+  captured-shape synthetic fixture parsing, static no-subprocess/network/SQL/S3
+  inspection, and diff checks pass.
+- Scope: Captured local text only. The parser does not invoke the registry,
+  collector, storage, SQL, KMS, container, network, credential, or remote
+  resource. ADR 0017 remains proposed.
+- Next exact action: Add a guarded filesystem adapter and disposable fixture
+  that reuses the pinned `registry:3.1.1` image and existing inventory harness.
+  Populate retained shared/index/digest-only/referrer content plus one explicit
+  deleted graph, stop the registry, snapshot the temporary volume, run two real
+  upstream dry runs through this normalizer, execute one real collection only
+  against that volume, verify survivors/reclaim/restore, and remove every
+  exact fixture resource. Do not connect to S3/RGW yet.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1157,6 +1186,8 @@ operator-local release.
 | Full regression after GC/retention state model | `uv run pytest -q` | passed; 587 |
 | Fixture-only coordinated GC lifecycle | `uv run pytest -q tests/test_gc_retention_state_machine.py tests/test_gc_retention_lifecycle_cli.py` | passed; 60 |
 | Full regression after fixture-only GC lifecycle | `uv run pytest -q` | passed; 601 |
+| Exact-release GC output normalizer | `uv run pytest -q tests/test_gc_collector_output.py tests/test_gc_retention_state_machine.py tests/test_gc_retention_lifecycle_cli.py` | passed; 75 |
+| Full regression after GC output normalizer | `uv run pytest -q` | passed; 616 |
 
 ## Failures, Blockers, and Risks
 
@@ -1186,11 +1217,13 @@ operator-local release.
   lifecycle through an ordered no-network adapter seam. Real lifecycle
   evidence and current stable dependencies remain blocked; no real identity,
   credential, certificate, endpoint, or remote state changed.
-- Exact next action: Add `poc/gc-retention/collector_output.py` with captured
-  exact-v3.1.1 dry-run fixtures. Normalize only bounded repository, summary,
-  and manifest/blob/link candidate lines into sorted hashed sets and aggregate
-  counts. Reject unknown, malformed, duplicate, mixed-version, secret-like,
-  retained-intersecting, or over-limit output without invoking the collector.
+- Exact next action: Add a guarded filesystem adapter and disposable fixture
+  reusing the pinned `registry:3.1.1` image and existing inventory harness.
+  Populate retained shared/index/digest-only/referrer content and one explicit
+  deleted graph; stop the registry; snapshot the temporary volume; normalize
+  two real upstream dry runs; execute collection only on that volume; verify
+  survivors, reclaim, isolated restore, and exact teardown. Do not connect to
+  S3/RGW.
 - Questions requiring user input: None for the next fixture-only lifecycle
   milestone. The user has already authorized atomic milestone publication and
   the bounded disposable Stage 6 sequence; exact safety and release gates

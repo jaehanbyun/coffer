@@ -147,6 +147,14 @@ zero reported fixture residue without invoking a registry, storage, SQL, KMS,
 subprocess, container, or network. This evidence does not yet accept the ADR;
 the exact-release output adapter and real temporary collection remain open.
 
+The exact-v3.1.1 dry-run output normalizer now passes captured-shape synthetic
+fixtures. It
+recognizes only reviewed line shapes, binds the release, validates summary and
+candidate counts, normalizes order, refuses manifest candidates, retained
+intersection, drift, duplicates, malformed/unknown/secret-like text and the
+fixed candidate ceiling, and emits only aggregate counts and hashes. It starts
+no subprocess; filesystem collection and restore evidence remain open.
+
 ## Primary References
 
 - [CNCF Distribution garbage collection](https://distribution.github.io/distribution/about/garbage-collection/)

@@ -727,6 +727,10 @@ def _validate_dry_run(
     )
     if item["candidate_total"] != total:
         raise GCRetentionError("dry-run candidate total is inconsistent")
+    if item["eligible_manifest_count"] != 0:
+        raise GCRetentionError(
+            "manifest candidates require forbidden untagged deletion"
+        )
     if total < 1 or total > topology["collector"]["candidate_limit"]:
         raise GCRetentionError("dry-run candidate limit is invalid")
     if second:

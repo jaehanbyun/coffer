@@ -270,6 +270,18 @@ release contains it yet.
   CLI/JSON, static no-network/SQL/S3/subprocess inspection, and diff checks
   pass. No registry binary or external resource was used; ADR 0017 remains
   proposed.
+- Corrected the baseline candidate semantics to four blobs, zero manifests,
+  and two layer links: with global untagged deletion forbidden, explicit
+  manifest DELETE removes enumeration authority and its content is swept as
+  unmarked blobs/links.
+- Added the exact-v3.1.1 dry-run output normalizer and captured-shape synthetic
+  fixture. It
+  binds reviewed line shapes/release/order/counts, hashes identities, and
+  refuses manifest candidates, retained intersection, drift, duplicates,
+  unknown/malformed/secret-like text, and excessive candidates.
+- Seventy-five combined GC parser/model/CLI tests and all 616 Python tests
+  pass. No collector subprocess or external resource was used; ADR 0017
+  remains proposed.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2077,11 +2089,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/gc-retention/collector_output.py` with captured exact-v3.1.1 dry-run
-fixtures. Normalize only bounded repository, summary, and manifest/blob/link
-candidate lines into sorted hashed sets and aggregate counts. Reject unknown,
-malformed, duplicate, mixed-version, secret-like, retained-intersecting, or
-over-limit output without invoking the collector.
+Add a guarded filesystem adapter and disposable fixture reusing the pinned
+`registry:3.1.1` image and existing inventory harness. Populate retained
+shared/index/digest-only/referrer content and one explicitly deleted graph;
+stop the registry; snapshot the temporary volume; normalize two real upstream
+dry runs; execute collection only on that volume; verify survivors, reclaim,
+isolated restore, and exact teardown. Do not connect to S3/RGW.
 
 ## After This Work Package
 
