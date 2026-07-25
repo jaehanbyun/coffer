@@ -1,0 +1,27 @@
+name: coffer-gc-filesystem
+
+services:
+  registry:
+    image: docker.io/library/registry:3.1.1@sha256:1be55279f18a2fe1a74edf2664cac61c1bea305b7b4642dab412e7affdcb3e33
+    environment:
+      OTEL_TRACES_EXPORTER: none
+    ports:
+      - "127.0.0.1:${COFFER_GC_PORT:-55008}:5000"
+    volumes:
+      - ./registry-config.yml:/etc/distribution/config.yml:ro
+      - ${COFFER_GC_STORAGE:?set COFFER_GC_STORAGE}:/var/lib/registry:z
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:5000/v2/"]
+      interval: 1s
+      timeout: 3s
+      retries: 60
+    labels:
+      org.openstack.coffer.poc: gc-filesystem
+    networks:
+      - registry
+    restart: "no"
+
+networks:
+  registry:
+    labels:
+      org.openstack.coffer.poc: gc-filesystem

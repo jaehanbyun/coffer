@@ -155,6 +155,20 @@ intersection, drift, duplicates, malformed/unknown/secret-like text and the
 fixed candidate ceiling, and emits only aggregate counts and hashes. It starts
 no subprocess; filesystem collection and restore evidence remain open.
 
+The guarded filesystem adapter has now executed the exact pinned collector
+against a newly created disposable storage tree. Two normalized dry runs
+produced the same five-candidate set; one finite single-use authorization
+permitted one real collection. Nine survivor classes, including shared,
+digest-only, index-child, subject/referrer, and fallback-referrers content,
+remained readable. The isolated pre-collection snapshot restored byte-for-byte,
+613 logical filesystem bytes were reclaimed, replay failed closed, and exact
+teardown reported zero residue.
+
+This local result accepts the stop-the-world filesystem mechanism but does not
+yet accept this ADR for a production RGW target. Versioned S3 object behavior,
+Ceph physical reclamation, released encrypted-copy support, and the full
+private-TLS Kolla maintenance transaction remain separate open gates.
+
 ## Primary References
 
 - [CNCF Distribution garbage collection](https://distribution.github.io/distribution/about/garbage-collection/)

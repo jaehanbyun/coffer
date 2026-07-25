@@ -67,3 +67,12 @@ requires a consistent summary, declared repositories, unique bounded
 candidates, no retained intersection, and an optional exact expected set. It
 returns raw candidates only to its in-process caller; public evidence contains
 aggregate counts and sorted hashes, never repository names or digests.
+
+`filesystem/` completes the disposable local layer. It runs the pinned
+collector twice in dry-run mode and once in destructive mode against only a
+new temporary bind mount. The verified graph covers every retained class,
+one explicit deletion, candidate-bound single-use authorization, logical
+reclamation, isolated snapshot restore, and exact teardown. The accepted run
+reported five candidates, nine survivor classes, 613 logical bytes reclaimed,
+and zero residue. S3/RGW object versions and Ceph physical bytes remain
+separate later evidence.

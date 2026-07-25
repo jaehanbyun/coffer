@@ -37,7 +37,7 @@ operator-local release.
 - [ ] API, edge, registry, reconciliation, database, RGW, KMS, and load-balancer
       signals have restart-correct metrics, bounded-cardinality labels, alerts,
       logs, and an operator-owned failure-budget/SLO baseline.
-- [ ] Coordinated write-stopped Distribution garbage collection passes dry-run
+- [x] Coordinated write-stopped Distribution garbage collection passes dry-run
       and approved destructive collection on a disposable shared-blob fixture;
       referenced content survives, reclaimed content is measured, restore is
       rehearsed, and RGW orphan/lifecycle cleanup remains separately owned.
@@ -124,7 +124,7 @@ operator-local release.
       the disposable backup/import/comparison/cutover/rollback rehearsal.
 - [x] Implement restart-correct metrics, protected scrape/aggregation, alerts,
       operational dashboards, and failure-budget documentation.
-- [ ] Implement and execute the approved coordinated GC/retention fixture and
+- [x] Implement and execute the approved coordinated GC/retention fixture and
       restore rehearsal.
 - [ ] Implement and execute the representative client/load/soak/fault matrix.
 - [ ] Build immutable production-candidate artifacts and rerun dependency,
@@ -1119,6 +1119,42 @@ operator-local release.
   against that volume, verify survivors/reclaim/restore, and remove every
   exact fixture resource. Do not connect to S3/RGW yet.
 
+### 2026-07-25 — Disposable filesystem collection and restore completed
+
+- Fixture: Added an exact-image Compose service, deterministic retained and
+  explicitly deleted OCI graph, exact candidate authority, owner-only
+  adapter state, survivor verifier, and cleanup-safe shell harness. The graph
+  includes shared/private blobs, tagged and digest-only manifests, an index
+  and child, a subject/referrer, and the OCI fallback referrers index.
+- Transaction: The only registry writer stops before a byte-identical
+  snapshot. Two networkless upstream dry runs normalize to one exact set,
+  which authorizes one collection for 900 seconds. Authorization is consumed
+  before execution and replay fails closed. The collector never receives the
+  global untagged-deletion option.
+- Result: The pinned v3.1.1 collector reported three unreferenced blobs plus
+  two repository layer links. All nine survivor classes and the shared blob
+  in both repositories remained readable; the deleted graph was unreadable;
+  613 logical filesystem bytes were reclaimed; and a separately started
+  registry over the snapshot copy passed restore verification.
+- Failure corrections: The exact log level is `warn`, not `warning`;
+  a stopped container now fails health wait immediately; the alternating
+  rootless bind mount requires shared SELinux relabel plus only
+  `DAC_OVERRIDE`; and a digest-only repository may express no tags as either
+  an empty 200 response or a `NAME_UNKNOWN` 404 while digest HEAD succeeds.
+- Safety and cleanup: Root filesystem read-only, network none, all
+  capabilities dropped except the bind-mount DAC requirement,
+  no-new-privileges, one exact labelled project, and guarded temporary cleanup
+  ended with zero container, network, lock, file, or state residue. No S3,
+  RGW, SQL, KMS, Keystone, Kolla, credential, or remote host was used.
+- Verification: Nine filesystem-adapter tests plus the prior seventy-five GC
+  tests pass together (84 focused). All 625 Python tests pass; compilation,
+  Compose rendering, Bash, ShellCheck, diff, and live teardown checks pass.
+  ADR 0017 remains proposed for an RGW production target.
+- Next exact action: Add `docs/research/stage6-load-soak.md`. Inventory the
+  accepted clients, request shapes, private-TLS/shared-SQL/RGW topology,
+  concurrency/fault seams, metrics, limits, and existing Stage 5 evidence,
+  then fix a bounded disposable load/soak matrix before implementing it.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1188,6 +1224,9 @@ operator-local release.
 | Full regression after fixture-only GC lifecycle | `uv run pytest -q` | passed; 601 |
 | Exact-release GC output normalizer | `uv run pytest -q tests/test_gc_collector_output.py tests/test_gc_retention_state_machine.py tests/test_gc_retention_lifecycle_cli.py` | passed; 75 |
 | Full regression after GC output normalizer | `uv run pytest -q` | passed; 616 |
+| Filesystem GC adapter/model regression | `uv run pytest -q tests/test_gc_filesystem_fixture.py tests/test_gc_collector_output.py tests/test_gc_retention_state_machine.py tests/test_gc_retention_lifecycle_cli.py` | passed; 84 |
+| Disposable exact-image filesystem GC | persistent-PTY `make -C poc/gc-retention/filesystem verify` | passed; candidates 5, survivors 9, reclaimed 613 bytes, restore passed, residue 0 |
+| Full regression after filesystem GC | `uv run pytest -q` | passed; 625 |
 
 ## Failures, Blockers, and Risks
 
@@ -1200,10 +1239,9 @@ operator-local release.
 - The maintenance architecture, broker, trusted adapter, and generated Kolla
   recipient/frontend fixture are locally proven. Creating or delivering a real
   identity, credential, certificate, endpoint, or remote Kolla secret remains
-  separately gated. Destructive GC also remains unapproved.
-- The local branch remains ahead of `origin/main`. This is not a technical
-  blocker, but remote publication remains a separately authorized action and
-  must use the `jaehanbyun` GitHub account.
+  separately gated. The approved destructive filesystem fixture is complete;
+  real RGW collection remains gated by released dependencies and the fresh
+  pilot transaction.
 
 ## Handoff
 
@@ -1214,16 +1252,15 @@ operator-local release.
   and reconciliation remain disabled. The provenance-bound S3 inventory helper
   plus the pure state model and fixture-only data-protection lifecycle are
   complete. The canonical restored SQL/RGW backup verifier now gates the
-  lifecycle through an ordered no-network adapter seam. Real lifecycle
-  evidence and current stable dependencies remain blocked; no real identity,
-  credential, certificate, endpoint, or remote state changed.
-- Exact next action: Add a guarded filesystem adapter and disposable fixture
-  reusing the pinned `registry:3.1.1` image and existing inventory harness.
-  Populate retained shared/index/digest-only/referrer content and one explicit
-  deleted graph; stop the registry; snapshot the temporary volume; normalize
-  two real upstream dry runs; execute collection only on that volume; verify
-  survivors, reclaim, isolated restore, and exact teardown. Do not connect to
-  S3/RGW.
+  lifecycle through an ordered no-network adapter seam. The controlled
+  filesystem GC/restore gate is complete with live exact-image evidence.
+  Real RGW lifecycle evidence and current stable dependencies remain blocked;
+  no real identity, credential, certificate, endpoint, or remote state
+  changed.
+- Exact next action: Add `docs/research/stage6-load-soak.md`. Inventory the
+  accepted clients, request shapes, private-TLS/shared-SQL/RGW topology,
+  concurrency/fault seams, metrics, limits, and existing Stage 5 evidence,
+  then fix a bounded disposable load/soak matrix before implementation.
 - Questions requiring user input: None for the next fixture-only lifecycle
   milestone. The user has already authorized atomic milestone publication and
   the bounded disposable Stage 6 sequence; exact safety and release gates

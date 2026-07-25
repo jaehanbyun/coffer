@@ -1,8 +1,8 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; local production observability complete;
-  coordinated GC/retention research and dry-run topology next
+- Status: plan 0019 active; local production observability and disposable
+  filesystem GC/restore complete; load/soak baseline next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -282,6 +282,25 @@ release contains it yet.
 - Seventy-five combined GC parser/model/CLI tests and all 616 Python tests
   pass. No collector subprocess or external resource was used; ADR 0017
   remains proposed.
+- Added the guarded exact-v3.1.1 filesystem GC fixture. It builds a retained
+  shared/index/digest-only/subject/referrer graph plus one explicitly deleted
+  manifest graph, snapshots only the new temporary bind mount, and runs the
+  collector without network or global untagged deletion.
+- Two dry runs produced the same exact five-candidate set. One 900-second
+  candidate-bound authorization was consumed once; replay failed closed; the
+  real collector removed three blobs and two repository layer links.
+- Nine survivor classes and the shared blob in both repositories passed after
+  collection. The snapshot copy restored byte-for-byte, 613 logical
+  filesystem bytes were reclaimed, and exact teardown reported zero container,
+  network, lock, file, and state residue.
+- Failure-safe iterations corrected only the exact `warn` log-level contract,
+  exited-container health detection, shared bind relabel plus one
+  `DAC_OVERRIDE` capability, and the valid digest-only `NAME_UNKNOWN` tag
+  response. Every failed run cleaned to zero residue before retry.
+- Eighty-four focused GC tests and all 625 Python tests pass. Compose, Bash,
+  ShellCheck, compilation, diff, and the live exact-image fixture pass. No
+  S3/RGW, SQL, KMS, Keystone, Kolla, credential, or remote host was used; ADR
+  0017 remains proposed for the production RGW boundary.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2089,12 +2108,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add a guarded filesystem adapter and disposable fixture reusing the pinned
-`registry:3.1.1` image and existing inventory harness. Populate retained
-shared/index/digest-only/referrer content and one explicitly deleted graph;
-stop the registry; snapshot the temporary volume; normalize two real upstream
-dry runs; execute collection only on that volume; verify survivors, reclaim,
-isolated restore, and exact teardown. Do not connect to S3/RGW.
+Add `docs/research/stage6-load-soak.md`. Inventory the accepted clients,
+request/upload shapes, private-TLS/shared-SQL/RGW topology, contention and
+fault seams, available metrics, saturation limits, and Stage 5 evidence.
+Define one bounded disposable load/soak matrix and its pass/fail evidence
+before implementation.
 
 ## After This Work Package
 
