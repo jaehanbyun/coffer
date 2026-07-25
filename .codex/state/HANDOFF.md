@@ -1,8 +1,8 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; Stage 6 restart-correct observability contract
-  fixed; ADR 0016 and pure contract model next
+- Status: plan 0019 active; ADR 0016 direct-replica observability architecture
+  accepted locally; runtime instrumentation next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -222,6 +222,19 @@ release contains it yet.
   alerts, dashboard rows, and restart/stale-series acceptance.
 - Official Prometheus, Kolla-Ansible, Distribution, and Ceph documents were
   checked. No local runtime configuration or external state changed.
+- Accepted ADR 0016 for the local architecture after adding the versioned
+  observability topology and pure contract. Exact direct targets, one-worker
+  and VIP refusal, verified TLS, bounded labels/results, public operational
+  path denial, counter reset and stale-series transitions, and hashed
+  evidence pass 51 focused tests.
+- Full Python regression passes 490 tests and the Kolla companion role passes
+  68 checks. Compilation, topology JSON, and diff checks pass. No metric
+  runtime, Prometheus, Grafana, HAProxy, Distribution debug listener, Ceph
+  target, network, container, or remote state changed.
+- A directory-wide Gitleaks invocation after role verification traversed the
+  generated `work/kolla-ansible-stage3` dependency/fixture tree and reported
+  non-source findings. The milestone commit gate scans the staged source set;
+  generated work content is not promotion evidence.
 
 ## Plan 0018 Activation
 
@@ -1948,10 +1961,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add proposed ADR 0016 and a pure observability contract model with tests for
-fixed labels, per-replica targets, one-worker enforcement, public operational
-path denial, recording/alert/dashboard references, restart/stale transitions,
-and secret-safe retained evidence. Do not contact a remote service.
+Begin runtime observability in `src/coffer/observability.py`. Make the
+application metric schema explicit and bounded, add process-start/restart
+evidence, instrument the API and edge without exposing tenant/repository
+values, and keep the production one-worker rule fail closed. Do not change
+Kolla or contact a remote service in that atomic milestone.
 
 ## After This Work Package
 

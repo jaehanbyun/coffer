@@ -1,0 +1,52 @@
+{
+  "schema": "coffer.observability-topology/v1",
+  "components": {
+    "api": {"port": 8787, "workers": 1, "metrics_path": "/metrics"},
+    "edge": {"port": 8788, "workers": 1, "metrics_path": "/metrics"},
+    "reconcile": {"port": 8790, "workers": 1, "metrics_path": "/metrics"},
+    "registry": {"port": 8791, "workers": 1, "metrics_path": "/metrics"}
+  },
+  "application_labels": {
+    "component": ["api", "edge", "reconcile"],
+    "method": ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT", "OTHER"],
+    "status": ["1xx", "2xx", "3xx", "4xx", "5xx", "OTHER"],
+    "dependency": ["database", "keystone", "registry", "rgw", "kms", "haproxy"]
+  },
+  "result_labels": {
+    "token": ["issued", "invalid_request", "invalid_credential", "identity_unavailable", "credential_expires_too_soon"],
+    "readiness": ["ready", "database_unavailable"],
+    "admission": ["accepted", "over_quota", "missing_quota", "invalid_manifest", "unauthorized", "upstream_unavailable", "internal_error"],
+    "reconciliation": ["absent", "indeterminate", "present", "stale_claim", "stale_version"]
+  },
+  "public_denied_paths": ["/healthz", "/readyz", "/metrics", "/debug", "/debug/"],
+  "recording_rules": [
+    "coffer:slo_pull_good:ratio_rate5m",
+    "coffer:slo_publish_good:ratio_rate5m",
+    "coffer:slo_control_good:ratio_rate5m",
+    "coffer:reconciliation_fresh:ratio",
+    "coffer:target_up:sum",
+    "coffer:error_budget_burn:ratio"
+  ],
+  "alerts": [
+    "CofferTargetDown",
+    "CofferNoHealthyBackend",
+    "CofferErrorBudgetFastBurn",
+    "CofferErrorBudgetSlowBurn",
+    "CofferReconciliationStalled",
+    "CofferStaleClaims",
+    "CofferDependencyUnavailable",
+    "CofferMetricsSchemaMismatch"
+  ],
+  "dashboard_rows": [
+    "Service objectives",
+    "Requests and latency",
+    "Replica health and restarts",
+    "Identity quota and reconciliation",
+    "HAProxy",
+    "MariaDB and Galera",
+    "Ceph RGW and KMS",
+    "Deploy alerts and maintenance"
+  ],
+  "scrape_interval_seconds": 30,
+  "stale_after_seconds": 90
+}

@@ -768,6 +768,43 @@ operator-local release.
   public-path denial, recording/alert/dashboard references, restart/stale
   transitions, and secret-safe evidence. Do not contact a remote service.
 
+### 2026-07-25 — Direct-replica observability architecture accepted locally
+
+- Completed: Accepted ADR 0016 after adding a versioned topology and pure
+  local contract. The topology fixes API, edge, reconciler, and Distribution
+  scrape ownership, private ports and paths, one worker per Coffer process,
+  bounded application/result labels, public operational-path denials, six
+  recording rules, eight alerts, eight dashboard rows, a 30-second scrape
+  interval, and a 90-second stale bound.
+- Target and restart safety: Inventory must contain every component and at
+  least one unique backend address. Every target uses verified TLS, matches
+  the fixed worker count, and cannot equal an operator-supplied VIP/public
+  address. A counter decrease is accepted only with a newer process-start
+  timestamp; stale series become explicit after the fixed bound.
+- Secret/cardinality safety: Retained targets/state/evidence reject
+  credential, tenant, repository, digest, and secret fields or patterns.
+  Durable acceptance evidence contains only topology, target-set, and restart
+  state hashes plus bounded counts.
+- Verification: Fifty-one focused observability tests pass. Full Python
+  regression passes 490 tests; the Kolla companion role passes 68 checks;
+  compilation, topology JSON parsing, and diff checks pass.
+- Leak-check note: A directory-wide scan after the role harness also traversed
+  its generated `work/kolla-ansible-stage3` dependency/fixture tree and
+  reported non-source findings. The atomic commit gate therefore scans only
+  the staged source set; the generated work tree is not accepted evidence.
+- Scope: No runtime metric endpoint, Kolla target, Prometheus rule, Grafana
+  dashboard, HAProxy listener, Distribution debug port, Ceph target, network,
+  container, or remote state changed.
+- Changed files: ADR 0016, `poc/observability/topology.json`,
+  `poc/observability/contract.py`, observability contract tests, research,
+  this plan, and `HANDOFF.md`.
+- Next exact action: Begin runtime observability in
+  `src/coffer/observability.py`. Make the application metric schema explicit
+  and bounded, add process-start/restart evidence, instrument the API and
+  edge without exposing tenant/repository values, and keep the production
+  one-worker rule fail closed. Do not change Kolla or contact a remote service
+  in that atomic milestone.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -810,6 +847,9 @@ operator-local release.
 | Full regression after no-network backup adapter | `uv run pytest -q` | passed; 439 |
 | Stage 6 observability source/config inventory | Focused inspection of Coffer metrics/runners, Distribution config, Kolla scrape/log/HAProxy model, and prior M3 evidence | passed; gaps and owners fixed |
 | Stage 6 observability primary sources | Official Prometheus client, Kolla-Ansible, Distribution, and Ceph documentation | passed; candidate is consistent with supported surfaces |
+| Pure observability contract | `uv run pytest -q tests/test_observability_contract.py` | passed; 51 |
+| Full regression after observability contract | `uv run pytest -q` | passed; 490 |
+| Kolla role after observability contract | `make -C poc/kolla-ansible-role verify` | passed; 68 |
 
 ## Failures, Blockers, and Risks
 

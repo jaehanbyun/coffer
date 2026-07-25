@@ -1,7 +1,7 @@
 # Stage 6 Restart-Correct Observability Baseline
 
 - Date: 2026-07-25
-- Status: implementation contract; ADR 0016 candidate
+- Status: implementation contract; ADR 0016 accepted for local architecture
 - Scope: Coffer API, quota edge, Distribution, reconciliation, MariaDB,
   Ceph/RGW, Barbican/KMS, HAProxy, logs, metrics, alerts, dashboards, and
   initial service-level objectives
@@ -34,6 +34,14 @@ worker cleanup, custom-collector, and duplicate-registration constraints.
 Threads remain available inside each process, and the representative load gate
 must prove the initial worker/thread sizing. Increasing worker count later
 requires a new accepted aggregation decision and restart/stale-series test.
+
+ADR 0016 is now accepted for this architecture and pure local contract.
+`poc/observability/topology.json` fixes the component, target, label, result,
+rule, alert, dashboard, interval, and public-denial allowlists.
+`poc/observability/contract.py` proves per-replica target generation,
+one-worker and VIP refusal, restart/reset/stale transitions, and
+secret-safe evidence. This is not deployed Prometheus, Grafana, runtime
+endpoint, or pilot evidence.
 
 ## Current Surface Inventory
 
