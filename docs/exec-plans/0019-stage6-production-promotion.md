@@ -1606,6 +1606,40 @@ operator-local release.
   checkpoint owner-only canonical state, reject every live adapter, and expose
   the missing real executor capabilities without starting a workload.
 
+### 2026-07-25 — Fixture-only checkpointed load orchestrator completed
+
+- Exact order: The orchestrator derives one 29-step schedule from the compiled
+  plan: six client qualification entries, smoke, seven ramp levels,
+  qualification, ten serial faults, soak, and before/during/after telemetry.
+  Step count, names, kinds, order, and schedule hash cannot drift.
+- Executor boundary: Only the exact `FixtureExecutor` type is accepted.
+  Every entry requires fixed passed/attempt/error/transfer evidence; live or
+  lookalike executors fail before a step can advance. The result and state
+  remain explicitly synthetic.
+- Budgets: Non-load steps transfer zero bytes. Profile steps cannot exceed
+  their own ceiling; every ramp step has a fixed ceiling and their aggregate
+  cannot exceed the qualification budget. Over-budget evidence fails without
+  advancing the checkpoint.
+- Recovery: Canonical owner-only plan/invocation/state/output inputs, exact raw
+  plan-file hash, pairwise-distinct paths, mode-0700 state directory,
+  no-follow files, and a nonblocking mode-0600 lock protect execution. State
+  fsyncs after every step; an injected failure preserves the last valid entry,
+  resumes deterministically, and terminal reruns return byte-identical output.
+- Evidence: The terminal mode-0600 result retains only adapter/synthetic
+  disposition, plan/budget/history hashes, and the fixed step count. Stale
+  output, altered history, unsafe files, lock contention, invalid checkpoint
+  limits, and incomplete execution fail closed.
+- Verification: Fifteen focused orchestrator tests and all 799 Python tests
+  pass. Static inspection confirms no network or subprocess import. No real
+  executor, workload, fault, service, credential, container, VM, network, or
+  remote resource was used.
+- Next exact action: Add `poc/load-soak/runtime_manifest.py`. Bind every one of
+  the 29 schedule entries to an exact owner-only executable/input/output
+  contract, binary SHA-256, qualified readiness hash, target class, timeout,
+  and cleanup owner. Reuse the completed raw OCI and five-client runners,
+  expose missing control/quota/fault/telemetry executors explicitly, and fail
+  closed until the manifest is complete; do not execute it.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1700,6 +1734,8 @@ operator-local release.
 | Full regression after load telemetry adapter | `uv run pytest -q` | passed; 761 |
 | Deterministic load execution manifest | `uv run pytest -q tests/test_load_soak_plan.py` | passed; 23 |
 | Full regression after execution manifest | `uv run pytest -q` | passed; 784 |
+| Fixture-only checkpointed orchestrator | `uv run pytest -q tests/test_load_soak_orchestrator.py` | passed; 15 |
+| Full regression after fixture orchestrator | `uv run pytest -q` | passed; 799 |
 
 ## Failures, Blockers, and Risks
 
@@ -1730,10 +1766,10 @@ operator-local release.
   Real RGW lifecycle evidence and current stable dependencies remain blocked;
   no real identity, credential, certificate, endpoint, or remote state
   changed.
-- Exact next action: Add `poc/load-soak/orchestrator.py` with typed executor,
-  fault, and telemetry seams. Replay the compiled profile/matrix/ramp/fault
-  order and transfer budgets through fixture-only adapters under owner-only
-  canonical checkpoints; reject all live adapters.
+- Exact next action: Add `poc/load-soak/runtime_manifest.py` binding every
+  schedule entry to exact owner-only executable/input/output, binary hash,
+  qualified readiness, timeout, target, and cleanup contracts. Reuse current
+  raw/client runners and expose every missing real executor without executing.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

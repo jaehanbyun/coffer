@@ -83,5 +83,14 @@ executor and verified-TLS behavior as required rather than claiming those
 runtime adapters have executed. The owner-only CLI emits a deterministic,
 canonical mode-0600 envelope and cannot start a subprocess or network client.
 
+`orchestrator.py` replays that compiled scope through one exact 29-step order:
+six client qualifications, smoke, seven ramp levels, qualification, ten
+serial faults, soak, and three telemetry windows. The fixture executor
+checkpoints canonical owner-only state after every step under a nonblocking
+lock, enforces per-step and cumulative budgets, resumes from the last complete
+entry, and produces only a synthetic terminal hash summary. Failed steps do
+not advance state, stale outputs and tampered history fail closed, and
+lookalike or live executors are rejected by exact type.
+
 Live execution remains gated on a fresh disposable Stage 6 pilot and qualified
 stable dependencies.
