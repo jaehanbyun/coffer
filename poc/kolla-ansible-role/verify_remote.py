@@ -254,6 +254,7 @@ def verify_remote_state() -> None:
         "coffer-registry/config.yml",
         "coffer-registry-metrics/coffer.conf",
         "coffer-registry-metrics/registry-metrics.key",
+        "coffer-reconcile/reconcile-metrics.key",
         "coffer-bootstrap/coffer.conf",
     ):
         assert re.search(

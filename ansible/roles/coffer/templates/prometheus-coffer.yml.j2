@@ -41,3 +41,19 @@ scrape_configs:
           service: coffer-registry
           instance: {{ host }}
 {% endfor %}
+{% if coffer_enable_reconcile | bool %}
+  - job_name: coffer-reconcile
+    scheme: {{ coffer_backend_protocol }}
+    metrics_path: /metrics
+    tls_config:
+      ca_file: {{ coffer_metrics_ca_file }}
+      server_name: {{ coffer_metrics_tls_server_name }}
+    static_configs:
+{% for host in groups['coffer-reconcile'] %}
+      - targets:
+          - {{ (('api' | kolla_address(host)) | put_address_in_context('url')) ~ ':' ~ coffer_reconcile_metrics_port }}
+        labels:
+          service: coffer-reconcile
+          instance: {{ host }}
+{% endfor %}
+{% endif %}

@@ -144,12 +144,13 @@ worker replacement cannot reset counters while retaining the old start time.
 Manifest quota admission now emits exactly the accepted ADR result classes;
 quota absence, internal database error, upstream failure, policy denial, and
 client-invalid cases cannot create dynamic labels or retain request identity.
-The API and edge now expose metrics on their direct verified-TLS backends
-only when enabled. The companion role pins one worker, emits per-host
+The API, edge, and periodic reconciler now expose metrics on direct
+verified-TLS backends. The companion role pins one API/edge worker, emits per-host
 Prometheus targets with CA/server-name verification, refuses a VIP target,
-and blocks operational/debug paths on the HAProxy service route. This still
-does not expose a reconciler management endpoint or install recording rules,
-alerts, or a Grafana dashboard.
+and blocks operational/debug paths on the HAProxy service route. The
+reconciler remains disabled in the Kolla production profile until its
+maintenance identity gate closes, so the role emits no phantom scrape target.
+This still does not install recording rules, alerts, or a Grafana dashboard.
 
 Distribution v3.1.1 cannot provide a native metrics-only listener: its debug
 server uses Go's default HTTP mux and the registry binary imports
@@ -161,3 +162,13 @@ upstream failures to a fixed 503, and returns 404 for query, profiling, and
 unknown paths. Its dedicated configuration receives no database, Keystone,
 RGW, Distribution HTTP, signing, or maintenance secret. Prometheus now
 scrapes each registry host through this verified-TLS proxy.
+
+Periodic reconciliation starts a process-owned TLS management listener in the
+same process as the serial scheduler. It exposes only `/healthz` and
+`/metrics`; one-shot mode never creates the listener. Each cycle records a
+fixed success/dependency-unavailable result, duration, last success time, and
+last scanned count. After each cycle an independent SQL read refreshes
+eligible backlog, active/expired claims, oldest eligible age, and database
+dependency state. A refresh failure retains no exception text and sets only
+the bounded database-up signal to zero. These gauges do not participate in
+claiming, fencing, or scheduling correctness.

@@ -166,6 +166,47 @@ def test_claims_divide_bounded_work_between_workers(tmp_path: Path) -> None:
     assert len({claim.claim_token for claim in first.claims + second.claims}) == 3
 
 
+def test_reconciliation_metrics_snapshot_is_sql_derived_and_bounded(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    reserve(store, 0)
+    reserve(store, 1)
+    observed_at = future()
+    claimed = store.claim_reconciliation_candidates(
+        worker_id="worker-a",
+        claimed_at=observed_at,
+        lease_for=timedelta(minutes=1),
+        stale_before=observed_at,
+        limit=1,
+    )
+
+    active = store.reconciliation_metrics_snapshot(
+        observed_at=observed_at + timedelta(seconds=30),
+        stale_after=timedelta(0),
+    )
+    expired = store.reconciliation_metrics_snapshot(
+        observed_at=observed_at + timedelta(seconds=61),
+        stale_after=timedelta(0),
+    )
+
+    assert active.backlog == 2
+    assert active.active_claims == 1
+    assert active.stale_claims == 0
+    assert active.oldest_pending_seconds > 0
+    assert expired.backlog == 2
+    assert expired.active_claims == 0
+    assert expired.stale_claims == 1
+    assert store.release_reconciliation_claim(
+        claimed.claims[0].claim_token
+    )
+    with pytest.raises(ValueError, match="timezone-aware"):
+        store.reconciliation_metrics_snapshot(
+            observed_at=datetime(2026, 7, 25),
+            stale_after=timedelta(0),
+        )
+
+
 def test_expired_claim_is_reassigned_and_old_token_is_fenced(
     tmp_path: Path,
 ) -> None:

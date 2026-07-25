@@ -1,8 +1,8 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; API/edge/Distribution private scrape boundaries
-  complete; periodic reconciler metrics next
+- Status: plan 0019 active; API/edge/Distribution/reconciler private metric
+  boundaries complete; rules, alerts, and dashboard next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -287,6 +287,22 @@ release contains it yet.
   negative worker/port cases, secret-recipient inspection, idempotent
   lifecycle actions, and zero harness residue. No remote listener,
   Prometheus, container, network, or service changed.
+- Periodic reconciliation now owns cycle result/duration, last-success/scanned,
+  and SQL-derived backlog, active/expired claim, oldest eligible age, and
+  database dependency metrics. The gauges do not participate in claim,
+  fencing, or scheduling correctness.
+- Periodic mode requires a TLS management listener in the same process and
+  exposes only exact `/healthz` and `/metrics`; query/debug/pprof paths are
+  fixed 404. One-shot mode constructs no listener. Failures retain no
+  dependency exception or tenant/repository/claim/credential value.
+- The Kolla future recipient binds to the direct API-interface address and
+  receives the backend listener certificate/key. It has no HAProxy route and
+  creates a Prometheus target only when reconciliation is enabled. The current
+  fail-closed profile stays disabled and emits no phantom target.
+- Seventy-three focused runtime/config tests, all 536 Python tests, and 88
+  Kolla role checks pass, including real verified TLS, owner-only key delivery,
+  idempotent lifecycle, and zero fixture residue. No remote listener,
+  credential, Prometheus target, container, network, or service changed.
 
 ## Plan 0018 Activation
 
@@ -2013,12 +2029,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add the periodic reconciler management listener beginning in
-`src/coffer/reconciliation_runner.py`. The periodic process must own
-restart-correct cycle and SQL-derived freshness metrics and expose only
-verified-TLS `/healthz` and `/metrics`; one-shot mode must expose no
-persistent listener. Add direct per-host Kolla discovery without an HAProxy
-route. Do not deploy remotely.
+Add versioned Prometheus recording and alert rules plus a Grafana operator
+dashboard under the companion role. Validate rule/query references, fixed
+labels and annotations, enable/disable cleanup, lifecycle idempotency, and
+secret/cardinality safety without contacting a remote service.
 
 ## After This Work Package
 

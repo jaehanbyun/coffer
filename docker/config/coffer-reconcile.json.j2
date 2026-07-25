@@ -12,7 +12,19 @@
             "dest": "/etc/coffer/registry-ca.crt",
             "owner": "coffer",
             "perm": "0644"
-        }{% if coffer_enable_maintenance_identity | bool %},
+        }{% if coffer_reconcile_mode == 'periodic' %},
+        {
+            "source": "{{ container_config_directory }}/reconcile-metrics.crt",
+            "dest": "/etc/coffer/reconcile-metrics.crt",
+            "owner": "coffer",
+            "perm": "0644"
+        },
+        {
+            "source": "{{ container_config_directory }}/reconcile-metrics.key",
+            "dest": "/etc/coffer/reconcile-metrics.key",
+            "owner": "coffer",
+            "perm": "0600"
+        }{% endif %}{% if coffer_enable_maintenance_identity | bool %},
         {
             "source": "{{ container_config_directory }}/maintenance-application-credential-id",
             "dest": "/etc/coffer/maintenance-application-credential-id",

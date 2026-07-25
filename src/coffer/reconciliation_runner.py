@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Sequence
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import ipaddress
 import logging
 import os
 import random
 import signal
+import socket
 import ssl
 import sys
 import threading
@@ -23,7 +25,7 @@ from oslo_config import cfg
 from coffer.config import parse_config, setup_logging
 from coffer.db import RepositoryStore
 from coffer.observability import CofferMetrics
-from coffer.quota import QuotaStore
+from coffer.quota import QuotaStore, ReconciliationMetricsSnapshot
 from coffer.quota_reconciliation import (
     HTTPDistributionManifestProbe,
     QuotaReconciler,
@@ -60,6 +62,50 @@ class Reconciler(Protocol):
         after: ReconciliationCursor | None = None,
         scan_started_at: datetime | None = None,
     ) -> ReconciliationRun: ...
+
+
+class ReconciliationSnapshotStore(Protocol):
+    def reconciliation_metrics_snapshot(
+        self,
+        *,
+        observed_at: datetime,
+        stale_after: timedelta,
+    ) -> ReconciliationMetricsSnapshot: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ReconciliationManagementSettings:
+    host: str
+    port: int
+    tls_certfile: str
+    tls_keyfile: str
+
+    @classmethod
+    def from_config(
+        cls,
+        conf: cfg.ConfigOpts,
+    ) -> ReconciliationManagementSettings:
+        options = conf.reconciliation
+        host = options.management_bind_host
+        if (
+            not host
+            or host.strip() != host
+            or "/" in host
+            or "\x00" in host
+        ):
+            raise RunnerConfigurationError(
+                "reconciliation management bind host is invalid"
+            )
+        if not options.management_tls_certfile or not options.management_tls_keyfile:
+            raise RunnerConfigurationError(
+                "periodic reconciliation management TLS is required"
+            )
+        return cls(
+            host=host,
+            port=options.management_bind_port,
+            tls_certfile=options.management_tls_certfile,
+            tls_keyfile=options.management_tls_keyfile,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -274,8 +320,13 @@ class PeriodicRunner:
         jitter_fraction: float,
         retry_initial_seconds: float,
         retry_max_seconds: float,
+        metrics: CofferMetrics | None = None,
+        snapshot_store: ReconciliationSnapshotStore | None = None,
+        stale_after: timedelta = timedelta(minutes=5),
         random_value: Callable[[], float] = random.random,
         monotonic: Callable[[], float] = time.monotonic,
+        wall_clock: Callable[[], float] = time.time,
+        now: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self._run_once = run_once
         self._stop_event = stop_event
@@ -283,8 +334,13 @@ class PeriodicRunner:
         self._jitter = jitter_fraction
         self._retry_initial = retry_initial_seconds
         self._retry_max = retry_max_seconds
+        self._metrics = metrics
+        self._snapshot_store = snapshot_store
+        self._stale_after = stale_after
         self._random_value = random_value
         self._monotonic = monotonic
+        self._wall_clock = wall_clock
+        self._now = now
 
     def _jittered(self, seconds: float) -> float:
         value = self._random_value()
@@ -297,16 +353,31 @@ class PeriodicRunner:
         backoff = self._retry_initial
         completed = 0
         while not self._stop_event.is_set():
+            started = self._monotonic()
             try:
                 result = self._run_once()
             except Exception:
                 LOG.error("reconciliation failed result=dependency_unavailable")
+                if self._metrics is not None:
+                    self._metrics.observe_reconciliation_cycle(
+                        "dependency_unavailable",
+                        max(0.0, self._monotonic() - started),
+                        scanned=0,
+                    )
                 base_delay = backoff
                 backoff = min(self._retry_max, backoff * 2.0)
             else:
+                if self._metrics is not None:
+                    self._metrics.observe_reconciliation_cycle(
+                        "success",
+                        max(0.0, self._monotonic() - started),
+                        scanned=result.scanned,
+                        completed_at=self._wall_clock(),
+                    )
                 backoff = self._retry_initial
                 log_run_summary(result)
                 base_delay = self._interval
+            self._refresh_snapshot()
             completed += 1
             if max_runs is not None and completed >= max_runs:
                 break
@@ -315,6 +386,114 @@ class PeriodicRunner:
             if self._stop_event.wait(remaining):
                 break
         return EXIT_OK
+
+    def _refresh_snapshot(self) -> None:
+        if self._metrics is None or self._snapshot_store is None:
+            return
+        try:
+            snapshot = self._snapshot_store.reconciliation_metrics_snapshot(
+                observed_at=self._now(),
+                stale_after=self._stale_after,
+            )
+        except Exception:
+            self._metrics.set_dependency_up("database", False)
+            LOG.error(
+                "reconciliation metrics refresh failed "
+                "result=dependency_unavailable"
+            )
+            return
+        self._metrics.set_reconciliation_snapshot(
+            backlog=snapshot.backlog,
+            active_claims=snapshot.active_claims,
+            stale_claims=snapshot.stale_claims,
+            oldest_pending_seconds=snapshot.oldest_pending_seconds,
+        )
+        self._metrics.set_dependency_up("database", True)
+
+
+class _ManagementHTTPServer(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def handle_error(
+        self,
+        request: object,
+        client_address: object,
+    ) -> None:
+        LOG.error("reconciliation management request failed result=internal_error")
+
+
+class _ManagementHTTPServerV6(_ManagementHTTPServer):
+    address_family = socket.AF_INET6
+
+
+def _management_handler(
+    metrics: CofferMetrics,
+) -> type[BaseHTTPRequestHandler]:
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            if self.path == "/healthz":
+                body = b'{"status":"ok","checks":{"process":"alive"}}'
+                content_type = "application/json"
+                status = 200
+            elif self.path == "/metrics":
+                body = metrics.render()
+                content_type = "text/plain; version=0.0.4; charset=utf-8"
+                status = 200
+            else:
+                body = b'{"status":"not_found"}'
+                content_type = "application/json"
+                status = 404
+            self.send_response(status)
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format: str, *args: object) -> None:
+            return
+
+    return Handler
+
+
+@contextmanager
+def running_management_server(
+    settings: ReconciliationManagementSettings,
+    metrics: CofferMetrics,
+) -> Iterator[int]:
+    try:
+        address = ipaddress.ip_address(settings.host)
+    except ValueError:
+        address = None
+    server_class = (
+        _ManagementHTTPServerV6
+        if address is not None and address.version == 6
+        else _ManagementHTTPServer
+    )
+    server = server_class(
+        (settings.host, settings.port),
+        _management_handler(metrics),
+    )
+    thread: threading.Thread | None = None
+    try:
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(
+            settings.tls_certfile,
+            settings.tls_keyfile,
+        )
+        server.socket = context.wrap_socket(server.socket, server_side=True)
+        thread = threading.Thread(
+            target=server.serve_forever,
+            name="coffer-reconcile-management",
+            daemon=True,
+        )
+        thread.start()
+        yield server.server_port
+    finally:
+        if thread is not None:
+            server.shutdown()
+            thread.join(timeout=10)
+        server.server_close()
 
 
 @contextmanager
@@ -340,6 +519,13 @@ def run_with_config(
     reconciler_factory: Callable[
         [cfg.ConfigOpts, RunnerSettings, CofferMetrics], Reconciler
     ] = build_reconciler,
+    snapshot_store_factory: Callable[
+        [cfg.ConfigOpts, RunnerSettings], ReconciliationSnapshotStore
+    ] = lambda conf, _settings: QuotaStore(conf.database.connection),
+    management_server_factory: Callable[
+        [ReconciliationManagementSettings, CofferMetrics],
+        AbstractContextManager[object],
+    ] = running_management_server,
     stop_event: StopEvent | None = None,
 ) -> int:
     try:
@@ -368,6 +554,15 @@ def run_with_config(
         log_run_summary(result)
         return EXIT_OK
 
+    try:
+        management_settings = ReconciliationManagementSettings.from_config(conf)
+        snapshot_store = snapshot_store_factory(conf, settings)
+    except (RunnerConfigurationError, SchemaNotReady, ValueError, OSError):
+        LOG.error("reconciliation startup failed result=invalid_configuration")
+        return EXIT_CONFIG
+    except Exception:
+        LOG.error("reconciliation startup failed result=dependency_unavailable")
+        return EXIT_TEMPFAIL
     event = stop_event or threading.Event()
     cycle = ReconciliationCycle(
         reconciler,
@@ -381,9 +576,20 @@ def run_with_config(
         jitter_fraction=settings.jitter_fraction,
         retry_initial_seconds=settings.retry_initial_seconds,
         retry_max_seconds=settings.retry_max_seconds,
+        metrics=metrics,
+        snapshot_store=snapshot_store,
+        stale_after=settings.stale_after,
     )
-    with installed_stop_signals(event):
-        return runner.run()
+    try:
+        with management_server_factory(management_settings, metrics):
+            with installed_stop_signals(event):
+                return runner.run()
+    except (RunnerConfigurationError, ValueError, OSError, ssl.SSLError):
+        LOG.error("reconciliation startup failed result=invalid_configuration")
+        return EXIT_CONFIG
+    except Exception:
+        LOG.error("reconciliation stopped result=dependency_unavailable")
+        return EXIT_TEMPFAIL
 
 
 def main(argv: Sequence[str] | None = None) -> int:

@@ -312,6 +312,7 @@
       coffer-edge: "edge.crt"
       coffer-registry: "registry.crt"
       coffer-registry-metrics: "registry-metrics.crt"
+      coffer-reconcile: "reconcile-metrics.crt"
   ansible.builtin.copy:
     src: "{{ coffer_backend_tls_cert }}"
     dest: >-
@@ -339,6 +340,7 @@
       coffer-edge: "edge.key"
       coffer-registry: "registry.key"
       coffer-registry-metrics: "registry-metrics.key"
+      coffer-reconcile: "reconcile-metrics.key"
   ansible.builtin.copy:
     src: "{{ coffer_backend_tls_key }}"
     dest: >-
@@ -358,6 +360,30 @@
     }}
   loop_control:
     label: "{{ item.key }}"
+  no_log: true
+
+- name: Copy backend TLS listener files to the disabled reconciler fixture
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ node_config_directory }}/coffer-reconcile/{{ item.dest }}"
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "{{ item.mode }}"
+  become: true
+  loop:
+    - src: "{{ coffer_backend_tls_cert }}"
+      dest: "reconcile-metrics.crt"
+      mode: "0644"
+    - src: "{{ coffer_backend_tls_key }}"
+      dest: "reconcile-metrics.key"
+      mode: "0600"
+  loop_control:
+    label: "{{ item.dest }}"
+  when:
+    - coffer_enable_maintenance_identity | bool
+    - not coffer_enable_reconcile | bool
+    - coffer_reconcile_mode == 'periodic'
+    - inventory_hostname in groups['coffer-reconcile']
   no_log: true
 
 - name: Copy Kolla CA bundles into Coffer containers

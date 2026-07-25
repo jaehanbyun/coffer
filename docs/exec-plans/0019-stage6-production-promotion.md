@@ -943,6 +943,40 @@ operator-local release.
   verified-TLS `/healthz` and `/metrics`, stay absent in one-shot mode, and
   integrate direct per-host Kolla discovery without an HAProxy route.
 
+### 2026-07-25 — Periodic reconciler management metrics completed locally
+
+- Runtime: The serial periodic process now owns cycle result/duration,
+  last-success/scanned, and SQL-derived backlog, active/expired claim, oldest
+  eligible age, and bounded database dependency metrics. Metrics never
+  participate in SQL claim/fencing correctness.
+- Exposure: Periodic mode requires a TLS certificate/key and starts a small
+  management server in the same process. Only exact GET `/healthz` and
+  `/metrics` are accepted; query/debug/pprof paths return fixed 404 responses.
+  One-shot mode never constructs the listener.
+- Failure semantics: Cycle exceptions increment only
+  `dependency_unavailable`; SQL snapshot failure sets the bounded database-up
+  gauge to zero. Exception text, worker/project/repository/digest/claim, and
+  credential values do not enter metrics or management responses.
+- Kolla contract: The future enabled reconciler binds its management listener
+  to the direct API-interface address and receives only its existing
+  maintenance inputs plus the backend listener certificate/key. The service
+  has no HAProxy route. Prometheus emits a per-host reconciler job only when
+  the reconciler is enabled; the current fail-closed profile emits no phantom
+  target.
+- Verification: The focused observability/quota/runner/config matrix passes
+  73 tests, including a real verified-TLS listener, and all 536 Python tests
+  pass. The complete Kolla
+  lifecycle passes 88 checks, including listener rendering, owner-only key
+  delivery, disabled target refusal, lifecycle idempotency, and zero fixture
+  residue. Compilation, syntax, and diff checks pass.
+- Scope: Local runtime, SQL read model, templates, and fixture-only Ansible
+  execution. The reconciler remains disabled; no remote listener, credential,
+  Prometheus target, container, network, or service changed.
+- Next exact action: Add versioned Prometheus recording/alert rules and a
+  Grafana operator dashboard under the companion role. Validate rule/query
+  references, fixed labels/annotations, enable/disable cleanup, and
+  idempotency without contacting a remote service.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -998,6 +1032,9 @@ operator-local release.
 | Distribution metrics proxy focused regression | `uv run pytest -q tests/test_registry_metrics_runner.py tests/test_config_validator.py` | passed; 20 |
 | Full regression after Distribution metrics isolation | `uv run pytest -q` | passed; 525 |
 | Kolla Distribution metrics isolation contract | `make -C poc/kolla-ansible-role verify` | passed; 85 |
+| Periodic reconciler management focused regression | `uv run pytest -q tests/test_observability.py tests/test_quota_reconciliation.py tests/test_reconciliation_runner.py tests/test_config_validator.py` | passed; 73 |
+| Full regression after periodic reconciler management | `uv run pytest -q` | passed; 536 |
+| Kolla periodic reconciler management contract | `make -C poc/kolla-ansible-role verify` | passed; 88 |
 
 ## Failures, Blockers, and Risks
 
@@ -1027,10 +1064,11 @@ operator-local release.
   lifecycle through an ordered no-network adapter seam. Real lifecycle
   evidence and current stable dependencies remain blocked; no real identity,
   credential, certificate, endpoint, or remote state changed.
-- Exact next action: Add the periodic reconciler management listener beginning
-  in `src/coffer/reconciliation_runner.py`, with process-owned cycle/freshness
-  metrics, verified-TLS direct scrape, no HAProxy route, and no persistent
-  one-shot endpoint.
+- Exact next action: Add versioned Prometheus recording and alert rules plus a
+  Grafana operator dashboard under the companion role. Validate rule/query
+  references, fixed labels/annotations, enable/disable cleanup, lifecycle
+  idempotency, and secret/cardinality safety without contacting a remote
+  service.
 - Questions requiring user input: None for the next fixture-only lifecycle
   milestone. The user has already authorized atomic milestone publication and
   the bounded disposable Stage 6 sequence; exact safety and release gates

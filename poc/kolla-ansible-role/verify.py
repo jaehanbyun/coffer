@@ -664,6 +664,7 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
         "coffer-registry-metrics/registry-metrics.key": 0o600,
         "coffer-bootstrap/coffer.conf": 0o600,
         "coffer-reconcile/coffer.conf": 0o600,
+        "coffer-reconcile/reconcile-metrics.key": 0o600,
         "coffer-reconcile/maintenance-application-credential-id": 0o600,
         "coffer-reconcile/maintenance-application-credential-secret": 0o600,
         "coffer-reconcile/maintenance-client.key": 0o600,
@@ -748,6 +749,8 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
     }
     check(
         {
+            "/etc/coffer/reconcile-metrics.crt",
+            "/etc/coffer/reconcile-metrics.key",
             "/etc/coffer/maintenance-application-credential-id",
             "/etc/coffer/maintenance-application-credential-secret",
             "/etc/coffer/maintenance-client.crt",
@@ -755,6 +758,25 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
         }
         <= reconcile_destinations,
         "disabled reconciler fixture declares exact future runtime recipients",
+    )
+    reconcile_config = (
+        target / "coffer-reconcile" / "coffer.conf"
+    ).read_text(encoding="utf-8")
+    check(
+        "mode = periodic" in reconcile_config
+        and "management_bind_host = 127.0.0.1" in reconcile_config
+        and "management_bind_port = 18790" in reconcile_config
+        and (
+            "management_tls_certfile = "
+            "/etc/coffer/reconcile-metrics.crt"
+        )
+        in reconcile_config
+        and (
+            "management_tls_keyfile = "
+            "/etc/coffer/reconcile-metrics.key"
+        )
+        in reconcile_config,
+        "periodic reconciler fixture renders the private TLS management listener",
     )
     api_config = (target / "coffer-api" / "coffer.conf").read_text(
         encoding="utf-8"
@@ -880,7 +902,7 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
     check(
         [job["job_name"] for job in scrape_configs]
         == ["coffer-api", "coffer-edge", "coffer-registry"],
-        "Prometheus owns separate API, edge, and registry direct-scrape jobs",
+        "Prometheus omits the disabled reconciler and owns enabled direct jobs",
     )
     targets = {
         target_value
@@ -895,6 +917,12 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
         and "registry.internal.example.test:18787"
         not in prometheus_path.read_text(encoding="utf-8"),
         "Prometheus targets direct backend addresses and never a VIP or FQDN",
+    )
+    check(
+        "coffer-reconcile" not in prometheus_path.read_text(encoding="utf-8")
+        and "127.0.0.1:18790"
+        not in prometheus_path.read_text(encoding="utf-8"),
+        "disabled one-shot or periodic reconciler creates no phantom scrape target",
     )
     check(
         all(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+import threading
 import time
 from typing import Any, Protocol
 
@@ -56,6 +57,12 @@ ADMISSION_RESULTS = frozenset(
 )
 RECONCILIATION_RESULTS = frozenset(
     {"absent", "indeterminate", "present", "stale_claim", "stale_version"}
+)
+RECONCILIATION_CYCLE_RESULTS = frozenset(
+    {"dependency_unavailable", "success"}
+)
+BOUNDED_DEPENDENCIES = frozenset(
+    {"database", "haproxy", "keystone", "kms", "registry", "rgw"}
 )
 EDGE_ROUTE_CLASSES = frozenset(
     {"edge-auth", "edge-blob", "edge-manifest", "edge-other", "edge-upload"}
@@ -162,6 +169,65 @@ class CofferMetrics:
             ["result"],
             registry=self.registry,
         )
+        self._reconciliation_lock = threading.RLock()
+        self._reconciliation_cycles: Counter | None = None
+        self._reconciliation_cycle_duration: Histogram | None = None
+        self._reconciliation_last_success: Gauge | None = None
+        self._reconciliation_last_scanned: Gauge | None = None
+        self._reconciliation_backlog: Gauge | None = None
+        self._reconciliation_active_claims: Gauge | None = None
+        self._reconciliation_stale_claims: Gauge | None = None
+        self._reconciliation_oldest_pending: Gauge | None = None
+        self._dependency_up: Gauge | None = None
+        if component == "reconcile":
+            self._reconciliation_cycles = Counter(
+                "coffer_reconciliation_cycles_total",
+                "Periodic reconciliation cycles by bounded result class.",
+                ["result"],
+                registry=self.registry,
+            )
+            self._reconciliation_cycle_duration = Histogram(
+                "coffer_reconciliation_cycle_duration_seconds",
+                "Periodic reconciliation cycle duration.",
+                buckets=(0.01, 0.1, 0.5, 1, 2.5, 5, 10, 30, 60, 120, 300),
+                registry=self.registry,
+            )
+            self._reconciliation_last_success = Gauge(
+                "coffer_reconciliation_last_success_timestamp_seconds",
+                "Unix time of the last successful periodic cycle.",
+                registry=self.registry,
+            )
+            self._reconciliation_last_scanned = Gauge(
+                "coffer_reconciliation_last_scanned",
+                "Candidates scanned by the last successful periodic cycle.",
+                registry=self.registry,
+            )
+            self._reconciliation_backlog = Gauge(
+                "coffer_reconciliation_backlog",
+                "Current SQL-derived eligible reconciliation backlog.",
+                registry=self.registry,
+            )
+            self._reconciliation_active_claims = Gauge(
+                "coffer_reconciliation_active_claims",
+                "Current SQL-derived unexpired reconciliation claims.",
+                registry=self.registry,
+            )
+            self._reconciliation_stale_claims = Gauge(
+                "coffer_reconciliation_stale_claims",
+                "Current SQL-derived expired reconciliation claims.",
+                registry=self.registry,
+            )
+            self._reconciliation_oldest_pending = Gauge(
+                "coffer_reconciliation_oldest_pending_seconds",
+                "Age of the oldest SQL-derived eligible reconciliation item.",
+                registry=self.registry,
+            )
+            self._dependency_up = Gauge(
+                "coffer_dependency_up",
+                "Bounded dependency availability observed by Coffer.",
+                ["component", "dependency"],
+                registry=self.registry,
+            )
 
     def observe_http(
         self,
@@ -216,6 +282,83 @@ class CofferMetrics:
             raise ValueError("quota reconciliation metric result is not bounded")
         self._reconciliation.labels(result=result).inc()
 
+    def observe_reconciliation_cycle(
+        self,
+        result: str,
+        duration_seconds: float,
+        *,
+        scanned: int,
+        completed_at: float | None = None,
+    ) -> None:
+        if self.component != "reconcile":
+            raise ValueError("reconciliation cycle metrics require the reconcile component")
+        if result not in RECONCILIATION_CYCLE_RESULTS:
+            raise ValueError("reconciliation cycle metric result is not bounded")
+        if isinstance(scanned, bool) or not isinstance(scanned, int) or scanned < 0:
+            raise ValueError("reconciliation scanned count is invalid")
+        assert self._reconciliation_cycles is not None
+        assert self._reconciliation_cycle_duration is not None
+        assert self._reconciliation_last_success is not None
+        assert self._reconciliation_last_scanned is not None
+        with self._reconciliation_lock:
+            self._reconciliation_cycles.labels(result=result).inc()
+            self._reconciliation_cycle_duration.observe(
+                _duration(duration_seconds)
+            )
+            if result == "success":
+                timestamp = (
+                    self._wall_clock()
+                    if completed_at is None
+                    else completed_at
+                )
+                self._reconciliation_last_success.set(
+                    _duration(float(timestamp))
+                )
+                self._reconciliation_last_scanned.set(scanned)
+
+    def set_reconciliation_snapshot(
+        self,
+        *,
+        backlog: int,
+        active_claims: int,
+        stale_claims: int,
+        oldest_pending_seconds: float,
+    ) -> None:
+        if self.component != "reconcile":
+            raise ValueError("reconciliation state metrics require the reconcile component")
+        counts = (backlog, active_claims, stale_claims)
+        if any(
+            isinstance(value, bool)
+            or not isinstance(value, int)
+            or value < 0
+            for value in counts
+        ):
+            raise ValueError("reconciliation state count is invalid")
+        oldest = _duration(oldest_pending_seconds)
+        assert self._reconciliation_backlog is not None
+        assert self._reconciliation_active_claims is not None
+        assert self._reconciliation_stale_claims is not None
+        assert self._reconciliation_oldest_pending is not None
+        with self._reconciliation_lock:
+            self._reconciliation_backlog.set(backlog)
+            self._reconciliation_active_claims.set(active_claims)
+            self._reconciliation_stale_claims.set(stale_claims)
+            self._reconciliation_oldest_pending.set(oldest)
+
+    def set_dependency_up(self, dependency: str, up: bool) -> None:
+        if self.component != "reconcile":
+            raise ValueError("dependency metrics require the reconcile component")
+        if dependency not in BOUNDED_DEPENDENCIES:
+            raise ValueError("dependency metric label is not bounded")
+        if not isinstance(up, bool):
+            raise ValueError("dependency metric state is invalid")
+        assert self._dependency_up is not None
+        with self._reconciliation_lock:
+            self._dependency_up.labels(
+                component=self.component,
+                dependency=dependency,
+            ).set(1 if up else 0)
+
     def mark_process_started(self) -> None:
         try:
             process_start = _duration(float(self._wall_clock()))
@@ -227,7 +370,8 @@ class CofferMetrics:
         ).set(process_start)
 
     def render(self) -> bytes:
-        return generate_latest(self.registry)
+        with self._reconciliation_lock:
+            return generate_latest(self.registry)
 
 
 def _duration(value: float) -> float:

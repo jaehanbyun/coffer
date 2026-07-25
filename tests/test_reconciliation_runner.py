@@ -1,23 +1,36 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 import hashlib
+import http.client
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import logging
 from pathlib import Path
 import signal
+import ssl
 import subprocess
 import threading
 
 from alembic import command
 from alembic.config import Config
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 import pytest
 from sqlalchemy import create_engine, inspect
 
 from coffer.config import new_config
 from coffer.db import RepositoryStore
-from coffer.quota import Descriptor, QuotaStore, ReconciliationCursor
+from coffer.observability import CofferMetrics
+from coffer.quota import (
+    Descriptor,
+    QuotaStore,
+    ReconciliationCursor,
+    ReconciliationMetricsSnapshot,
+)
 from coffer.quota_reconciliation import ReconciliationRun
 from coffer.reconciliation_runner import (
     EXIT_CONFIG,
@@ -26,9 +39,11 @@ from coffer.reconciliation_runner import (
     MUTATION_GRACE_SECONDS,
     PeriodicRunner,
     ReconciliationCycle,
+    ReconciliationManagementSettings,
     RunnerConfigurationError,
     RunnerSettings,
     installed_stop_signals,
+    running_management_server,
     run_with_config,
 )
 
@@ -72,6 +87,10 @@ def config(**overrides: object):
         "jitter_fraction": 0.1,
         "retry_initial_seconds": 5.0,
         "retry_max_seconds": 60.0,
+        "management_bind_host": "127.0.0.1",
+        "management_bind_port": 8790,
+        "management_tls_certfile": None,
+        "management_tls_keyfile": None,
     }
     baseline.update(overrides)
     for name, value in baseline.items():
@@ -118,6 +137,64 @@ class FakeStopEvent:
         if self._stop_on_wait:
             self._set = True
         return self._set
+
+
+class FakeSnapshotStore:
+    def __init__(
+        self,
+        outcome: ReconciliationMetricsSnapshot | Exception,
+    ) -> None:
+        self.outcome = outcome
+        self.calls = 0
+
+    def reconciliation_metrics_snapshot(
+        self,
+        *,
+        observed_at,
+        stale_after,
+    ) -> ReconciliationMetricsSnapshot:
+        assert observed_at.tzinfo is not None
+        assert stale_after.total_seconds() >= 0
+        self.calls += 1
+        if isinstance(self.outcome, Exception):
+            raise self.outcome
+        return self.outcome
+
+
+def management_certificate(tmp_path: Path) -> tuple[Path, Path]:
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "localhost")])
+    certificate = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(1)
+        .not_valid_before(datetime(2026, 7, 24, tzinfo=UTC))
+        .not_valid_after(datetime(2027, 7, 25, tzinfo=UTC))
+        .add_extension(
+            x509.SubjectAlternativeName([x509.DNSName("localhost")]),
+            critical=False,
+        )
+        .add_extension(
+            x509.BasicConstraints(ca=True, path_length=None),
+            critical=True,
+        )
+        .sign(key, hashes.SHA256())
+    )
+    certificate_path = tmp_path / "management.crt"
+    key_path = tmp_path / "management.key"
+    certificate_path.write_bytes(
+        certificate.public_bytes(serialization.Encoding.PEM)
+    )
+    key_path.write_bytes(
+        key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+    )
+    return certificate_path, key_path
 
 
 def test_settings_require_a_safe_origin_and_sequential_lease_budget() -> None:
@@ -367,6 +444,158 @@ def test_periodic_runner_never_overlaps_local_runs() -> None:
 
     assert runner.run(max_runs=3) == EXIT_OK
     assert maximum_depth == 1
+
+
+def test_periodic_runner_updates_cycle_and_sql_snapshot_metrics() -> None:
+    metrics = CofferMetrics(
+        component="reconcile",
+        wall_clock=lambda: 1000.0,
+    )
+    snapshot = FakeSnapshotStore(
+        ReconciliationMetricsSnapshot(
+            backlog=3,
+            active_claims=2,
+            stale_claims=1,
+            oldest_pending_seconds=301.0,
+        )
+    )
+    runner = PeriodicRunner(
+        lambda: result(scanned=4, present=4),
+        FakeStopEvent(),
+        interval_seconds=1.0,
+        jitter_fraction=0.0,
+        retry_initial_seconds=1.0,
+        retry_max_seconds=2.0,
+        metrics=metrics,
+        snapshot_store=snapshot,
+        random_value=lambda: 0.5,
+        monotonic=lambda: 0.0,
+        wall_clock=lambda: 1234.0,
+        now=lambda: datetime(2026, 7, 25, tzinfo=UTC),
+    )
+
+    assert runner.run(max_runs=1) == EXIT_OK
+    rendered = metrics.render().decode()
+    assert snapshot.calls == 1
+    assert 'result="success"} 1.0' in rendered
+    assert "coffer_reconciliation_last_success_timestamp_seconds 1234.0" in rendered
+    assert "coffer_reconciliation_last_scanned 4.0" in rendered
+    assert "coffer_reconciliation_backlog 3.0" in rendered
+    assert (
+        'coffer_dependency_up{component="reconcile",dependency="database"} 1.0'
+        in rendered
+    )
+
+    snapshot.outcome = RuntimeError("credential-secret")
+    assert runner.run(max_runs=1) == EXIT_OK
+    rendered = metrics.render().decode()
+    assert (
+        'coffer_dependency_up{component="reconcile",dependency="database"} 0.0'
+        in rendered
+    )
+    assert "credential-secret" not in rendered
+
+
+def test_periodic_management_server_exposes_only_verified_tls_metrics(
+    tmp_path: Path,
+) -> None:
+    certificate, key = management_certificate(tmp_path)
+    settings = ReconciliationManagementSettings(
+        host="127.0.0.1",
+        port=0,
+        tls_certfile=str(certificate),
+        tls_keyfile=str(key),
+    )
+    metrics = CofferMetrics(component="reconcile", wall_clock=lambda: 123.0)
+    context = ssl.create_default_context(cafile=str(certificate))
+
+    with running_management_server(settings, metrics) as port:
+        connection = http.client.HTTPSConnection(
+            "localhost",
+            port,
+            timeout=5,
+            context=context,
+        )
+        connection.request("GET", "/healthz")
+        health = connection.getresponse()
+        health_body = health.read()
+        connection.request("GET", "/metrics")
+        rendered = connection.getresponse()
+        metrics_body = rendered.read()
+        connection.request("GET", "/metrics?repository=secret")
+        query = connection.getresponse()
+        query_body = query.read()
+        connection.request("GET", "/debug/pprof/")
+        debug = connection.getresponse()
+        debug_body = debug.read()
+        connection.close()
+
+    assert health.status == 200
+    assert b'"process":"alive"' in health_body
+    assert rendered.status == 200
+    assert b"coffer_process_start_time_seconds" in metrics_body
+    assert b"repository" not in metrics_body
+    assert query.status == 404
+    assert debug.status == 404
+    assert b"secret" not in query_body + debug_body
+
+
+def test_one_shot_never_starts_a_management_listener() -> None:
+    called = False
+
+    @contextmanager
+    def forbidden_management(_settings, _metrics):
+        nonlocal called
+        called = True
+        yield
+
+    assert run_with_config(
+        config(),
+        reconciler_factory=lambda _conf, _settings, _metrics: FakeReconciler(
+            iter([result()])
+        ),
+        management_server_factory=forbidden_management,
+    ) == EXIT_OK
+    assert not called
+
+
+def test_periodic_requires_tls_and_closes_the_management_listener() -> None:
+    reconciler = FakeReconciler(iter([result()]))
+    event = FakeStopEvent(stop_on_wait=True)
+    entered = False
+    exited = False
+
+    @contextmanager
+    def fake_management(settings, metrics):
+        nonlocal entered, exited
+        assert settings.port == 8790
+        assert metrics.component == "reconcile"
+        entered = True
+        try:
+            yield
+        finally:
+            exited = True
+
+    periodic = config(
+        mode="periodic",
+        management_tls_certfile="/fixture/management.crt",
+        management_tls_keyfile="/fixture/management.key",
+    )
+    assert run_with_config(
+        periodic,
+        reconciler_factory=lambda _conf, _settings, _metrics: reconciler,
+        snapshot_store_factory=lambda _conf, _settings: FakeSnapshotStore(
+            ReconciliationMetricsSnapshot(0, 0, 0, 0.0)
+        ),
+        management_server_factory=fake_management,
+        stop_event=event,
+    ) == EXIT_OK
+    assert entered and exited
+    assert run_with_config(
+        config(mode="periodic"),
+        reconciler_factory=lambda _conf, _settings, _metrics: reconciler,
+        stop_event=FakeStopEvent(stop_on_wait=True),
+    ) == EXIT_CONFIG
 
 
 def test_signal_context_sets_stop_event_and_restores_handlers() -> None:

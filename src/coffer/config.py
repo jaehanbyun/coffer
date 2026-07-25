@@ -103,6 +103,10 @@ RECONCILIATION_OPTS = [
     cfg.FloatOpt("jitter_fraction", default=0.1, min=0.0, max=0.5),
     cfg.FloatOpt("retry_initial_seconds", default=5.0, min=0.1, max=3600.0),
     cfg.FloatOpt("retry_max_seconds", default=60.0, min=0.1, max=3600.0),
+    cfg.StrOpt("management_bind_host", default="127.0.0.1"),
+    cfg.PortOpt("management_bind_port", default=8790),
+    cfg.StrOpt("management_tls_certfile"),
+    cfg.StrOpt("management_tls_keyfile"),
 ]
 
 

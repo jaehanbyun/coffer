@@ -36,6 +36,7 @@ coffer_rgw_bucket: coffer-stage3-contract
 coffer_enable_reconcile: false
 coffer_enable_maintenance_identity: true
 coffer_maintenance_port: "18790"
+coffer_reconcile_metrics_port: "18790"
 coffer_maintenance_service_project_id: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 coffer_maintenance_user_id: bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb
 coffer_maintenance_workloads:

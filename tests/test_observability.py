@@ -270,3 +270,76 @@ def test_reconciliation_metrics_accept_only_fixed_result_classes() -> None:
 
     with pytest.raises(ValueError, match="not bounded"):
         metrics.observe_reconciliation("project-a")
+
+
+def test_periodic_reconciliation_metrics_are_restart_and_snapshot_correct() -> None:
+    metrics = CofferMetrics(
+        component="reconcile",
+        wall_clock=lambda: 1000.0,
+    )
+
+    metrics.observe_reconciliation_cycle(
+        "success",
+        2.5,
+        scanned=7,
+        completed_at=1234.0,
+    )
+    metrics.observe_reconciliation_cycle(
+        "dependency_unavailable",
+        1.0,
+        scanned=0,
+    )
+    metrics.set_reconciliation_snapshot(
+        backlog=11,
+        active_claims=2,
+        stale_claims=1,
+        oldest_pending_seconds=305.0,
+    )
+    metrics.set_dependency_up("database", True)
+    rendered = metrics.render().decode()
+
+    assert (
+        'coffer_reconciliation_cycles_total{result="success"} 1.0'
+        in rendered
+    )
+    assert (
+        'coffer_reconciliation_cycles_total{result="dependency_unavailable"} 1.0'
+        in rendered
+    )
+    assert "coffer_reconciliation_last_success_timestamp_seconds 1234.0" in rendered
+    assert "coffer_reconciliation_last_scanned 7.0" in rendered
+    assert "coffer_reconciliation_backlog 11.0" in rendered
+    assert "coffer_reconciliation_active_claims 2.0" in rendered
+    assert "coffer_reconciliation_stale_claims 1.0" in rendered
+    assert "coffer_reconciliation_oldest_pending_seconds 305.0" in rendered
+    assert (
+        'coffer_dependency_up{component="reconcile",dependency="database"} 1.0'
+        in rendered
+    )
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [
+        lambda: CofferMetrics().observe_reconciliation_cycle(
+            "success", 1.0, scanned=1
+        ),
+        lambda: CofferMetrics(component="reconcile").observe_reconciliation_cycle(
+            "repository-a", 1.0, scanned=1
+        ),
+        lambda: CofferMetrics(component="reconcile").set_reconciliation_snapshot(
+            backlog=-1,
+            active_claims=0,
+            stale_claims=0,
+            oldest_pending_seconds=0,
+        ),
+        lambda: CofferMetrics(component="reconcile").set_dependency_up(
+            "repository-a", True
+        ),
+    ],
+)
+def test_periodic_reconciliation_metric_schema_refuses_unbounded_state(
+    operation,
+) -> None:
+    with pytest.raises(ValueError):
+        operation()

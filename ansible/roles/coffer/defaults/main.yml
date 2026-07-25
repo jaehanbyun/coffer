@@ -25,6 +25,7 @@ coffer_api_port: "8787"
 coffer_edge_port: "8788"
 coffer_registry_port: "8789"
 coffer_maintenance_port: "8790"
+coffer_reconcile_metrics_port: "8790"
 coffer_registry_metrics_port: "8791"
 coffer_registry_debug_port: "8792"
 coffer_api_external: false
@@ -252,8 +253,8 @@ coffer_registry_metrics_healthcheck_test:
 coffer_reconcile_healthcheck_test:
   - "CMD-SHELL"
   - >-
-    test -r /proc/1/cmdline &&
-    grep -aq coffer-reconcile /proc/1/cmdline
+    healthcheck_listen coffer-reconcile
+    {{ coffer_reconcile_metrics_port }}
 
 coffer_api_healthcheck:
   interval: "{{ default_container_healthcheck_interval }}"
@@ -466,6 +467,7 @@ coffer_services:
   coffer-reconcile:
     container_name: "coffer_reconcile"
     group: "coffer-reconcile"
+    port: "{{ coffer_reconcile_metrics_port }}"
     image: "{{ coffer_image_full }}"
     enabled: "{{ coffer_enable_reconcile }}"
     volumes: >-

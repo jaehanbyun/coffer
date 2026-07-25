@@ -19,6 +19,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    func,
     Index,
     MetaData,
     String,
@@ -500,6 +501,14 @@ class ReconciliationClaimPage:
 
 
 @dataclass(frozen=True, slots=True)
+class ReconciliationMetricsSnapshot:
+    backlog: int
+    active_claims: int
+    stale_claims: int
+    oldest_pending_seconds: float
+
+
+@dataclass(frozen=True, slots=True)
 class ReconciliationReadAuthority:
     project_id: str
     repository_id: str
@@ -916,6 +925,52 @@ class QuotaStore:
             )
         return ReconciliationClaimPage(
             claims=tuple(claims), next_cursor=next_cursor
+        )
+
+    def reconciliation_metrics_snapshot(
+        self,
+        *,
+        observed_at: datetime,
+        stale_after: timedelta,
+    ) -> ReconciliationMetricsSnapshot:
+        if observed_at.tzinfo is None or observed_at.utcoffset() is None:
+            raise ValueError("reconciliation metrics time must be timezone-aware")
+        if stale_after.total_seconds() < 0:
+            raise ValueError("reconciliation metrics stale_after must not be negative")
+        stale_before = observed_at - stale_after
+        with self._reader() as conn:
+            backlog, oldest_pending = conn.execute(
+                select(
+                    func.count(quota_reservations.c.id),
+                    func.min(quota_reservations.c.updated_at),
+                ).where(
+                    quota_reservations.c.state.in_(RECONCILIATION_STATES),
+                    quota_reservations.c.updated_at <= stale_before,
+                )
+            ).one()
+            active_claims = conn.execute(
+                select(func.count(quota_reconciliation_claims.c.reservation_id)).where(
+                    quota_reconciliation_claims.c.expires_at > observed_at
+                )
+            ).scalar_one()
+            stale_claims = conn.execute(
+                select(func.count(quota_reconciliation_claims.c.reservation_id)).where(
+                    quota_reconciliation_claims.c.expires_at <= observed_at
+                )
+            ).scalar_one()
+        oldest_seconds = 0.0
+        if oldest_pending is not None:
+            if oldest_pending.tzinfo is None:
+                oldest_pending = oldest_pending.replace(tzinfo=UTC)
+            oldest_seconds = max(
+                0.0,
+                (observed_at - oldest_pending).total_seconds(),
+            )
+        return ReconciliationMetricsSnapshot(
+            backlog=int(backlog),
+            active_claims=int(active_claims),
+            stale_claims=int(stale_claims),
+            oldest_pending_seconds=oldest_seconds,
         )
 
     @_retryable_quota_write

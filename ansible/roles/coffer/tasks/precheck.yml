@@ -99,11 +99,17 @@
       - >-
         [coffer_api_port | int, coffer_edge_port | int,
          coffer_registry_port | int, coffer_registry_metrics_port | int,
-         coffer_registry_debug_port | int] | unique | length == 5
+         coffer_registry_debug_port | int,
+         coffer_reconcile_metrics_port | int] | unique | length == 6
+      - coffer_reconcile_metrics_port | int >= 1024
+      - coffer_reconcile_metrics_port | int <= 65535
       - coffer_metrics_ca_file | length > 0
       - coffer_metrics_tls_server_name | length > 0
       - "'/' not in coffer_metrics_tls_server_name"
       - "'@' not in coffer_metrics_tls_server_name"
+      - >-
+        not coffer_enable_reconcile | bool or
+        coffer_reconcile_mode == 'periodic'
     fail_msg: >-
       Coffer metrics require Prometheus, verified backend TLS, exactly one
       API, edge, and registry metrics worker per container, distinct bounded
@@ -126,7 +132,8 @@
       (
         groups['coffer-api'] +
         groups['coffer-edge'] +
-        groups['coffer-registry']
+        groups['coffer-registry'] +
+        (groups['coffer-reconcile'] if coffer_enable_reconcile | bool else [])
       ) |
       unique |
       list

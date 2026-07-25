@@ -22,8 +22,9 @@ production-correct:
   one-worker startup gate is satisfied;
 - the quota edge records bounded request classes and exposes its private
   direct-backend scrape application when metrics are enabled;
-- the reconciler creates process-local counters but exposes no scrape
-  endpoint, and one-shot counters disappear at exit;
+- the periodic reconciler owns a private verified-TLS management listener,
+  cycle metrics, and SQL-derived freshness gauges; one-shot creates no
+  listener;
 - Prometheus directly enumerates every API, edge, and registry backend rather
   than an FQDN/VIP;
 - Distribution's debug mux is loopback-only and a verified-TLS allowlist
@@ -57,7 +58,7 @@ endpoint, or pilot evidence.
 | `coffer-api` | direct-backend `/healthz`, SQL `/readyz`, optional `/metrics`; process-start, bounded HTTP, token, readiness, and reconciliation counters; metrics-enabled worker count must be one; HAProxy operational-path denial | no dependency/session gauges; live multi-replica scrape not yet proven |
 | `coffer-edge` | direct-backend `/healthz`, SQL `/readyz`, optional `/metrics`; bounded route/method/status, quota-admission outcome/duration, and process-start; HAProxy route denial | no generic upstream-result metrics; live multi-replica scrape not yet proven |
 | Distribution | `/v2/` health through HAProxy; JSON logs; loopback debug mux; separate verified-TLS `/metrics` allowlist proxy; direct per-host scrape | live multi-replica scrape and failure recovery not yet proven |
-| `coffer-reconcile` | aggregate cycle logs and process-local result counters | no scrape listener; counters disappear; no cycle/backlog/lease gauges |
+| `coffer-reconcile` | periodic-only private TLS `/healthz` and `/metrics`; process/cycle outcomes, duration, last success/scanned, SQL backlog/claim/oldest-age gauges; no one-shot listener | Kolla activation remains blocked on fresh maintenance-identity evidence; live multi-replica scrape absent |
 | MariaDB/Galera | Kolla service health; existing exporter available when enabled | Coffer dashboard/alerts and transaction retry/deadlock correlation absent |
 | Ceph/RGW | RGW service health; Ceph mgr Prometheus is an external-cluster option | no Coffer recording rules for RGW latency/errors/capacity/KMS symptoms |
 | Barbican/KMS | dependency errors appear in bounded fixture evidence/logs | no production synthetic or error-budget signal |
@@ -158,6 +159,21 @@ One-shot mode remains an operator command and does not contribute to the
 production time series. Its result stays in the structured log and retained
 maintenance evidence. Scheduling correctness continues to come from SQL
 claims/fencing, never from metrics.
+
+The implemented listener runs in a bounded standard-library TLS HTTP server
+thread inside the periodic process. It has no HAProxy service and recognizes
+only exact GET `/healthz` and `/metrics`; query strings, debug/pprof paths, and
+all other paths return a fixed 404 without logging the requested path.
+Certificate/key loading and bind failure stop startup. The scheduler updates
+its in-process collector directly, so it does not need a shared textfile,
+Pushgateway, or cross-process registry.
+
+After every successful or failed cycle, a separate SQL read derives the
+current eligible backlog, unexpired/expired claims, and oldest eligible item
+age. A read failure sets only
+`coffer_dependency_up{component="reconcile",dependency="database"}` to zero
+and logs a fixed category; previous values are not treated as fresh by the
+last-cycle/target staleness rules.
 
 ### Distribution
 

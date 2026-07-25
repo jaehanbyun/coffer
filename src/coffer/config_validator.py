@@ -14,7 +14,10 @@ from coffer.config import parse_config
 from coffer.edge_runner import EdgeSettings, load_jwks
 from coffer.maintenance_token import MaintenancePolicy, TrustedMaintenanceProxy
 from coffer.quota_admission import RegistryTokenVerifier
-from coffer.reconciliation_runner import RunnerSettings
+from coffer.reconciliation_runner import (
+    ReconciliationManagementSettings,
+    RunnerSettings,
+)
 from coffer.registry_metrics_runner import RegistryMetricsSettings
 from coffer.runtime import WSGIServerSettings
 from coffer.tokens import TokenIssuer
@@ -140,6 +143,13 @@ def validate_component(conf: cfg.ConfigOpts, component: str) -> None:
             "reconciliation upstream must use verified HTTPS"
         )
     ssl.create_default_context(cafile=settings.cafile)
+    if settings.mode == "periodic":
+        management = ReconciliationManagementSettings.from_config(conf)
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(
+            management.tls_certfile,
+            management.tls_keyfile,
+        )
 
 
 def build_parser() -> argparse.ArgumentParser:

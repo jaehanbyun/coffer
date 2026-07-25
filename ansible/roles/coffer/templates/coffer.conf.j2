@@ -104,4 +104,8 @@ lease_seconds = {{ coffer_reconcile_lease_seconds }}
 batch_limit = {{ coffer_reconcile_batch_limit }}
 max_pages_per_cycle = {{ coffer_reconcile_max_pages_per_cycle }}
 interval_seconds = {{ coffer_reconcile_interval_seconds }}
+management_bind_host = {{ api_interface_address }}
+management_bind_port = {{ coffer_reconcile_metrics_port }}
+management_tls_certfile = /etc/coffer/reconcile-metrics.crt
+management_tls_keyfile = /etc/coffer/reconcile-metrics.key
 {% endif %}

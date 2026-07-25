@@ -155,3 +155,68 @@ def test_registry_metrics_validation_requires_server_tls_without_database(
     )
 
     validate_component(conf, "registry-metrics")
+
+
+def test_periodic_reconciliation_validation_requires_management_tls(
+    tmp_path: Path,
+) -> None:
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "reconcile")])
+    certificate = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(2)
+        .not_valid_before(datetime.now(UTC))
+        .not_valid_after(datetime.now(UTC) + timedelta(hours=1))
+        .sign(key, hashes.SHA256())
+    )
+    certificate_path = tmp_path / "reconcile.crt"
+    key_path = tmp_path / "reconcile.key"
+    certificate_path.write_bytes(
+        certificate.public_bytes(serialization.Encoding.PEM)
+    )
+    key_path.write_bytes(
+        key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+    )
+    conf = new_config()
+    conf(args=[])
+    conf.set_override(
+        "connection",
+        f"sqlite:///{tmp_path / 'coffer.sqlite'}",
+        group="database",
+    )
+    conf.set_override("mode", "periodic", group="reconciliation")
+    conf.set_override(
+        "upstream_url",
+        "https://registry.internal.example",
+        group="reconciliation",
+    )
+    conf.set_override(
+        "cafile",
+        str(certificate_path),
+        group="reconciliation",
+    )
+    conf.set_override(
+        "management_tls_certfile",
+        str(certificate_path),
+        group="reconciliation",
+    )
+    conf.set_override(
+        "management_tls_keyfile",
+        str(key_path),
+        group="reconciliation",
+    )
+
+    validate_component(conf, "reconcile")
+    conf.clear_override(
+        "management_tls_keyfile",
+        group="reconciliation",
+    )
+    with pytest.raises(ValueError, match="management TLS"):
+        validate_component(conf, "reconcile")
