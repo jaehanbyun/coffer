@@ -111,7 +111,7 @@ operator-local release.
 
 - [x] Recover the completed Stage 5 boundary and refresh current official
       Distribution/Ceph release and source-branch evidence.
-- [ ] Add a deterministic upstream-release readiness check that distinguishes
+- [x] Add a deterministic upstream-release readiness check that distinguishes
       signed stable artifacts from merged-but-unreleased fixes and feeds the
       existing fail-closed production-image and RGW/KMS harnesses.
 - [ ] Select and prove the production maintenance identity and owner-only
@@ -157,6 +157,42 @@ operator-local release.
   `candidate-qualified` without downloading, building, mutating infrastructure,
   or treating a branch commit as a released artifact.
 
+### 2026-07-25 — Upstream release readiness classifier completed
+
+- Completed: Added a read-only official GitHub metadata classifier with three
+  monotonic states: `blocked`, `candidate-released`, and
+  `candidate-qualified`. Distribution requires a newer non-draft,
+  non-prerelease release with a verified release commit. Ceph requires a newer
+  Tentacle v20.2.z stable tag whose commit descends from the exact merged
+  encrypted-copy fix. A later Ceph series requires a separately reviewed
+  baseline and ancestry. Qualification requires a separate exact-schema
+  evidence file matching both component versions and revisions.
+- Current live evidence: Distribution v3.1.1 at verified commit
+  `9a8d98b679740cd514aa7e7d84d23d442a5ef54c` and Ceph v20.2.2 at
+  `0fcffee29411e3a38036764817b6e1afc59741cc` classify as `blocked`.
+  Ceph PR 69277 is correctly reported as merged to `tentacle` but absent from
+  the latest stable release.
+- Failure and correction: The first live run expected a `head_commit` object
+  in GitHub's Compare API response and failed before classification. The
+  classifier now resolves the Ceph release revision through the separate
+  official commit endpoint and keeps Compare solely for fix ancestry.
+- Verification: Ten fixture-driven tests cover the current block, stable
+  candidate transition, draft/prerelease/unsigned refusal, exact
+  qualification matching, schema and malformed-revision refusal, Tentacle
+  series filtering, and atomic output. All 261 Python tests and 52 Kolla
+  companion-role checks pass; compilation, the live classifier, and diff
+  checks pass.
+- Changed files: `poc/production-images/check_upstream_readiness.py`,
+  `poc/production-images/Makefile`, `poc/production-images/README.md`,
+  `tests/test_upstream_readiness.py`, this plan, and `HANDOFF.md`.
+- Next exact action: Create
+  `docs/research/stage6-maintenance-identity.md`. Inventory the implemented
+  reconciliation/live-comparison authentication seams and evaluate expiring
+  Keystone application credentials, service credentials, and private mTLS
+  against least privilege, rotation overlap, revocation, audit, Barbican
+  materialization, and Kolla ownership. Do not create or deliver any
+  credential and do not accept an ADR yet.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -165,7 +201,11 @@ operator-local release.
 | Distribution release state | Official GitHub latest-release API and signed release page | passed; v3.1.1 remains latest stable |
 | Ceph stable release state | Official Tentacle release notes and GitHub tags | passed; v20.2.2 remains latest stable |
 | Ceph fix disposition | Official PR 69277 metadata and protected `tentacle` source | passed; merged on 2026-07-22, not released |
-| Plan/HANDOFF structure | Markdown inspection and local-link check | pending |
+| Plan/HANDOFF structure | Markdown inspection and local-link check | passed |
+| Upstream classifier fixtures | `uv run pytest -q tests/test_upstream_readiness.py` | passed; 10 |
+| Live upstream classifier | `make -C poc/production-images check-upstream` | passed; valid `blocked` result |
+| Full Python regression | `uv run pytest -q` | passed; 261 |
+| Kolla companion-role regression | `make -C poc/kolla-ansible-role verify` | passed; 52 |
 
 ## Failures, Blockers, and Risks
 
@@ -184,13 +224,14 @@ operator-local release.
 
 ## Handoff
 
-- Current state: Stage 5 is complete and committed. Stage 6 is active; current
-  released dependencies remain fail-closed while Ceph's required fix has
-  reached the protected stable branch.
-- Exact next action: Implement and test the fixture-driven upstream release
-  readiness classifier.
+- Current state: Stage 5 is complete and committed. Stage 6 is active; the
+  deterministic classifier confirms both current stable dependencies remain
+  blocked while Ceph's required fix has reached the protected stable branch.
+- Exact next action: Research the production maintenance-identity contract
+  without choosing or creating a credential.
 - First file or command:
-  `poc/production-images/check_upstream_readiness.py`.
-- Questions requiring user input: None for the local classifier. Ask before
-  branch-based live qualification, real credentials/security-boundary changes,
-  destructive GC, external publication, or production deployment.
+  `docs/research/stage6-maintenance-identity.md`.
+- Questions requiring user input: None for read-only identity research and a
+  proposed decision. Ask before accepting a security-boundary ADR, creating or
+  delivering credentials, branch-based live qualification, destructive GC,
+  external publication, or production deployment.

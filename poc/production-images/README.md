@@ -57,3 +57,33 @@ x86_64 execution evidence.
 This harness does not publish images or evidence, recreate the Stage 4 AIO,
 modify external infrastructure, accept an unreleased Distribution branch, or
 carry a private dependency fork.
+
+## Stage 6 upstream readiness
+
+Run the read-only release classifier before rebuilding the production
+candidate:
+
+```text
+make -C poc/production-images check-upstream
+```
+
+The classifier reads official GitHub release, commit-verification, tag,
+comparison, and pull-request metadata. The Ceph check is deliberately scoped
+to the selected Tentacle v20.2.z series and its exact stable-branch backport;
+adopting a later Ceph series requires a separately reviewed baseline and fix
+ancestry. It reports three deliberately distinct states:
+
+- `blocked`: a required stable release is absent, unsigned where signing is
+  required, or does not contain the accepted upstream fix;
+- `candidate-released`: both newer stable inputs exist, but Coffer's security,
+  protocol, RGW/KMS, and runtime qualification has not passed;
+- `candidate-qualified`: exact release versions and revisions match a separate
+  `coffer.stage6-upstream-qualification/v1` evidence file whose component
+  results are explicitly qualified.
+
+A merged stable-branch fix is never treated as a released artifact. The
+default command validates and reports even when the result is `blocked`; use
+`--require candidate-released` or `--require candidate-qualified` when the
+state should act as a fail-closed pipeline gate. `--fixture` supports
+deterministic offline input, and `--output` atomically writes the aggregate
+non-secret result.

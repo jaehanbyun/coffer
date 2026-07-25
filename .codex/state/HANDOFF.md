@@ -43,6 +43,17 @@ release contains it yet.
   release signal, not released production evidence.
 - Stage 6 will not recreate the six-VM lab until cheaper dependency, identity,
   and data-protection qualification gates pass.
+- Added `poc/production-images/check_upstream_readiness.py` and ten
+  fixture-driven tests. The classifier separates merged branch fixes, released
+  candidates, and exact qualified evidence; scopes the Ceph ancestry to the
+  selected Tentacle v20.2 series; and reports `blocked` for Distribution
+  v3.1.1 and Ceph v20.2.2.
+- The first live run failed safely because GitHub Compare has no
+  `head_commit` object. The corrected implementation obtains the Ceph release
+  revision from the official commit endpoint and uses Compare only for exact
+  fix ancestry.
+- All 261 Python tests, 52 companion-role contract checks, compilation, live
+  metadata classification, and diff checks pass.
 
 ## Plan 0018 Activation
 
@@ -1769,10 +1780,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/production-images/check_upstream_readiness.py` with fixture-driven unit
-tests. It must distinguish signed stable releases from merged-but-unreleased
-fixes and report `blocked`, `candidate-released`, or `candidate-qualified`
-without downloading/building artifacts or mutating infrastructure.
+Create `docs/research/stage6-maintenance-identity.md`. Inventory the existing
+reconciliation/live-comparison authentication seams and compare expiring
+Keystone application credentials, service credentials, and private mTLS for
+least privilege, rotation, revocation, audit, Barbican materialization, and
+Kolla ownership. Do not create or deliver a credential or accept an ADR.
 
 ## After This Work Package
 
