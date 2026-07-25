@@ -3,7 +3,7 @@
 - Updated: 2026-07-25
 - Status: plan 0019 active; local production observability, disposable
   filesystem GC/restore, load model/lifecycle, and canonical evidence verifier
-  complete; raw OCI owner-only executable complete and read/publish matrix next
+  complete; raw OCI read/publish core complete and invocation exposure next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -373,6 +373,20 @@ release contains it yet.
   password, token, or temporary residue. Blocked/hash-drifted readiness,
   unsafe modes, symlink/hardlink boundary, path aliasing, unknown fields,
   unsafe output, and fixed-error CLI paths fail closed before network access.
+- Added OCI image manifest/index PUT, HEAD, and GET plus blob HEAD and
+  full/range GET. Manifest bytes are bounded to 4 MiB and must declare schema
+  version 2 plus the exact media type. Publication and reads verify locally
+  computed digest, content type, length, exact path, and same-origin location.
+- Blob reads compare the bounded response stream byte-for-byte against an
+  offset-capable deterministic generator, validate full/range status and exact
+  `Content-Range`, reject redirects, and honor cancellation without retaining
+  payloads. Result aggregates remain fixed `manifest-publish`,
+  `manifest-read`, and `blob-read` classes.
+- Twenty-nine driver plus two command top-level tests pass under the race
+  detector and `go vet`. Local TLS covers publish/head/get, full/range reads,
+  unaligned deterministic windows, body/digest/range/location drift, redirect
+  refusal, cancellation, and invalid-input preflight. No external target was
+  contacted.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2180,12 +2194,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add the next raw-protocol operation slice beginning with
-`poc/load-soak/driver/manifest.go`. Implement authenticated manifest
-PUT/HEAD/GET and blob HEAD/range/full GET with exact media type, length, local
-digest verification, bounded bodies/redirect refusal, fixed result classes,
-and cancellation. Exercise only local TLS `httptest`; do not target a registry
-or add real-client adapters until the raw matrix is complete.
+Extend `poc/load-soak/driver/invocation.go` so the owner-only executable can
+run manifest PUT/HEAD/GET and blob HEAD/full/range GET with operation-specific
+exact fields and an owner-only manifest input. Then add same-project
+cross-mount with exact source/destination/digest authorization and 201-versus-
+202 fallback classification. Keep all tests on local TLS and the release fence
+closed.
 
 ## After This Work Package
 

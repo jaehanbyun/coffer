@@ -12,6 +12,10 @@ and soak harness. It currently implements:
 - monolithic blob upload and 16 MiB-or-smaller chunked upload;
 - same-origin upload and final blob `Location` validation;
 - exact content digest and chunk range verification;
+- OCI image manifest/index PUT, HEAD, and GET with exact local digest, media
+  type, length, and same-origin publication location;
+- blob HEAD plus full and range GET with exact response length/range and
+  streaming byte comparison against the deterministic local source;
 - context cancellation, bounded response bodies, and fixed secret-safe failure
   classes; and
 - concurrency-safe, fixed-bucket aggregates written as canonical owner-only
@@ -57,6 +61,6 @@ same upload URL. It advances only when the exact committed range is visible,
 or resends once from the exact prior range; any other offset or continuation
 fails closed.
 
-The next raw-protocol slice adds verified blob read and manifest publication
-operations. Real Docker, Podman, Skopeo, ORAS, and nerdctl adapters remain
-separate.
+The executable invocation currently exposes the two upload operations. The
+next slice exposes the verified read/publish operations and adds cross-mount.
+Real Docker, Podman, Skopeo, ORAS, and nerdctl adapters remain separate.

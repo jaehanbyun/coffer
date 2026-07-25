@@ -49,7 +49,8 @@ committed or prior offset; partial or drifted state fails closed.
 
 The owner-only executable now requires exact mode-0600 invocation, CA,
 credential, and SHA-bound `candidate-qualified` readiness files, and verifies
-its output destination before any request. Raw blob-read and manifest
-publication operations plus real-client adapters remain next. Live execution
-is still gated on a fresh disposable Stage 6 pilot and qualified stable
-dependencies.
+its output destination before any request. The library now has digest-exact
+manifest PUT/HEAD/GET and blob HEAD/full/range GET; exposing those operations
+through the invocation, cross-mount, and real-client adapters remain next.
+Live execution is still gated on a fresh disposable Stage 6 pilot and
+qualified stable dependencies.

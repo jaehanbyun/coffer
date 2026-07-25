@@ -1365,6 +1365,35 @@ operator-local release.
   redirects, classify fixed outcomes, and cover cancellation using local TLS
   `httptest` only.
 
+### 2026-07-25 — Raw manifest and blob-read integrity slice completed
+
+- Manifest operations: Added OCI image manifest/index PUT, HEAD, and GET. A
+  bounded 4 MiB document must be valid JSON with schema version 2 and an exact
+  supported media type. Tag/digest reference, local digest, response digest,
+  media type, size, path, and same-origin publication location are exact.
+- Blob operations: Added HEAD and full/range GET against deterministic content.
+  The generator can begin at any bounded byte offset without materializing the
+  prefix. Status, length, local digest, full-versus-partial response,
+  `Content-Range`, and every returned byte are verified while streaming.
+- Transport: Authentication/retry remains finite and same-origin. Redirects
+  are not followed, payload and response bounds remain fixed, cancellation
+  interrupts body verification, and failures retain only the existing fixed
+  protocol/digest/dependency/cancelled classes.
+- Evidence: Aggregates use only the topology's `manifest-publish`,
+  `manifest-read`, and `blob-read` operations. Transferred bytes and digest
+  checks are retained; payloads, target/repository/reference, URLs, and
+  credentials are not.
+- Verification: Twenty-nine driver plus two command top-level tests pass under
+  the race detector and `go vet`. Local TLS covers publish/head/get,
+  full/range reads, block-unaligned deterministic windows, body/digest/range/
+  location drift, redirect refusal, stream cancellation, and invalid-input
+  no-network refusal. No external registry or infrastructure was used.
+- Next exact action: Extend `poc/load-soak/driver/invocation.go` with exact
+  owner-only manifest input and operation-specific fields for manifest
+  PUT/HEAD/GET and blob HEAD/full/range GET, then implement same-project
+  cross-mount with exact source/destination/digest handling and 201/202
+  classification. Test local TLS only.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1448,6 +1477,7 @@ operator-local release.
 | Loss-safe upload-status reconciliation | `env -u GOROOT mise x go@1.25.3 -- go test -race -count=1 ./...` in `poc/load-soak/driver` | passed; 18 top-level tests |
 | Owner-only raw OCI executable | `env -u GOROOT mise x go@1.25.3 -- go test -race -count=1 ./...` in `poc/load-soak/driver` | passed; 23 driver plus 2 command tests |
 | Raw OCI executable build/static analysis | `env -u GOROOT mise x go@1.25.3 -- go vet ./...`; `go build ./cmd/coffer-raw-oci-driver` | passed |
+| Raw manifest/blob-read integrity | `env -u GOROOT mise x go@1.25.3 -- go test -race -count=1 ./...` in `poc/load-soak/driver` | passed; 29 driver plus 2 command tests |
 
 ## Failures, Blockers, and Risks
 
