@@ -1,8 +1,8 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; disposable maintenance lifecycle contract fixed;
-  pure state-machine harness next
+- Status: plan 0019 active; pure maintenance lifecycle model complete;
+  fixture command adapter next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -130,6 +130,13 @@ release contains it yet.
   infrastructure resource. The user authorized autonomous milestone commits
   and pushes; the previously accumulated 134 commits were published to
   `jaehanbyun/coffer` `main` under the verified `jaehanbyun` account.
+- Added the versioned lifecycle topology and pure state machine. It validates
+  complete exact resources, ordered two-generation rotation, bounded drain,
+  immutable-ID cleanup ownership, reverse-dependency teardown, zero residue,
+  and secret-safe hashed evidence without any external service adapter.
+- Twenty-five focused lifecycle tests and all 335 Python tests pass. The Kolla
+  companion role still passes 68 checks; compilation, topology JSON parsing,
+  and diff checks pass.
 
 ## Plan 0018 Activation
 
@@ -1856,11 +1863,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/maintenance-identity/topology.json`,
-`poc/maintenance-identity/state_machine.py`, and fixture-driven tests for pure
-topology, transition, exact-ownership, cleanup-plan, and redacted-evidence
-validation. Do not call OpenStack, Barbican, SSH, Ansible, Kolla, or any other
-external service.
+Add `poc/maintenance-identity/lifecycle.py` as a fixture-driven command adapter
+with read-only `preflight` and `status`, atomic mode-0600 state writes,
+nonblocking locks, fixed failure categories, and deterministic dry-run cleanup
+output. Refuse mutating actions unless a fixture adapter is selected and do
+not contact a remote service.
 
 ## After This Work Package
 

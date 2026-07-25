@@ -424,6 +424,34 @@ operator-local release.
   state-transition, exact-ownership, cleanup-plan, and redacted-evidence
   validation; do not call OpenStack, Barbican, SSH, Ansible, or Kolla.
 
+### 2026-07-25 — Pure maintenance lifecycle model completed
+
+- Completed: Added a versioned exact topology and a pure Python state machine
+  for owner-bound preflight state, complete per-generation resource sets,
+  ordered create/verify/overlap/drain/revoke/failure transitions,
+  immutable-ID cleanup targeting, reverse-dependency cleanup, explicit
+  zero-residue teardown, and allowlisted redacted evidence.
+- Fail-closed coverage: The model refuses topology expansion, broader roles or
+  access rules, invalid targets/workloads, incomplete or renamed resources,
+  duplicate immutable IDs, out-of-order rotation, insufficient cache/token
+  drain, name-only or unowned cleanup, reordered teardown, nonzero residue,
+  secret-bearing fields, Authorization/Bearer/private-key/JWT patterns, known
+  secret values, and state/topology tampering.
+- Verification: All 25 lifecycle-model tests pass; full Python regression
+  passes 335 tests; the Kolla companion role passes 68 checks; compilation,
+  JSON parsing, and diff checks pass.
+- Scope: The model contains no network, OpenStack, Barbican, SSH, Ansible, or
+  Kolla call and changed no external state.
+- Changed files: `poc/maintenance-identity/topology.json`,
+  `poc/maintenance-identity/state_machine.py`,
+  `tests/test_maintenance_identity_state_machine.py`,
+  `poc/maintenance-identity/README.md`, this plan, and `HANDOFF.md`.
+- Next exact action: Add a fixture-driven `lifecycle.py` command adapter with
+  read-only `preflight` and `status`, atomic mode-0600 state writes,
+  nonblocking locks, fixed failure categories, and deterministic dry-run
+  cleanup output. It must refuse mutating actions unless a fixture adapter is
+  selected and must not contact a remote service.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -445,6 +473,8 @@ operator-local release.
 | Maintenance session/migration/import/live focused regression | `uv run pytest -q tests/test_maintenance_sessions.py tests/test_migrations.py tests/test_bootstrap.py tests/test_maintenance_token.py tests/test_maintenance_api.py tests/test_quota_import.py tests/test_quota_import_verification.py tests/test_live_inventory_verification.py` | passed; 105 |
 | Maintenance secret-delivery inventory | Focused inspection of Kolla defaults, prechecks, per-process config, `kolla_start` file recipients, HAProxy model, ADRs 0014/0015, and disposable Barbican evidence | passed; design only, no recipient changed |
 | Maintenance proxy/Kolla fixture focused regression | `uv run pytest -q tests/test_maintenance_api.py tests/test_maintenance_token.py tests/test_config_validator.py tests/test_api_runner.py tests/test_registry_proxy.py tests/test_tokens.py tests/test_quota_reconciliation.py tests/test_maintenance_sessions.py`; pinned role harness | passed; 115 tests and 68 role checks |
+| Maintenance lifecycle model | `uv run pytest -q tests/test_maintenance_identity_state_machine.py` | passed; 25 |
+| Full regression after lifecycle model | `uv run pytest -q` | passed; 335 |
 
 ## Failures, Blockers, and Risks
 

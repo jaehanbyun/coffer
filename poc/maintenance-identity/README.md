@@ -247,17 +247,24 @@ deleted.
 
 ## Implementation and Execution Gates
 
-The next local milestone may add:
+The pure local model now implements:
 
-- a versioned topology and state schema;
-- a pure state-machine/model implementation;
-- fixture-driven command adapters;
-- read-only preflight/status;
-- deterministic cleanup planning; and
-- secret-safe unit and shell-contract tests.
+- the versioned exact topology and its canonical digest;
+- owner-bound preflight state;
+- complete generation resource-set validation;
+- ordered generation-1 creation/verification and generation-2 overlap;
+- measured cache/token drain and old-generation revocation;
+- exact immutable-ID/name cleanup targeting and dependency-ordered cleanup;
+- explicit zero-residue terminal teardown; and
+- allowlisted, immutable-ID-hashed evidence with recursive secret-pattern
+  rejection.
 
-It must not create a Keystone object, Barbican secret, certificate, endpoint,
-Kolla recipient, SQL session, VM, network, or remote file. Real execution is
-permitted only after the model proves exact ownership, resume, rollback,
-rotation, revocation, teardown, and secret-safe evidence, and the active plan
-records the disposable target and its before-state signature.
+The model and tests call no external service. The next local milestone may add
+fixture-driven command adapters plus read-only `preflight` and `status`. It
+must still not create a Keystone object, Barbican secret, certificate,
+endpoint, Kolla recipient, SQL session, VM, network, or remote file.
+
+Real execution is permitted only after the command adapter proves exact
+ownership, resume, rollback, rotation, revocation, teardown, and secret-safe
+evidence against fixtures, and the active plan records the disposable target
+and its before-state signature.

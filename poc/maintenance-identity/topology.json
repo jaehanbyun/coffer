@@ -1,0 +1,43 @@
+{
+  "schema": "coffer.maintenance-identity-topology/v1",
+  "invocation_prefix": "coffer-maint",
+  "allowed_workloads": [
+    "reconcile-1",
+    "reconcile-2",
+    "comparison-1"
+  ],
+  "allowed_generations": [
+    1,
+    2
+  ],
+  "roles": [
+    "service",
+    "registry_maintenance"
+  ],
+  "application_credential": {
+    "minimum_lifetime_seconds": 900,
+    "maximum_lifetime_seconds": 7200,
+    "unrestricted": false,
+    "access_rules": [
+      {
+        "service": "oci-registry",
+        "method": "POST",
+        "path": "/v1/internal/maintenance/registry-token"
+      }
+    ]
+  },
+  "work_root": "work/maintenance-identity",
+  "cleanup_order": [
+    "sql_session",
+    "haproxy_mapping",
+    "application_credential",
+    "client_certificate",
+    "materialization",
+    "barbican_consumer",
+    "barbican_secret",
+    "role_assignment",
+    "user",
+    "project",
+    "role"
+  ]
+}
