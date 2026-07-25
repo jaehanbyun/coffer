@@ -3,7 +3,7 @@
 - Updated: 2026-07-25
 - Status: plan 0019 active; local production observability, disposable
   filesystem GC/restore, load model/lifecycle, and canonical evidence verifier
-  complete; loss-safe raw OCI resume complete and owner-only CLI boundary next
+  complete; raw OCI owner-only executable complete and read/publish matrix next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -356,6 +356,23 @@ release contains it yet.
   Local TLS tests cover response-lost-after-commit, response-before-commit,
   status retry exhaustion, range/location drift, cancellation, and byte-exact
   completion without duplicate append. No external registry was contacted.
+- Added `coffer-raw-oci-driver`. Its sole input is one absolute owner-only
+  invocation path; invocation, CA, credential, and independently produced
+  readiness files must be mode 0600, regular, owner-matched, single-link,
+  absolute, and distinct. No proxy, environment, or argument supplies a
+  credential.
+- Exact SHA-bound `coffer.upstream-readiness/v1` must report
+  `candidate-qualified` for Distribution and Ceph, verified release/fix
+  predicates, the accepted baselines/fix identity, newer exact versions, and
+  empty reasons. Output-directory preflight occurs before network use.
+  Current blocked official evidence therefore cannot run this executable
+  against a registry.
+- Twenty-three driver plus two command tests pass under the race detector;
+  `go vet` and command build pass. A local TLS end-to-end invocation writes one
+  canonical mode-0600 aggregate with no URL, repository, seed, username,
+  password, token, or temporary residue. Blocked/hash-drifted readiness,
+  unsafe modes, symlink/hardlink boundary, path aliasing, unknown fields,
+  unsafe output, and fixed-error CLI paths fail closed before network access.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2163,12 +2180,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add the owner-only executable boundary beginning with
-`poc/load-soak/driver/cmd/coffer-raw-oci-driver/main.go`. Load exact mode-0600
-invocation, CA, and credential files without environment or secret arguments;
-require a separately verified qualified-readiness binding; run only bounded
-monolithic/chunked operations; atomically emit canonical aggregates and erase
-temporary state. Test with local TLS only and keep external execution fenced.
+Add the next raw-protocol operation slice beginning with
+`poc/load-soak/driver/manifest.go`. Implement authenticated manifest
+PUT/HEAD/GET and blob HEAD/range/full GET with exact media type, length, local
+digest verification, bounded bodies/redirect refusal, fixed result classes,
+and cancellation. Exercise only local TLS `httptest`; do not target a registry
+or add real-client adapters until the raw matrix is complete.
 
 ## After This Work Package
 

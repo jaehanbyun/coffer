@@ -1331,6 +1331,40 @@ operator-local release.
   bounded monolithic/chunked operations; atomically emit canonical aggregates
   and remove temporary state. Test with local TLS only.
 
+### 2026-07-25 — Owner-only raw OCI executable boundary completed
+
+- Executable: Added `coffer-raw-oci-driver` with one accepted argument,
+  `--invocation <absolute-path>`. Invocation, CA, credential, and readiness
+  inputs must be exact mode-0600 regular, owner-matched, single-link files.
+  Paths are absolute and pairwise distinct; the output parent and any existing
+  output are validated before an HTTP request.
+- Release fence: The invocation binds the exact SHA-256 of a separate
+  `coffer.upstream-readiness/v1` document. Overall, Distribution, and Ceph
+  states must all be `candidate-qualified`; verified release/fix predicates,
+  current accepted baselines and Ceph fix identity, newer exact versions and
+  revisions, and empty reason arrays are mandatory. The current live blocked
+  classifier output cannot authorize execution.
+- Secret boundary: Credentials exist only in a separate owner-only JSON file
+  and an injected in-process provider. Arguments, environment, proxies,
+  redirects, errors, and result evidence carry none. Raw input byte buffers are
+  overwritten after parsing. Retained canonical aggregates expose no target,
+  repository, seed, username, password, token, upload location, or raw URL.
+- Lifecycle: The executable applies one finite context deadline, supports only
+  bounded monolithic/resumable upload, closes idle connections, validates the
+  canonical output path before mutation, atomically writes mode 0600, and
+  leaves no invocation-created temporary file.
+- Verification: Twenty-three driver and two command top-level tests pass under
+  the race detector; `go vet` and command build pass. Local TLS end-to-end
+  execution, blocked/hash-drifted readiness, baseline/fix/version weakening,
+  unsafe file modes, symlink/single-link/path-alias/unknown-field boundaries,
+  unsafe output, fixed CLI failures, secret scans, and residue checks pass. No
+  external registry, credential, container, VM, or remote resource was used.
+- Next exact action: Add `poc/load-soak/driver/manifest.go` with authenticated
+  manifest PUT/HEAD/GET and blob HEAD/range/full GET. Require exact media type,
+  lengths and locally verified digest, keep response bodies bounded, refuse
+  redirects, classify fixed outcomes, and cover cancellation using local TLS
+  `httptest` only.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1412,6 +1446,8 @@ operator-local release.
 | Raw OCI driver local TLS contract | `env -u GOROOT mise x go@1.25.3 -- go test -race ./...` in `poc/load-soak/driver` | passed; 15 top-level tests |
 | Raw OCI driver static analysis | `env -u GOROOT mise x go@1.25.3 -- go vet ./...` in `poc/load-soak/driver` | passed |
 | Loss-safe upload-status reconciliation | `env -u GOROOT mise x go@1.25.3 -- go test -race -count=1 ./...` in `poc/load-soak/driver` | passed; 18 top-level tests |
+| Owner-only raw OCI executable | `env -u GOROOT mise x go@1.25.3 -- go test -race -count=1 ./...` in `poc/load-soak/driver` | passed; 23 driver plus 2 command tests |
+| Raw OCI executable build/static analysis | `env -u GOROOT mise x go@1.25.3 -- go vet ./...`; `go build ./cmd/coffer-raw-oci-driver` | passed |
 
 ## Failures, Blockers, and Risks
 

@@ -47,6 +47,9 @@ buckets, and emits canonical owner-only JSON. After an ambiguous chunk PATCH,
 it queries the same upload URL and only advances or resends from an exact
 committed or prior offset; partial or drifted state fails closed.
 
-The owner-only CLI boundary and real-client adapters remain next. Live
-execution is still gated on a fresh disposable Stage 6 pilot and qualified
-stable dependencies.
+The owner-only executable now requires exact mode-0600 invocation, CA,
+credential, and SHA-bound `candidate-qualified` readiness files, and verifies
+its output destination before any request. Raw blob-read and manifest
+publication operations plus real-client adapters remain next. Live execution
+is still gated on a fresh disposable Stage 6 pilot and qualified stable
+dependencies.

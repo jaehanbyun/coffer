@@ -17,10 +17,32 @@ and soak harness. It currently implements:
 - concurrency-safe, fixed-bucket aggregates written as canonical owner-only
   JSON.
 
-The module has no CLI or external service adapter yet. Its tests use local
-`httptest` TLS servers only. It must not target a registry until the Stage 6
-release fence reports qualified stable Distribution and Ceph releases and the
-fresh disposable pilot passes preflight.
+The module and executable tests use local `httptest` TLS servers only. They
+must not target a registry until the Stage 6 release fence reports qualified
+stable Distribution and Ceph releases and the fresh disposable pilot passes
+preflight.
+
+`cmd/coffer-raw-oci-driver` is the owner-only executable boundary. It accepts
+only `--invocation <absolute-path>`. The invocation, CA, credential, and
+upstream-readiness documents must be mode-0600 regular single-link files owned
+by the process user. The output parent must already be owner-only. Input and
+output paths must be absolute and distinct.
+
+The invocation binds:
+
+- the exact `disposable-stage6-pilot` target class and HTTPS origin;
+- one canonical repository, deterministic seed, bounded size/timeout/retry,
+  and monolithic or resumable operation;
+- separate CA and credential files;
+- the SHA-256 of an exact `coffer.upstream-readiness/v1` document whose overall
+  and component states are all `candidate-qualified`; and
+- one canonical owner-only output file.
+
+No environment variable or command argument carries a credential. Preflight
+validates readiness and the output destination before creating an HTTP
+request. Raw input buffers are zeroed after parsing, atomic temporary output is
+removed, and retained results contain no target, repository, seed, username,
+password, token, upload location, or raw URL.
 
 Run the local contract with the pinned project toolchain:
 
@@ -35,5 +57,6 @@ same upload URL. It advances only when the exact committed range is visible,
 or resends once from the exact prior range; any other offset or continuation
 fails closed.
 
-The next slice adds the owner-only CLI configuration/result boundary. Real
-Docker, Podman, Skopeo, ORAS, and nerdctl adapters remain separate.
+The next raw-protocol slice adds verified blob read and manifest publication
+operations. Real Docker, Podman, Skopeo, ORAS, and nerdctl adapters remain
+separate.

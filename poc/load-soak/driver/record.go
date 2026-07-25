@@ -175,7 +175,10 @@ func MarshalCanonical(snapshot Snapshot) ([]byte, error) {
 	return append(payload, '\n'), nil
 }
 
-func WriteCanonical(path string, snapshot Snapshot) error {
+func validateOutputDestination(path string) error {
+	if !filepath.IsAbs(path) {
+		return newFailure(FailureProtocol)
+	}
 	directory := filepath.Dir(path)
 	info, err := os.Lstat(directory)
 	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 ||
@@ -189,6 +192,14 @@ func WriteCanonical(path string, snapshot Snapshot) error {
 	} else if !os.IsNotExist(statErr) {
 		return newFailure(FailureProtocol)
 	}
+	return nil
+}
+
+func WriteCanonical(path string, snapshot Snapshot) error {
+	if err := validateOutputDestination(path); err != nil {
+		return err
+	}
+	directory := filepath.Dir(path)
 	payload, err := MarshalCanonical(snapshot)
 	if err != nil {
 		return err
