@@ -92,5 +92,15 @@ entry, and produces only a synthetic terminal hash summary. Failed steps do
 not advance state, stale outputs and tampered history fail closed, and
 lookalike or live executors are rejected by exact type.
 
+`runtime_manifest.py` maps every schedule entry and operation to the current
+runtime capability baseline. It binds a canonical owner-only compiled plan,
+qualified readiness file, exact client pins, checked-in runner source hashes,
+target class, per-step input/output schemas, timeout, cleanup owner, verified
+TLS, and owner-only requirements. Current client/raw paths are only
+`contract-only`; profile, fault, and live telemetry executors plus standalone
+control, token, and quota-contention operations are missing. No executable has
+qualified binary evidence, so every executable SHA remains null and the
+manifest always reports `ready=false` with explicit gaps.
+
 Live execution remains gated on a fresh disposable Stage 6 pilot and qualified
 stable dependencies.

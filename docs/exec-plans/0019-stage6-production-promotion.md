@@ -1640,6 +1640,40 @@ operator-local release.
   expose missing control/quota/fault/telemetry executors explicitly, and fail
   closed until the manifest is complete; do not execute it.
 
+### 2026-07-25 — Fail-closed runtime capability manifest completed
+
+- Evidence binding: The manifest accepts only canonical owner-only plan,
+  readiness, and client-pins files. The raw readiness and pins hashes must
+  match the compiled plan; readiness must satisfy the exact
+  candidate-qualified Distribution/Ceph fence before capability inspection.
+- Per-step boundary: All 29 schedule entries now declare executor, current
+  disposition, source-contract hash when one exists, required input/output
+  schemas, target class, finite timeout, cleanup owner, owner-only files,
+  readiness binding, verified TLS, and executable SHA.
+- Honest disposition: The five client runners and raw OCI driver are
+  `contract-only`, not runtime-qualified. Profile/ramp and fault executors plus
+  the live telemetry collector are missing. Standalone control, token-only,
+  and quota-contention operations are also missing even though the raw OCI
+  driver covers the other protocol shapes.
+- Binary gate: No current entry has qualified binary/runtime evidence, so
+  every executable SHA is null. The canonical output is always
+  `synthetic=true`, `ready=false`, includes twelve unique gaps, and the CLI
+  returns the distinct blocked status 3 rather than success.
+- File/supply-chain boundary: Source-contract hashes bind the two Python
+  client runner files, all raw-driver Go sources, and the telemetry verifier.
+  Input/output paths and raw targets are not retained. Unsafe modes, symlinks,
+  aliases, noncanonical bytes, evidence drift, blocked readiness, and compiler
+  drift fail before output.
+- Verification: Fourteen focused runtime-manifest tests and all 813 Python
+  tests pass. Static inspection confirms no network or subprocess import. No
+  binary, client, workload, fault, telemetry service, credential, container,
+  VM, network, or remote resource was used.
+- Next exact action: Add a bounded owner-only control/token/quota driver
+  contract beginning under `poc/load-soak/control/`. Fix finite Keystone token
+  acquisition, repository control requests, standalone registry-token
+  requests, concurrent quota-manifest admission, verified TLS, secret-safe
+  aggregates, cancellation, and cleanup using local TLS fakes only.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1736,6 +1770,8 @@ operator-local release.
 | Full regression after execution manifest | `uv run pytest -q` | passed; 784 |
 | Fixture-only checkpointed orchestrator | `uv run pytest -q tests/test_load_soak_orchestrator.py` | passed; 15 |
 | Full regression after fixture orchestrator | `uv run pytest -q` | passed; 799 |
+| Fail-closed runtime capability manifest | `uv run pytest -q tests/test_load_soak_runtime_manifest.py` | passed; 14 |
+| Full regression after runtime manifest | `uv run pytest -q` | passed; 813 |
 
 ## Failures, Blockers, and Risks
 
@@ -1766,10 +1802,10 @@ operator-local release.
   Real RGW lifecycle evidence and current stable dependencies remain blocked;
   no real identity, credential, certificate, endpoint, or remote state
   changed.
-- Exact next action: Add `poc/load-soak/runtime_manifest.py` binding every
-  schedule entry to exact owner-only executable/input/output, binary hash,
-  qualified readiness, timeout, target, and cleanup contracts. Reuse current
-  raw/client runners and expose every missing real executor without executing.
+- Exact next action: Add the bounded owner-only control/token/quota driver
+  contract under `poc/load-soak/control/`. Prove finite Keystone and registry
+  token paths, repository control, concurrent quota admission, verified TLS,
+  cancellation, cleanup, and secret-safe aggregates with local TLS fakes only.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

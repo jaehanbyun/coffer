@@ -5,7 +5,7 @@
   filesystem GC/restore, load model/lifecycle, and canonical evidence verifier
   complete; raw OCI and five real-client execution boundaries complete;
   telemetry, deterministic plan, and fixture orchestrator complete; runtime
-  manifest next
+  manifest complete; control/token/quota driver next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -479,6 +479,13 @@ release contains it yet.
 - Fifteen orchestrator tests and all 799 Python tests pass. Live/lookalike
   executors, stale output, tampered state, unsafe files, lock contention, and
   over-budget evidence fail closed. No workload or external state changed.
+- Added the fail-closed runtime capability manifest. Every one of 29 steps now
+  declares its required schemas, owner, timeout, TLS/readiness/file boundary,
+  source-contract hash, binary hash, and current disposition.
+- Fourteen manifest tests and all 813 Python tests pass. The current baseline
+  remains synthetic and blocked with twelve explicit gaps; all executable
+  hashes are null because no runtime binary is qualified. No external state
+  changed.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2286,10 +2293,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/load-soak/runtime_manifest.py` binding every schedule entry to exact
-owner-only executable/input/output, binary hash, qualified readiness, timeout,
-target, and cleanup contracts. Reuse current raw/client runners, expose every
-missing real executor explicitly, and do not execute the manifest.
+Add the bounded owner-only control/token/quota driver contract under
+`poc/load-soak/control/`. Use local TLS fakes to prove finite Keystone and
+registry token paths, repository control, concurrent quota admission,
+cancellation, cleanup, and secret-safe aggregates.
 
 ## After This Work Package
 
