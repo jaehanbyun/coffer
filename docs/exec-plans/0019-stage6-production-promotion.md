@@ -1038,6 +1038,33 @@ operator-local release.
   authorization, survivor/reclaim/restore evidence, fixed failures, secret
   safety, and zero residue without a registry, S3, SQL, subprocess, or network.
 
+### 2026-07-25 — Coordinated GC pure state contract completed
+
+- Architecture: Added proposed ADR 0017. It keeps the exact upstream collector
+  as reachability authority; forbids global untagged deletion and online GC;
+  separates Distribution logical reclamation from RGW versions/lifecycle/
+  orphan cleanup; and requires a restorable disposable maintenance transaction.
+- Topology: Added the exact v3.1.1 revision, sixteen ordered phases, eleven
+  invocation-owned resources, reverse cleanup, thirteen residue categories,
+  nine survivor classes, thirty fixed failures, two dry runs, a bounded
+  candidate set, and a finite authorization lifetime.
+- State model: Immutable ownership, explicit logical deletion, compound
+  two-replica writer fencing, complete backup/baseline, equal candidate sets,
+  current binding, single-use expiry, survivor/SQL safety, logical-versus-
+  physical deltas, isolated KMS restore, failure outcomes, tamper-evident
+  history, secret-safe public evidence, and zero residue fail closed.
+- Verification: Forty-six focused pure tests and all 587 Python tests pass.
+  Compilation, topology JSON, static no-network/import inspection, and diff
+  checks pass.
+- Scope: Pure local data structures only. No registry, S3, SQL, KMS,
+  subprocess, container, network, credential, or remote resource was used.
+  ADR 0017 remains proposed.
+- Next exact action: Add fixture-only `poc/gc-retention/lifecycle.py` and a
+  fake adapter. Use owner-only atomic state/evidence, a nonblocking lock,
+  exact phase replay, bounded failure injection, single-use collection,
+  idempotent teardown, and zero residue. Refuse every non-fixture adapter and
+  do not invoke the Distribution binary yet.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -1101,6 +1128,8 @@ operator-local release.
 | Full regression after operator observability assets | `uv run pytest -q` | passed; 541 |
 | Kolla observability enable/disable lifecycle | `make -C poc/kolla-ansible-role verify` | passed; 96 |
 | Stage 6 GC/retention source and contract inventory | Exact Distribution v3.1.1 source plus official Distribution, OCI, and Ceph documentation | passed; upstream ownership and fail-closed candidate boundary fixed |
+| Pure coordinated GC/retention model | `uv run pytest -q tests/test_gc_retention_state_machine.py` | passed; 46 |
+| Full regression after GC/retention state model | `uv run pytest -q` | passed; 587 |
 
 ## Failures, Blockers, and Risks
 
@@ -1130,12 +1159,11 @@ operator-local release.
   lifecycle through an ordered no-network adapter seam. Real lifecycle
   evidence and current stable dependencies remain blocked; no real identity,
   credential, certificate, endpoint, or remote state changed.
-- Exact next action: Add proposed ADR 0017 plus
-  `poc/gc-retention/topology.json` and a pure state machine. Prove exact phase
-  order, immutable ownership, compound writer fencing, two equal normalized
-  candidate sets, finite single-use collection authority, survivor/reclaim/
-  restore evidence, fixed failures, secret safety, and zero residue without a
-  registry, object storage, SQL, subprocess, or network.
+- Exact next action: Add fixture-only
+  `poc/gc-retention/lifecycle.py` and a fake adapter. Use owner-only atomic
+  state/evidence, a nonblocking lock, exact phase replay, bounded failure
+  injection, single-use collection, idempotent teardown, and zero residue.
+  Refuse every non-fixture adapter and do not invoke the Distribution binary.
 - Questions requiring user input: None for the next fixture-only lifecycle
   milestone. The user has already authorized atomic milestone publication and
   the bounded disposable Stage 6 sequence; exact safety and release gates

@@ -252,6 +252,16 @@ release contains it yet.
   objects/delete markers, and Ceph physical usage are separate evidence. RGW
   lifecycle, internal GC, and experimental orphan cleanup remain separately
   owned. No live data or service changed.
+- Added proposed ADR 0017 and the versioned pure GC topology/state machine.
+  The exact v3.1.1 revision, sixteen phases, immutable ownership, compound
+  writer fence, complete backup/baseline, two equal candidate sets, bounded
+  single-use authority, survivor/SQL checks, separated reclamation, isolated
+  KMS restore, thirty failure refusals, tamper history, secret-safe public
+  evidence, and zero residue are fixed.
+- Forty-six focused pure GC tests and all 587 Python tests pass. Compilation,
+  topology JSON, no-network/import inspection, and diff checks pass. No
+  registry, S3, SQL, KMS, subprocess, container, network, credential, or
+  remote resource was used. ADR 0017 remains proposed.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2059,12 +2069,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add proposed ADR 0017 plus `poc/gc-retention/topology.json` and a pure state
-machine. Prove exact phase order, immutable ownership, compound writer
-fencing, two equal normalized candidate sets, finite single-use collection
-authority, survivor/reclaim/restore evidence, fixed failures, secret safety,
-and zero residue without a registry, object storage, SQL, subprocess, or
-network.
+Add fixture-only `poc/gc-retention/lifecycle.py` and a fake adapter. Use
+owner-only atomic state/evidence, a nonblocking lock, exact phase replay,
+bounded failure injection, single-use collection, idempotent teardown, and
+zero residue. Refuse every non-fixture adapter and do not invoke the
+Distribution binary.
 
 ## After This Work Package
 
