@@ -27,3 +27,17 @@ scrape_configs:
           service: coffer-edge
           instance: {{ host }}
 {% endfor %}
+  - job_name: coffer-registry
+    scheme: {{ coffer_backend_protocol }}
+    metrics_path: /metrics
+    tls_config:
+      ca_file: {{ coffer_metrics_ca_file }}
+      server_name: {{ coffer_metrics_tls_server_name }}
+    static_configs:
+{% for host in groups['coffer-registry'] %}
+      - targets:
+          - {{ (('api' | kolla_address(host)) | put_address_in_context('url')) ~ ':' ~ coffer_registry_metrics_port }}
+        labels:
+          service: coffer-registry
+          instance: {{ host }}
+{% endfor %}

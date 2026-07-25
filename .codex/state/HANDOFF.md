@@ -1,8 +1,8 @@
 # Coffer Handoff
 
 - Updated: 2026-07-25
-- Status: plan 0019 active; direct API/edge private scrape boundary complete;
-  Distribution/reconciler metrics next
+- Status: plan 0019 active; API/edge/Distribution private scrape boundaries
+  complete; periodic reconciler metrics next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -270,6 +270,23 @@ release contains it yet.
 - Focused runtime tests pass 60, full Python regression passes 515, and the
   fixture-only Kolla lifecycle passes 78 checks with zero harness residue.
   No remote Prometheus, HAProxy, container, network, or scrape changed.
+- Source inspection found Distribution v3.1.1's debug listener is not
+  metrics-only: it uses Go's default HTTP mux and the registry binary imports
+  `net/http/pprof`. The accepted refinement binds that mux only to loopback.
+- Added the one-worker `coffer-registry-metrics` allowlist proxy. It accepts
+  one exact loopback HTTP `/metrics` upstream, exposes only verified-TLS
+  `/healthz` and `/metrics`, forwards no client headers, bounds responses,
+  maps failures to a fixed 503, and refuses query/debug/pprof paths.
+- The Kolla role starts the proxy only with metrics enabled, gives it no
+  HAProxy route, and renders a direct per-registry-host Prometheus target.
+  Its dedicated mode-0600 config receives no database, Keystone, RGW,
+  Distribution HTTP, signing, JWKS, or maintenance secret.
+- Twenty focused proxy/config-validator tests and all 525 Python tests, lock,
+  compilation, and diff checks pass. The complete fixture-only Kolla
+  lifecycle passes 85 checks with
+  negative worker/port cases, secret-recipient inspection, idempotent
+  lifecycle actions, and zero harness residue. No remote listener,
+  Prometheus, container, network, or service changed.
 
 ## Plan 0018 Activation
 
@@ -1996,12 +2013,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add a private metrics-only Distribution debug listener and a periodic
-reconciler management application to the local runtime/Kolla contract.
-Prometheus must target each registry/reconciler backend directly, profiling
-must remain disabled, one-shot reconciliation must not expose a persistent
-series, and every public/ordinary service route must deny the management
-paths. Do not deploy remotely.
+Add the periodic reconciler management listener beginning in
+`src/coffer/reconciliation_runner.py`. The periodic process must own
+restart-correct cycle and SQL-derived freshness metrics and expose only
+verified-TLS `/healthz` and `/metrics`; one-shot mode must expose no
+persistent listener. Add direct per-host Kolla discovery without an HAProxy
+route. Do not deploy remotely.
 
 ## After This Work Package
 

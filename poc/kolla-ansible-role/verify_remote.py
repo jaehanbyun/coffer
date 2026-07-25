@@ -221,6 +221,7 @@ def verify_remote_state() -> None:
         "coffer_api",
         "coffer_edge",
         "coffer_registry",
+        "coffer_registry_metrics",
     }
     bootstrap_index = next(
         index
@@ -233,7 +234,12 @@ def verify_remote_state() -> None:
         for index, event in enumerate(events)
         if event.get("action") == "recreate_or_restart_container"
         and event.get("name")
-        in {"coffer_api", "coffer_edge", "coffer_registry"}
+        in {
+            "coffer_api",
+            "coffer_edge",
+            "coffer_registry",
+            "coffer_registry_metrics",
+        }
     ]
     assert process_indexes and bootstrap_index < min(process_indexes)
 
@@ -246,6 +252,8 @@ def verify_remote_state() -> None:
         "coffer-api/signing-key.pem",
         "coffer-edge/coffer.conf",
         "coffer-registry/config.yml",
+        "coffer-registry-metrics/coffer.conf",
+        "coffer-registry-metrics/registry-metrics.key",
         "coffer-bootstrap/coffer.conf",
     ):
         assert re.search(
@@ -297,6 +305,7 @@ def main() -> None:
             "coffer_api",
             "coffer_edge",
             "coffer_registry",
+            "coffer_registry_metrics",
         }.intersection(stopped_state["containers"])
         verify_secret_safe_outputs()
     finally:

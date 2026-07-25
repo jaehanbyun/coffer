@@ -372,6 +372,18 @@ def verify_disabled_and_negative_prechecks() -> None:
         "coffer_edge_workers=2",
     )
     assert_failure_case(
+        "metrics proxy with multiple workers",
+        lambda: None,
+        "-e",
+        "coffer_registry_metrics_workers=2",
+    )
+    assert_failure_case(
+        "metrics proxy and Distribution debug port collision",
+        lambda: None,
+        "-e",
+        "coffer_registry_debug_port=18791",
+    )
+    assert_failure_case(
         "metrics target aliases the internal VIP",
         lambda: None,
         "-e",
@@ -430,6 +442,7 @@ def verify_bootstrap_failure() -> None:
         "coffer_api",
         "coffer_edge",
         "coffer_registry",
+        "coffer_registry_metrics",
         "coffer_reconcile",
     }
     check(
@@ -519,8 +532,14 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
 
     check(
         set(current_state["containers"])
-        >= {"haproxy", "coffer_api", "coffer_edge", "coffer_registry"},
-        "deploy starts HAProxy and the three enabled Coffer processes",
+        >= {
+            "haproxy",
+            "coffer_api",
+            "coffer_edge",
+            "coffer_registry",
+            "coffer_registry_metrics",
+        },
+        "deploy starts HAProxy and the four enabled Coffer processes",
     )
     check(
         "coffer_reconcile" not in current_state["containers"],
@@ -537,7 +556,12 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
         for index, event in enumerate(event_list)
         if event.get("action") == "recreate_or_restart_container"
         and event.get("name")
-        in {"coffer_api", "coffer_edge", "coffer_registry"}
+        in {
+            "coffer_api",
+            "coffer_edge",
+            "coffer_registry",
+            "coffer_registry_metrics",
+        }
     ]
     check(
         process_indexes and bootstrap_index < min(process_indexes),
@@ -636,6 +660,8 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
         "coffer-api/signing-key.pem": 0o600,
         "coffer-edge/coffer.conf": 0o600,
         "coffer-registry/config.yml": 0o600,
+        "coffer-registry-metrics/coffer.conf": 0o600,
+        "coffer-registry-metrics/registry-metrics.key": 0o600,
         "coffer-bootstrap/coffer.conf": 0o600,
         "coffer-reconcile/coffer.conf": 0o600,
         "coffer-reconcile/maintenance-application-credential-id": 0o600,
@@ -753,6 +779,39 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
         },
         "database secret recipients match API, edge, reconciler, and bootstrap",
     )
+    registry_metrics_config = (
+        target / "coffer-registry-metrics" / "coffer.conf"
+    ).read_text(encoding="utf-8")
+    check(
+        "[registry_metrics]" in registry_metrics_config
+        and "bind_port = 18791" in registry_metrics_config
+        and (
+            "upstream_url = http://127.0.0.1:18792/metrics"
+            in registry_metrics_config
+        )
+        and "[database]" not in registry_metrics_config
+        and secret_values["database-password"] not in registry_metrics_config,
+        "registry metrics proxy is loopback-only upstream and receives no DB secret",
+    )
+    registry_metrics_container = json.loads(
+        (
+            target / "coffer-registry-metrics" / "config.json"
+        ).read_text(encoding="utf-8")
+    )
+    check(
+        registry_metrics_container["command"]
+        == "coffer-registry-metrics --config-file /etc/coffer/coffer.conf"
+        and {
+            item["dest"]
+            for item in registry_metrics_container["config_files"]
+        }
+        == {
+            "/etc/coffer/coffer.conf",
+            "/etc/coffer/registry-metrics.crt",
+            "/etc/coffer/registry-metrics.key",
+        },
+        "registry metrics container receives only config and listener TLS files",
+    )
     check(
         "coffer-api/signing-key.pem" in all_target_files
         and not any(
@@ -779,6 +838,19 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
             / "coffer-rgw-ca.crt"
         ).exists(),
         "Distribution receives the RGW CA through Kolla system trust input",
+    )
+    registry_config = yaml.safe_load(
+        (target / "coffer-registry" / "config.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+    check(
+        registry_config["http"]["debug"]
+        == {
+            "addr": "127.0.0.1:18792",
+            "prometheus": {"enabled": True, "path": "/metrics"},
+        },
+        "Distribution debug mux is bound only to loopback for the allowlist proxy",
     )
 
     check(
@@ -807,8 +879,8 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
     scrape_configs = prometheus_document["scrape_configs"]
     check(
         [job["job_name"] for job in scrape_configs]
-        == ["coffer-api", "coffer-edge"],
-        "Prometheus owns separate API and edge direct-scrape jobs",
+        == ["coffer-api", "coffer-edge", "coffer-registry"],
+        "Prometheus owns separate API, edge, and registry direct-scrape jobs",
     )
     targets = {
         target_value
@@ -817,7 +889,8 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
         for target_value in static_config["targets"]
     }
     check(
-        targets == {"127.0.0.1:18787", "127.0.0.1:18788"}
+        targets
+        == {"127.0.0.1:18787", "127.0.0.1:18788", "127.0.0.1:18791"}
         and "127.0.0.2" not in prometheus_path.read_text(encoding="utf-8")
         and "registry.internal.example.test:18787"
         not in prometheus_path.read_text(encoding="utf-8"),
@@ -884,9 +957,12 @@ def verify_successful_lifecycle() -> None:
     run_action("stop")
     stopped = state()["containers"]
     check(
-        not {"coffer_api", "coffer_edge", "coffer_registry"}.intersection(
-            stopped
-        ),
+        not {
+            "coffer_api",
+            "coffer_edge",
+            "coffer_registry",
+            "coffer_registry_metrics",
+        }.intersection(stopped),
         "stop removes only Coffer-owned process containers",
     )
     second_stop = run_action("stop")

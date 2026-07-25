@@ -53,6 +53,13 @@ http:
     key: /etc/coffer-registry/registry.key
   headers:
     X-Content-Type-Options: [nosniff]
+{% if coffer_enable_metrics | bool %}
+  debug:
+    addr: 127.0.0.1:{{ coffer_registry_debug_port }}
+    prometheus:
+      enabled: true
+      path: /metrics
+{% endif %}
 
 health:
   storagedriver:

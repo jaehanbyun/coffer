@@ -38,6 +38,20 @@
     dimensions: "{{ service.dimensions }}"
     healthcheck: "{{ service.healthcheck }}"
 
+- name: Restart coffer-registry-metrics container
+  vars:
+    service: "{{ coffer_services['coffer-registry-metrics'] }}"
+  become: true
+  kolla_container:
+    action: "recreate_or_restart_container"
+    common_options: "{{ docker_common_options }}"
+    name: "{{ service.container_name }}"
+    image: "{{ service.image }}"
+    volumes: "{{ service.volumes | reject('equalto', '') | list }}"
+    dimensions: "{{ service.dimensions }}"
+    healthcheck: "{{ service.healthcheck }}"
+  when: service.enabled | bool
+
 - name: Restart coffer-reconcile container
   vars:
     service: "{{ coffer_services['coffer-reconcile'] }}"

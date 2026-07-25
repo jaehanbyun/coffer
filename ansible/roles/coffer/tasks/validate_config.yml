@@ -8,6 +8,7 @@
       - coffer_api
       - coffer_edge
       - coffer_registry
+      - coffer_registry_metrics
       - coffer_reconcile
   register: coffer_config_validation_facts
 
@@ -23,6 +24,9 @@
       coffer-reconcile:
         container: coffer_reconcile
         component: reconcile
+      coffer-registry-metrics:
+        container: coffer_registry_metrics
+        component: registry-metrics
   ansible.builtin.command:
     argv:
       - "{{ kolla_container_engine }}"
@@ -82,6 +86,16 @@
       - registry_config.storage.redirect.disable | bool
       - registry_config.http.tls.certificate is defined
       - registry_config.http.tls.key is defined
+      - >-
+        not coffer_enable_metrics | bool or
+        registry_config.http.debug.addr ==
+        '127.0.0.1:' ~ coffer_registry_debug_port
+      - >-
+        not coffer_enable_metrics | bool or
+        registry_config.http.debug.prometheus.enabled | bool
+      - >-
+        not coffer_enable_metrics | bool or
+        registry_config.http.debug.prometheus.path == '/metrics'
     fail_msg: The rendered Coffer Distribution configuration is invalid.
   when: inventory_hostname in groups['coffer-registry']
   no_log: true

@@ -91,13 +91,23 @@
       - coffer_enable_tls_backend | bool
       - coffer_api_workers | int == 1
       - coffer_edge_workers | int == 1
+      - coffer_registry_metrics_workers | int == 1
+      - coffer_registry_metrics_port | int >= 1024
+      - coffer_registry_metrics_port | int <= 65535
+      - coffer_registry_debug_port | int >= 1024
+      - coffer_registry_debug_port | int <= 65535
+      - >-
+        [coffer_api_port | int, coffer_edge_port | int,
+         coffer_registry_port | int, coffer_registry_metrics_port | int,
+         coffer_registry_debug_port | int] | unique | length == 5
       - coffer_metrics_ca_file | length > 0
       - coffer_metrics_tls_server_name | length > 0
       - "'/' not in coffer_metrics_tls_server_name"
       - "'@' not in coffer_metrics_tls_server_name"
     fail_msg: >-
       Coffer metrics require Prometheus, verified backend TLS, exactly one
-      API and edge worker per container, a CA file, and one TLS server name.
+      API, edge, and registry metrics worker per container, distinct bounded
+      metrics/debug ports, a CA file, and one TLS server name.
   when: coffer_enable_metrics | bool
 
 - name: Refuse VIP addresses in the direct metrics target inventory
@@ -113,7 +123,11 @@
       Kolla internal or external VIP.
   loop: >-
     {{
-      (groups['coffer-api'] + groups['coffer-edge']) |
+      (
+        groups['coffer-api'] +
+        groups['coffer-edge'] +
+        groups['coffer-registry']
+      ) |
       unique |
       list
     }}
@@ -249,8 +263,22 @@
       - coffer_api
       - coffer_edge
       - coffer_registry
+      - coffer_registry_metrics
   check_mode: false
   register: coffer_container_facts
+
+- name: Require a free loopback Distribution debug port before first enable
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: "{{ coffer_registry_debug_port }}"
+    connect_timeout: 1
+    timeout: 1
+    state: stopped
+  when:
+    - coffer_enable_metrics | bool
+    - inventory_hostname in groups['coffer-registry']
+    - >-
+      coffer_container_facts.containers.coffer_registry is not defined
 
 - name: Require free backend ports before first start
   vars:

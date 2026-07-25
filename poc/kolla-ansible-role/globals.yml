@@ -29,6 +29,8 @@ coffer_deployment_profile: production
 coffer_api_port: "18787"
 coffer_edge_port: "18788"
 coffer_registry_port: "18789"
+coffer_registry_metrics_port: "18791"
+coffer_registry_debug_port: "18792"
 coffer_rgw_endpoint: https://rgw.example.test:8443
 coffer_rgw_bucket: coffer-stage3-contract
 coffer_enable_reconcile: false

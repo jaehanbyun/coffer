@@ -47,8 +47,10 @@ contract.
 1. Coffer operational endpoints use verified backend TLS and are reachable
    only from the operator monitoring network. Public and ordinary service
    frontends deny `/metrics` and private debug paths.
-2. Distribution exposes its metrics on a separate private debug listener.
-   Profiling and other debug data remain inaccessible.
+2. Distribution binds its upstream debug mux only to host loopback. A
+   Coffer-owned, one-worker allowlist proxy exposes only `/healthz` and
+   `/metrics` over verified backend TLS. Profiling and every other debug path
+   remain inaccessible.
 3. The periodic reconciler exposes one private management endpoint with
    process/cycle counters and SQL-derived backlog, claim, and age gauges.
    One-shot mode reports only fixed structured logs/evidence.
@@ -146,5 +148,16 @@ The API and edge now expose metrics on their direct verified-TLS backends
 only when enabled. The companion role pins one worker, emits per-host
 Prometheus targets with CA/server-name verification, refuses a VIP target,
 and blocks operational/debug paths on the HAProxy service route. This still
-does not expose a reconciler management endpoint, enable Distribution
-metrics, or install recording rules, alerts, or a Grafana dashboard.
+does not expose a reconciler management endpoint or install recording rules,
+alerts, or a Grafana dashboard.
+
+Distribution v3.1.1 cannot provide a native metrics-only listener: its debug
+server uses Go's default HTTP mux and the registry binary imports
+`net/http/pprof`. The role therefore binds that mux to `127.0.0.1`, enables
+only its Prometheus producer, and starts `coffer-registry-metrics` on the
+direct backend address. The proxy accepts one exact loopback HTTP
+`/metrics` upstream, forwards no client headers, bounds the response, maps
+upstream failures to a fixed 503, and returns 404 for query, profiling, and
+unknown paths. Its dedicated configuration receives no database, Keystone,
+RGW, Distribution HTTP, signing, or maintenance secret. Prometheus now
+scrapes each registry host through this verified-TLS proxy.

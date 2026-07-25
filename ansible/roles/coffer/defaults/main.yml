@@ -25,6 +25,8 @@ coffer_api_port: "8787"
 coffer_edge_port: "8788"
 coffer_registry_port: "8789"
 coffer_maintenance_port: "8790"
+coffer_registry_metrics_port: "8791"
+coffer_registry_debug_port: "8792"
 coffer_api_external: false
 coffer_registry_external: false
 coffer_edge_public_port: >-
@@ -206,6 +208,10 @@ coffer_api_timeout_seconds: 30
 coffer_edge_timeout_seconds: 300
 coffer_api_upstream_timeout_seconds: 30
 coffer_registry_upstream_timeout_seconds: 300
+coffer_registry_metrics_workers: 1
+coffer_registry_metrics_threads: 2
+coffer_registry_metrics_timeout_seconds: 10
+coffer_registry_metrics_upstream_timeout_seconds: 5
 
 coffer_reconcile_mode: "periodic"
 coffer_reconcile_timeout_seconds: 10
@@ -220,6 +226,8 @@ coffer_reconcile_interval_seconds: 60
 coffer_api_enable_healthchecks: "{{ enable_container_healthchecks }}"
 coffer_edge_enable_healthchecks: "{{ enable_container_healthchecks }}"
 coffer_registry_enable_healthchecks: "{{ enable_container_healthchecks }}"
+coffer_registry_metrics_enable_healthchecks: >-
+  {{ enable_container_healthchecks }}
 coffer_reconcile_enable_healthchecks: "{{ enable_container_healthchecks }}"
 
 coffer_api_healthcheck_test:
@@ -236,6 +244,11 @@ coffer_edge_healthcheck_test:
 coffer_registry_healthcheck_test:
   - "CMD-SHELL"
   - "healthcheck_listen registry {{ coffer_registry_port }}"
+coffer_registry_metrics_healthcheck_test:
+  - "CMD-SHELL"
+  - >-
+    healthcheck_listen coffer-registry-metrics
+    {{ coffer_registry_metrics_port }}
 coffer_reconcile_healthcheck_test:
   - "CMD-SHELL"
   - >-
@@ -266,6 +279,14 @@ coffer_registry_healthcheck:
     {% if coffer_registry_enable_healthchecks | bool
     %}{{ coffer_registry_healthcheck_test }}{% else %}NONE{% endif %}
   timeout: "{{ default_container_healthcheck_timeout }}"
+coffer_registry_metrics_healthcheck:
+  interval: "{{ default_container_healthcheck_interval }}"
+  retries: "{{ default_container_healthcheck_retries }}"
+  start_period: "{{ default_container_healthcheck_start_period }}"
+  test: >-
+    {% if coffer_registry_metrics_enable_healthchecks | bool
+    %}{{ coffer_registry_metrics_healthcheck_test }}{% else %}NONE{% endif %}
+  timeout: "{{ default_container_healthcheck_timeout }}"
 coffer_reconcile_healthcheck:
   interval: "{{ default_container_healthcheck_interval }}"
   retries: "{{ default_container_healthcheck_retries }}"
@@ -280,10 +301,12 @@ coffer_reconcile_healthcheck:
 ####################
 coffer_dimensions: "{{ default_container_dimensions }}"
 coffer_registry_dimensions: "{{ default_container_dimensions }}"
+coffer_registry_metrics_dimensions: "{{ default_container_dimensions }}"
 coffer_extra_volumes: "{{ default_extra_volumes }}"
 coffer_api_extra_volumes: "{{ coffer_extra_volumes }}"
 coffer_edge_extra_volumes: "{{ coffer_extra_volumes }}"
 coffer_registry_extra_volumes: "{{ coffer_extra_volumes }}"
+coffer_registry_metrics_extra_volumes: "{{ coffer_extra_volumes }}"
 coffer_reconcile_extra_volumes: "{{ coffer_extra_volumes }}"
 coffer_bootstrap_extra_volumes: "{{ coffer_extra_volumes }}"
 
@@ -302,6 +325,12 @@ coffer_edge_default_volumes:
 coffer_registry_default_volumes:
   - >-
     {{ node_config_directory }}/coffer-registry/:
+    {{- container_config_directory }}/:ro
+  - "/etc/localtime:/etc/localtime:ro"
+  - "kolla_logs:/var/log/kolla/"
+coffer_registry_metrics_default_volumes:
+  - >-
+    {{ node_config_directory }}/coffer-registry-metrics/:
     {{- container_config_directory }}/:ro
   - "/etc/localtime:/etc/localtime:ro"
   - "kolla_logs:/var/log/kolla/"
@@ -421,6 +450,19 @@ coffer_services:
         backend_http_extra:
           - "option httpchk GET /v2/"
           - "http-check expect status 401"
+  coffer-registry-metrics:
+    container_name: "coffer_registry_metrics"
+    group: "coffer-registry"
+    port: "{{ coffer_registry_metrics_port }}"
+    image: "{{ coffer_image_full }}"
+    enabled: "{{ coffer_enable_metrics }}"
+    volumes: >-
+      {{
+        coffer_registry_metrics_default_volumes +
+        coffer_registry_metrics_extra_volumes
+      }}
+    dimensions: "{{ coffer_registry_metrics_dimensions }}"
+    healthcheck: "{{ coffer_registry_metrics_healthcheck }}"
   coffer-reconcile:
     container_name: "coffer_reconcile"
     group: "coffer-reconcile"

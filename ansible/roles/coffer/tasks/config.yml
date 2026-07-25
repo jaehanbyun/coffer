@@ -94,6 +94,7 @@
       coffer_services |
       dict2items |
       rejectattr('key', 'equalto', 'coffer-registry') |
+      rejectattr('key', 'equalto', 'coffer-registry-metrics') |
       selectattr('value.enabled') |
       selectattr('value.group', 'in', group_names) |
       list
@@ -101,6 +102,19 @@
   loop_control:
     label: "{{ item.key }}"
   no_log: true
+
+- name: Render the registry metrics allowlist proxy configuration
+  ansible.builtin.template:
+    src: "registry-metrics.conf.j2"
+    dest: >-
+      {{ node_config_directory }}/coffer-registry-metrics/coffer.conf
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0600"
+  become: true
+  when:
+    - coffer_enable_metrics | bool
+    - inventory_hostname in groups['coffer-registry']
 
 - name: Render the bootstrap-only Coffer configuration
   vars:
@@ -297,6 +311,7 @@
       coffer-api: "api.crt"
       coffer-edge: "edge.crt"
       coffer-registry: "registry.crt"
+      coffer-registry-metrics: "registry-metrics.crt"
   ansible.builtin.copy:
     src: "{{ coffer_backend_tls_cert }}"
     dest: >-
@@ -323,6 +338,7 @@
       coffer-api: "api.key"
       coffer-edge: "edge.key"
       coffer-registry: "registry.key"
+      coffer-registry-metrics: "registry-metrics.key"
   ansible.builtin.copy:
     src: "{{ coffer_backend_tls_key }}"
     dest: >-

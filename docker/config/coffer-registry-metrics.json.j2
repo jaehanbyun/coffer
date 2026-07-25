@@ -1,0 +1,37 @@
+{
+    "command": "coffer-registry-metrics --config-file /etc/coffer/coffer.conf",
+    "config_files": [
+        {
+            "source": "{{ container_config_directory }}/coffer.conf",
+            "dest": "/etc/coffer/coffer.conf",
+            "owner": "coffer",
+            "perm": "0600"
+        },
+        {
+            "source": "{{ container_config_directory }}/registry-metrics.crt",
+            "dest": "/etc/coffer/registry-metrics.crt",
+            "owner": "coffer",
+            "perm": "0644"
+        },
+        {
+            "source": "{{ container_config_directory }}/registry-metrics.key",
+            "dest": "/etc/coffer/registry-metrics.key",
+            "owner": "coffer",
+            "perm": "0600"
+        }
+    ],
+    "directories": [
+        {
+            "path": "/var/log/kolla/coffer",
+            "owner": "coffer:coffer",
+            "perm": "0750"
+        }
+    ],
+    "permissions": [
+        {
+            "path": "/var/log/kolla/coffer",
+            "owner": "coffer:coffer",
+            "recurse": true
+        }
+    ]
+}

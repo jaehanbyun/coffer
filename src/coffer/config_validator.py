@@ -15,13 +15,20 @@ from coffer.edge_runner import EdgeSettings, load_jwks
 from coffer.maintenance_token import MaintenancePolicy, TrustedMaintenanceProxy
 from coffer.quota_admission import RegistryTokenVerifier
 from coffer.reconciliation_runner import RunnerSettings
+from coffer.registry_metrics_runner import RegistryMetricsSettings
 from coffer.runtime import WSGIServerSettings
 from coffer.tokens import TokenIssuer
 
 
 EXIT_OK = 0
 EXIT_CONFIG = 78
-COMPONENTS = ("api", "edge", "reconcile", "bootstrap")
+COMPONENTS = (
+    "api",
+    "edge",
+    "reconcile",
+    "registry-metrics",
+    "bootstrap",
+)
 
 
 class ConfigValidationError(ValueError):
@@ -70,6 +77,10 @@ def _validate_server_tls(settings: WSGIServerSettings) -> None:
 def validate_component(conf: cfg.ConfigOpts, component: str) -> None:
     if component not in COMPONENTS:
         raise ConfigValidationError("unsupported Coffer component")
+    if component == "registry-metrics":
+        settings = RegistryMetricsSettings.from_config(conf)
+        _validate_server_tls(settings.server)
+        return
     _validate_database(conf.database.connection)
 
     if component == "bootstrap":

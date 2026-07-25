@@ -910,6 +910,39 @@ operator-local release.
   persistent series, and every public/ordinary service route must deny the
   management paths. Do not deploy remotely.
 
+### 2026-07-25 — Distribution metrics isolation completed locally
+
+- Source finding: Distribution v3.1.1's debug configuration has only an
+  address and Prometheus options. Its registry starts that address with Go's
+  default HTTP mux, and the registry binary imports `net/http/pprof`.
+  Therefore the upstream listener is not metrics-only.
+- Runtime boundary: Added `coffer-registry-metrics`, a one-worker verified-TLS
+  allowlist proxy. It accepts one exact loopback HTTP `/metrics` upstream,
+  exposes only `/healthz` and `/metrics`, forwards no request headers, bounds
+  the response to 16 MiB, returns fixed 503 failures, and returns 404 for
+  query, pprof, debug, and unknown paths.
+- Kolla boundary: Distribution binds the debug mux only to `127.0.0.1`; the
+  sidecar shares the registry host, has no HAProxy route, and Prometheus
+  directly enumerates every registry backend. Prechecks require one sidecar
+  worker, distinct bounded service/debug ports, verified TLS, and non-VIP
+  targets.
+- Secret boundary: A dedicated mode-0600 configuration omits the database
+  section. The sidecar receives only that config and backend listener
+  certificate/key; it receives no database, Keystone, RGW, Distribution HTTP,
+  signing, JWKS, or maintenance secret.
+- Verification: Twenty focused proxy/config-validator tests and all 525
+  Python tests, lock, compilation, and diff checks pass. The complete Kolla companion-role
+  lifecycle passes 85 checks, including negative worker/port prechecks,
+  config validation, direct discovery, secret-recipient inspection,
+  reconfigure/pull/upgrade/stop idempotency, and zero fixture residue.
+- Scope: Local code, templates, and fixture-only Ansible execution only. No
+  remote listener, Prometheus, container, network, or service changed.
+- Next exact action: Add the periodic reconciler management listener beginning
+  in `src/coffer/reconciliation_runner.py`. It must own restart-correct cycle
+  and SQL-derived freshness metrics in the periodic process, expose only
+  verified-TLS `/healthz` and `/metrics`, stay absent in one-shot mode, and
+  integrate direct per-host Kolla discovery without an HAProxy route.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -962,6 +995,9 @@ operator-local release.
 | Direct edge operational surface | `uv run pytest -q tests/test_edge_runner.py tests/test_observability.py tests/test_quota_admission.py tests/test_registry_proxy.py` | passed; 60 |
 | Kolla direct API/edge scrape contract | `make -C poc/kolla-ansible-role verify` | passed; 78 |
 | Full regression after direct API/edge scrape boundary | `uv run pytest -q` | passed; 515 |
+| Distribution metrics proxy focused regression | `uv run pytest -q tests/test_registry_metrics_runner.py tests/test_config_validator.py` | passed; 20 |
+| Full regression after Distribution metrics isolation | `uv run pytest -q` | passed; 525 |
+| Kolla Distribution metrics isolation contract | `make -C poc/kolla-ansible-role verify` | passed; 85 |
 
 ## Failures, Blockers, and Risks
 
@@ -991,10 +1027,10 @@ operator-local release.
   lifecycle through an ordered no-network adapter seam. Real lifecycle
   evidence and current stable dependencies remain blocked; no real identity,
   credential, certificate, endpoint, or remote state changed.
-- Exact next action: Add proposed ADR 0016 and a pure observability contract
-  model proving the fixed labels, targets, worker boundary, restart semantics,
-  rule/dashboard references, public denial, and secret-safe evidence without
-  contacting a remote service.
+- Exact next action: Add the periodic reconciler management listener beginning
+  in `src/coffer/reconciliation_runner.py`, with process-owned cycle/freshness
+  metrics, verified-TLS direct scrape, no HAProxy route, and no persistent
+  one-shot endpoint.
 - Questions requiring user input: None for the next fixture-only lifecycle
   milestone. The user has already authorized atomic milestone publication and
   the bounded disposable Stage 6 sequence; exact safety and release gates

@@ -1,0 +1,19 @@
+[DEFAULT]
+debug = {{ openstack_logging_debug }}
+use_stderr = false
+use_json = true
+log_dir = /var/log/kolla/coffer
+log_file = /var/log/kolla/coffer/coffer-registry-metrics.log
+
+[registry_metrics]
+bind_host = {{ api_interface_address }}
+bind_port = {{ coffer_registry_metrics_port }}
+workers = {{ coffer_registry_metrics_workers }}
+threads = {{ coffer_registry_metrics_threads }}
+timeout_seconds = {{ coffer_registry_metrics_timeout_seconds }}
+graceful_timeout_seconds = {{ coffer_registry_metrics_timeout_seconds }}
+keepalive_seconds = 5
+tls_certfile = /etc/coffer/registry-metrics.crt
+tls_keyfile = /etc/coffer/registry-metrics.key
+upstream_url = http://127.0.0.1:{{ coffer_registry_debug_port }}/metrics
+upstream_timeout_seconds = {{ coffer_registry_metrics_upstream_timeout_seconds }}

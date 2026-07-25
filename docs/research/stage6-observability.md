@@ -10,21 +10,24 @@
 
 ## Outcome
 
-Coffer now has a bounded single-process API/edge/reconciliation metric schema
-and a fail-closed one-worker runtime gate, but the installed Kolla topology is
-not production-correct:
+Coffer now has a bounded single-process API/edge/reconciliation metric schema,
+a fail-closed one-worker runtime gate, direct API/edge scrape targets, and a
+metrics-only Distribution proxy. The remaining Kolla topology is not yet
+production-correct:
 
 - `CofferMetrics` owns one private in-memory registry and process-start
   timestamp inside each process;
 - API Gunicorn defaults to `openstack_service_workers`, so one scrape sees
   only the selected worker's copied registry unless the new metrics-enabled
   one-worker startup gate is satisfied;
-- the quota edge records bounded request classes when metrics are enabled but
-  still has no private scrape application;
+- the quota edge records bounded request classes and exposes its private
+  direct-backend scrape application when metrics are enabled;
 - the reconciler creates process-local counters but exposes no scrape
   endpoint, and one-shot counters disappear at exit;
-- Prometheus scrapes one API FQDN/VIP target rather than every service replica;
-- Distribution's private debug/Prometheus endpoint is not enabled;
+- Prometheus directly enumerates every API, edge, and registry backend rather
+  than an FQDN/VIP;
+- Distribution's debug mux is loopback-only and a verified-TLS allowlist
+  proxy exposes only `/healthz` and `/metrics`;
 - the role installs no Coffer alert rules, recording rules, Grafana
   dashboards, or explicit SLO/failure-budget policy; and
 - Fluentd tails the logs, but the retained log contract is not validated as a
@@ -53,7 +56,7 @@ endpoint, or pilot evidence.
 |---|---|---|
 | `coffer-api` | direct-backend `/healthz`, SQL `/readyz`, optional `/metrics`; process-start, bounded HTTP, token, readiness, and reconciliation counters; metrics-enabled worker count must be one; HAProxy operational-path denial | no dependency/session gauges; live multi-replica scrape not yet proven |
 | `coffer-edge` | direct-backend `/healthz`, SQL `/readyz`, optional `/metrics`; bounded route/method/status, quota-admission outcome/duration, and process-start; HAProxy route denial | no generic upstream-result metrics; live multi-replica scrape not yet proven |
-| Distribution | `/v2/` health through HAProxy; JSON logs | private debug/Prometheus server disabled; no per-replica scrape |
+| Distribution | `/v2/` health through HAProxy; JSON logs; loopback debug mux; separate verified-TLS `/metrics` allowlist proxy; direct per-host scrape | live multi-replica scrape and failure recovery not yet proven |
 | `coffer-reconcile` | aggregate cycle logs and process-local result counters | no scrape listener; counters disappear; no cycle/backlog/lease gauges |
 | MariaDB/Galera | Kolla service health; existing exporter available when enabled | Coffer dashboard/alerts and transaction retry/deadlock correlation absent |
 | Ceph/RGW | RGW service health; Ceph mgr Prometheus is an external-cluster option | no Coffer recording rules for RGW latency/errors/capacity/KMS symptoms |
@@ -88,7 +91,7 @@ Prometheus
   |-- direct TLS scrape --> every coffer-api replica /metrics
   |-- direct TLS scrape --> every coffer-edge replica /metrics
   |-- direct TLS scrape --> every coffer-reconcile management endpoint
-  |-- direct TLS scrape --> every Distribution private debug endpoint
+  |-- direct TLS scrape --> every Distribution metrics allowlist proxy
   |-- existing Kolla ----> HAProxy native Prometheus endpoint
   |-- existing Kolla ----> MariaDB exporter
   `-- external target ---> active Ceph mgr Prometheus endpoint
@@ -99,7 +102,7 @@ Fluentd
 ```
 
 The Coffer scrape fragment now uses inventory-derived static targets for each
-API and edge backend address. It must not target
+API, edge, and registry backend address. It must not target
 `coffer_internal_fqdn`, the public registry FQDN, or an HAProxy VIP.
 
 All Coffer/Distribution targets use verified backend TLS and the operator CA.
@@ -158,10 +161,26 @@ claims/fencing, never from metrics.
 
 ### Distribution
 
-Enable the upstream private debug server with Prometheus metrics on a separate
-backend-only port for every registry replica. Profiling and non-metric debug
-paths remain inaccessible. The public edge and Distribution service
-frontends deny the debug port/path.
+Distribution v3.1.1 does not have a metrics-only debug server. Source
+inspection confirms the debug server calls `http.ListenAndServe` with Go's
+default mux while the registry command imports `net/http/pprof`. Enabling the
+debug address directly on a backend interface would therefore expose
+profiling.
+
+The accepted implementation binds the upstream debug mux only to
+`127.0.0.1`. A separate one-worker `coffer-registry-metrics` process on the
+same host fetches one exact loopback HTTP `/metrics` URL and exposes only
+`/healthz` and `/metrics` over backend TLS. It forwards no client headers,
+bounds the response to 16 MiB, returns a fixed 503 for upstream failure or an
+invalid response, and returns 404 for query strings, pprof, debug, and unknown
+paths. Its dedicated mode-0600 configuration contains no database section and
+receives no database, Keystone, RGW, Distribution HTTP, signing, or
+maintenance secret.
+
+The proxy has no HAProxy service entry. Prometheus targets its direct
+per-registry-host backend port with the operator CA and fixed server name.
+The ordinary Distribution service frontend still exposes only the registry
+data plane; the upstream debug port is not reachable off-host.
 
 Distribution documentation warns that the debug endpoint may expose sensitive
 operational information. Network/TLS restriction and a metrics-only

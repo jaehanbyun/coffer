@@ -65,6 +65,20 @@ OBSERVABILITY_GROUP = cfg.OptGroup("observability")
 OBSERVABILITY_OPTS = [
     cfg.BoolOpt("metrics_enabled", default=False),
 ]
+REGISTRY_METRICS_GROUP = cfg.OptGroup("registry_metrics")
+REGISTRY_METRICS_OPTS = [
+    cfg.StrOpt("bind_host", default="127.0.0.1"),
+    cfg.PortOpt("bind_port", default=8791),
+    cfg.IntOpt("workers", default=1, min=1, max=128),
+    cfg.IntOpt("threads", default=2, min=1, max=32),
+    cfg.IntOpt("timeout_seconds", default=10, min=1, max=60),
+    cfg.IntOpt("graceful_timeout_seconds", default=10, min=1, max=60),
+    cfg.IntOpt("keepalive_seconds", default=5, min=1, max=60),
+    cfg.StrOpt("tls_certfile"),
+    cfg.StrOpt("tls_keyfile"),
+    cfg.URIOpt("upstream_url"),
+    cfg.FloatOpt("upstream_timeout_seconds", default=5.0, min=0.1, max=30.0),
+]
 MAINTENANCE_GROUP = cfg.OptGroup("maintenance")
 MAINTENANCE_OPTS = [
     cfg.BoolOpt("enabled", default=False),
@@ -109,6 +123,12 @@ def new_config() -> cfg.ConfigOpts:
     observability_group = deepcopy(OBSERVABILITY_GROUP)
     conf.register_group(observability_group)
     conf.register_opts(deepcopy(OBSERVABILITY_OPTS), group=observability_group)
+    registry_metrics_group = deepcopy(REGISTRY_METRICS_GROUP)
+    conf.register_group(registry_metrics_group)
+    conf.register_opts(
+        deepcopy(REGISTRY_METRICS_OPTS),
+        group=registry_metrics_group,
+    )
     maintenance_group = deepcopy(MAINTENANCE_GROUP)
     conf.register_group(maintenance_group)
     conf.register_opts(deepcopy(MAINTENANCE_OPTS), group=maintenance_group)
