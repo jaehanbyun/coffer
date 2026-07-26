@@ -1,6 +1,6 @@
 # Coffer Handoff
 
-- Updated: 2026-07-26
+- Updated: 2026-07-27
 - Status: plan 0023 active; plans 0019 and 0022 blocked externally; plans 0020 and 0021 completed locally;
   native x86_64 UI parents and derivatives built and passed provenance/runtime
   collection, but standalone Docker Scout CVE evidence requires an unauthorized
@@ -36,7 +36,7 @@
   disabled-by-default immutable Horizon/Skyline image contracts and exact
   fallback lifecycle complete locally with 108 role checks; four desktop/narrow
   UI fixture screenshots visually inspected; current full Python regression
-  passes 1,502 tests and the prior Horizon/Skyline/108-check Kolla repository
+  passes 1,503 tests and the prior Horizon/Skyline/108-check Kolla repository
   gates remain complete
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
@@ -115,6 +115,25 @@ and Trivy found zero secrets. The owner-only result SHA-256 is
 Containerfile change is accepted. Exact images, contexts, wheel copies,
 archives, and scanner caches are absent, and the retained Podman machine is
 stopped.
+
+The single-package overlay is now driven by one strict checked-in target
+manifest rather than Mako-specific constants. The second independent native
+ARM64 derivative changes only `httplib2` 0.31.2 to 0.32.0 while preserving
+the accepted cleanup OS inventory and all non-target Python distribution
+version multisets. `pip check`, import compatibility, official wheel source
+hashes, package-local bytecode boundaries, Coffer UI runtime hashes, image
+lineage, and build-input absence pass.
+
+Horizon High findings changed from Trivy 31 to 30 and Scout 34 to 33; Skyline
+changed from Trivy 16 to 15 and Scout 19 to 18. Both scanners removed exactly
+`CVE-2026-59939`, introduced zero Critical/High finding, and Trivy found zero
+secrets. The owner-only result SHA-256 is
+`b0f06afebc37f75610652fc6ba8855b1a52cdc91d946d27e2fb177d7b8dcd0a2`.
+`python_overlay_trial_accepted=true`, but status remains `blocked` and
+`production_candidate=false`; this is not a cumulative Mako+httplib2 image,
+and no production Containerfile or private constraints policy changed. Exact
+images, generated contexts, wheel copies, archives, and scanner caches are
+absent, and the harness-started Podman machine is stopped.
 
 Plan 0019 is externally blocked after converting every locally independent
 Stage 6 operation into a release-gated, checkpointed pilot harness. The latest
@@ -2978,12 +2997,13 @@ release contains it yet.
 
 ## Exact Next Action
 
-Run the final repository gates for the Mako compatibility derivative, stage
-only that atomic package, then commit and push it under the verified
-`jaehanbyun` account. After publication, generalize the one-package manifest
-and test only the independent pure-Python `httplib2` 0.31.2 to 0.32.0
-candidate. Do not alter production UI Containerfiles, combine upgrades, waive
-a finding, handle a Docker credential, or create a live cloud.
+Run the final repository gates for the generic target and independent
+`httplib2` derivative, stage only that atomic package, then commit and push it
+under the verified `jaehanbyun` account. After publication, bind the official
+pure-Python `urllib3` 2.7.0 wheel and exact
+`CVE-2026-44431`/`CVE-2026-44432` expectations, then run that target alone.
+Do not alter production UI Containerfiles, combine upgrades, waive a finding,
+handle a Docker credential, or create a live cloud.
 
 ## After This Work Package
 

@@ -3,9 +3,20 @@
 set -Eeuo pipefail
 umask 027
 
+if [[ "$#" -gt 1 ]]; then
+    echo "usage: trial_python_overlay.sh [mako|httplib2]" >&2
+    exit 1
+fi
+TARGET_KEY="${1:-mako}"
+if [[ ! "${TARGET_KEY}" =~ ^[a-z][a-z0-9-]{1,31}$ ]]; then
+    echo "invalid Python overlay target key" >&2
+    exit 1
+fi
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 HARNESS="${ROOT}/poc/ui-images"
-WORK="${ROOT}/work/ui-python-overlay-trial-mako"
+TARGET_MANIFEST="${HARNESS}/python_targets.json"
+WORK="${ROOT}/work/ui-python-overlay-trial-${TARGET_KEY}"
 EVIDENCE="${WORK}/evidence"
 CONTEXTS="${WORK}/contexts"
 WHEELS="${WORK}/wheels"
@@ -19,10 +30,13 @@ WHEEL_INPUT="${ROOT}/work/ui-image-qualification/wheels"
 OS_CLEANUP_RESULT="${ROOT}/work/ui-os-cleanup-trial/evidence/cleanup-trial.json"
 OS_CLEANUP_INVENTORIES="${ROOT}/work/ui-os-cleanup-trial/evidence/inventories.json"
 REMEDIATION_RESULT="${ROOT}/work/ui-image-qualification/evidence/remediation.json"
-TARGET_WHEEL_NAME="mako-1.3.12-py3-none-any.whl"
-TARGET_WHEEL_URL="https://files.pythonhosted.org/packages/bc/b1/a0ec7a5a9db730a08daef1fdfb8090435b82465abbf758a596f0ea88727e/mako-1.3.12-py3-none-any.whl"
-TARGET_WHEEL_SHA256="8f61569480282dbf557145ce441e4ba888be453c30989f879f0d652e39f53ea9"
-TAG="2026.1-mako-1.3.12"
+TARGET_WHEEL_NAME=""
+TARGET_WHEEL_URL=""
+TARGET_WHEEL_SHA256=""
+TARGET_DISPLAY_NAME=""
+TARGET_TO_VERSION=""
+TARGET_TRIAL_LABEL=""
+TAG="2026.1-python-overlay"
 PREFIX="coffer-ui-python-trial-"
 HORIZON_PARENT="localhost/${PREFIX}horizon:${TAG}"
 SKYLINE_PARENT="localhost/${PREFIX}skyline-console:${TAG}"
@@ -107,6 +121,35 @@ trap cleanup EXIT
 for command_name in curl docker git jq podman python3 shasum; do
     require_command "${command_name}"
 done
+test -f "${TARGET_MANIFEST}"
+test ! -L "${TARGET_MANIFEST}"
+TARGET_WHEEL_NAME="$(
+    jq -er --arg target "${TARGET_KEY}" \
+        '.targets[$target].wheel_filename' "${TARGET_MANIFEST}"
+)"
+TARGET_WHEEL_URL="$(
+    jq -er --arg target "${TARGET_KEY}" \
+        '.targets[$target].wheel_url' "${TARGET_MANIFEST}"
+)"
+TARGET_WHEEL_SHA256="$(
+    jq -er --arg target "${TARGET_KEY}" \
+        '.targets[$target].wheel_sha256' "${TARGET_MANIFEST}"
+)"
+TARGET_DISPLAY_NAME="$(
+    jq -er --arg target "${TARGET_KEY}" \
+        '.targets[$target].display_name' "${TARGET_MANIFEST}"
+)"
+TARGET_TO_VERSION="$(
+    jq -er --arg target "${TARGET_KEY}" \
+        '.targets[$target].to_version' "${TARGET_MANIFEST}"
+)"
+TARGET_TRIAL_LABEL="$(
+    jq -er --arg target "${TARGET_KEY}" \
+        '.targets[$target].trial_label' "${TARGET_MANIFEST}"
+)"
+TARGET_KEY="${TARGET_KEY}" TARGET_MANIFEST="${TARGET_MANIFEST}" \
+    PYTHONPATH="${HARNESS}" python3 -c \
+    'import os; from pathlib import Path; from python_target import load_target; load_target(Path(os.environ["TARGET_MANIFEST"]), os.environ["TARGET_KEY"])'
 docker scout version >/dev/null
 if [[ -e "${WORK}" ]]; then
     echo "refusing existing UI Python overlay trial work directory" >&2
@@ -293,17 +336,27 @@ podman build --pull-never --network none --platform "${platform}" \
     --file "${cleanup_context}/os_cleanup.Containerfile" \
     --tag "${SKYLINE_BEFORE}" "${cleanup_context}"
 
-phase="fixed Mako overlay derivatives"
+phase="fixed ${TARGET_DISPLAY_NAME} overlay derivatives"
 overlay_context="${CONTEXTS}/python-overlay"
 mkdir -p "${overlay_context}"
-cp "${HARNESS}/python_overlay.Containerfile" "${overlay_context}/"
-cp "${target_wheel}" "${overlay_context}/"
+cp \
+    "${HARNESS}/python_overlay.Containerfile" \
+    "${HARNESS}/python_target.py" \
+    "${TARGET_MANIFEST}" \
+    "${overlay_context}/"
+cp "${target_wheel}" "${overlay_context}/target.whl"
 podman build --pull-never --network none --platform "${platform}" \
     --build-arg "BASE_IMAGE=${HORIZON_BEFORE}" \
+    --build-arg "TARGET_KEY=${TARGET_KEY}" \
+    --build-arg "TARGET_LABEL=${TARGET_TRIAL_LABEL}" \
+    --build-arg "TARGET_WHEEL_FILENAME=${TARGET_WHEEL_NAME}" \
     --file "${overlay_context}/python_overlay.Containerfile" \
     --tag "${HORIZON_AFTER}" "${overlay_context}"
 podman build --pull-never --network none --platform "${platform}" \
     --build-arg "BASE_IMAGE=${SKYLINE_BEFORE}" \
+    --build-arg "TARGET_KEY=${TARGET_KEY}" \
+    --build-arg "TARGET_LABEL=${TARGET_TRIAL_LABEL}" \
+    --build-arg "TARGET_WHEEL_FILENAME=${TARGET_WHEEL_NAME}" \
     --file "${overlay_context}/python_overlay.Containerfile" \
     --tag "${SKYLINE_AFTER}" "${overlay_context}"
 
@@ -327,6 +380,8 @@ python3 "${HARNESS}/collect_python_trial.py" \
     --horizon-wheel "${horizon_wheel}" \
     --skyline-wheel "${skyline_wheel}" \
     --target-wheel "${target_wheel}" \
+    --target-manifest "${TARGET_MANIFEST}" \
+    --target "${TARGET_KEY}" \
     --baseline-result "${OS_CLEANUP_RESULT}" \
     --baseline-inventories "${OS_CLEANUP_INVENTORIES}" \
     --remediation-result "${REMEDIATION_RESULT}" \
@@ -356,8 +411,8 @@ for entry in \
     (
         cd "${ROOT}"
         docker scout cves --format sarif \
-            --output "work/ui-python-overlay-trial-mako/evidence/${key}.scout.sarif.json" \
-            "archive://work/ui-python-overlay-trial-mako/evidence/${key}.tar"
+            --output "work/ui-python-overlay-trial-${TARGET_KEY}/evidence/${key}.scout.sarif.json" \
+            "archive://work/ui-python-overlay-trial-${TARGET_KEY}/evidence/${key}.tar"
     )
     podman run --rm --network none \
         --volume "${EVIDENCE}:/evidence:rw" \
@@ -383,16 +438,18 @@ python3 "${HARNESS}/python_trial.py" "${EVIDENCE}" \
     --remediation-result "${REMEDIATION_RESULT}" \
     --horizon-wheel "${horizon_wheel}" \
     --skyline-wheel "${skyline_wheel}" \
-    --target-wheel "${target_wheel}" || trial_exit=$?
+    --target-wheel "${target_wheel}" \
+    --target-manifest "${TARGET_MANIFEST}" \
+    --target "${TARGET_KEY}" || trial_exit=$?
 if [[ "${trial_exit}" -ne 3 ]]; then
     exit "${trial_exit}"
 fi
-jq -e '
+jq -e --arg target "${TARGET_DISPLAY_NAME}==${TARGET_TO_VERSION}" '
     .decision.status == "blocked"
     and .decision.production_candidate == false
     and .decision.python_overlay_trial_accepted == true
-    and .decision.target == "Mako==1.3.12"
+    and .decision.target == $target
     and .decision.production_containerfile_changed == false
 ' "${EVIDENCE}/python-trial.json" >/dev/null
 
-echo "UI Mako overlay trial accepted but production remains blocked; evidence=${EVIDENCE}"
+echo "UI ${TARGET_DISPLAY_NAME} overlay trial accepted but production remains blocked; evidence=${EVIDENCE}"

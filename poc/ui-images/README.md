@@ -158,22 +158,31 @@ derivative:
 
 ```console
 make -C poc/ui-images trial-python-overlay
+make -C poc/ui-images trial-python-httplib2
 ```
 
-The first fixed trial installs only the official Mako 1.3.12 wheel with its
-exact SHA-256, `--no-index`, `--no-deps`, and `--force-reinstall`. It requires
-the OS package inventory to remain byte-for-byte equivalent to the accepted
-cleanup result, preserves every installed Python distribution version
-including duplicate development/install metadata, and permits no Python
-package delta except Mako 1.3.10 to 1.3.12. `pip check`, a real Mako render,
-installed wheel source hashes, Horizon/Skyline Coffer runtime hashes, image
-lineage, input removal, and the two-scanner/secret gates are all mandatory.
+The checked-in `python_targets.json` manifest is the only target-selection
+boundary. It binds each allowed package to the official wheel URL, filename,
+SHA-256, dependency metadata, exact before/after versions, expected scanner
+findings, compatibility probe, and trial label. The loader rejects unknown
+fields, unsafe filenames or URLs, unsupported probes, arbitrary target keys,
+and linked manifests. The generic overlay retains the official wheel filename
+for pip parsing and still removes that exact build input from the final image.
+
+Each fixed trial installs one official wheel with `--no-index`, `--no-deps`,
+and `--force-reinstall`. It requires the OS package inventory to remain
+byte-for-byte equivalent to the accepted cleanup result, preserves every
+installed Python distribution version including duplicate development/install
+metadata, and permits no Python package delta except the selected target.
+`pip check`, the target-specific compatibility probe, installed wheel source
+hashes, Horizon/Skyline Coffer runtime hashes, image lineage, input removal,
+and the two-scanner/secret gates are all mandatory.
 
 The 2026-07-26 native ARM64 trial accepted that narrow compatibility
-derivative. Horizon High findings changed from Trivy 31 to 29 and Scout 34 to
-32; Skyline changed from Trivy 16 to 14 and Scout 19 to 17. Both scanners
-removed exactly `CVE-2026-41205` and `CVE-2026-44307`, introduced no
-Critical/High finding, and Trivy found no secret.
+derivative for Mako 1.3.12. Horizon High findings changed from Trivy 31 to 29
+and Scout 34 to 32; Skyline changed from Trivy 16 to 14 and Scout 19 to 17.
+Both scanners removed exactly `CVE-2026-41205` and `CVE-2026-44307`,
+introduced no Critical/High finding, and Trivy found no secret.
 
 The result remains `blocked` with `production_candidate=false`. It does not
 modify the production UI Containerfiles, adopt a private global-constraints
@@ -183,3 +192,20 @@ Owner-only evidence is retained under the ignored
 `work/ui-python-overlay-trial-mako/evidence/` path; generated images, contexts,
 wheel copies, archives, scanner caches, and a harness-started Podman machine
 are removed on exit.
+
+The 2026-07-27 native ARM64 trial independently accepted the `httplib2`
+0.31.2 to 0.32.0 derivative. Horizon High findings changed from Trivy 31 to
+30 and Scout 34 to 33; Skyline changed from Trivy 16 to 15 and Scout 19 to
+18. Both scanners removed exactly `CVE-2026-59939`, introduced no
+Critical/High finding, and Trivy found no secret. OS inventories, all
+non-target Python version multisets, `pip check`, import compatibility,
+official wheel source hashes, package-local bytecode boundaries, Coffer UI
+runtime hashes, lineage, and build-input removal passed.
+
+This second result is also accepted only as an isolated compatibility
+derivative. It remains `blocked` with `production_candidate=false`, changes no
+production Containerfile, and grants no broad constraints override. Owner-only
+evidence is retained under ignored
+`work/ui-python-overlay-trial-httplib2/evidence/`; generated images, contexts,
+wheel copies, archives, scanner caches, and the harness-started Podman machine
+are absent after exit.

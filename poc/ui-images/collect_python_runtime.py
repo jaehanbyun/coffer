@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import platform
@@ -9,9 +10,9 @@ from importlib import metadata
 from pathlib import Path
 from typing import Any
 
+from python_target import Target, TargetError, load_target, probe_target
+
 SCHEMA = "coffer.ui-python-overlay-runtime/v1"
-TARGET_NAME = "mako"
-TARGET_WHEEL_PATH = "/tmp/mako-1.3.12-py3-none-any.whl"
 PACKAGE_NAME = re.compile(r"[-_.]+")
 
 
@@ -33,7 +34,7 @@ def file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def package_versions() -> dict[str, list[str]]:
+def package_versions(target: Target) -> dict[str, list[str]]:
     packages: dict[str, list[str]] = {}
     for distribution in metadata.distributions():
         name = normalized_name(str(distribution.metadata.get("Name", "")))
@@ -41,7 +42,7 @@ def package_versions() -> dict[str, list[str]]:
         if not name or not version:
             raise RuntimeCollectionError("Python package inventory is invalid")
         packages.setdefault(name, []).append(version)
-    if TARGET_NAME not in packages:
+    if target.normalized_name not in packages:
         raise RuntimeCollectionError("target Python package is absent")
     return {
         name: sorted(versions)
@@ -49,15 +50,15 @@ def package_versions() -> dict[str, list[str]]:
     }
 
 
-def target_files() -> dict[str, str]:
-    distribution = metadata.distribution("Mako")
+def target_files(target: Target) -> dict[str, str]:
+    distribution = metadata.distribution(target.display_name)
     files = distribution.files
     if files is None:
         raise RuntimeCollectionError("target Python package has no RECORD")
     result: dict[str, str] = {}
     for member in files:
         relative = str(member)
-        if not relative.startswith("mako/"):
+        if not relative.startswith(target.package_prefix):
             continue
         path = Path(distribution.locate_file(member))
         if not path.is_file() or path.is_symlink():
@@ -84,12 +85,15 @@ def pip_check() -> dict[str, Any]:
     return {"clean": clean, "message": process.stdout.strip() if clean else ""}
 
 
-def collect() -> dict[str, Any]:
-    from mako.template import Template
-
-    rendered = Template("${value}").render(value="coffer")
+def collect(target: Target) -> dict[str, Any]:
+    target_input_paths = (
+        f"/tmp/{target.wheel_filename}",
+        "/tmp/python_target.py",
+        "/tmp/python_targets.json",
+    )
+    probe_result = probe_target(target)
     check = pip_check()
-    if rendered != "coffer" or check["clean"] is not True:
+    if check["clean"] is not True:
         raise RuntimeCollectionError("target Python compatibility check failed")
     architecture = platform.machine().lower()
     architecture = {
@@ -101,27 +105,39 @@ def collect() -> dict[str, Any]:
     return {
         "schema": SCHEMA,
         "architecture": architecture,
-        "packages": package_versions(),
+        "packages": package_versions(target),
         "target": {
-            "name": TARGET_NAME,
-            "version": metadata.version("Mako"),
-            "files": target_files(),
-            "rendered": rendered,
+            "name": target.normalized_name,
+            "version": metadata.version(target.display_name),
+            "files": target_files(target),
+            "probe": target.probe,
+            "probe_result": probe_result,
         },
         "pip_check": check,
         "absent": [
-            TARGET_WHEEL_PATH
-            for path in (Path(TARGET_WHEEL_PATH),)
+            value
+            for value in target_input_paths
+            for path in (Path(value),)
             if not path.exists() and not path.is_symlink()
         ],
     }
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--target", required=True)
+    arguments = parser.parse_args()
     try:
-        result = collect()
-        if result["absent"] != [TARGET_WHEEL_PATH]:
-            raise RuntimeCollectionError("target wheel remains in the image")
+        target = load_target(arguments.manifest, arguments.target)
+        result = collect(target)
+        expected_absent = [
+            f"/tmp/{target.wheel_filename}",
+            "/tmp/python_target.py",
+            "/tmp/python_targets.json",
+        ]
+        if result["absent"] != expected_absent:
+            raise RuntimeCollectionError("target build input remains in the image")
     except RuntimeCollectionError as error:
         print(f"coffer-ui-python-overlay-runtime: {error}")
         return 2
@@ -130,6 +146,9 @@ def main() -> int:
         return 2
     except subprocess.TimeoutExpired:
         print("coffer-ui-python-overlay-runtime: compatibility check timed out")
+        return 2
+    except (TargetError, ImportError):
+        print("coffer-ui-python-overlay-runtime: target manifest is invalid")
         return 2
     print(json.dumps(result, sort_keys=True))
     return 0

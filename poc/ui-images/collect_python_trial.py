@@ -9,13 +9,15 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from python_target import TargetError, load_target
+
 MANIFEST_SCHEMA = "coffer.ui-python-overlay-evidence/v1"
 IMAGE_SCHEMA = "coffer.ui-python-overlay-images/v1"
 INVENTORY_SCHEMA = "coffer.ui-python-overlay-os-inventories/v1"
 RUNTIME_SCHEMA = "coffer.ui-python-overlay-runtimes/v1"
 IMAGE_NAME = re.compile(
     r"^localhost/coffer-ui-python-trial-(horizon|skyline)-(before|after):"
-    r"2026\.1-mako-1\.3\.12$"
+    r"2026\.1-python-overlay$"
 )
 REVISION = re.compile(r"^[0-9a-f]{40}$")
 DIGEST = re.compile(r"^[0-9a-f]{64}$")
@@ -111,11 +113,24 @@ def container_json(
     collector: Path,
     arguments: list[str],
     interpreter: str,
+    extra_mounts: tuple[tuple[Path, str], ...] = (),
 ) -> dict[str, Any]:
     if not IMAGE_NAME.fullmatch(image):
         raise CollectionError("runtime image is outside the trial namespace")
     if not collector.is_file() or collector.is_symlink():
         raise CollectionError("runtime collector is missing or linked")
+    mounts = [
+        "--volume",
+        f"{collector.resolve()}:/opt/coffer-ui-collector.py:ro",
+    ]
+    for source, destination in extra_mounts:
+        if (
+            not source.is_file()
+            or source.is_symlink()
+            or not re.fullmatch(r"/opt/[a-z0-9_.-]+", destination)
+        ):
+            raise CollectionError("runtime support mount is invalid")
+        mounts.extend(("--volume", f"{source.resolve()}:{destination}:ro"))
     process = subprocess.run(
         [
             "podman",
@@ -132,8 +147,7 @@ def container_json(
             "0",
             "--entrypoint",
             interpreter,
-            "--volume",
-            f"{collector.resolve()}:/opt/coffer-ui-collector.py:ro",
+            *mounts,
             image,
             "/opt/coffer-ui-collector.py",
             *arguments,
@@ -169,6 +183,8 @@ def collect(
     horizon_wheel: Path,
     skyline_wheel: Path,
     target_wheel: Path,
+    target_manifest: Path,
+    target_key: str,
     baseline_result: Path,
     baseline_inventories: Path,
     remediation_result: Path,
@@ -179,6 +195,15 @@ def collect(
     docker_scout_version: str,
     trivy_version: str,
 ) -> None:
+    try:
+        target = load_target(target_manifest, target_key)
+    except TargetError as error:
+        raise CollectionError("Python target is invalid") from error
+    if (
+        target_wheel.name != target.wheel_filename
+        or sha256_file(target_wheel) != target.wheel_sha256
+    ):
+        raise CollectionError("Python target wheel identity is invalid")
     revisions = (kolla_revision, horizon_revision, skyline_revision)
     if not all(REVISION.fullmatch(value) for value in revisions):
         raise CollectionError("source revision is invalid")
@@ -202,6 +227,7 @@ def collect(
 
     package_collector = Path(__file__).with_name("package_probe.py")
     python_collector = Path(__file__).with_name("collect_python_runtime.py")
+    target_module = Path(__file__).with_name("python_target.py")
     ui_collector = Path(__file__).with_name("collect_runtime.py")
     inventories = {
         key: container_json(
@@ -216,8 +242,17 @@ def collect(
         key: container_json(
             image=images[key],
             collector=python_collector,
-            arguments=[],
+            arguments=[
+                "--manifest",
+                "/opt/python_targets.json",
+                "--target",
+                target.key,
+            ],
             interpreter="/var/lib/kolla/venv/bin/python",
+            extra_mounts=(
+                (target_module, "/opt/python_target.py"),
+                (target_manifest, "/opt/python_targets.json"),
+            ),
         )
         for key in sorted(images)
     }
@@ -252,11 +287,18 @@ def collect(
                 "sha256": sha256_file(skyline_wheel),
             },
             "target": {
-                "name": "Mako",
-                "from_version": "1.3.10",
-                "to_version": "1.3.12",
+                "key": target.key,
+                "name": target.display_name,
+                "normalized_name": target.normalized_name,
+                "from_version": target.from_version,
+                "to_version": target.to_version,
                 "filename": target_wheel.name,
-                "sha256": sha256_file(target_wheel),
+                "sha256": target.wheel_sha256,
+                "manifest_sha256": sha256_file(target_manifest),
+                "probe": target.probe,
+                "trial_label": target.trial_label,
+                "finding_ids": list(target.finding_ids),
+                "requires_dist": list(target.requires_dist),
             },
         },
         "baseline": {
@@ -299,6 +341,8 @@ def main() -> int:
     parser.add_argument("--horizon-wheel", type=Path, required=True)
     parser.add_argument("--skyline-wheel", type=Path, required=True)
     parser.add_argument("--target-wheel", type=Path, required=True)
+    parser.add_argument("--target-manifest", type=Path, required=True)
+    parser.add_argument("--target", required=True)
     parser.add_argument("--baseline-result", type=Path, required=True)
     parser.add_argument("--baseline-inventories", type=Path, required=True)
     parser.add_argument("--remediation-result", type=Path, required=True)
@@ -324,6 +368,8 @@ def main() -> int:
             horizon_wheel=arguments.horizon_wheel,
             skyline_wheel=arguments.skyline_wheel,
             target_wheel=arguments.target_wheel,
+            target_manifest=arguments.target_manifest,
+            target_key=arguments.target,
             baseline_result=arguments.baseline_result,
             baseline_inventories=arguments.baseline_inventories,
             remediation_result=arguments.remediation_result,
@@ -339,6 +385,9 @@ def main() -> int:
         return 2
     except subprocess.TimeoutExpired:
         print("coffer-ui-python-overlay-collector: collection timed out")
+        return 2
+    except TargetError:
+        print("coffer-ui-python-overlay-collector: target manifest is invalid")
         return 2
     return 0
 

@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any
 from zipfile import ZipFile
 
+from python_target import Target, TargetError, load_target
+
 MANIFEST_SCHEMA = "coffer.ui-python-overlay-evidence/v1"
 IMAGE_SCHEMA = "coffer.ui-python-overlay-images/v1"
 INVENTORY_SCHEMA = "coffer.ui-python-overlay-os-inventories/v1"
@@ -23,14 +25,6 @@ REMEDIATION_SCHEMA = "coffer.ui-parent-remediation/v1"
 KOLLA_REVISION = "686c6d13dc1c31092b22c6c481e16a7329e935ea"
 HORIZON_REVISION = "0a4439556517cf67be0aa949b6551a14e409af75"
 SKYLINE_REVISION = "c9000cb1be332a213009793598f17a80ce59671e"
-TARGET_NAME = "mako"
-TARGET_FROM_VERSION = "1.3.10"
-TARGET_TO_VERSION = "1.3.12"
-TARGET_WHEEL_NAME = "mako-1.3.12-py3-none-any.whl"
-TARGET_WHEEL_SHA256 = (
-    "8f61569480282dbf557145ce441e4ba888be453c30989f879f0d652e39f53ea9"
-)
-TARGET_FINDINGS = frozenset({"CVE-2026-41205", "CVE-2026-44307"})
 OS_CLEANUP_RESULT_SHA256 = (
     "a8da7856f955f25866a0b9fbe9214d34863a502714a1624ac2ae66ce6caac2d3"
 )
@@ -152,15 +146,18 @@ def _wheel_members(path: Path, surface: str) -> dict[str, str]:
         raise EvidenceError(f"{surface} wheel runtime member is missing") from error
 
 
-def _target_wheel_members(path: Path) -> dict[str, str]:
-    if path.name != TARGET_WHEEL_NAME or sha256_file(path) != TARGET_WHEEL_SHA256:
+def _target_wheel_members(path: Path, target: Target) -> dict[str, str]:
+    if (
+        path.name != target.wheel_filename
+        or sha256_file(path) != target.wheel_sha256
+    ):
         raise EvidenceError("target wheel identity is invalid")
     try:
         with ZipFile(path) as archive:
             members = tuple(
                 name
                 for name in archive.namelist()
-                if name.startswith("mako/") and not name.endswith("/")
+                if name.startswith(target.package_prefix) and not name.endswith("/")
             )
             if not members:
                 raise EvidenceError("target wheel package is empty")
@@ -174,6 +171,7 @@ def _target_wheel_members(path: Path) -> dict[str, str]:
 
 def validate_baselines(
     *,
+    target: Target,
     baseline_result_path: Path,
     baseline_inventories_path: Path,
     remediation_result_path: Path,
@@ -209,7 +207,8 @@ def validate_baselines(
         candidates = [
             _object(value, f"{surface} candidate")
             for value in packages
-            if _object(value, f"{surface} package").get("package") == TARGET_NAME
+            if _object(value, f"{surface} package").get("package")
+            == target.normalized_name
         ]
         if len(candidates) != 1:
             raise EvidenceError(f"{surface} target candidate is ambiguous")
@@ -219,11 +218,12 @@ def validate_baselines(
             != "constraint-bound-all-findings-have-fix"
             or candidate.get("eligible_for_compatibility_trial") is not True
             or candidate.get("constraint_match") is not True
-            or candidate.get("installed_version") != TARGET_FROM_VERSION
-            or candidate.get("constraint_version") != TARGET_FROM_VERSION
-            or TARGET_TO_VERSION
+            or candidate.get("installed_version") != target.from_version
+            or candidate.get("constraint_version") != target.from_version
+            or target.to_version
             not in _array(candidate.get("fixed_versions"), "target fixed versions")
-            or frozenset(candidate.get("finding_ids") or ()) != TARGET_FINDINGS
+            or frozenset(candidate.get("finding_ids") or ())
+            != frozenset(target.finding_ids)
         ):
             raise EvidenceError(f"{surface} target candidate is invalid")
     inventories = _load(baseline_inventories_path, "OS cleanup inventories")
@@ -237,6 +237,8 @@ def validate_manifest(
     horizon_wheel: Path,
     skyline_wheel: Path,
     target_wheel: Path,
+    target_manifest_path: Path,
+    target: Target,
     baseline_result_path: Path,
     baseline_inventories_path: Path,
     remediation_result_path: Path,
@@ -271,11 +273,18 @@ def validate_manifest(
             "sha256": sha256_file(skyline_wheel),
         },
         "target": {
-            "name": "Mako",
-            "from_version": TARGET_FROM_VERSION,
-            "to_version": TARGET_TO_VERSION,
-            "filename": TARGET_WHEEL_NAME,
-            "sha256": sha256_file(target_wheel),
+            "key": target.key,
+            "name": target.display_name,
+            "normalized_name": target.normalized_name,
+            "from_version": target.from_version,
+            "to_version": target.to_version,
+            "filename": target.wheel_filename,
+            "sha256": target.wheel_sha256,
+            "manifest_sha256": sha256_file(target_manifest_path),
+            "probe": target.probe,
+            "trial_label": target.trial_label,
+            "finding_ids": list(target.finding_ids),
+            "requires_dist": list(target.requires_dist),
         },
     }
     if artifacts != expected_artifacts:
@@ -303,7 +312,12 @@ def validate_manifest(
     return manifest
 
 
-def validate_images(evidence: Path, manifest: dict[str, Any]) -> None:
+def validate_images(
+    evidence: Path,
+    manifest: dict[str, Any],
+    *,
+    target: Target,
+) -> None:
     document = _load(evidence / "images.json", "trial image inspection")
     if document.get("schema") != IMAGE_SCHEMA:
         raise EvidenceError("trial image inspection schema is unsupported")
@@ -336,7 +350,7 @@ def validate_images(evidence: Path, manifest: dict[str, Any]) -> None:
             "io.coffer.ui.contract": "coffer-ui-image-v1",
             "io.coffer.ui.surface": surface,
             "io.coffer.ui.os-cleanup-trial": "coffer-ui-os-cleanup-v1",
-            "io.coffer.ui.python-overlay-trial": "coffer-ui-mako-1.3.12-v1",
+            "io.coffer.ui.python-overlay-trial": target.trial_label,
             "org.opencontainers.image.revision": (
                 HORIZON_REVISION if surface == "horizon" else SKYLINE_REVISION
             ),
@@ -442,12 +456,17 @@ def validate_python_runtimes(
     *,
     manifest: dict[str, Any],
     target_wheel: Path,
+    target: Target,
 ) -> None:
     python = _object(document.get("python"), "trial Python runtimes")
     if set(python) != set(manifest["images"]):
         raise EvidenceError("trial Python runtime set is invalid")
-    expected_files = _target_wheel_members(target_wheel)
-    expected_absent = [f"/tmp/{TARGET_WHEEL_NAME}"]
+    expected_files = _target_wheel_members(target_wheel, target)
+    expected_absent = [
+        f"/tmp/{target.wheel_filename}",
+        "/tmp/python_target.py",
+        "/tmp/python_targets.json",
+    ]
     for surface in SURFACES:
         before_document = _object(
             python[f"{surface}-before"],
@@ -472,17 +491,21 @@ def validate_python_runtimes(
                 "message": "No broken requirements found.",
             }:
                 raise EvidenceError(f"{surface} {kind} pip check failed")
-            target = _object(
+            target_runtime = _object(
                 runtime.get("target"),
                 f"{surface} {kind} target runtime",
             )
             expected_version = (
-                TARGET_FROM_VERSION if kind == "before" else TARGET_TO_VERSION
+                target.from_version if kind == "before" else target.to_version
+            )
+            expected_probe_result = (
+                "coffer" if target.probe == "mako-render" else target.key
             )
             if (
-                target.get("name") != TARGET_NAME
-                or target.get("version") != expected_version
-                or target.get("rendered") != "coffer"
+                target_runtime.get("name") != target.normalized_name
+                or target_runtime.get("version") != expected_version
+                or target_runtime.get("probe") != target.probe
+                or target_runtime.get("probe_result") != expected_probe_result
                 or runtime.get("absent") != expected_absent
             ):
                 raise EvidenceError(f"{surface} {kind} target runtime is invalid")
@@ -500,7 +523,8 @@ def validate_python_runtimes(
             installed_source != expected_files
             or any(
                 not re.fullmatch(
-                    r"mako/(?:[^/]+/)*__pycache__/[^/]+\.pyc",
+                    rf"{re.escape(target.package_prefix)}"
+                    r"(?:[^/]+/)*__pycache__/[^/]+\.pyc",
                     name,
                 )
                 for name in generated_files
@@ -516,9 +540,9 @@ def validate_python_runtimes(
         }
         if (
             set(before) != set(after)
-            or changed != {TARGET_NAME}
-            or before.get(TARGET_NAME) != [TARGET_FROM_VERSION]
-            or after.get(TARGET_NAME) != [TARGET_TO_VERSION]
+            or changed != {target.normalized_name}
+            or before.get(target.normalized_name) != [target.from_version]
+            or after.get(target.normalized_name) != [target.to_version]
         ):
             raise EvidenceError(f"{surface} Python package delta is not exact")
 
@@ -556,6 +580,7 @@ def validate_runtimes(
     horizon_wheel: Path,
     skyline_wheel: Path,
     target_wheel: Path,
+    target: Target,
 ) -> None:
     document = _load(evidence / "runtimes.json", "trial runtimes")
     if (
@@ -567,6 +592,7 @@ def validate_runtimes(
         document,
         manifest=manifest,
         target_wheel=target_wheel,
+        target=target,
     )
     validate_ui_runtimes(
         document,
@@ -579,7 +605,13 @@ def _scanner_suffix(scanner: str) -> str:
     return "trivy.json" if scanner == "trivy" else "scout.sarif.json"
 
 
-def scanner_result(evidence: Path, surface: str, scanner: str) -> dict[str, Any]:
+def scanner_result(
+    evidence: Path,
+    surface: str,
+    scanner: str,
+    *,
+    target: Target,
+) -> dict[str, Any]:
     qualification = _load_sibling("qualification")
     parser = (
         qualification.trivy_report
@@ -594,7 +626,8 @@ def scanner_result(evidence: Path, surface: str, scanner: str) -> dict[str, Any]
     after_ids = frozenset(item[0] for item in after.critical_high)
     if introduced:
         raise EvidenceError(f"{scanner} {surface} overlay introduced findings")
-    if removed_ids != TARGET_FINDINGS or TARGET_FINDINGS & after_ids:
+    target_findings = frozenset(target.finding_ids)
+    if removed_ids != target_findings or target_findings & after_ids:
         raise EvidenceError(f"{scanner} {surface} target finding delta is invalid")
     if scanner == "trivy" and (before.secrets or after.secrets):
         raise EvidenceError(f"{surface} trial contains a Trivy secret")
@@ -611,6 +644,8 @@ def scanner_result(evidence: Path, surface: str, scanner: str) -> dict[str, Any]
 def build_report(
     evidence: Path,
     *,
+    target: Target,
+    target_manifest_path: Path,
     baseline_result_path: Path,
     baseline_inventories_path: Path,
     remediation_result_path: Path,
@@ -619,6 +654,7 @@ def build_report(
     target_wheel: Path,
 ) -> dict[str, Any]:
     validate_baselines(
+        target=target,
         baseline_result_path=baseline_result_path,
         baseline_inventories_path=baseline_inventories_path,
         remediation_result_path=remediation_result_path,
@@ -628,11 +664,13 @@ def build_report(
         horizon_wheel=horizon_wheel,
         skyline_wheel=skyline_wheel,
         target_wheel=target_wheel,
+        target_manifest_path=target_manifest_path,
+        target=target,
         baseline_result_path=baseline_result_path,
         baseline_inventories_path=baseline_inventories_path,
         remediation_result_path=remediation_result_path,
     )
-    validate_images(evidence, manifest)
+    validate_images(evidence, manifest, target=target)
     validate_os_inventories(
         evidence,
         manifest,
@@ -644,12 +682,18 @@ def build_report(
         horizon_wheel=horizon_wheel,
         skyline_wheel=skyline_wheel,
         target_wheel=target_wheel,
+        target=target,
     )
     surfaces: dict[str, Any] = {}
     blockers: list[str] = []
     for surface in SURFACES:
         scanners = {
-            scanner: scanner_result(evidence, surface, scanner)
+            scanner: scanner_result(
+                evidence,
+                surface,
+                scanner,
+                target=target,
+            )
             for scanner in SCANNERS
         }
         for scanner, result in scanners.items():
@@ -685,7 +729,7 @@ def build_report(
             "status": "blocked",
             "production_candidate": False,
             "python_overlay_trial_accepted": True,
-            "target": f"Mako=={TARGET_TO_VERSION}",
+            "target": target.result_name,
             "production_containerfile_changed": False,
             "private_constraint_override_accepted": False,
             "waivers_applied": False,
@@ -736,10 +780,15 @@ def main() -> int:
     parser.add_argument("--horizon-wheel", type=Path, required=True)
     parser.add_argument("--skyline-wheel", type=Path, required=True)
     parser.add_argument("--target-wheel", type=Path, required=True)
+    parser.add_argument("--target-manifest", type=Path, required=True)
+    parser.add_argument("--target", required=True)
     arguments = parser.parse_args()
     try:
+        target = load_target(arguments.target_manifest, arguments.target)
         report = build_report(
             arguments.evidence,
+            target=target,
+            target_manifest_path=arguments.target_manifest,
             baseline_result_path=arguments.baseline_result,
             baseline_inventories_path=arguments.baseline_inventories,
             remediation_result_path=arguments.remediation_result,
@@ -748,7 +797,7 @@ def main() -> int:
             target_wheel=arguments.target_wheel,
         )
         write_result(arguments.evidence / "python-trial.json", report)
-    except EvidenceError as error:
+    except (EvidenceError, TargetError) as error:
         print(f"coffer-ui-python-overlay-trial: {error}")
         return 2
     print(json.dumps(report, indent=2, sort_keys=True))

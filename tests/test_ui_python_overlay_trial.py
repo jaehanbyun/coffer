@@ -6,6 +6,7 @@ import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from zipfile import ZipFile
 
 import pytest
@@ -22,6 +23,10 @@ def load(name: str, path: Path):
     return module
 
 
+TARGET_MODULE = load(
+    "python_target",
+    ROOT / "poc" / "ui-images" / "python_target.py",
+)
 TRIAL = load(
     "coffer_ui_python_overlay_trial",
     ROOT / "poc" / "ui-images" / "python_trial.py",
@@ -34,21 +39,27 @@ RUNTIME = load(
     "coffer_ui_python_overlay_runtime",
     ROOT / "poc" / "ui-images" / "collect_python_runtime.py",
 )
+TARGET_MANIFEST = ROOT / "poc" / "ui-images" / "python_targets.json"
+BASE_TARGETS = TARGET_MODULE.load_targets(TARGET_MANIFEST)
 
 
 def digest(value: str) -> str:
     return "sha256:" + hashlib.sha256(value.encode()).hexdigest()
 
 
-def wheel(path: Path, surface: str) -> tuple[Path, dict[str, str]]:
+def wheel(
+    path: Path,
+    surface: str,
+    target: Any,
+) -> tuple[Path, dict[str, str]]:
     if surface == "horizon":
         files = {member: member.encode() for member in TRIAL.HORIZON_MEMBERS}
     elif surface == "skyline":
         files = {"skyline_console/static/coffer.bundle.123.js": b"bundle"}
     else:
         files = {
-            "mako/__init__.py": b"version = 'fixture'\n",
-            "mako/template.py": b"class Template: pass\n",
+            f"{target.package_prefix}__init__.py": b"version = 'fixture'\n",
+            f"{target.package_prefix}client.py": b"class Client: pass\n",
         }
     with ZipFile(path, "w") as archive:
         for member, content in files.items():
@@ -59,7 +70,7 @@ def wheel(path: Path, surface: str) -> tuple[Path, dict[str, str]]:
     }
 
 
-def write_trivy(path: Path, identifiers: list[str]) -> None:
+def write_trivy(path: Path, identifiers: list[str], target: Any) -> None:
     path.write_text(
         json.dumps(
             {
@@ -73,18 +84,18 @@ def write_trivy(path: Path, identifiers: list[str]) -> None:
                             {
                                 "VulnerabilityID": identifier,
                                 "PkgName": (
-                                    "Mako"
-                                    if identifier in TRIAL.TARGET_FINDINGS
+                                    target.display_name
+                                    if identifier in target.finding_ids
                                     else "remaining"
                                 ),
                                 "InstalledVersion": (
-                                    TRIAL.TARGET_FROM_VERSION
-                                    if identifier in TRIAL.TARGET_FINDINGS
+                                    target.from_version
+                                    if identifier in target.finding_ids
                                     else "1"
                                 ),
                                 "FixedVersion": (
-                                    TRIAL.TARGET_TO_VERSION
-                                    if identifier in TRIAL.TARGET_FINDINGS
+                                    target.to_version
+                                    if identifier in target.finding_ids
                                     else ""
                                 ),
                                 "Severity": "HIGH",
@@ -98,7 +109,7 @@ def write_trivy(path: Path, identifiers: list[str]) -> None:
     )
 
 
-def write_scout(path: Path, identifiers: list[str]) -> None:
+def write_scout(path: Path, identifiers: list[str], target: Any) -> None:
     path.write_text(
         json.dumps(
             {
@@ -116,17 +127,18 @@ def write_scout(path: Path, identifiers: list[str]) -> None:
                                             "cvssV3_severity": "HIGH",
                                             "purls": [
                                                 (
-                                                    "pkg:pypi/mako@1.3.10"
+                                                    f"pkg:pypi/{target.normalized_name}"
+                                                    f"@{target.from_version}"
                                                     if identifier
-                                                    in TRIAL.TARGET_FINDINGS
+                                                    in target.finding_ids
                                                     else "pkg:pypi/remaining@1"
                                                 )
                                             ],
                                             "affected_version": "1",
                                             "fixed_version": (
-                                                TRIAL.TARGET_TO_VERSION
+                                                target.to_version
                                                 if identifier
-                                                in TRIAL.TARGET_FINDINGS
+                                                in target.finding_ids
                                                 else "not fixed"
                                             ),
                                         },
@@ -165,48 +177,66 @@ def os_inventory() -> dict[str, object]:
 
 def python_runtime(
     *,
+    target: Any,
     version: str,
     target_files: dict[str, str],
 ) -> dict[str, object]:
     return {
         "schema": TRIAL.PYTHON_RUNTIME_SCHEMA,
         "architecture": "arm64",
-        "packages": {"base": ["1"], "mako": [version]},
+        "packages": {"base": ["1"], target.normalized_name: [version]},
         "target": {
-            "name": TRIAL.TARGET_NAME,
+            "name": target.normalized_name,
             "version": version,
             "files": target_files,
-            "rendered": "coffer",
+            "probe": target.probe,
+            "probe_result": (
+                "coffer" if target.probe == "mako-render" else target.key
+            ),
         },
         "pip_check": {
             "clean": True,
             "message": "No broken requirements found.",
         },
-        "absent": [f"/tmp/{TRIAL.TARGET_WHEEL_NAME}"],
+        "absent": [
+            f"/tmp/{target.wheel_filename}",
+            "/tmp/python_target.py",
+            "/tmp/python_targets.json",
+        ],
     }
 
 
 def fixture(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-) -> tuple[Path, dict[str, Path]]:
+    target_key: str = "mako",
+) -> tuple[Path, dict[str, Any]]:
     evidence = tmp_path / "evidence"
     evidence.mkdir(parents=True)
-    artifacts: dict[str, Path] = {}
+    artifacts: dict[str, Any] = {}
     wheel_files: dict[str, dict[str, str]] = {}
+    base_target = BASE_TARGETS[target_key]
     for surface in (*TRIAL.SURFACES, "target"):
         filename = (
-            TRIAL.TARGET_WHEEL_NAME if surface == "target" else f"{surface}.whl"
+            base_target.wheel_filename if surface == "target" else f"{surface}.whl"
         )
         artifacts[surface], wheel_files[surface] = wheel(
             tmp_path / filename,
             surface,
+            base_target,
         )
-    monkeypatch.setattr(
-        TRIAL,
-        "TARGET_WHEEL_SHA256",
-        TRIAL.sha256_file(artifacts["target"]),
+    target_document = json.loads(TARGET_MANIFEST.read_text())
+    target_document["targets"] = {
+        target_key: target_document["targets"][target_key]
+    }
+    target_document["targets"][target_key]["wheel_sha256"] = TRIAL.sha256_file(
+        artifacts["target"]
     )
+    target_manifest = tmp_path / "python_targets.json"
+    target_manifest.write_text(json.dumps(target_document, sort_keys=True))
+    target = TARGET_MODULE.load_target(target_manifest, target_key)
+    artifacts["target_manifest"] = target_manifest
+    artifacts["target_spec"] = target
 
     baseline = tmp_path / "cleanup-trial.json"
     baseline.write_text(
@@ -223,14 +253,14 @@ def fixture(
     )
     remediation = tmp_path / "remediation.json"
     candidate = {
-        "package": TRIAL.TARGET_NAME,
+        "package": target.normalized_name,
         "classification": "constraint-bound-all-findings-have-fix",
         "eligible_for_compatibility_trial": True,
         "constraint_match": True,
-        "installed_version": TRIAL.TARGET_FROM_VERSION,
-        "constraint_version": TRIAL.TARGET_FROM_VERSION,
-        "fixed_versions": [TRIAL.TARGET_TO_VERSION],
-        "finding_ids": sorted(TRIAL.TARGET_FINDINGS),
+        "installed_version": target.from_version,
+        "constraint_version": target.from_version,
+        "fixed_versions": [target.to_version],
+        "finding_ids": list(target.finding_ids),
     }
     remediation.write_text(
         json.dumps(
@@ -296,11 +326,18 @@ def fixture(
                 "sha256": TRIAL.sha256_file(artifacts["skyline"]),
             },
             "target": {
-                "name": "Mako",
-                "from_version": TRIAL.TARGET_FROM_VERSION,
-                "to_version": TRIAL.TARGET_TO_VERSION,
-                "filename": TRIAL.TARGET_WHEEL_NAME,
-                "sha256": TRIAL.sha256_file(artifacts["target"]),
+                "key": target.key,
+                "name": target.display_name,
+                "normalized_name": target.normalized_name,
+                "from_version": target.from_version,
+                "to_version": target.to_version,
+                "filename": target.wheel_filename,
+                "sha256": target.wheel_sha256,
+                "manifest_sha256": TRIAL.sha256_file(target_manifest),
+                "probe": target.probe,
+                "trial_label": target.trial_label,
+                "finding_ids": list(target.finding_ids),
+                "requires_dist": list(target.requires_dist),
             },
         },
         "baseline": {
@@ -314,7 +351,7 @@ def fixture(
             f"{surface}-{kind}": {
                 "name": (
                     f"localhost/coffer-ui-python-trial-{surface}-{kind}:"
-                    "2026.1-mako-1.3.12"
+                    "2026.1-python-overlay"
                 ),
                 "id": digest(f"{surface}-{kind}"),
             }
@@ -356,9 +393,7 @@ def fixture(
             "id": manifest["images"][f"{surface}-after"]["id"],
             "labels": {
                 **base_labels,
-                "io.coffer.ui.python-overlay-trial": (
-                    "coffer-ui-mako-1.3.12-v1"
-                ),
+                "io.coffer.ui.python-overlay-trial": target.trial_label,
             },
             "layers": before_layers + [digest(f"{surface}-overlay")],
         }
@@ -375,13 +410,18 @@ def fixture(
     )
     python = {
         f"{surface}-{kind}": python_runtime(
+            target=target,
             version=(
-                TRIAL.TARGET_FROM_VERSION
+                target.from_version
                 if kind == "before"
-                else TRIAL.TARGET_TO_VERSION
+                else target.to_version
             ),
             target_files=(
-                {"mako/old.py": digest("old").removeprefix("sha256:")}
+                {
+                    f"{target.package_prefix}old.py": digest("old").removeprefix(
+                        "sha256:"
+                    )
+                }
                 if kind == "before"
                 else wheel_files["target"]
             ),
@@ -414,30 +454,36 @@ def fixture(
             }
         )
     )
-    before_findings = [*sorted(TRIAL.TARGET_FINDINGS), "CVE-remaining"]
+    before_findings = [*target.finding_ids, "CVE-remaining"]
     for surface in TRIAL.SURFACES:
         write_trivy(
             evidence / f"{surface}-before.trivy.json",
             before_findings,
+            target,
         )
         write_trivy(
             evidence / f"{surface}-after.trivy.json",
             ["CVE-remaining"],
+            target,
         )
         write_scout(
             evidence / f"{surface}-before.scout.sarif.json",
             before_findings,
+            target,
         )
         write_scout(
             evidence / f"{surface}-after.scout.sarif.json",
             ["CVE-remaining"],
+            target,
         )
     return evidence, artifacts
 
 
-def build(evidence: Path, artifacts: dict[str, Path]) -> dict[str, object]:
+def build(evidence: Path, artifacts: dict[str, Any]) -> dict[str, object]:
     return TRIAL.build_report(
         evidence,
+        target=artifacts["target_spec"],
+        target_manifest_path=artifacts["target_manifest"],
         baseline_result_path=artifacts["baseline"],
         baseline_inventories_path=artifacts["baseline_inventories"],
         remediation_result_path=artifacts["remediation"],
@@ -447,23 +493,26 @@ def build(evidence: Path, artifacts: dict[str, Path]) -> dict[str, object]:
     )
 
 
-def test_valid_mako_overlay_is_accepted_but_remains_blocked(
+@pytest.mark.parametrize("target_key", ["mako", "httplib2"])
+def test_valid_overlay_is_accepted_but_remains_blocked(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    target_key: str,
 ) -> None:
-    evidence, artifacts = fixture(tmp_path, monkeypatch)
+    evidence, artifacts = fixture(tmp_path, monkeypatch, target_key)
+    target = artifacts["target_spec"]
 
     report = build(evidence, artifacts)
 
     assert report["decision"]["status"] == "blocked"
     assert report["decision"]["production_candidate"] is False
     assert report["decision"]["python_overlay_trial_accepted"] is True
-    assert report["decision"]["target"] == "Mako==1.3.12"
+    assert report["decision"]["target"] == target.result_name
     assert report["decision"]["private_constraint_override_accepted"] is False
     for surface in TRIAL.SURFACES:
         for scanner in TRIAL.SCANNERS:
             result = report["surfaces"][surface]["scanners"][scanner]
-            assert result["removed_finding_ids"] == sorted(TRIAL.TARGET_FINDINGS)
+            assert result["removed_finding_ids"] == list(target.finding_ids)
             assert result["introduced_critical_high"] == 0
 
 
@@ -512,6 +561,7 @@ def test_lineage_runtime_and_target_finding_tamper_are_rejected(
     write_trivy(
         evidence / "horizon-after.trivy.json",
         ["CVE-2026-44307", "CVE-remaining"],
+        artifacts["target_spec"],
     )
     with pytest.raises(TRIAL.EvidenceError, match="target finding delta"):
         build(evidence, artifacts)
@@ -587,7 +637,7 @@ def test_collector_projection_and_runtime_helpers_are_bounded(
         SimpleNamespace(metadata={"Name": "Mako"}, version="1.3.12"),
     ]
     monkeypatch.setattr(RUNTIME.metadata, "distributions", lambda: distributions)
-    assert RUNTIME.package_versions() == {
+    assert RUNTIME.package_versions(BASE_TARGETS["mako"]) == {
         "horizon": ["0.0.0", "25.7.3"],
         "mako": ["1.3.12"],
     }
@@ -598,7 +648,7 @@ def test_collector_projection_and_runtime_helpers_are_bounded(
         RUNTIME.file_sha256(linked)
 
 
-def test_trial_containerfile_is_narrow_and_runner_target_is_fixed() -> None:
+def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
     containerfile = (
         ROOT / "poc" / "ui-images" / "python_overlay.Containerfile"
     ).read_text()
@@ -606,16 +656,28 @@ def test_trial_containerfile_is_narrow_and_runner_target_is_fixed() -> None:
     assert "--no-deps" in containerfile
     assert "--no-index" in containerfile
     assert "--force-reinstall" in containerfile
-    assert "mako-1.3.12-py3-none-any.whl" in containerfile
+    assert "target.whl" in containerfile
+    assert "python_targets.json" in containerfile
     assert "pip check" in containerfile
-    assert "coffer-ui-mako-1.3.12-v1" in containerfile
+    assert "TARGET_LABEL" in containerfile
+    assert "TARGET_WHEEL_FILENAME" in containerfile
+
+    targets = TARGET_MODULE.load_targets(TARGET_MANIFEST)
+    assert set(targets) == {"mako", "httplib2"}
+    assert targets["mako"].finding_ids == (
+        "CVE-2026-41205",
+        "CVE-2026-44307",
+    )
+    assert targets["httplib2"].wheel_sha256 == (
+        "dc6705cacdf3fb0a2aba7629fa33c90fd93e30035db0c157325826be177e4816"
+    )
 
     runner = (
         ROOT / "poc" / "ui-images" / "trial_python_overlay.sh"
     ).read_text()
-    assert 'WORK="${ROOT}/work/ui-python-overlay-trial-mako"' in runner
+    assert 'WORK="${ROOT}/work/ui-python-overlay-trial-${TARGET_KEY}"' in runner
     assert "refusing existing UI Python overlay trial work directory" in runner
-    assert 'TARGET_WHEEL_SHA256="8f615694' in runner
+    assert ".targets[$target].wheel_sha256" in runner
     assert "--network none" in runner
     assert "--no-deps" in containerfile
     assert 'rm -rf -- \\' in runner
