@@ -241,11 +241,12 @@ catalog, Keystone, API, and browser evidence.
   catalog discovery, token forwarding, panel, table/form, and test seams
   before creating `ui/horizon/`.
 
-### 2026-07-26 — Horizon 26.0.0 integration baseline accepted
+### 2026-07-26 — Horizon 2026.1 integration baseline accepted
 
-- Source pin: Inspected official Horizon 26.0.0 at
-  `e48473ce019c69eea261f2116bbeb161a660d3b6` and Designate Dashboard 22.0.0 at
-  `650c95862360194e969831dc46f4834150311151`.
+- Source pin: Inspected official Horizon 25.7.3 at
+  `0a4439556517cf67be0aa949b6551a14e409af75` and Designate Dashboard 21.0.0 at
+  `5ae88cbc9c0d728ce94acc568b7c9394ad49f175`, matching the Kolla/OpenStack
+  2026.1 line.
 - Decision: Build `coffer-horizon` as an out-of-tree, server-rendered Django
   plugin on the Project dashboard. Use Horizon's catalog selection and a
   server-side `keystoneauth1` token session; do not add AngularJS, CORS,
@@ -282,7 +283,7 @@ catalog, Keystone, API, and browser evidence.
 | Control request correlation | Repository, token, maintenance, observability, and runner focused tests | passed; 64 |
 | OpenAPI/runtime drift contract | OpenAPI, API, policy, token, maintenance, observability, and runner focused tests | passed; 123 |
 | Full regression after REST/OpenAPI baseline | `uv run pytest -q` | passed; 1450 |
-| Horizon source/package baseline | Official Horizon 26.0.0 and Designate Dashboard 22.0.0 source inspection | passed; revisions pinned |
+| Horizon source/package baseline | Official Horizon 25.7.3, Designate Dashboard 21.0.0, and OpenStack 2026.1 constraints | passed; exact revisions and dependency versions pinned |
 
 ## Failures, Blockers, and Risks
 
@@ -296,6 +297,11 @@ catalog, Keystone, API, and browser evidence.
 - Adding UI convenience endpoints can accidentally expand the product or
   authorization model. Only existing repository authority and a read-only
   current-project quota view are in scope.
+- The first Horizon research pass selected latest tag 26.0.0 before checking
+  the already accepted Kolla-Ansible `stable/2026.1` deployment line.
+  Official 2026.1 constraints instead select Horizon 25.7.3. The baseline and
+  uncommitted package were corrected before accepting any adapter evidence;
+  latest-tag compatibility remains a later matrix expansion.
 
 ## Handoff
 

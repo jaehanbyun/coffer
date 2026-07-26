@@ -1,22 +1,23 @@
 # Horizon integration baseline
 
 - Date: 2026-07-26
-- Target: Horizon 26.0.0
-- Horizon revision: `e48473ce019c69eea261f2116bbeb161a660d3b6`
-- Reference plugin: Designate Dashboard 22.0.0
-- Reference revision: `650c95862360194e969831dc46f4834150311151`
+- Target: Horizon 25.7.3 from Kolla/OpenStack 2026.1
+- Horizon revision: `0a4439556517cf67be0aa949b6551a14e409af75`
+- Reference plugin: Designate Dashboard 21.0.0
+- Reference revision: `5ae88cbc9c0d728ce94acc568b7c9394ad49f175`
 - Outcome: out-of-tree Django plugin baseline accepted
 
 ## Source evidence
 
-The official Horizon 26.0.0 tag requires Python 3.11 or newer and Django 4.2
-or newer. Its plugin loader still accepts independently packaged enabled
+The official OpenStack 2026.1 upper constraints select Horizon 25.7.3,
+Django 4.2.28, and keystoneauth1 5.13.1. Horizon's plugin loader accepts
+independently packaged enabled
 files that add a panel group, panel, installed Django application, templates,
 and optional policy configuration.
 
 The official plugin tutorial recommends the same out-of-tree packaging model:
 <https://docs.openstack.org/horizon/latest/contributor/tutorials/plugin.html>.
-The current Designate Dashboard 22.0.0 release proves that an OpenStack service
+The same-cycle Designate Dashboard 21.0.0 release proves that an OpenStack service
 dashboard can ship its own `enabled/`, `local_settings.d/`, API adapter, panel,
 static resources, and tests without patching Horizon core.
 
@@ -47,7 +48,7 @@ ui/horizon/
 
 - Distribution name: `coffer-horizon`
 - Python package: `cofferdashboard`
-- Supported baseline: `horizon>=26.0.0,<27.0.0`
+- Supported baseline: `horizon>=25.7.3,<26.0.0`
 - Dashboard: existing `project` dashboard
 - Panel group: `registry`
 - Panel: `repositories`
@@ -145,7 +146,8 @@ The plugin is accepted locally only when:
   create/detail success, fixed 400/401/403/404/409/503 handling, and no
   unsupported action;
 - the policy mirror matches Coffer's registered rules;
-- tests run against the exact Horizon 26.0.0 source revision above; and
+- tests run against the exact Horizon 25.7.3 source revision above with the
+  OpenStack 2026.1 constrained Django and keystoneauth1 versions; and
 - rendered fixture HTML is inspected before the milestone closes.
 
 These checks prove source compatibility and local behavior. They do not prove
