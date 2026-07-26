@@ -89,6 +89,7 @@ absolute gate.
 | Accept Django 4.2.30 only as the Horizon-scoped fifth compatibility derivative | The official non-yanked wheel, offline framework setup/template probe, exact runtime delta, and both scanners passed on its one installed surface | Installing Django in Skyline; treating an import alone as framework compatibility; changing the production image | 2026-07-27 |
 | Model expected findings per scanner while preserving their nonempty union | Click is reported by Scout but not Trivy; exact scanner-local sets preserve fail-closed delta checks without fabricating a Trivy finding | Requiring a fabricated common set; accepting arbitrary removals; dropping either scanner; waiving a finding | 2026-07-27 |
 | Accept Click 8.3.3 only as the sixth independent compatibility derivative | Official wheel identity, offline CLI invocation, exact runtime delta, unchanged Trivy set, and exact Scout-only CVE removal passed on both surfaces | Fabricating a Trivy finding; combining upgrades; changing production images while High findings remain | 2026-07-27 |
+| Admit only canonical CVE and GHSA finding namespaces | Trivy and Scout both identify the msgpack issue by GHSA; GitHub documents a strict lowercase alphabet and 4-4-4 shape | Converting GHSA to a nonexistent CVE; accepting free-form scanner IDs; waiving GHSA-only findings | 2026-07-27 |
 
 ## Tasks
 
@@ -107,6 +108,8 @@ absolute gate.
 - [x] Make scanner-specific expected finding identities explicit without
       weakening exact delta, introduced-finding, secret, or absolute gates.
 - [x] Run the independent Click 8.3.1 to 8.3.3 experiment.
+- [x] Extend the strict finding identifier grammar to canonical CVE and GHSA
+      values with positive and rejection fixtures.
 - [ ] Rescan viable derivatives, update the durable handoff, and publish each
       verified atomic milestone.
 
@@ -497,6 +500,23 @@ absolute gate.
   canonical `GHSA-xxxx-xxxx-xxxx` identities, preserve the same scanner-local
   and remediation-union gates, then evaluate msgpack 1.2.1 independently.
 
+### 2026-07-27 — canonical GHSA finding contract accepted
+
+- Completed: Extended the finding grammar from CVE-only to the union of
+  canonical CVE and GitHub-documented lowercase
+  `GHSA(-[23456789cfghjmpqrvwx]{4}){3}` identifiers. The scanner-keyed target,
+  evidence, exact-delta, and remediation-union contracts are unchanged.
+- Safety: A full two-surface fixture proves the same GHSA can be removed
+  exactly by both scanners. Uppercase GHSA values, disallowed alphabet
+  characters, truncated groups, free-form names, missing scanner entries,
+  unsorted/duplicate lists, and an empty union fail closed.
+- Scope: No existing target, finding set, package version, wheel, scanner
+  result, production Containerfile, constraints policy, credential, or live
+  deployment changed.
+- Next exact action: Bind the official msgpack 1.2.1 native ARM64 wheel and
+  exact `GHSA-6v7p-g79w-8964` expectation, add an offline binary
+  pack/unpack/streaming probe, and run that target alone on both UI surfaces.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -524,6 +544,7 @@ absolute gate.
 | Scanner-specific finding contract | strict v2 target/evidence schemas, equal and empty scanner-local sets, malformed contract and unexpected-delta fixtures | passed; 58 focused and 1,513 total tests |
 | Click compatibility experiment | native ARM64 official wheel, exact OS/Python/UI runtime, offline CLI invocation, and scanner-specific two-scanner trial | passed for Click only; production blocked at Horizon Trivy/Scout 31/33 High and Skyline 16/18 High |
 | Click milestone gates | JSON, Bash, strict ShellCheck, Ruff, compilation, UI image suite, full pytest, lock, secret, and diff checks | passed; 59 focused and 1,514 total tests |
+| Canonical GHSA contract | documented grammar, positive two-surface GHSA delta, malformed/uppercase/alphabet/truncation rejection fixtures | passed; 63 focused and 1,518 total tests |
 | Baseline milestone gates | full pytest, Ruff E/F/I, compilation, staged secret/diff | passed; 1,483 tests and no staged leak |
 | Final repository gates | dashboard packages, Kolla role, docs/links, secret, diff | pending with remediation experiment |
 

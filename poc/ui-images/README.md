@@ -171,11 +171,16 @@ URL, filename, SHA-256, dependency metadata, exact before/after versions,
 scanner-specific expected findings, compatibility probe, explicit installed
 UI surfaces, and trial label. Both `trivy` and `scout` keys are mandatory;
 each scanner may have an empty expected set, but their union must be nonempty,
-sorted, unique, valid CVE identifiers and must exactly equal the accepted
+sorted, unique, canonical CVE or GHSA identifiers and must exactly equal the accepted
 remediation candidate. The classifier requires each scanner to remove exactly
 its declared set and rejects any introduced Critical/High finding. This
 represents scanner observation differences without suppressing or waiving a
 finding.
+
+GHSA identities follow GitHub's canonical
+`GHSA(-[23456789cfghjmpqrvwx]{4}){3}` syntax. Uppercase, ambiguous alphabet
+characters, truncated groups, free-form advisory names, and any other finding
+namespace are rejected.
 
 The loader rejects unknown scanners, surfaces, or fields, unsafe filenames or
 URLs, unsupported probes, arbitrary target keys, and linked manifests. The

@@ -36,7 +36,7 @@
   disabled-by-default immutable Horizon/Skyline image contracts and exact
   fallback lifecycle complete locally with 108 role checks; four desktop/narrow
   UI fixture screenshots visually inspected; current full Python regression
-  passes 1,514 tests and the prior Horizon/Skyline/108-check Kolla repository
+  passes 1,518 tests and the prior Horizon/Skyline/108-check Kolla repository
   gates remain complete
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
@@ -194,6 +194,12 @@ The result remains isolated with `production_candidate=false`; no production
 Containerfile or constraints policy changed. Exact images, generated contexts,
 wheel copies, archives, and scanner caches are absent, and the harness-started
 Podman machine is stopped.
+
+The finding grammar now accepts only canonical CVE IDs or GitHub's documented
+lowercase `GHSA(-[23456789cfghjmpqrvwx]{4}){3}` form. Positive end-to-end GHSA
+fixtures pass, while uppercase, invalid alphabet, truncated groups, free-form
+names, missing scanner keys, and empty unions fail closed. This enables the
+actual msgpack remediation identity without translating or waiving it.
 
 The target and evidence contracts are now v2 and encode exact expected
 findings separately for Trivy and Docker Scout. Both scanner keys are

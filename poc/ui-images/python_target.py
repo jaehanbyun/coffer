@@ -13,7 +13,10 @@ KEY = re.compile(r"^[a-z][a-z0-9-]{1,31}$")
 NAME = re.compile(r"^[A-Za-z][A-Za-z0-9._-]{0,63}$")
 VERSION = re.compile(r"^[0-9][A-Za-z0-9.+!-]{0,31}$")
 DIGEST = re.compile(r"^[0-9a-f]{64}$")
-FINDING = re.compile(r"^CVE-[0-9]{4}-[0-9]{4,}$")
+FINDING = re.compile(
+    r"^(?:CVE-[0-9]{4}-[0-9]{4,}|"
+    r"GHSA(?:-[23456789cfghjmpqrvwx]{4}){3})$"
+)
 WHEEL = re.compile(r"^[A-Za-z0-9._+-]+-py3-none-any\.whl$")
 URL = re.compile(r"^https://files\.pythonhosted\.org/packages/[A-Za-z0-9/_.+-]+$")
 PREFIX = re.compile(r"^[a-z][a-z0-9_]*/$")

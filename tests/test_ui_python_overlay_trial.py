@@ -595,6 +595,29 @@ def test_scanner_specific_unexpected_delta_is_rejected(
         build(evidence, artifacts)
 
 
+def test_canonical_ghsa_finding_contract_is_accepted(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    finding = "GHSA-6v7p-g79w-8964"
+    evidence, artifacts = fixture(
+        tmp_path,
+        monkeypatch,
+        finding_ids_by_scanner={
+            "trivy": [finding],
+            "scout": [finding],
+        },
+    )
+
+    report = build(evidence, artifacts)
+
+    for surface in TRIAL.SURFACES:
+        for scanner in TRIAL.SCANNERS:
+            assert report["surfaces"][surface]["scanners"][scanner][
+                "removed_finding_ids"
+            ] == [finding]
+
+
 def test_python_and_os_package_delta_tamper_are_rejected(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -815,6 +838,18 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
         },
         {
             "trivy": ["GHSA-not-accepted"],
+            "scout": ["CVE-2026-41205"],
+        },
+        {
+            "trivy": ["GHSA-6V7P-G79W-8964"],
+            "scout": ["CVE-2026-41205"],
+        },
+        {
+            "trivy": ["GHSA-6v7p-g79w-896"],
+            "scout": ["CVE-2026-41205"],
+        },
+        {
+            "trivy": ["GHSA-6v7p-g79w-abcd"],
             "scout": ["CVE-2026-41205"],
         },
     ],
