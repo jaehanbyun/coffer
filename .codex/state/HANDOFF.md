@@ -2706,10 +2706,9 @@ release contains it yet.
 
 ## Exact Next Action
 
-Create `docs/research/ui-api-contract.md` by mapping the exact Falcon routes,
-oslo.policy rules, repository/quota stores, middleware error behavior, request
-IDs, and existing tests. Freeze the smallest project-scoped contract for
-repository create/list/detail and quota summary before adding an endpoint.
+Add bounded `RepositoryPage` and `RepositoryStore.list_page` behavior in
+`src/coffer/db.py`, then prove project-visible `(name, id)` keyset pagination
+in focused store/API tests before adding quota or OpenAPI files.
 
 ## After This Work Package
 

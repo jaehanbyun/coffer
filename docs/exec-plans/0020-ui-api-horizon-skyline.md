@@ -128,6 +128,28 @@ catalog, Keystone, API, and browser evidence.
   this inventory fixes its policy, response, pagination, and failure
   semantics.
 
+### 2026-07-26 — Project UI API contract inventoried and accepted
+
+- Completed: Mapped the exact Falcon repository resources, Keystone identity
+  middleware, oslo.policy rules, repository/quota stores, bounded metrics, API
+  tests, and Kolla service-catalog endpoint. Fixed a version-relative OpenAPI
+  contract for repository create/list/detail plus read-only current-project
+  quota.
+- Decisions: Keep the catalog endpoint ending in `/v1`; add bounded
+  `(name, id)` pagination with a project-visible repository marker; preserve
+  existing repository representation; add `GET /quota` without admin mutation
+  or derived fields; emit request IDs for requests reaching Falcon; and keep
+  auth middleware errors outer-layer owned.
+- Security: Both UIs must use the current project-scoped token and
+  `oci-registry` catalog endpoint. Cross-project markers and IDs remain
+  indistinguishable from malformed/absent current-project resources. No UI
+  receives SQL, RGW, signer, Distribution, maintenance, or secret access.
+- Changed files: `docs/research/ui-api-contract.md`, this plan, and
+  `.codex/state/HANDOFF.md`.
+- Next exact action: In `src/coffer/db.py`, add the bounded keyset
+  `RepositoryPage`/`RepositoryStore.list_page` contract and focused store/API
+  tests before adding quota or OpenAPI files.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -136,7 +158,8 @@ catalog, Keystone, API, and browser evidence.
 | Current API source inventory | Focused Falcon, policy, store, middleware, and test inspection | passed; gaps recorded |
 | Horizon extension shape | Official current Horizon plugin and dashboard documentation | passed; out-of-tree plugin supported |
 | Skyline extension shape | Official current Skyline Console development/source documentation | partial; first-party seams identified, packaging boundary pending source pin |
-| Plan/HANDOFF structure | Markdown and exact-next-action inspection | pending |
+| Plan/HANDOFF structure | Markdown and exact-next-action inspection | passed |
+| Project UI API contract inventory | Exact API/policy/store/middleware/test and Kolla endpoint inspection | passed; implementation boundary fixed |
 
 ## Failures, Blockers, and Risks
 
@@ -156,9 +179,10 @@ catalog, Keystone, API, and browser evidence.
 - Current state: Plan 0019 is externally blocked, its local pilot harness is
   complete but uninvoked, and no six-VM pilot exists. Plan 0020 is active for
   API/Horizon/Skyline work that can be locally proven independently.
-- Exact next action: Create `docs/research/ui-api-contract.md` from the exact
-  current API, policy, store, middleware, and test behavior.
-- First file or command: `sed -n '1,280p' src/coffer/api.py`.
+- Exact next action: Add bounded `RepositoryPage` and
+  `RepositoryStore.list_page` behavior in `src/coffer/db.py`, then prove
+  project-visible keyset pagination in focused store/API tests.
+- First file or command: `sed -n '1,180p' src/coffer/db.py`.
 - Questions requiring user input: None. The user authorized autonomous
   milestone commits and pushes through Horizon and Skyline; accepted security,
   release, and deployment gates remain fail closed.
