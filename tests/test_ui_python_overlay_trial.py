@@ -498,7 +498,7 @@ def build(evidence: Path, artifacts: dict[str, Any]) -> dict[str, object]:
 
 @pytest.mark.parametrize(
     "target_key",
-    ["mako", "httplib2", "pyjwt", "urllib3"],
+    ["django", "mako", "httplib2", "pyjwt", "urllib3"],
 )
 def test_valid_overlay_is_accepted_but_remains_blocked(
     tmp_path: Path,
@@ -686,7 +686,19 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
     assert "TARGET_WHEEL_FILENAME" in containerfile
 
     targets = TARGET_MODULE.load_targets(TARGET_MANIFEST)
-    assert set(targets) == {"mako", "httplib2", "pyjwt", "urllib3"}
+    assert set(targets) == {
+        "django",
+        "mako",
+        "httplib2",
+        "pyjwt",
+        "urllib3",
+    }
+    assert targets["django"].surfaces == ("horizon",)
+    assert targets["django"].finding_ids == (
+        "CVE-2026-25673",
+        "CVE-2026-33034",
+        "CVE-2026-3902",
+    )
     assert targets["mako"].finding_ids == (
         "CVE-2026-41205",
         "CVE-2026-44307",
@@ -702,7 +714,11 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
     assert targets["pyjwt"].wheel_sha256 == (
         "66adcc2aff09b3f1bbd95fc1e1577df8ac8723c978552fd43304c8a290ac5728"
     )
-    assert all(target.surfaces == ("horizon", "skyline") for target in targets.values())
+    assert all(
+        target.surfaces == ("horizon", "skyline")
+        for key, target in targets.items()
+        if key != "django"
+    )
 
     runner = (
         ROOT / "poc" / "ui-images" / "trial_python_overlay.sh"

@@ -86,6 +86,7 @@ absolute gate.
 | Accept urllib3 2.7.0 only as the third independent compatibility derivative | The official non-yanked wheel, no-network HTTPS pool probe, exact runtime delta, and both scanners passed on both surfaces | Treating an HTTP stack import alone as compatibility; combining accepted derivatives; immediate production adoption | 2026-07-27 |
 | Accept PyJWT 2.13.0 only as the fourth independent compatibility derivative | The official non-yanked wheel, offline HS256 round trip, exact runtime delta, and both scanners passed on both surfaces | Treating an import alone as token compatibility; combining accepted derivatives; changing the production image | 2026-07-27 |
 | Bind every target to its actual installed UI surfaces | Django exists in Horizon but not Skyline; an implicit two-surface trial would add an unrelated package and fabricate a Skyline remediation | Installing every target into both images; accepting missing baseline findings; free-form runtime surface inputs | 2026-07-27 |
+| Accept Django 4.2.30 only as the Horizon-scoped fifth compatibility derivative | The official non-yanked wheel, offline framework setup/template probe, exact runtime delta, and both scanners passed on its one installed surface | Installing Django in Skyline; treating an import alone as framework compatibility; changing the production image | 2026-07-27 |
 
 ## Tasks
 
@@ -100,6 +101,7 @@ absolute gate.
 - [x] Run the independent PyJWT 2.11.0 to 2.13.0 experiment.
 - [x] Make target surface eligibility explicit and fail closed throughout the
       runner, collector, evidence, and classifier.
+- [x] Run the Horizon-only Django 4.2.28 to 4.2.30 experiment.
 - [ ] Rescan viable derivatives, update the durable handoff, and publish each
       verified atomic milestone.
 
@@ -386,8 +388,9 @@ absolute gate.
   nonempty, allow-listed `surfaces` field to every target and carried it
   through image selection, collection, exact evidence identities, baseline
   validation, runtime checks, and two-scanner classification.
-- Safety: The runner builds and scans only the declared target surfaces. The
-  collector rejects missing selected image arguments and any unexpected
+- Safety: The runner builds the target overlay and scans only the declared
+  target surfaces. Stock parent preparation may still build both baselines.
+  The collector rejects missing selected image arguments and any unexpected
   unselected image argument. The classifier requires its image, runtime, UI,
   and scanner sets to match the target surfaces exactly.
 - Scope: Existing Mako, httplib2, urllib3, and PyJWT targets remain explicitly
@@ -396,6 +399,42 @@ absolute gate.
 - Next exact action: Add Django 4.2.30 as a Horizon-only target with the
   official wheel identity, exact three High CVEs, and an offline framework
   setup/template probe, then run that one surface alone.
+
+### 2026-07-27 — Django 4.2.30 Horizon derivative accepted
+
+- Completed: Bound the official non-yanked PyPI wheel, SHA-256, Python 3.8+
+  metadata, six dependency markers, one installed surface, and exact expected
+  High CVEs. Added a bounded offline probe that configures Django, calls
+  `django.setup()`, and renders one template.
+- Compatibility: The native ARM64 Horizon derivative preserves the accepted
+  cleanup OS inventory and all non-target Python distribution version
+  multisets. Django alone changes from 4.2.28 to 4.2.30. `pip check`, framework
+  setup/template rendering, official source hashes, package-local bytecode
+  boundaries, Coffer Horizon runtime hashes, image lineage, and build-input
+  absence pass.
+- Scan result: Horizon Trivy High changed 31 to 28 and Scout 34 to 31. Both
+  scanners removed exactly `CVE-2026-25673`, `CVE-2026-33034`, and
+  `CVE-2026-3902`, introduced zero Critical/High finding, and Trivy found zero
+  secrets. Skyline contains no Django and has no overlay or scan evidence.
+- Decision: `python_overlay_trial_accepted=true`, status `blocked`, and
+  `production_candidate=false`. The accepted result is specific to
+  Horizon `Django==4.2.30`; it is not cumulative with another derivative and
+  changes no production Containerfile or constraints policy.
+- Evidence: Owner-only ignored result SHA-256
+  `5d9026d31e8aeb4c0433fb7c41ffb8d7edd74d2eb94521b1c0421a4d314bb6e5`;
+  manifest `e79e594e5a6a5219af4622dba2f3e125a5ae18d67e450f074c9a698c51f0d51f`,
+  images `8a80d5eb09eb65536ed44491364015d5ebaafdc72d11caa934936a62867d1bf9`,
+  OS inventories
+  `1c37ea201d13a9e2fc5c4b4d606268f3d4239c20017e8fbc0b507e44e243b4cb`,
+  and runtimes
+  `f1d9856e344550b0b8711357cc2e2e5d95f7078fdfdeaa06ff3041cb28412571`.
+- Cleanup: Exact trial images, generated contexts, wheel copies, archives, and
+  scanner caches are absent. The harness-started Podman machine is stopped,
+  and no Skyline scanner result was emitted. Non-secret evidence remains
+  owner-only under ignored `work/ui-python-overlay-trial-django/evidence/`.
+- Next exact action: Generalize expected target finding identities by scanner
+  without weakening introduced-finding or absolute-count gates, then admit
+  pure-Python Click 8.3.3 only if the Scout-only baseline is explicit.
 
 ## Verification
 
@@ -419,6 +458,8 @@ absolute gate.
 | PyJWT compatibility experiment | native ARM64 official wheel, OS/Python/UI runtime, offline HS256 round trip, and two-scanner trial | passed for PyJWT only; production blocked at Horizon Trivy/Scout 29/32 High and Skyline 14/17 High |
 | PyJWT milestone gates | JSON, Bash, strict ShellCheck, Ruff, compilation, UI image suite, full pytest, lock, secret, and diff checks | passed; 50 focused and 1,505 total tests with no staged leak |
 | Surface-scoped target contract | strict target manifest, dynamic runner/collector/classifier, two-surface and Horizon-only fixtures | passed; 51 focused and 1,506 total tests |
+| Django compatibility experiment | native ARM64 Horizon official wheel, OS/Python/UI runtime, framework setup/template probe, and two-scanner trial | passed for Horizon Django only; production blocked at Trivy/Scout 28/31 High |
+| Django milestone gates | JSON, Bash, strict ShellCheck, Ruff, compilation, UI image suite, full pytest, lock, secret, and diff checks | passed; 52 focused and 1,507 total tests with no staged leak |
 | Baseline milestone gates | full pytest, Ruff E/F/I, compilation, staged secret/diff | passed; 1,483 tests and no staged leak |
 | Final repository gates | dashboard packages, Kolla role, docs/links, secret, diff | pending with remediation experiment |
 
@@ -448,6 +489,9 @@ absolute gate.
 - Surface scope is target identity, not an operator override. A package can be
   tested only where the accepted remediation baseline proves that exact
   constrained version and findings are installed.
+- Django 4.2.30 is accepted only as a Horizon-scoped derivative. The framework
+  smoke probe does not replace live Horizon/Kolla startup, reconfigure,
+  upgrade, rollback, or browser acceptance after Stage 6 release gates close.
 - The derivative proves static Kolla metadata, package integrity, installed UI
   runtime files, input cleanup, parent availability, and scan behavior. A
   production adoption still needs the Python compatibility matrix and later
@@ -460,16 +504,16 @@ absolute gate.
   blocked. The inherited ARM64 classifier, deterministic baseline, stock
   dependency probe, post-Coffer OS cleanup trial, and narrow Mako compatibility
   derivative, generic target contract, and independent httplib2/urllib3
-  and PyJWT compatibility derivatives plus exact target-surface selection are
-  complete locally with no waiver. The trials
+  and PyJWT compatibility derivatives, exact target-surface selection, and the
+  Horizon-only Django derivative are complete locally with no waiver. The trials
   passed package, runtime, lineage, and two-scanner delta gates but correctly
   remain blocked by nonzero Critical/High findings. Raw/report evidence is
   non-secret and remains owner-only under ignored `work/`.
-- Exact next action: Add Django 4.2.30 only for Horizon with the official wheel
-  identity, exact three High CVEs, and an offline framework setup/template
-  probe, then run that surface alone.
-- First file or command: Add one strict `django` entry to
-  `poc/ui-images/python_targets.json` and one `django-template` probe to
-  `poc/ui-images/python_target.py`; do not modify production UI Containerfiles.
+- Exact next action: Generalize expected finding identities per scanner while
+  preserving exact delta and absolute gates, then evaluate Click 8.3.3 as a
+  pure-Python two-surface Scout-only derivative.
+- First file or command: Add a strict scanner-keyed finding contract in
+  `poc/ui-images/python_target.py` with fixtures for equal, empty, and
+  unexpected scanner deltas; do not modify production UI Containerfiles.
 - Questions requiring user input: None. No credential, external publication,
   live deployment, or waiver is required for the next local milestone.

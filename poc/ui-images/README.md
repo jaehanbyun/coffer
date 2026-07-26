@@ -158,6 +158,7 @@ derivative:
 
 ```console
 make -C poc/ui-images trial-python-overlay
+make -C poc/ui-images trial-python-django
 make -C poc/ui-images trial-python-httplib2
 make -C poc/ui-images trial-python-urllib3
 make -C poc/ui-images trial-python-pyjwt
@@ -169,10 +170,11 @@ SHA-256, dependency metadata, exact before/after versions, expected scanner
 findings, compatibility probe, explicit installed UI surfaces, and trial
 label. The loader rejects unknown surfaces or fields, unsafe filenames or
 URLs, unsupported probes, arbitrary target keys, and linked manifests. The
-runner builds, inventories, and scans only those declared surfaces; it cannot
-silently install a Horizon-only dependency into Skyline. The generic overlay
-retains the official wheel filename for pip parsing and still removes that
-exact build input from the final image.
+runner builds the target overlay and inventories and scans only those declared
+surfaces; it cannot silently install a Horizon-only dependency into Skyline.
+Stock parent preparation may still build both accepted UI baselines. The
+generic overlay retains the official wheel filename for pip parsing and still
+removes that exact build input from the final image.
 
 Each fixed trial installs one official wheel with `--no-index`, `--no-deps`,
 and `--force-reinstall`. It requires the OS package inventory to remain
@@ -243,5 +245,21 @@ The result remains an isolated, non-cumulative compatibility derivative with
 constraints policy and does not exercise asymmetric or Keystone token paths.
 Owner-only evidence is retained under ignored
 `work/ui-python-overlay-trial-pyjwt/evidence/`; generated images, contexts,
+wheel copies, archives, scanner caches, and the harness-started Podman machine
+are absent after exit.
+
+The 2026-07-27 native ARM64 trial independently accepted the Horizon-only
+`Django` 4.2.28 to 4.2.30 derivative using the official non-yanked PyPI wheel.
+The offline compatibility probe configures a minimal framework instance, calls
+`django.setup()`, and renders a template. Horizon High findings changed from
+Trivy 31 to 28 and Scout 34 to 31. Both scanners removed exactly
+`CVE-2026-25673`, `CVE-2026-33034`, and `CVE-2026-3902`, introduced no
+Critical/High finding, and Trivy found no secret.
+
+Skyline does not contain Django and therefore has no target overlay, runtime,
+or scanner evidence in this trial. The result remains isolated with
+`production_candidate=false`; it changes no production Containerfile or
+constraints policy. Owner-only evidence is retained under ignored
+`work/ui-python-overlay-trial-django/evidence/`; generated images, contexts,
 wheel copies, archives, scanner caches, and the harness-started Podman machine
 are absent after exit.

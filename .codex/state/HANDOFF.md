@@ -36,7 +36,7 @@
   disabled-by-default immutable Horizon/Skyline image contracts and exact
   fallback lifecycle complete locally with 108 role checks; four desktop/narrow
   UI fixture screenshots visually inspected; current full Python regression
-  passes 1,506 tests and the prior Horizon/Skyline/108-check Kolla repository
+  passes 1,507 tests and the prior Horizon/Skyline/108-check Kolla repository
   gates remain complete
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
@@ -176,6 +176,24 @@ those surfaces, the collector rejects missing or unexpected image arguments,
 and the evidence/classifier require exact matching image, OS, Python, UI, and
 scanner sets. Existing Mako, httplib2, urllib3, and PyJWT targets remain
 explicitly two-surface; no production image or package decision changed.
+
+The fifth independent native ARM64 derivative changes only Horizon `Django`
+4.2.28 to 4.2.30 using the official non-yanked PyPI wheel. The Horizon cleanup
+OS inventory and all non-target Python distribution version multisets remain
+exact. `pip check`, minimal `django.setup()` plus template rendering, official
+source hashes, package-local bytecode boundaries, Coffer Horizon runtime
+hashes, lineage, and build-input absence pass.
+
+Horizon High findings changed from Trivy 31 to 28 and Scout 34 to 31. Both
+scanners removed exactly `CVE-2026-25673`, `CVE-2026-33034`, and
+`CVE-2026-3902`, introduced zero Critical/High finding, and Trivy found zero
+secrets. Skyline contains no Django and has no overlay or scan evidence. The
+owner-only result SHA-256 is
+`5d9026d31e8aeb4c0433fb7c41ffb8d7edd74d2eb94521b1c0421a4d314bb6e5`.
+The result remains isolated with `production_candidate=false`; no production
+Containerfile or constraints policy changed. Exact images, generated contexts,
+wheel copies, archives, and scanner caches are absent, and the harness-started
+Podman machine is stopped.
 
 Plan 0019 is externally blocked after converting every locally independent
 Stage 6 operation into a release-gated, checkpointed pilot harness. The latest
@@ -3039,13 +3057,13 @@ release contains it yet.
 
 ## Exact Next Action
 
-Run the final repository gates for the surface-scoped target contract, stage
+Run the final repository gates for the Horizon-only Django derivative, stage
 only that atomic package, then commit and push it under the verified
-`jaehanbyun` account. After publication, add Django 4.2.30 only for Horizon
-with the official wheel identity, exact three High CVEs, and an offline
-framework setup/template probe. Do not alter production UI Containerfiles,
-combine upgrades, waive a finding, handle a Docker credential, or create a
-live cloud.
+`jaehanbyun` account. After publication, generalize target finding identities
+by scanner without weakening exact-delta, introduced-finding, secret, or
+absolute-count gates, then evaluate Click 8.3.3. Do not alter production UI
+Containerfiles, combine upgrades, waive a finding, handle a Docker credential,
+or create a live cloud.
 
 ## After This Work Package
 
