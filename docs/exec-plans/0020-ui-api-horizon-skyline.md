@@ -1,6 +1,6 @@
 ---
 title: "Product API, Horizon, and Skyline integration"
-status: active
+status: completed
 updated: 2026-07-26
 owner: primary-agent
 ---
@@ -39,7 +39,7 @@ catalog, Keystone, API, and browser evidence.
       artifacts and configuration without changing either dashboard by
       default; enable, reconfigure, disable, and residue checks are
       deterministic and secret-safe.
-- [ ] Repository regression, dependency locks, generated-artifact checks,
+- [x] Repository regression, dependency locks, generated-artifact checks,
       documentation, screenshots or rendered fixture evidence, release
       boundary, and `HANDOFF.md` accurately distinguish local integration from
       a deployed cloud result.
@@ -106,7 +106,7 @@ catalog, Keystone, API, and browser evidence.
       overlay.
 - [x] Add disabled-by-default Kolla companion-role UI artifact/configuration
       contracts and lifecycle validation.
-- [ ] Run focused and full verification, render and inspect both UIs with
+- [x] Run focused and full verification, render and inspect both UIs with
       fixture data, document the live-deployment boundary, and close the
       handoff.
 
@@ -468,6 +468,33 @@ catalog, Keystone, API, and browser evidence.
   diff gates from the clean fixture boundary. Close plan 0020 only if every
   locally executable gate passes.
 
+### 2026-07-26 — UI integration work package completed locally
+
+- Regression: The full Python suite passes 1,455 tests. The independent
+  Horizon gate passes its exact 2026.1 baseline, 36 tests, compilation, and
+  wheel contract. The Skyline gate passes exact materialization, localization,
+  targeted lint, 31 tests, Webpack production build, and the versioned wheel
+  contract. The isolated Kolla lifecycle passes all 108 checks.
+- Repository gates: The dependency lock, Python compilation, E/F/I checks for
+  the new UI image and Skyline Python sources, OpenAPI JSON parsing, and 11
+  focused OpenAPI/image-contract tests pass. All 104 tracked Markdown files
+  have balanced fences and all 58 local links/images resolve.
+- Evidence and safety: Four retained JPEGs have the expected 1440 x 900 and
+  375 x 812 dimensions. No fixture server remains. Repository Gitleaks,
+  focused UI/API/Kolla credential-pattern scanning, and diff checks pass.
+- Release boundary: The live upstream classifier still returns `blocked`.
+  Distribution v3.1.1 remains the latest stable release, and Ceph Tentacle
+  v20.2.2 still lacks the merged encrypted-copy fix. No custom UI image or
+  six-VM cloud was built or deployed.
+- Disposition: Plan 0020 is complete for the locally verifiable REST/OpenAPI,
+  Horizon, Skyline, immutable-image, Kolla lifecycle, and rendered-fixture
+  scope. Live catalog, Keystone, Kolla, and browser acceptance remain part of
+  the future qualified Stage 6 pilot and are not implied by this completion.
+- Changed files: This plan and `.codex/state/HANDOFF.md`.
+- Next exact action: When official stable release metadata changes, run
+  `make -C poc/production-images check-upstream`. Invoke no remote Stage 6
+  pilot unless the exact pair reaches `candidate-qualified`.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -475,7 +502,7 @@ catalog, Keystone, API, and browser evidence.
 | Stage 6 release boundary | `make -C poc/production-images check-upstream` | passed; valid `blocked` result |
 | Current API source inventory | Focused Falcon, policy, store, middleware, and test inspection | passed; gaps recorded |
 | Horizon extension shape | Official current Horizon plugin and dashboard documentation | passed; out-of-tree plugin supported |
-| Skyline extension shape | Official current Skyline Console development/source documentation | partial; first-party seams identified, packaging boundary pending source pin |
+| Skyline extension shape | Official current Skyline Console development/source documentation and pinned source inspection | passed; exact-revision source overlay accepted |
 | Plan/HANDOFF structure | Markdown and exact-next-action inspection | passed |
 | Project UI API contract inventory | Exact API/policy/store/middleware/test and Kolla endpoint inspection | passed; implementation boundary fixed |
 | Repository keyset pagination | `uv run pytest -q tests/test_repositories.py tests/test_tokens.py tests/test_token_api.py tests/test_observability.py` | passed; 70 |
@@ -498,6 +525,14 @@ catalog, Keystone, API, and browser evidence.
 | Real wheel contract generation | `ui/images/write_contract.py` over current Horizon and Skyline wheels | passed; exact mode-0640 contracts |
 | Kolla UI lifecycle | `make -C poc/kolla-ansible-role verify` | passed; 108 checks |
 | UI desktop/narrow render | In-app browser over loopback fixtures | passed; 4 visually inspected screenshots, zero warning/error logs |
+| Final full Python regression | `uv run pytest -q` | passed; 1455 |
+| Final Horizon package gate | `make -C ui/horizon verify` | passed; exact baseline, 36 tests, compilation, wheel contract |
+| Final Skyline package gate | `make -C ui/skyline verify` | passed; exact overlay, locale, lint, 31 tests, Webpack bundle, versioned wheel |
+| Final Kolla UI lifecycle | `make -C poc/kolla-ansible-role verify` | passed; 108 checks |
+| Lock, compile, style, and focused contracts | `uv lock --check`; `compileall`; Ruff E/F/I; OpenAPI JSON parse; focused pytest | passed; 11 focused tests |
+| Structured documents and local artifacts | Tracked Markdown fence/link/image validator; `sips` screenshot inspection | passed; 104 files, 58 links/images, 4 expected JPEG dimensions |
+| Secret and repository hygiene | Gitleaks; focused credential-pattern scan; fixture-listener check; `git diff --check` | passed |
+| Final Stage 6 release boundary | `make -C poc/production-images check-upstream` | passed; valid `blocked` result, no pilot invoked |
 
 ## Failures, Blockers, and Risks
 
@@ -520,12 +555,14 @@ catalog, Keystone, API, and browser evidence.
 ## Handoff
 
 - Current state: Plan 0019 is externally blocked, its local pilot harness is
-  complete but uninvoked, and no six-VM pilot exists. Plan 0020 is active for
-  API/Horizon/Skyline work that can be locally proven independently.
-- Exact next action: Run `uv run pytest -q`, then the independent Horizon,
-  Skyline, Kolla-role, lock/compile, documentation/link, Gitleaks, and diff
-  gates. Close plan 0020 only after recording all exact results.
-- First file or command: Run `uv run pytest -q` from the repository root.
+  complete but uninvoked, and no six-VM pilot exists. Plan 0020 is complete
+  for its locally verifiable API, Horizon, Skyline, Kolla lifecycle, and
+  rendered-fixture scope; no live cloud deployment is claimed.
+- Exact next action: When official stable release metadata changes, run
+  `make -C poc/production-images check-upstream`. Do not invoke the live pilot
+  unless the exact pair reaches `candidate-qualified`.
+- First file or command: Run
+  `make -C poc/production-images check-upstream` from the repository root.
 - Questions requiring user input: None. The user authorized autonomous
   milestone commits and pushes through Horizon and Skyline; accepted security,
   release, and deployment gates remain fail closed.

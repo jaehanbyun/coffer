@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-26
-- Status: plan 0019 blocked externally; plan 0020 active; local production observability, disposable
+- Status: plan 0019 blocked externally; plan 0020 completed locally; local production observability, disposable
   filesystem GC/restore, load model/lifecycle, and canonical evidence verifier
   complete; raw OCI and five real-client execution boundaries complete;
   telemetry, deterministic plan, and fixture orchestrator complete; runtime
@@ -30,11 +30,12 @@
   production bundle, and versioned wheel complete locally with 31 tests;
   disabled-by-default immutable Horizon/Skyline image contracts and exact
   fallback lifecycle complete locally with 108 role checks; four desktop/narrow
-  UI fixture screenshots visually inspected; full plan 0020 regression next
-- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
+  UI fixture screenshots visually inspected; final 1,455-test/Horizon/Skyline/
+  108-check Kolla regression and repository gates complete
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Externally blocked execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
-- Active execution plan: `docs/exec-plans/0020-ui-api-horizon-skyline.md`
+- Active execution plan: none; plan 0019 remains externally blocked
 
 ## Current Objective
 
@@ -43,12 +44,13 @@ Stage 6 operation into a release-gated, checkpointed pilot harness. The latest
 stable Distribution and Ceph/RGW inputs still fail before deployment, so no
 fresh Kolla multinode pilot is being created and Stage 6 is not promoted.
 
-Plan 0020 is active. It freezes the public project REST/OpenAPI surface needed
-by both OpenStack web interfaces, then builds an independently packaged
-Horizon dashboard and a pinned-source Skyline Console integration. Local UI
-tests and rendered fixtures remain separate from deployed catalog/Keystone/
-browser evidence until the production promotion gate permits a disposable
-cloud.
+Plan 0020 is complete for its locally verifiable scope. The public project
+REST/OpenAPI surface, independently packaged Horizon dashboard, pinned-source
+Skyline Console integration, immutable UI image contracts, disabled-by-default
+Kolla lifecycle, and rendered fixtures pass their final gates. Local UI tests,
+packages, role fixtures, and screenshots remain separate from deployed
+catalog/Keystone/browser evidence until the production promotion gate permits
+a disposable cloud.
 
 Skyline Console `stable/2026.1` is pinned at
 `c9000cb1be332a213009793598f17a80ce59671e` with API Server
@@ -2759,6 +2761,20 @@ release contains it yet.
   action, quota, and three rows visible; narrow document width stays bounded
   while only the table scrolls. Four JPEGs were retained, browser logs were
   empty, the viewport was reset, and the local server was stopped.
+- Closed plan 0020 after the final repository gate. The full Python regression
+  passes 1,455 tests; Horizon passes its exact baseline, 36 tests, compile,
+  and wheel contract; Skyline passes exact materialization, locale, targeted
+  lint, 31 tests, Webpack build, and versioned wheel; and the Kolla lifecycle
+  passes all 108 checks.
+- Dependency lock, Python compilation, focused E/F/I, OpenAPI JSON and 11
+  focused contracts pass. All 104 tracked Markdown files have balanced fences
+  and all 58 local links/images resolve. Four JPEG dimensions, repository
+  Gitleaks, focused UI/API/Kolla credential scanning, zero fixture-listener
+  residue, and diff checks pass.
+- The live upstream classifier still returns `blocked`: Distribution v3.1.1
+  has no newer stable release and Ceph Tentacle v20.2.2 does not contain the
+  merged encrypted-copy fix. No custom UI image, six-VM pilot, catalog,
+  Keystone browser session, or remote service was created.
 
 ## Blockers and Risks
 
@@ -2793,14 +2809,15 @@ release contains it yet.
 
 ## Exact Next Action
 
-Run the full root regression, independent Horizon/Skyline/Kolla gates,
-dependency lock and compilation, structured-document/local-link validation,
-secret scans, and diff checks. Record exact results and close plan 0020 only
-if every locally executable gate passes, without claiming a deployed cloud.
+When official stable release metadata changes, run
+`make -C poc/production-images check-upstream`. Do not invoke the live Stage 6
+pilot unless the exact released pair reaches `candidate-qualified`.
 
 ## After This Work Package
 
-After the completed REST/OpenAPI, Horizon, and Skyline local integrations,
-implement disabled-by-default Kolla UI lifecycle contracts, then run rendered
-fixture and full repository verification. Stage 6 resumes only after released
-dependency gates pass. Official OpenStack/Kolla governance work remains later.
+The REST/OpenAPI, Horizon, Skyline, disabled-by-default Kolla UI lifecycle,
+rendered fixture, and full repository verification scope is complete locally.
+Stage 6 resumes only after released dependency gates pass; its qualified pilot
+must then build/scan/sign immutable UI images and capture live catalog,
+Keystone, Kolla, and browser acceptance. Official OpenStack/Kolla governance
+work remains later.
