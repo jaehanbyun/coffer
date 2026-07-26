@@ -71,6 +71,7 @@ def wheel(
 
 
 def write_trivy(path: Path, identifiers: list[str], target: Any) -> None:
+    target_findings = target.finding_ids_for("trivy")
     path.write_text(
         json.dumps(
             {
@@ -85,17 +86,17 @@ def write_trivy(path: Path, identifiers: list[str], target: Any) -> None:
                                 "VulnerabilityID": identifier,
                                 "PkgName": (
                                     target.display_name
-                                    if identifier in target.finding_ids
+                                    if identifier in target_findings
                                     else "remaining"
                                 ),
                                 "InstalledVersion": (
                                     target.from_version
-                                    if identifier in target.finding_ids
+                                    if identifier in target_findings
                                     else "1"
                                 ),
                                 "FixedVersion": (
                                     target.to_version
-                                    if identifier in target.finding_ids
+                                    if identifier in target_findings
                                     else ""
                                 ),
                                 "Severity": "HIGH",
@@ -110,6 +111,7 @@ def write_trivy(path: Path, identifiers: list[str], target: Any) -> None:
 
 
 def write_scout(path: Path, identifiers: list[str], target: Any) -> None:
+    target_findings = target.finding_ids_for("scout")
     path.write_text(
         json.dumps(
             {
@@ -130,7 +132,7 @@ def write_scout(path: Path, identifiers: list[str], target: Any) -> None:
                                                     f"pkg:pypi/{target.normalized_name}"
                                                     f"@{target.from_version}"
                                                     if identifier
-                                                    in target.finding_ids
+                                                    in target_findings
                                                     else "pkg:pypi/remaining@1"
                                                 )
                                             ],
@@ -138,7 +140,7 @@ def write_scout(path: Path, identifiers: list[str], target: Any) -> None:
                                             "fixed_version": (
                                                 target.to_version
                                                 if identifier
-                                                in target.finding_ids
+                                                in target_findings
                                                 else "not fixed"
                                             ),
                                         },
@@ -209,6 +211,7 @@ def fixture(
     monkeypatch: pytest.MonkeyPatch,
     target_key: str = "mako",
     surfaces: tuple[str, ...] | None = None,
+    finding_ids_by_scanner: dict[str, list[str]] | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     evidence = tmp_path / "evidence"
     evidence.mkdir(parents=True)
@@ -230,6 +233,10 @@ def fixture(
     }
     if surfaces is not None:
         target_document["targets"][target_key]["surfaces"] = list(surfaces)
+    if finding_ids_by_scanner is not None:
+        target_document["targets"][target_key][
+            "finding_ids_by_scanner"
+        ] = finding_ids_by_scanner
     target_document["targets"][target_key]["wheel_sha256"] = TRIAL.sha256_file(
         artifacts["target"]
     )
@@ -338,6 +345,7 @@ def fixture(
                 "probe": target.probe,
                 "trial_label": target.trial_label,
                 "finding_ids": list(target.finding_ids),
+                "finding_ids_by_scanner": target.scanner_finding_ids,
                 "requires_dist": list(target.requires_dist),
                 "surfaces": list(target.surfaces),
             },
@@ -457,11 +465,12 @@ def fixture(
             }
         )
     )
-    before_findings = [*target.finding_ids, "CVE-remaining"]
     for surface in target.surfaces:
+        trivy_before = [*target.finding_ids_for("trivy"), "CVE-remaining"]
+        scout_before = [*target.finding_ids_for("scout"), "CVE-remaining"]
         write_trivy(
             evidence / f"{surface}-before.trivy.json",
-            before_findings,
+            trivy_before,
             target,
         )
         write_trivy(
@@ -471,7 +480,7 @@ def fixture(
         )
         write_scout(
             evidence / f"{surface}-before.scout.sarif.json",
-            before_findings,
+            scout_before,
             target,
         )
         write_scout(
@@ -518,7 +527,9 @@ def test_valid_overlay_is_accepted_but_remains_blocked(
     for surface in target.surfaces:
         for scanner in TRIAL.SCANNERS:
             result = report["surfaces"][surface]["scanners"][scanner]
-            assert result["removed_finding_ids"] == list(target.finding_ids)
+            assert result["removed_finding_ids"] == list(
+                target.finding_ids_for(scanner)
+            )
             assert result["introduced_critical_high"] == 0
 
 
@@ -537,6 +548,51 @@ def test_surface_scoped_overlay_excludes_unselected_surface(
     assert set(report["surfaces"]) == {"horizon"}
     assert artifacts["target_spec"].surfaces == ("horizon",)
     assert not list(evidence.glob("skyline-*.json"))
+
+
+def test_scanner_specific_empty_expected_delta_is_accepted(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scout_findings = list(BASE_TARGETS["mako"].finding_ids)
+    evidence, artifacts = fixture(
+        tmp_path,
+        monkeypatch,
+        finding_ids_by_scanner={
+            "trivy": [],
+            "scout": scout_findings,
+        },
+    )
+
+    report = build(evidence, artifacts)
+
+    horizon = report["surfaces"]["horizon"]["scanners"]
+    assert horizon["trivy"]["removed_finding_ids"] == []
+    assert horizon["scout"]["removed_finding_ids"] == scout_findings
+    assert artifacts["target_spec"].finding_ids == tuple(scout_findings)
+
+
+def test_scanner_specific_unexpected_delta_is_rejected(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scout_findings = list(BASE_TARGETS["mako"].finding_ids)
+    evidence, artifacts = fixture(
+        tmp_path,
+        monkeypatch,
+        finding_ids_by_scanner={
+            "trivy": [],
+            "scout": scout_findings,
+        },
+    )
+    write_trivy(
+        evidence / "horizon-before.trivy.json",
+        [scout_findings[0], "CVE-remaining"],
+        artifacts["target_spec"],
+    )
+
+    with pytest.raises(TRIAL.EvidenceError, match="target finding delta"):
+        build(evidence, artifacts)
 
 
 def test_python_and_os_package_delta_tamper_are_rejected(
@@ -714,6 +770,10 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
     assert targets["pyjwt"].wheel_sha256 == (
         "66adcc2aff09b3f1bbd95fc1e1577df8ac8723c978552fd43304c8a290ac5728"
     )
+    assert targets["pyjwt"].scanner_finding_ids == {
+        "trivy": ["CVE-2026-32597", "CVE-2026-48526"],
+        "scout": ["CVE-2026-32597", "CVE-2026-48526"],
+    }
     assert all(
         target.surfaces == ("horizon", "skyline")
         for key, target in targets.items()
@@ -731,3 +791,37 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
     assert 'rm -rf -- \\' in runner
     assert "podman image rm --force" in runner
     assert ".decision.production_candidate == false" in runner
+
+
+@pytest.mark.parametrize(
+    "finding_ids_by_scanner",
+    [
+        {"trivy": ["CVE-2026-41205"]},
+        {"trivy": [], "scout": []},
+        {
+            "trivy": ["CVE-2026-44307", "CVE-2026-41205"],
+            "scout": ["CVE-2026-41205"],
+        },
+        {
+            "trivy": ["GHSA-not-accepted"],
+            "scout": ["CVE-2026-41205"],
+        },
+    ],
+)
+def test_target_manifest_rejects_invalid_scanner_finding_contract(
+    tmp_path: Path,
+    finding_ids_by_scanner: dict[str, list[str]],
+) -> None:
+    document = json.loads(TARGET_MANIFEST.read_text())
+    document["targets"] = {"mako": document["targets"]["mako"]}
+    document["targets"]["mako"][
+        "finding_ids_by_scanner"
+    ] = finding_ids_by_scanner
+    path = tmp_path / "python_targets.json"
+    path.write_text(json.dumps(document))
+
+    with pytest.raises(
+        TARGET_MODULE.TargetError,
+        match="finding_ids_by_scanner",
+    ):
+        TARGET_MODULE.load_targets(path)

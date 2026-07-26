@@ -13,13 +13,13 @@ from zipfile import ZipFile
 
 from python_target import Target, TargetError, load_target
 
-MANIFEST_SCHEMA = "coffer.ui-python-overlay-evidence/v1"
+MANIFEST_SCHEMA = "coffer.ui-python-overlay-evidence/v2"
 IMAGE_SCHEMA = "coffer.ui-python-overlay-images/v1"
 INVENTORY_SCHEMA = "coffer.ui-python-overlay-os-inventories/v1"
 RUNTIME_SCHEMA = "coffer.ui-python-overlay-runtimes/v1"
 PYTHON_RUNTIME_SCHEMA = "coffer.ui-python-overlay-runtime/v1"
 PACKAGE_INVENTORY_SCHEMA = "coffer.ui-package-inventory/v1"
-RESULT_SCHEMA = "coffer.ui-python-overlay-trial/v1"
+RESULT_SCHEMA = "coffer.ui-python-overlay-trial/v2"
 OS_CLEANUP_RESULT_SCHEMA = "coffer.ui-os-cleanup-trial/v1"
 REMEDIATION_SCHEMA = "coffer.ui-parent-remediation/v1"
 KOLLA_REVISION = "686c6d13dc1c31092b22c6c481e16a7329e935ea"
@@ -284,6 +284,7 @@ def validate_manifest(
             "probe": target.probe,
             "trial_label": target.trial_label,
             "finding_ids": list(target.finding_ids),
+            "finding_ids_by_scanner": target.scanner_finding_ids,
             "requires_dist": list(target.requires_dist),
             "surfaces": list(target.surfaces),
         },
@@ -628,7 +629,7 @@ def scanner_result(
     after_ids = frozenset(item[0] for item in after.critical_high)
     if introduced:
         raise EvidenceError(f"{scanner} {surface} overlay introduced findings")
-    target_findings = frozenset(target.finding_ids)
+    target_findings = frozenset(target.finding_ids_for(scanner))
     if removed_ids != target_findings or target_findings & after_ids:
         raise EvidenceError(f"{scanner} {surface} target finding delta is invalid")
     if scanner == "trivy" and (before.secrets or after.secrets):

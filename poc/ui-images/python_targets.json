@@ -1,13 +1,20 @@
 {
-  "schema": "coffer.ui-python-overlay-targets/v1",
+  "schema": "coffer.ui-python-overlay-targets/v2",
   "targets": {
     "django": {
       "display_name": "Django",
-      "finding_ids": [
-        "CVE-2026-25673",
-        "CVE-2026-33034",
-        "CVE-2026-3902"
-      ],
+      "finding_ids_by_scanner": {
+        "scout": [
+          "CVE-2026-25673",
+          "CVE-2026-33034",
+          "CVE-2026-3902"
+        ],
+        "trivy": [
+          "CVE-2026-25673",
+          "CVE-2026-33034",
+          "CVE-2026-3902"
+        ]
+      },
       "from_version": "4.2.28",
       "normalized_name": "django",
       "package_prefix": "django/",
@@ -31,9 +38,14 @@
     },
     "httplib2": {
       "display_name": "httplib2",
-      "finding_ids": [
-        "CVE-2026-59939"
-      ],
+      "finding_ids_by_scanner": {
+        "scout": [
+          "CVE-2026-59939"
+        ],
+        "trivy": [
+          "CVE-2026-59939"
+        ]
+      },
       "from_version": "0.31.2",
       "normalized_name": "httplib2",
       "package_prefix": "httplib2/",
@@ -53,10 +65,16 @@
     },
     "mako": {
       "display_name": "Mako",
-      "finding_ids": [
-        "CVE-2026-41205",
-        "CVE-2026-44307"
-      ],
+      "finding_ids_by_scanner": {
+        "scout": [
+          "CVE-2026-41205",
+          "CVE-2026-44307"
+        ],
+        "trivy": [
+          "CVE-2026-41205",
+          "CVE-2026-44307"
+        ]
+      },
       "from_version": "1.3.10",
       "normalized_name": "mako",
       "package_prefix": "mako/",
@@ -76,10 +94,16 @@
     },
     "pyjwt": {
       "display_name": "PyJWT",
-      "finding_ids": [
-        "CVE-2026-32597",
-        "CVE-2026-48526"
-      ],
+      "finding_ids_by_scanner": {
+        "scout": [
+          "CVE-2026-32597",
+          "CVE-2026-48526"
+        ],
+        "trivy": [
+          "CVE-2026-32597",
+          "CVE-2026-48526"
+        ]
+      },
       "from_version": "2.11.0",
       "normalized_name": "pyjwt",
       "package_prefix": "jwt/",
@@ -100,10 +124,16 @@
     },
     "urllib3": {
       "display_name": "urllib3",
-      "finding_ids": [
-        "CVE-2026-44431",
-        "CVE-2026-44432"
-      ],
+      "finding_ids_by_scanner": {
+        "scout": [
+          "CVE-2026-44431",
+          "CVE-2026-44432"
+        ],
+        "trivy": [
+          "CVE-2026-44431",
+          "CVE-2026-44432"
+        ]
+      },
       "from_version": "2.6.3",
       "normalized_name": "urllib3",
       "package_prefix": "urllib3/",

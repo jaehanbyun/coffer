@@ -87,6 +87,7 @@ absolute gate.
 | Accept PyJWT 2.13.0 only as the fourth independent compatibility derivative | The official non-yanked wheel, offline HS256 round trip, exact runtime delta, and both scanners passed on both surfaces | Treating an import alone as token compatibility; combining accepted derivatives; changing the production image | 2026-07-27 |
 | Bind every target to its actual installed UI surfaces | Django exists in Horizon but not Skyline; an implicit two-surface trial would add an unrelated package and fabricate a Skyline remediation | Installing every target into both images; accepting missing baseline findings; free-form runtime surface inputs | 2026-07-27 |
 | Accept Django 4.2.30 only as the Horizon-scoped fifth compatibility derivative | The official non-yanked wheel, offline framework setup/template probe, exact runtime delta, and both scanners passed on its one installed surface | Installing Django in Skyline; treating an import alone as framework compatibility; changing the production image | 2026-07-27 |
+| Model expected findings per scanner while preserving their nonempty union | Click is reported by Scout but not Trivy; exact scanner-local sets preserve fail-closed delta checks without fabricating a Trivy finding | Requiring a fabricated common set; accepting arbitrary removals; dropping either scanner; waiving a finding | 2026-07-27 |
 
 ## Tasks
 
@@ -102,6 +103,8 @@ absolute gate.
 - [x] Make target surface eligibility explicit and fail closed throughout the
       runner, collector, evidence, and classifier.
 - [x] Run the Horizon-only Django 4.2.28 to 4.2.30 experiment.
+- [x] Make scanner-specific expected finding identities explicit without
+      weakening exact delta, introduced-finding, secret, or absolute gates.
 - [ ] Rescan viable derivatives, update the durable handoff, and publish each
       verified atomic milestone.
 
@@ -436,6 +439,27 @@ absolute gate.
   without weakening introduced-finding or absolute-count gates, then admit
   pure-Python Click 8.3.3 only if the Scout-only baseline is explicit.
 
+### 2026-07-27 — scanner-specific finding contract accepted
+
+- Completed: Upgraded the checked-in target manifest to
+  `coffer.ui-python-overlay-targets/v2`. Every target now carries exact
+  `trivy` and `scout` finding sets. Empty scanner-local sets are permitted only
+  when the sorted union is nonempty and exactly matches the accepted
+  remediation candidate.
+- Safety: The evidence manifest and result schemas are v2 and retain both the
+  union and scanner-keyed identities. Each scanner must remove exactly its own
+  declared set, may introduce no Critical/High finding, and remains subject to
+  the Trivy secret and absolute remaining-count gates. Unknown/missing
+  scanners, invalid/duplicate/unsorted CVEs, an empty union, and an unexpected
+  removal are rejected by fixtures.
+- Scope: Existing five derivatives retain identical two-scanner finding
+  expectations and acceptance decisions. No wheel, package version,
+  production Containerfile, scanner result, constraints policy, credential,
+  or live deployment changed.
+- Next exact action: Bind the official Click 8.3.3 release identity and its
+  Scout-only `CVE-2026-7246` expectation, add a bounded offline CLI invocation
+  probe, and run that target alone on both native ARM64 UI surfaces.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -460,6 +484,7 @@ absolute gate.
 | Surface-scoped target contract | strict target manifest, dynamic runner/collector/classifier, two-surface and Horizon-only fixtures | passed; 51 focused and 1,506 total tests |
 | Django compatibility experiment | native ARM64 Horizon official wheel, OS/Python/UI runtime, framework setup/template probe, and two-scanner trial | passed for Horizon Django only; production blocked at Trivy/Scout 28/31 High |
 | Django milestone gates | JSON, Bash, strict ShellCheck, Ruff, compilation, UI image suite, full pytest, lock, secret, and diff checks | passed; 52 focused and 1,507 total tests with no staged leak |
+| Scanner-specific finding contract | strict v2 target/evidence schemas, equal and empty scanner-local sets, malformed contract and unexpected-delta fixtures | passed; 58 focused and 1,513 total tests |
 | Baseline milestone gates | full pytest, Ruff E/F/I, compilation, staged secret/diff | passed; 1,483 tests and no staged leak |
 | Final repository gates | dashboard packages, Kolla role, docs/links, secret, diff | pending with remediation experiment |
 
@@ -489,6 +514,9 @@ absolute gate.
 - Surface scope is target identity, not an operator override. A package can be
   tested only where the accepted remediation baseline proves that exact
   constrained version and findings are installed.
+- Scanner-specific expected sets describe observed source coverage; they do
+  not waive the union finding, permit a missing scanner, or weaken remaining
+  Critical/High and secret gates.
 - Django 4.2.30 is accepted only as a Horizon-scoped derivative. The framework
   smoke probe does not replace live Horizon/Kolla startup, reconfigure,
   upgrade, rollback, or browser acceptance after Stage 6 release gates close.
@@ -504,16 +532,16 @@ absolute gate.
   blocked. The inherited ARM64 classifier, deterministic baseline, stock
   dependency probe, post-Coffer OS cleanup trial, and narrow Mako compatibility
   derivative, generic target contract, and independent httplib2/urllib3
-  and PyJWT compatibility derivatives, exact target-surface selection, and the
-  Horizon-only Django derivative are complete locally with no waiver. The trials
-  passed package, runtime, lineage, and two-scanner delta gates but correctly
-  remain blocked by nonzero Critical/High findings. Raw/report evidence is
-  non-secret and remains owner-only under ignored `work/`.
-- Exact next action: Generalize expected finding identities per scanner while
-  preserving exact delta and absolute gates, then evaluate Click 8.3.3 as a
-  pure-Python two-surface Scout-only derivative.
-- First file or command: Add a strict scanner-keyed finding contract in
-  `poc/ui-images/python_target.py` with fixtures for equal, empty, and
-  unexpected scanner deltas; do not modify production UI Containerfiles.
+  and PyJWT compatibility derivatives, exact target-surface selection, the
+  Horizon-only Django derivative, and scanner-specific finding identities are
+  complete locally with no waiver. The trials passed package, runtime,
+  lineage, and two-scanner delta gates but correctly remain blocked by
+  nonzero Critical/High findings. Raw/report evidence is non-secret and
+  remains owner-only under ignored `work/`.
+- Exact next action: Evaluate Click 8.3.3 as a pure-Python two-surface
+  Scout-only derivative.
+- First file or command: Fetch and bind only the official Click 8.3.3 PyPI
+  JSON/wheel metadata in `poc/ui-images/python_targets.json`, then add an
+  offline CLI invocation probe; do not modify production UI Containerfiles.
 - Questions requiring user input: None. No credential, external publication,
   live deployment, or waiver is required for the next local milestone.

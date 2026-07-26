@@ -11,7 +11,7 @@ from typing import Any
 
 from python_target import TargetError, load_target
 
-MANIFEST_SCHEMA = "coffer.ui-python-overlay-evidence/v1"
+MANIFEST_SCHEMA = "coffer.ui-python-overlay-evidence/v2"
 IMAGE_SCHEMA = "coffer.ui-python-overlay-images/v1"
 INVENTORY_SCHEMA = "coffer.ui-python-overlay-os-inventories/v1"
 RUNTIME_SCHEMA = "coffer.ui-python-overlay-runtimes/v1"
@@ -298,6 +298,7 @@ def collect(
                 "probe": target.probe,
                 "trial_label": target.trial_label,
                 "finding_ids": list(target.finding_ids),
+                "finding_ids_by_scanner": target.scanner_finding_ids,
                 "requires_dist": list(target.requires_dist),
                 "surfaces": list(target.surfaces),
             },

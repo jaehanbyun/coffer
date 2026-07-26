@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-SCHEMA = "coffer.ui-python-overlay-targets/v1"
+SCHEMA = "coffer.ui-python-overlay-targets/v2"
 KEY = re.compile(r"^[a-z][a-z0-9-]{1,31}$")
 NAME = re.compile(r"^[A-Za-z][A-Za-z0-9._-]{0,63}$")
 VERSION = re.compile(r"^[0-9][A-Za-z0-9.+!-]{0,31}$")
@@ -26,6 +26,7 @@ PROBES = {
     "urllib3-pool",
 }
 SURFACES = frozenset({"horizon", "skyline"})
+SCANNERS = ("trivy", "scout")
 
 
 class TargetError(RuntimeError):
@@ -43,7 +44,7 @@ class Target:
     wheel_filename: str
     wheel_url: str
     wheel_sha256: str
-    finding_ids: tuple[str, ...]
+    finding_ids_by_scanner: tuple[tuple[str, tuple[str, ...]], ...]
     requires_dist: tuple[str, ...]
     surfaces: tuple[str, ...]
     probe: str
@@ -56,6 +57,31 @@ class Target:
     @property
     def module_name(self) -> str:
         return self.package_prefix.removesuffix("/")
+
+    @property
+    def finding_ids(self) -> tuple[str, ...]:
+        return tuple(
+            sorted(
+                {
+                    finding
+                    for _, findings in self.finding_ids_by_scanner
+                    for finding in findings
+                }
+            )
+        )
+
+    def finding_ids_for(self, scanner: str) -> tuple[str, ...]:
+        try:
+            return dict(self.finding_ids_by_scanner)[scanner]
+        except KeyError as error:
+            raise TargetError("target scanner is unsupported") from error
+
+    @property
+    def scanner_finding_ids(self) -> dict[str, list[str]]:
+        return {
+            scanner: list(findings)
+            for scanner, findings in self.finding_ids_by_scanner
+        }
 
     @property
     def expected_probe_result(self) -> str:
@@ -85,6 +111,32 @@ def _strings(document: dict[str, Any], key: str) -> tuple[str, ...]:
     return tuple(value)
 
 
+def _scanner_findings(
+    document: dict[str, Any],
+) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    value = document.get("finding_ids_by_scanner")
+    if not isinstance(value, dict) or set(value) != set(SCANNERS):
+        raise TargetError("target finding_ids_by_scanner is invalid")
+    result: list[tuple[str, tuple[str, ...]]] = []
+    union: set[str] = set()
+    for scanner in SCANNERS:
+        findings = value[scanner]
+        if (
+            not isinstance(findings, list)
+            or any(
+                not isinstance(item, str) or not FINDING.fullmatch(item)
+                for item in findings
+            )
+            or findings != sorted(set(findings))
+        ):
+            raise TargetError("target finding_ids_by_scanner is invalid")
+        union.update(findings)
+        result.append((scanner, tuple(findings)))
+    if not union:
+        raise TargetError("target finding_ids_by_scanner is empty")
+    return tuple(result)
+
+
 def load_targets(path: Path) -> dict[str, Target]:
     if not path.is_file() or path.is_symlink():
         raise TargetError("target manifest is missing or linked")
@@ -100,7 +152,7 @@ def load_targets(path: Path) -> dict[str, Target]:
     targets: dict[str, Target] = {}
     expected_fields = {
         "display_name",
-        "finding_ids",
+        "finding_ids_by_scanner",
         "from_version",
         "normalized_name",
         "package_prefix",
@@ -131,7 +183,7 @@ def load_targets(path: Path) -> dict[str, Target]:
             wheel_filename=_string(raw, "wheel_filename"),
             wheel_url=_string(raw, "wheel_url"),
             wheel_sha256=_string(raw, "wheel_sha256"),
-            finding_ids=_strings(raw, "finding_ids"),
+            finding_ids_by_scanner=_scanner_findings(raw),
             requires_dist=_strings(raw, "requires_dist"),
             surfaces=_strings(raw, "surfaces"),
             probe=_string(raw, "probe"),
@@ -147,7 +199,6 @@ def load_targets(path: Path) -> dict[str, Target]:
             or not WHEEL.fullmatch(target.wheel_filename)
             or not URL.fullmatch(target.wheel_url)
             or not DIGEST.fullmatch(target.wheel_sha256)
-            or not all(FINDING.fullmatch(item) for item in target.finding_ids)
             or not set(target.surfaces) <= SURFACES
             or target.probe not in PROBES
             or not LABEL.fullmatch(target.trial_label)

@@ -165,10 +165,18 @@ make -C poc/ui-images trial-python-pyjwt
 ```
 
 The checked-in `python_targets.json` manifest is the only target-selection
-boundary. It binds each allowed package to the official wheel URL, filename,
-SHA-256, dependency metadata, exact before/after versions, expected scanner
-findings, compatibility probe, explicit installed UI surfaces, and trial
-label. The loader rejects unknown surfaces or fields, unsafe filenames or
+boundary. Its v2 contract binds each allowed package to the official wheel
+URL, filename, SHA-256, dependency metadata, exact before/after versions,
+scanner-specific expected findings, compatibility probe, explicit installed
+UI surfaces, and trial label. Both `trivy` and `scout` keys are mandatory;
+each scanner may have an empty expected set, but their union must be nonempty,
+sorted, unique, valid CVE identifiers and must exactly equal the accepted
+remediation candidate. The classifier requires each scanner to remove exactly
+its declared set and rejects any introduced Critical/High finding. This
+represents scanner observation differences without suppressing or waiving a
+finding.
+
+The loader rejects unknown scanners, surfaces, or fields, unsafe filenames or
 URLs, unsupported probes, arbitrary target keys, and linked manifests. The
 runner builds the target overlay and inventories and scans only those declared
 surfaces; it cannot silently install a Horizon-only dependency into Skyline.
