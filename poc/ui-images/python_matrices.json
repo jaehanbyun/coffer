@@ -1,0 +1,35 @@
+{
+  "schema": "coffer.ui-python-overlay-matrices/v1",
+  "target_manifest_sha256": "880f487647bd068b1d9f951a7440cae9a142382f74e10ba2b5e460b09b7505b7",
+  "matrices": {
+    "accepted": {
+      "trial_label": "coffer-ui-python-cumulative-v1",
+      "surfaces": {
+        "horizon": [
+          "click",
+          "cryptography-pyopenssl",
+          "django",
+          "httplib2",
+          "lxml",
+          "mako",
+          "msgpack",
+          "pillow",
+          "pyjwt",
+          "ujson",
+          "urllib3"
+        ],
+        "skyline": [
+          "click",
+          "cryptography-pyopenssl",
+          "httplib2",
+          "lxml",
+          "mako",
+          "msgpack",
+          "pyjwt",
+          "ujson",
+          "urllib3"
+        ]
+      }
+    }
+  }
+}

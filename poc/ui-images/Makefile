@@ -10,7 +10,7 @@ verify:
 	cd "$(REPO_ROOT)" && uv run pytest -q tests/test_ui_image_qualification.py \
 		tests/test_ui_image_collectors.py tests/test_ui_parent_remediation.py \
 		tests/test_ui_parent_package_probe.py tests/test_ui_os_cleanup_trial.py \
-		tests/test_ui_python_overlay_trial.py
+		tests/test_ui_python_overlay_trial.py tests/test_ui_python_matrix_trial.py
 
 probe-parents:
 	./probe_stock_parents.sh

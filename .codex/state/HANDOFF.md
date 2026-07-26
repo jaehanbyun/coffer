@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-27
-- Status: plan 0024 completed locally; plans 0019 and 0022 blocked externally; plans 0020, 0021, 0023, and 0024 completed locally;
+- Status: plan 0025 active; plans 0019 and 0022 blocked externally; plans 0020, 0021, 0023, and 0024 completed locally;
   native x86_64 UI parents and derivatives built and passed provenance/runtime
   collection, but standalone Docker Scout CVE evidence requires an unauthorized
   Docker login; the disposable VM, volumes, key, and runtime residue are absent;
@@ -44,10 +44,27 @@
 - Externally blocked execution plans:
   `docs/exec-plans/0019-stage6-production-promotion.md` and
   `docs/exec-plans/0022-native-x86-ui-image-qualification.md`
-- Active execution plan: none; the exact next action is to create plan 0025
-  for the cumulative accepted UI remediation matrix.
+- Active execution plan:
+  `docs/exec-plans/0025-ui-cumulative-remediation-matrix.md`
 
 ## Current Objective
+
+Plan 0025 is active to combine only the native ARM64 Python remediations
+accepted in plans 0023 and 0024. Horizon selects 11 targets and 12 package
+components; Skyline selects nine targets and ten components because Django
+and Pillow are Horizon-only. Their declared aggregate scanner sets contain
+30 Trivy and 31 Scout finding identities for Horizon and 15 Trivy and 16 Scout
+identities for Skyline. The matrix references immutable target keys rather
+than duplicate package metadata, will install all selected exact wheels in one
+no-network transaction per surface, run every accepted probe, and preserve
+the absolute blocked production gate. Its immutable v1 contract is complete
+and bound to target manifest SHA-256
+`880f487647bd068b1d9f951a7440cae9a142382f74e10ba2b5e460b09b7505b7`.
+Thirteen focused tests pass exact selection plus schema, hash, surface, target,
+ordering, completeness, overlap, label, symlink, and unknown-key rejection.
+The exact next action is to extend `collect_python_runtime.py` with an explicit
+matrix/surface mode that runs every selected probe and records every exact
+component while preserving isolated target behavior.
 
 Plan 0024 is complete after proving the only dependency-valid remediation for
 the cryptography and pyOpenSSL findings. Installed pyOpenSSL 24.2.1
@@ -3224,13 +3241,13 @@ release contains it yet.
 
 ## Exact Next Action
 
-Create
-`docs/exec-plans/0025-ui-cumulative-remediation-matrix.md` from the execution
-plan template. The plan must combine only independently accepted upgrades,
-prove the cumulative dependency and runtime graph plus exact two-scanner
-deltas on both native ARM64 surfaces, and remain isolated from production
-Containerfiles. Do not waive a finding, handle a Docker credential, publish an
-image, or create a live cloud.
+Extend `poc/ui-images/collect_python_runtime.py` with explicit
+`--matrix-manifest`, `--matrix`, and `--surface` inputs. Run every selected
+target probe and bind every exact surface component while preserving the
+existing isolated `--target` contract and output. Add positive and rejection
+fixtures before changing the build runner. Do not alter production UI
+Containerfiles, waive a finding, handle a Docker credential, publish an image,
+or create a live cloud.
 
 ## After This Work Package
 
