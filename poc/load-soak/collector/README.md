@@ -218,3 +218,50 @@ All three files use the same owner-only canonical/mode boundary as the target
 renderer. Success output contains only the phase and bundle hash. This
 compiler does not read SQL, RGW, Prometheus, logs, credentials, or the
 network, and it does not yet serve the six documents.
+
+## Private evidence server
+
+`evidence_server.py` serves one validated phase bundle through the exact six
+paths already bound into the native target. Its canonical owner-only
+configuration binds:
+
+- the exact target and evidence-bundle file paths plus raw SHA-256 values;
+- one explicit loopback or private canonical IPv4 bind address, target TLS
+  name, and explicit port;
+- an owner-only server certificate and unencrypted private key with exact file
+  hashes, matching public keys, current validity, non-CA basic constraints,
+  server-auth extended usage, digital-signature usage, and an exact SAN;
+- the current server/target/compiler/parser source hash; and
+- concurrency from 1 through 32 plus a one- through 30-second request timeout.
+
+`check` validates all files, bindings, routes, TLS material, and hashes without
+opening a listener:
+
+```text
+uv run python poc/load-soak/collector/evidence_server.py source-hash
+uv run python poc/load-soak/collector/evidence_server.py \
+  check work/load-soak/evidence-server-before.json
+```
+
+`serve` binds only after the same validation:
+
+```text
+uv run python poc/load-soak/collector/evidence_server.py \
+  serve work/load-soak/evidence-server-before.json
+```
+
+The listener requires exactly one Host header for the target name and port,
+`Accept: application/json`, optional identity encoding, no transfer encoding,
+and no request body. Only bodyless
+`GET /v1/evidence/{surface}/{configured-phase}` succeeds. Other phases and
+paths are not listed; methods, queries, duplicate headers, bodies, redirects,
+wildcard/public binds, implicit ports, path or file aliases, and source/hash
+drift fail closed. Responses contain canonical JSON, a fixed content type and
+length, `no-store`, `nosniff`, and `Connection: close`; no product/version,
+date, Location, raw path, or log output is emitted.
+
+TLS is 1.2 or newer with compression disabled. Raw accepts receive a finite
+timeout before handshake, successful handshakes enter a bounded request
+semaphore, and shutdown closes the listener and worker threads. This is still
+a disposable-pilot evidence adapter: it does not collect any source summary,
+authenticate a public client, or expose a production endpoint.

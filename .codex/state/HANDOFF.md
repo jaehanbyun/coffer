@@ -10,8 +10,8 @@
   complete; owner-only telemetry collection boundary, native
   Prometheus/exporter parser seam, versioned native target, and exact-schema
   collector dispatch complete; no-network disposable-pilot target renderer
-  and phase-bound auxiliary evidence compiler complete; private TLS evidence
-  serving boundary next
+  and phase-bound auxiliary evidence compiler plus private TLS evidence server
+  complete; source-summary acquisition seam next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -623,6 +623,19 @@ release contains it yet.
   native pipeline passes 129, the broad load matrix 349, and full regression
   and collection both report 974. No summary was collected and no SQL, RGW,
   log, network, endpoint, credential, container, VM, or remote state changed.
+- Added the private phase-evidence TLS server. One owner-only configuration
+  binds the exact target/bundle/source hashes, private IPv4 listener, TLS
+  name/certificate/key, finite timeout, bounded concurrency, and all exact
+  target routes before binding.
+- Native-client verified TLS succeeds for all six documents. Wrong CA/name,
+  public/wildcard bind, unsafe or aliased files, key/certificate/hash drift,
+  cross-phase paths, queries, bodies, changed/duplicate headers, and other
+  methods fail without redirect, listing, response body, product/version, Date,
+  or request logging. Thirty-four focused server tests pass; the complete
+  focused native pipeline passes 163, the broad load matrix 383, and full
+  regression and collection both report 1008. No summary was collected and no
+  SQL, RGW, log, credential, remote endpoint, container, VM, or remote state
+  changed.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2430,13 +2443,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/load-soak/collector/evidence_server.py` as the private serving
-boundary. Load one validated owner-only target and phase bundle, require a
-non-wildcard loopback/private bind plus explicit owner-only TLS
-certificate/key, serve only exact bodyless
-`GET /v1/evidence/{surface}/{phase}`, and prove verified TLS, content type, no
-redirects/listing/query, bounded concurrency, and interruption cleanup through
-local TLS tests.
+Add `poc/load-soak/collector/source_summaries.py` as the acquisition seam.
+Convert exact owner-only secret-scan, load/fault, quota-ledger,
+reconciliation-claim, and RGW/KMS/multipart aggregate artifacts into the six
+phase summary schemas, bind every raw artifact hash while retaining only
+bounded fields, and prove schema/phase/window/target drift refusal with
+fixtures before connecting read-only pilot collectors.
 
 ## After This Work Package
 

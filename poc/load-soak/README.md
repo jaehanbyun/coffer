@@ -150,6 +150,12 @@ owner-only bundle containing the exact native evidence documents and their
 independent hashes. It deliberately preserves bounded failure evidence for the
 independent verifier; compilation is not a pass decision.
 
+`collector/evidence_server.py` is the private TLS serving boundary for one
+compiled phase bundle. It binds the exact target and bundle bytes, source
+contract, private IPv4 listener, TLS name/certificate/key, bounded concurrency
+and request timeout, and only the six target-declared evidence routes. It
+serves no discovery, index, redirect, health, raw input, or cross-phase path.
+
 `runtime_manifest.py` maps every schedule entry and operation to the current
 runtime capability baseline. It binds a canonical owner-only compiled plan,
 qualified readiness file, exact client pins, checked-in runner source hashes,

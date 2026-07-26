@@ -2071,6 +2071,44 @@ operator-local release.
   hostname verification, content type, no redirects/listing/query, bounded
   concurrency, and interruption cleanup with local TLS tests.
 
+### 2026-07-26 — Private phase-evidence TLS server completed locally
+
+- Exact serving contract: Added a source-bound, owner-only configuration for
+  one native target and one validated phase bundle. All target-declared
+  evidence URLs must use one exact TLS name/port and the fixed
+  `/v1/evidence/{surface}/{phase}` routes. Only the configured phase's six
+  documents enter memory.
+- TLS and bind boundary: The listener requires a canonical non-wildcard
+  loopback/private IPv4 address, TLS 1.2 or newer, compression disabled, an
+  exact SAN, current non-CA server-auth certificate, matching unencrypted key,
+  digital-signature key usage, explicit owner-only files and raw hashes.
+  Hostname and CA verification pass through the native client; wrong name,
+  wrong CA, public/wildcard bind, key mismatch, and certificate/hash drift fail
+  closed.
+- HTTP boundary: Only one bodyless `GET`, exact Host, exact JSON Accept, and
+  optional identity encoding are accepted. Cross-phase/unknown paths, query
+  strings, bodies, transfer encoding, duplicate or changed headers, and all
+  other methods fail without listing or redirect. Success and error responses
+  expose no Server, Date, Location, raw path, or body on failure.
+- Bounded runtime: Raw accepted sockets receive a finite timeout before TLS
+  handshake. Completed handshakes enter a 1-32 request semaphore; workers are
+  daemonized, responses close the connection, and shutdown closes and
+  releases the listener. The `check` command validates without binding, while
+  `serve` prints only phase and artifact hashes before entering the loop.
+- Evidence: Thirty-four configuration, TLS, native-client, HTTP refusal,
+  owner-file, bounded-listener, hostname/CA, and shutdown tests pass. The
+  focused server/compiler/native pipeline passes 163 tests, the broad load
+  matrix passes 383, and full regression and collection both report 1008. No
+  source summary was collected and no SQL, RGW, log, credential, remote
+  endpoint, container, VM, or remote state changed.
+- Next exact action: Add
+  `poc/load-soak/collector/source_summaries.py` as the acquisition seam.
+  Convert exact owner-only secret-scan, load/fault result, quota-ledger,
+  reconciliation-claim, and RGW/KMS/multipart aggregate artifacts into the six
+  summary schemas; bind every raw artifact hash while retaining only bounded
+  fields, and prove schema/phase/window/target drift refusal with fixtures
+  before connecting read-only pilot collectors.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2203,6 +2241,10 @@ operator-local release.
 | Evidence compiler plus native target pipeline | phase evidence, renderer, target, native parser, and collector tests | passed; 129 |
 | Broad load matrix after phase evidence compiler | `uv run pytest -q tests/test_load_*.py` | passed; 349 |
 | Full regression after phase evidence compiler | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 974 |
+| Private phase-evidence TLS server | `uv run pytest -q tests/test_load_evidence_server.py` | passed; 34 |
+| Evidence server plus compiler/native pipeline | server, phase compiler, renderer, target, parser, and collector tests | passed; 163 |
+| Broad load matrix after evidence server | `uv run pytest -q tests/test_load_*.py` | passed; 383 |
+| Full regression after evidence server | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1008 |
 
 ## Failures, Blockers, and Risks
 
@@ -2243,12 +2285,12 @@ operator-local release.
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
 - Exact next action: Add
-  `poc/load-soak/collector/evidence_server.py` as the private serving boundary.
-  Load one validated owner-only target and phase bundle, require a
-  non-wildcard loopback/private bind plus explicit owner-only TLS material,
-  serve only exact bodyless `GET /v1/evidence/{surface}/{phase}`, and prove
-  verified TLS, content type, no redirects/listing/query, bounded concurrency,
-  and interruption cleanup through local TLS tests.
+  `poc/load-soak/collector/source_summaries.py` as the acquisition seam.
+  Convert exact owner-only secret-scan, load/fault, quota-ledger,
+  reconciliation-claim, and RGW/KMS/multipart aggregate artifacts into the six
+  phase summary schemas, bind every raw artifact hash while retaining only
+  bounded fields, and prove schema/phase/window/target drift refusal with
+  fixtures before connecting read-only pilot collectors.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates
