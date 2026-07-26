@@ -3,8 +3,8 @@
 - Date: 2026-07-26
 - Status: source mapping, no-network collector core, verified-HTTPS live
   adapter, qualified disposable-pilot schedule, and fixture checkpoint
-  executor plus exact-prefix RGW cleanup contracts implemented; live
-  runtime/pilot qualification pending
+  executor plus exact-prefix cleanup and RGW action materializers implemented;
+  fault/phase action materializers and live pilot qualification pending
 - Scope: the RGW auxiliary payload consumed by
   `poc/load-soak/collector/phase_evidence.py`
 - External operations: read-only inspection of exact released upstream source
@@ -242,8 +242,8 @@ state is used.
 
 ## Exact Next Action
 
-Compose the owner-only RGW runtime action adapter from the existing live probe,
-multipart, and exact-prefix cleanup modules behind the checkpoint executor.
-Then add external wrong-key/outage controls and collector-input/phase-request
-materializers. Keep actual invocation disabled while the selected released
-Distribution/Ceph inputs remain unqualified.
+Add the external wrong-key/outage apply/recover action contract and
+collector-input/phase-preparation materializers, then compose them with the
+RGW action adapter under one non-synthetic checkpoint adapter. Keep actual
+invocation disabled while the selected released Distribution/Ceph inputs
+remain unqualified.

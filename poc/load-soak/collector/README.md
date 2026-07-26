@@ -616,9 +616,36 @@ window.
 The result retains only before/after counts, page-set and
 source/target/window/config hashes. Endpoint, bucket, prefix, key, version,
 upload, credential, KMS, and error identities remain in memory only.
-Twenty-two fake and low-level client tests cover pagination, prefix escape,
+Twenty-nine fake and low-level client tests cover pagination, prefix escape,
 cursor failure, exact abort/delete calls, partial deletion, residual state,
 owner-only composition, and fixed CLI failures. No S3 call was made.
+
+`pilot_rgw_actions.py` composes the live probe, multipart, and cleanup modules
+into the non-synthetic RGW subset of the 53-action schedule. It has no
+execution CLI; only a source-hash command is exposed while the dependency gate
+is closed:
+
+```text
+uv run python poc/load-soak/collector/pilot_rgw_actions.py source-hash
+```
+
+The adapter independently loads a qualified schedule and creates clients only
+after that check. `open-phase`, every indexed `collect-rgw-step`,
+`compile-rgw-probe`, `collect-rgw-multipart`, `cleanup-rgw-prefix`, and
+`verify-rgw-cleanup` materialize canonical mode-0600 outputs beneath the exact
+mode-0700 phase directory. Reconciliation revalidates the existing output and
+returns the same non-synthetic action result without another S3 operation.
+Existing, tampered, aliased, out-of-schedule, or unsupported action outputs are
+never overwritten.
+
+The default future runtime factory loads boto3 through the existing live
+adapter and shares its verified-HTTPS S3 client with cleanup. Tests inject
+fake clients and never read credential environment variables. Fifteen action
+tests plus the expanded 29 cleanup tests cover all supported materializers,
+during step indices, reconciliation, tamper, retention, readiness refusal, and
+the source-only CLI. Fault apply/recover, collector-input rendering, atomic
+phase preparation, and phase completion remain deliberately unsupported, so
+this partial adapter cannot run the full pilot.
 
 ## Six-surface phase preparation
 

@@ -2527,6 +2527,34 @@ operator-local release.
   checkpoint executor. External fault controls and phase-input materializers
   remain subsequent adapters, and actual invocation remains release-gated.
 
+### 2026-07-26 — Non-synthetic RGW action materializers completed locally
+
+- Composition: `pilot_rgw_actions.py` loads only a qualified schedule, then
+  maps phase-open, every indexed RGW step, probe compilation, complete
+  multipart capture, exact cleanup, and zero-residue verification to the
+  existing live modules and exact scheduled paths.
+- Owner-only outputs: The exact phase directory is mode 0700 and each action
+  document is canonical mode 0600/single-link. Existing outputs are never
+  overwritten; reconciliation revalidates a complete output and yields the
+  same non-synthetic checkpoint result without another storage call.
+- Cleanup strengthening: `rgw_cleanup.validate_result` now independently
+  revalidates source/config/target/window bindings, all counts, zero residue,
+  time bounds, page-set hash shape, and the self-hash before the separate
+  verification document can be emitted.
+- Runtime boundary: The default future factory creates a verified-HTTPS boto3
+  evidence client and shares its exact S3 handle with cleanup. Tests inject
+  fake clients, so no credential environment variable or network dependency
+  is read.
+- Deliberate partial state: Fault apply/recover, collector-input rendering,
+  atomic phase preparation, and phase completion remain unsupported. The
+  adapter exposes no execution CLI and cannot complete the 53-action pilot.
+- Evidence: Fifteen action, 29 cleanup, and 109 combined
+  action/cleanup/executor/schedule/live-adapter tests pass without boto3,
+  credential, endpoint, S3, KMS, Barbican, container, VM, or remote use.
+- Next exact action: Implement external fault apply/recover and
+  collector-input/phase-preparation materializers, then compose one complete
+  non-synthetic checkpoint adapter behind the unchanged release gate.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2702,6 +2730,11 @@ operator-local release.
 | Cleanup, executor, schedule, and live-adapter contracts | `uv run pytest -q tests/test_load_rgw_cleanup.py tests/test_load_pilot_executor.py tests/test_load_pilot_schedule.py tests/test_load_rgw_live_adapter.py` | passed; 87 |
 | Post-cleanup load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 774 |
 | Post-cleanup full Python regression | `uv run pytest -q` | passed; 1319 |
+| Non-synthetic RGW action materializers | `uv run pytest -q tests/test_load_pilot_rgw_actions.py` | passed; 15 |
+| Expanded exact-prefix cleanup validation | `uv run pytest -q tests/test_load_rgw_cleanup.py` | passed; 29 |
+| RGW actions through schedule/checkpoint contracts | RGW actions, cleanup, executor, schedule, and live-adapter focused tests | passed; 109 |
+| Post-RGW-actions load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 796 |
+| Post-RGW-actions full Python regression | `uv run pytest -q` | passed; 1341 |
 | Control SQL/migration/reconciliation focused matrix | quota, reconciliation, migration, bootstrap, maintenance, and runner tests | passed; 183 |
 | Full regression after control SQL evidence | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1126 |
 
@@ -2743,10 +2776,9 @@ operator-local release.
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
-- Exact next action: Compose the owner-only RGW runtime action adapter from
-  live probe, multipart, and exact-prefix cleanup modules behind the
-  checkpoint executor. External fault controls and phase-input materializers
-  remain subsequent adapters, and actual invocation remains release-gated.
+- Exact next action: Implement external fault apply/recover and
+  collector-input/phase-preparation materializers, then compose one complete
+  non-synthetic checkpoint adapter behind the unchanged release gate.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

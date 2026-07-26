@@ -267,6 +267,110 @@ def cleanup(
     return {**unsigned, "cleanup_sha256": _hash(unsigned)}
 
 
+def validate_result(
+    value: object,
+    *,
+    config_value: object,
+) -> dict[str, Any]:
+    try:
+        config = rgw_live_adapter._config(config_value)
+    except rgw_live_adapter.RgwLiveAdapterError as error:
+        raise RgwCleanupError("RGW cleanup configuration changed") from error
+    raw = _exact(
+        value,
+        {
+            "bucket_scope_sha256",
+            "cleanup_sha256",
+            "cleanup_source_sha256",
+            "completed_at_seconds",
+            "execution_source",
+            "observed_before",
+            "page_set_sha256",
+            "phase",
+            "remaining",
+            "rgw_config_sha256",
+            "schema",
+            "started_at_seconds",
+            "synthetic",
+            "target_sha256",
+            "window_sha256",
+        },
+        "RGW cleanup result",
+    )
+    before = _exact(
+        raw["observed_before"],
+        {
+            "current_objects",
+            "delete_markers",
+            "multipart_uploads",
+            "versions",
+        },
+        "RGW cleanup before counts",
+    )
+    remaining = _exact(
+        raw["remaining"],
+        set(before),
+        "RGW cleanup remaining counts",
+    )
+    counts = {
+        category: rgw_live_adapter._integer(
+            count,
+            f"RGW cleanup {category} count",
+        )
+        for category, count in before.items()
+    }
+    zero = {
+        category: rgw_live_adapter._integer(
+            count,
+            f"RGW cleanup remaining {category} count",
+        )
+        for category, count in remaining.items()
+    }
+    started = rgw_live_adapter._number(
+        raw["started_at_seconds"],
+        "RGW cleanup start",
+    )
+    completed = rgw_live_adapter._number(
+        raw["completed_at_seconds"],
+        "RGW cleanup completion",
+    )
+    rgw_live_adapter._inside_window(config, started, completed)
+    unsigned = {key: raw[key] for key in raw if key != "cleanup_sha256"}
+    if (
+        raw["schema"] != RESULT_SCHEMA
+        or raw["execution_source"] != "pilot"
+        or raw["synthetic"] is not False
+        or raw["cleanup_source_sha256"] != cleanup_source_sha256()
+        or raw["bucket_scope_sha256"] != config["bucket_scope_sha256"]
+        or raw["phase"] != config["phase"]
+        or raw["rgw_config_sha256"] != config["rgw_config_sha256"]
+        or raw["target_sha256"] != config["target_sha256"]
+        or raw["window_sha256"] != config["window_sha256"]
+        or raw["page_set_sha256"]
+        != _sha256_result(raw["page_set_sha256"])
+        or raw["cleanup_sha256"] != _hash(unsigned)
+        or any(zero.values())
+    ):
+        raise RgwCleanupError("RGW cleanup result changed")
+    return {
+        **dict(raw),
+        "observed_before": counts,
+        "remaining": zero,
+        "started_at_seconds": started,
+        "completed_at_seconds": completed,
+    }
+
+
+def _sha256_result(value: object) -> str:
+    try:
+        return rgw_live_adapter._sha256(
+            value,
+            "RGW cleanup page-set hash",
+        )
+    except rgw_live_adapter.RgwLiveAdapterError as error:
+        raise RgwCleanupError("RGW cleanup result changed") from error
+
+
 def _page_hash(
     *,
     kind: str,

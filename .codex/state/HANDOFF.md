@@ -19,8 +19,8 @@
   evidence source mapping and no-network artifact collection complete;
   six-surface phase preparation and verified-HTTPS live RGW evidence adapter
   plus qualified disposable-pilot schedule and checkpointed fixture executor
-  plus exact-prefix cleanup contracts complete; owner-only RGW runtime action
-  adapter next
+  plus exact-prefix cleanup and non-synthetic RGW action materializers
+  complete; fault and phase materializers next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -2559,11 +2559,25 @@ release contains it yet.
   objects, versions, delete markers, and multipart uploads; rejects pagination
   or prefix drift; aborts/deletes exact identities in bounded batches; and
   emits only after a complete re-scan proves all four counts are zero.
-- Twenty-two cleanup and 87 combined cleanup/executor/schedule/adapter tests
-  pass. The load/observability matrix passes 774 tests and the full Python
-  regression passes 1319. Retained output contains only counts and provenance
-  hashes. No boto3 dependency, credential, endpoint, S3, KMS, Barbican,
+- The initial 22 cleanup and 87 combined cleanup/executor/schedule/adapter
+  tests passed. The corresponding load/observability matrix passed 774 tests
+  and the full Python regression passed 1319. Retained output contains only
+  counts and provenance hashes. No boto3 dependency, credential, endpoint,
+  S3, KMS, Barbican, container, VM, or remote state was used.
+- Added the non-synthetic RGW schedule-action adapter for phase open, every
+  indexed probe step, probe compilation, multipart capture, exact-prefix
+  cleanup, and separate zero-residue verification. Owner-only outputs are
+  never overwritten; reconciliation revalidates them without repeating a
+  storage call.
+- Cleanup results now have an independent retained-result validator. Fifteen
+  action, 29 cleanup, and 109 combined focused tests pass with injected fake
+  clients. The load/observability matrix passes 796 tests and the full Python
+  regression passes 1341. The default future path is verified-HTTPS boto3,
+  but no dependency, credential environment, endpoint, S3, KMS, Barbican,
   container, VM, or remote state was used.
+- Fault apply/recover, collector-input rendering, atomic phase preparation,
+  and phase completion are still explicitly unsupported. No execution CLI or
+  full non-synthetic pilot adapter exists yet.
 
 ## Blockers and Risks
 
@@ -2598,10 +2612,9 @@ release contains it yet.
 
 ## Exact Next Action
 
-Compose the owner-only RGW runtime action adapter from the live probe,
-multipart, and exact-prefix cleanup modules behind the checkpoint executor.
-External fault controls and phase-input materializers remain subsequent
-adapters, and actual invocation remains release-gated.
+Implement external fault apply/recover and collector-input/phase-preparation
+materializers, then compose one complete non-synthetic checkpoint adapter
+behind the unchanged release gate.
 
 ## After This Work Package
 

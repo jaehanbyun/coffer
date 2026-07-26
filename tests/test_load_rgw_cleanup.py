@@ -157,6 +157,63 @@ def test_remaining_state_fails_closed(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "mutation",
     [
+        "cleanup-hash",
+        "source-hash",
+        "phase",
+        "remaining",
+        "page-hash",
+        "window",
+    ],
+)
+def test_retained_cleanup_result_is_revalidated(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    _, config = values(tmp_path)
+    result = CLEANUP.cleanup(
+        config,
+        client=FakeCleanupClient(
+            [populated(config["probe_prefix"]), empty_inventory()]
+        ),
+        clock=clocks(200, 900),
+    )
+    if mutation == "cleanup-hash":
+        result["cleanup_sha256"] = page("0")
+    elif mutation == "source-hash":
+        result["cleanup_source_sha256"] = page("0")
+    elif mutation == "phase":
+        result["phase"] = "during"
+    elif mutation == "remaining":
+        result["remaining"]["current_objects"] = 1
+    elif mutation == "page-hash":
+        result["page_set_sha256"] = "invalid"
+    else:
+        result["completed_at_seconds"] = 1001
+    with pytest.raises(
+        (
+            CLEANUP.RgwCleanupError,
+            CLEANUP.rgw_live_adapter.RgwLiveAdapterError,
+        )
+    ):
+        CLEANUP.validate_result(result, config_value=config)
+
+
+def test_retained_cleanup_result_round_trips(tmp_path: Path) -> None:
+    _, config = values(tmp_path)
+    result = CLEANUP.cleanup(
+        config,
+        client=FakeCleanupClient(
+            [populated(config["probe_prefix"]), empty_inventory()]
+        ),
+        clock=clocks(200, 900),
+    )
+
+    assert CLEANUP.validate_result(result, config_value=config) == result
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
         "current-prefix",
         "version-prefix",
         "marker-prefix",
