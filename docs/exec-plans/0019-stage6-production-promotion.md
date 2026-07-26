@@ -2326,6 +2326,33 @@ operator-local release.
   fields, configured limits, and generic daemon-health gauges as runtime
   substitutes before implementing `rgw_artifacts.py`.
 
+### 2026-07-26 — RGW/KMS/multipart evidence sources mapped
+
+- Direct source: Only bucket-scoped, fully paginated S3
+  `ListMultipartUploads` is accepted for `multipart_uploads`. The owner-only
+  raw capture may see keys and upload IDs, but the retained artifact contains
+  only bounded counts and hashes.
+- Missing source: Ceph v20.2.2 exposes one generic aborted-request counter,
+  Distribution v3.1.1 exposes storage action latency without result labels,
+  and Barbican health does not execute the RGW SSE-KMS data path. None can
+  populate a KMS or unexpected-error count.
+- Accepted boundary: One canonical nonsynthetic, phase-bound RGW/SSE-KMS probe
+  result supplies unexpected KMS and unexpected non-KMS aggregates. Declared
+  wrong-key/outage responses are required expected observations, not promotion
+  errors; missing or out-of-window expected failures refuse collection.
+- Retention: The planned collector binds target, phase, window, probe,
+  configuration, bucket scope, and multipart capture hashes, then emits only
+  the three bounded integer fields. URLs, buckets, objects, upload IDs,
+  identities, credentials, KMS identifiers, and error text are forbidden.
+- Evidence: Exact Ceph v20.2.2 and Distribution v3.1.1 sources plus official
+  Ceph, Distribution, and Barbican documentation were inspected. The mapping
+  changed no endpoint, metric, identity, credential, container, VM, or remote
+  state.
+- Next exact action: Create
+  `poc/load-soak/collector/rgw_artifacts.py` and focused tests. Implement the
+  canonical probe-result and multipart-capture validators, then compile one
+  bounded v2 `rgw-load-state` artifact without a live adapter.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2480,6 +2507,7 @@ operator-local release.
 | Galera transaction artifact collector | `uv run pytest -q tests/test_load_galera_artifacts.py` | passed; 16 |
 | Post-Galera-artifact load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 634 |
 | Post-Galera-artifact full Python regression | `uv run pytest -q` | passed; 1179 |
+| RGW/KMS/multipart source mapping | Exact Ceph v20.2.2 and Distribution v3.1.1 source plus official Ceph, Distribution, and Barbican documentation; `git diff --check` | passed; unsupported substitutions recorded as missing |
 | Control SQL/migration/reconciliation focused matrix | quota, reconciliation, migration, bootstrap, maintenance, and runner tests | passed; 183 |
 | Full regression after control SQL evidence | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1126 |
 
@@ -2521,11 +2549,11 @@ operator-local release.
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
-- Exact next action: Add an optional bounded quota-write attempt observer in
-  `src/coffer/quota.py` and its Prometheus metric contract in
-  `src/coffer/observability.py`. Emit one terminal observation per decorated
-  write with fixed operation/result classes and attempts 1 through 3; add
-  focused tests in `tests/test_quota_transaction_observability.py`.
+- Exact next action: Create
+  `poc/load-soak/collector/rgw_artifacts.py` and focused tests. Implement the
+  accepted canonical RGW/SSE-KMS probe-result and complete multipart-capture
+  validators, then compile one bounded v2 `rgw-load-state` artifact without a
+  live S3 adapter.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

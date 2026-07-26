@@ -16,7 +16,7 @@
   SQL evidence snapshot and claim-version binding complete; bounded quota
   transaction-attempt observability and quota/reconciliation control artifact
   collection complete; Galera transaction artifact collection complete; RGW
-  evidence source mapping next
+  evidence source mapping complete; RGW artifact collector next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -2523,11 +2523,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `docs/research/stage6-rgw-evidence-sources.md`. Map `kms_errors`,
-`multipart_uploads`, and `unexpected_errors` to exact existing RGW/S3,
-Distribution, Barbican, load-result, or metric sources. Reject fixture fields,
-configured limits, and generic daemon-health gauges as runtime substitutes
-before implementing `poc/load-soak/collector/rgw_artifacts.py`.
+Create `poc/load-soak/collector/rgw_artifacts.py` and focused tests. Implement
+the accepted canonical RGW/SSE-KMS probe-result and complete
+multipart-capture validators, then compile one bounded v2
+`rgw-load-state` artifact without a live S3 adapter.
 
 ## After This Work Package
 
