@@ -2473,6 +2473,34 @@ operator-local release.
   exact cleanup verifier, and phase-preparation request materializer behind
   the unchanged qualified-release gate.
 
+### 2026-07-26 — Checkpointed fixture schedule executor completed locally
+
+- Independent gate: `pilot_executor.py` rereads and validates exact qualified
+  readiness, schedule/result/file hashes, three live configs, all 53 action
+  signatures and paths, and zero-residue cleanup contracts. A manually
+  constructed or drifted schedule cannot rely on the renderer's prior pass.
+- Durable state: The exact next action is persisted as pending before adapter
+  invocation. Success advances one self-hashed owner-only checkpoint. An
+  interrupted pending action must be reconciled before retry or acceptance;
+  code/source, readiness, schedule, history, pending, or result drift refuses
+  resume.
+- Concurrency: One stable owner-only lock inode is retained and acquired
+  nonblocking. A rejected concurrent opener cannot unlink the active lock path
+  and create a second independent lock.
+- Fixture evidence: All 53 actions complete synthetically; failure before
+  apply resumes at the exact action; apply-before-response interruption is
+  reconciled without duplicate execution; completed reruns perform no action.
+  State/result/input tamper and unsafe runtime contents fail closed.
+- Boundary: Seventeen focused executor tests and 65 combined
+  executor/schedule/live-adapter tests pass. The executor explicitly refuses
+  every non-synthetic adapter, and no credential, endpoint, S3, KMS, Barbican,
+  OpenStack, container, VM, or remote state was used.
+- Next exact action: Implement non-synthetic action adapters for the
+  owner-only RGW helper runtime, external fault/recovery controls,
+  exact-prefix cleanup, collector-input rendering, and phase-preparation
+  request materialization. Keep actual invocation disabled behind the current
+  released-dependency gate.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2640,6 +2668,10 @@ operator-local release.
 | Qualified disposable-pilot schedule and RGW fault/recovery contract | `uv run pytest -q tests/test_load_pilot_schedule.py tests/test_load_rgw_live_adapter.py` | passed; 48 |
 | Post-schedule load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 735 |
 | Post-schedule full Python regression | `uv run pytest -q` | passed; 1280 |
+| Checkpointed fixture pilot executor | `uv run pytest -q tests/test_load_pilot_executor.py` | passed; 17 |
+| Executor, schedule, and live-adapter contract | `uv run pytest -q tests/test_load_pilot_executor.py tests/test_load_pilot_schedule.py tests/test_load_rgw_live_adapter.py` | passed; 65 |
+| Post-executor load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 752 |
+| Post-executor full Python regression | `uv run pytest -q` | passed; 1297 |
 | Control SQL/migration/reconciliation focused matrix | quota, reconciliation, migration, bootstrap, maintenance, and runner tests | passed; 183 |
 | Full regression after control SQL evidence | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1126 |
 
@@ -2681,10 +2713,11 @@ operator-local release.
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
-- Exact next action: Implement the checkpointed schedule executor first with
-  fixture adapters, then bind the owner-only helper runtime, fault controls,
-  exact cleanup verifier, and phase-preparation request materializer behind
-  the unchanged qualified-release gate.
+- Exact next action: Implement non-synthetic action adapters for the
+  owner-only RGW helper runtime, external fault/recovery controls,
+  exact-prefix cleanup, collector-input rendering, and phase-preparation
+  request materialization. Keep actual invocation disabled behind the current
+  released-dependency gate.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

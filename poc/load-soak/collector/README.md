@@ -564,9 +564,36 @@ inputs, and invokes atomic phase preparation.
 The schedule names only the three fixed runtime environment variables; it
 contains no credential or KMS key value. Rendering creates no runtime
 directory and performs no network, S3, KMS, Barbican, OpenStack, container,
-VM, or remote operation. The next runtime executor must implement each action
-with owner-only state, checkpoint/recovery semantics, exact cleanup, and the
-same release gate.
+VM, or remote operation.
+
+`pilot_executor.py` is the checkpoint/recovery contract for those 53 actions.
+Its current command is deliberately fixture-only:
+
+```text
+uv run python poc/load-soak/collector/pilot_executor.py source-hash
+uv run python poc/load-soak/collector/pilot_executor.py \
+  --fixture \
+  --schedule /absolute/owner-only/pilot-schedule \
+  --readiness /absolute/owner-only/upstream-readiness.json
+```
+
+The executor independently revalidates the qualified readiness payload,
+schedule/result hashes, all three live configs, exact action sequence, cleanup
+contract, and every input/output path. It creates only the exact mode-0700
+runtime root and fixed mode-0600 lock, state, and result files. Before calling
+an adapter it persists the next action as pending. A normal result advances
+one checkpoint; an interrupted pending action must be reconciled by the
+adapter before it may be retried or accepted. The stable lock inode is retained
+so a failed concurrent opener cannot unlink and bypass an active lock.
+
+The fixture adapter produces synthetic hashes only. Seventeen tests prove all
+53 checkpoints, exact resume after a failure-before-apply, reconciliation
+after an apply-before-response interruption, idempotent completion,
+nonblocking locking, fixed CLI failures, and input/state/result tamper
+rejection. Non-synthetic adapters are refused. The next milestone must
+materialize the owner-only helper runtime and action outputs while preserving
+this state protocol; it still cannot execute against the blocked stable
+release pair.
 
 ## Six-surface phase preparation
 

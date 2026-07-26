@@ -18,8 +18,8 @@
   collection complete; Galera transaction artifact collection complete; RGW
   evidence source mapping and no-network artifact collection complete;
   six-surface phase preparation and verified-HTTPS live RGW evidence adapter
-  plus qualified disposable-pilot schedule contracts complete; checkpointed
-  schedule executor next
+  plus qualified disposable-pilot schedule and checkpointed fixture executor
+  contracts complete; non-synthetic action adapters next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -2542,6 +2542,18 @@ release contains it yet.
   and Ceph Tentacle v20.2.2 as `blocked`. The renderer created no runtime
   directory and used no credential, endpoint, S3, KMS, Barbican, OpenStack,
   container, VM, or remote state.
+- Added the fixture-only checkpoint executor for all 53 scheduled actions. It
+  independently revalidates readiness, schedule/result/config hashes, exact
+  actions and paths, and cleanup contracts before creating the exact
+  owner-only runtime state.
+- Pending is persisted before each adapter call. Exact failure-before-apply
+  resumes at that action; apply-before-response is reconciled without a
+  duplicate; complete reruns execute nothing. A stable nonblocking lock,
+  source-bound state, and fixed tamper failures pass 17 executor and 65
+  combined executor/schedule/adapter tests. The load/observability matrix
+  passes 752 tests and the full Python regression passes 1297.
+  Non-synthetic adapters are explicitly refused and no external state was
+  used.
 
 ## Blockers and Risks
 
@@ -2576,10 +2588,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Implement the checkpointed schedule executor first with fixture adapters, then
-bind the owner-only helper runtime, fault controls, exact cleanup verifier, and
-phase-preparation request materializer behind the unchanged qualified-release
-gate.
+Implement non-synthetic action adapters for the owner-only RGW helper runtime,
+external fault/recovery controls, exact-prefix cleanup, collector-input
+rendering, and phase-preparation request materialization. Keep actual
+invocation disabled behind the current released-dependency gate.
 
 ## After This Work Package
 

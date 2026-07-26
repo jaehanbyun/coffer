@@ -2,8 +2,8 @@
 
 - Date: 2026-07-26
 - Status: source mapping, no-network collector core, verified-HTTPS live
-  adapter, and qualified disposable-pilot schedule contracts implemented;
-  disposable runtime/pilot qualification pending
+  adapter, qualified disposable-pilot schedule, and fixture checkpoint
+  executor contracts implemented; live runtime/pilot qualification pending
 - Scope: the RGW auxiliary payload consumed by
   `poc/load-soak/collector/phase_evidence.py`
 - External operations: read-only inspection of exact released upstream source
@@ -241,8 +241,8 @@ state is used.
 
 ## Exact Next Action
 
-Implement the checkpointed disposable-pilot schedule executor behind the same
-qualified-release gate. Start with fixture adapters for the 53 exact actions,
-then add the owner-only RGW helper runtime, external wrong-key/outage controls,
-exact-prefix cleanup verifier, and phase-preparation request materializer
-without enabling the blocked current stable releases.
+Implement the non-synthetic action adapters behind the existing checkpoint
+protocol: owner-only RGW helper runtime/materialization, external
+wrong-key/outage controls, exact-prefix cleanup verifier, collector-input and
+phase-preparation request materializers. Keep actual invocation disabled while
+the selected released Distribution/Ceph inputs remain unqualified.
