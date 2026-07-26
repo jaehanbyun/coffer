@@ -1,8 +1,9 @@
 # Stage 6 Quota and Reconciliation Evidence Sources
 
 - Date: 2026-07-26
-- Status: source mapping, read-only SQL snapshot, and transaction-attempt
-  instrumentation implemented; Prometheus acquisition pending
+- Status: source mapping, read-only SQL snapshot, transaction-attempt
+  instrumentation, and fail-closed control artifact collector implemented;
+  disposable-pilot qualification pending
 - Scope: the quota and reconciliation auxiliary payloads consumed by
   `poc/load-soak/collector/phase_evidence.py`
 - External operations: none; this result comes from current Coffer source,
@@ -15,8 +16,10 @@ the quota and reconciliation artifacts. The read-only SQL boundary and
 version-bound claim schema now supply charge, pending-delta, stale-claim, and
 current claim-invariant facts. Private Prometheus surfaces now supply observed
 quota transaction attempts in addition to worker/freshness and bounded
-internal-error inputs. Exact phase-window acquisition and compilation remain
-open.
+internal-error inputs. `control_artifacts.py` acquires and reduces those exact
+sources into the two v2 artifacts. The remaining boundary is live
+disposable-pilot qualification and integration with the complete six-artifact
+phase preparation sequence.
 
 `control_artifacts.py` must therefore not be implemented as a converter over
 today's convenient metrics. Doing so would require one of three false claims:
@@ -33,8 +36,8 @@ The required implementation order is:
 2. add direct observed transaction-attempt instrumentation at the quota write
    retry boundary (completed);
 3. fix exact Prometheus query/result contracts for the required replicas and
-   phase window; and
-4. only then compile quota and reconciliation v2 source artifacts.
+   phase window (completed); and
+4. compile quota and reconciliation v2 source artifacts (completed locally).
 
 ## Current Field Map
 
@@ -175,14 +178,25 @@ their fixed downstream source classes.
 | Reuse workload `unexpected_errors` for quota internal errors | Conflates end-client failures with the product's bounded quota-admission result |
 | Open a new public evidence endpoint | Auxiliary evidence remains on the private, phase-bound TLS server already implemented |
 
-## Next Implementation Slice
+## Implemented Collector Boundary
 
-Begin in `poc/load-soak/collector/control_artifacts.py`:
+`poc/load-soak/collector/control_artifacts.py` now:
 
-1. define the owner-only SQL and exact Prometheus source contract;
-2. acquire the before/after histogram buckets, edge internal-error counters,
-   per-reconciler `up`, success timestamp, and database dependency series;
-3. reject missing, duplicate, partial-warning, stale, reset-without-process-
-   restart, or out-of-allowlist series; and
-4. compile separate identity-free quota and reconciliation v2 source
-   artifacts for `phase_evidence.py`.
+1. reads the database URL and project only from fixed runtime environment
+   variables and retains neither;
+2. captures the identity-free SQL snapshot plus six fixed Prometheus vectors
+   at owner-only baseline/current boundaries;
+3. derives every query URL from the validated target's bound Prometheus
+   origin and binds the query source, target, phase, window, observations, and
+   raw capture hashes;
+4. reconstructs the observed maximum attempt, internal-error delta, quota
+   percentages/invariant, and worst per-replica reconciliation state;
+5. rejects missing/duplicate/unknown/decreasing/stale/partial-warning series
+   and any process restart that could hide a pre-restart attempt maximum; and
+6. emits separate identity-free quota and reconciliation v2 source artifacts
+   accepted by the existing summary and phase compilers.
+
+The next implementation slice is the remaining Galera and RGW/KMS dedicated
+source acquisition. Only after all six artifacts have real collectors can one
+phase-preparation command safely compose source summaries, the phase bundle,
+and the private evidence server inputs.

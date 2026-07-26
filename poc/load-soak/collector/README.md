@@ -347,3 +347,65 @@ claim that a local workload result is a native HAProxy metric; the surface
 name is the existing downstream slot for a workload-error aggregate. It has
 no network, SQL, exporter, subprocess, or remote adapter and never creates
 Galera, RGW, quota, or reconciliation facts.
+
+## Quota and reconciliation control artifacts
+
+`control_artifacts.py` creates the quota and reconciliation v2 artifacts from
+two owner-only captures around one phase window. A capture combines:
+
+- one identity-free `QuotaStore.control_evidence_snapshot()` from the database;
+- exact per-process quota-attempt histogram buckets;
+- exact per-edge internal-error counters;
+- exact edge/reconciler process-start gauges;
+- exact reconciler `up`, database dependency, and last-success gauges; and
+- the phase, target, window, collector source, observation times, and
+  self-hash.
+
+The live capture obtains the database URL and load-project ID only from
+`COFFER_DATABASE_URL` and `COFFER_LOAD_PROJECT_ID`. They are never written to
+the capture or final artifacts. The owner-only configuration pins the native
+target and CA paths and hashes, phase/window, timeout, freshness threshold,
+and current collector source hash. Prometheus query URLs are derived only
+from the validated target's already-bound Prometheus origin and six fixed
+source-hashed PromQL expressions.
+
+Create a baseline at the start of a phase and a current capture at its end:
+
+```text
+uv run python poc/load-soak/collector/control_artifacts.py source-hash
+uv run python poc/load-soak/collector/control_artifacts.py \
+  capture /absolute/owner-only/control-config.json baseline \
+  /absolute/owner-only/control-baseline.json
+uv run python poc/load-soak/collector/control_artifacts.py \
+  capture /absolute/owner-only/control-config.json current \
+  /absolute/owner-only/control-current.json
+```
+
+Then compile the two final source artifacts:
+
+```text
+uv run python poc/load-soak/collector/control_artifacts.py \
+  compile /absolute/owner-only/control-config.json \
+  /absolute/owner-only/control-baseline.json \
+  /absolute/owner-only/control-current.json \
+  /absolute/owner-only/quota-artifact.json \
+  /absolute/owner-only/reconciliation-artifact.json
+```
+
+The compiler reconstructs the maximum attempt actually observed from 1/2/3
+histogram bucket deltas, sums only bounded edge internal-error deltas, computes
+quota usage/headroom from the SQL snapshot, and reduces all required
+reconciler replicas using the worst last-success age. It rejects missing,
+duplicate, unknown, decreasing, partial-warning, stale, or hash-drifted
+series. It also rejects any edge/reconciler process restart within the
+baseline/current interval because an instant capture cannot prove the
+pre-restart maximum attempt. Failure-state facts such as a false quota
+invariant or unavailable reconciler are retained truthfully for the
+independent phase gate; they are not converted into success.
+
+Raw captures are disposable owner-only inputs and may contain bounded target
+instance labels. The final v2 artifacts retain only numeric/boolean aggregates
+and hashes—never a URL, instance, project, repository, SQL error, credential,
+claim, or raw Prometheus response. Local tests qualify this contract and fake
+adapter boundary only; a fresh pilot must still qualify the live database,
+verified-TLS Prometheus path, and exact phase scheduling.

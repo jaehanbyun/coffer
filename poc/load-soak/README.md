@@ -171,6 +171,15 @@ profile/fault results sharing one plan. The v2 artifact binds the exact input
 file set while retaining no raw value or path. This does not produce or imply
 Galera, RGW, quota, or reconciliation evidence.
 
+`collector/control_artifacts.py` implements the quota/reconciliation source
+boundary. It takes owner-only baseline/current captures around one phase,
+reads the identity-free SQL invariant snapshot through the product store,
+queries six fixed verified-TLS Prometheus expressions derived from the bound
+native target, and emits the exact two v2 artifacts accepted by
+`source_summaries.py`. Final artifacts contain only bounded aggregates and
+hashes. Local fake-adapter tests do not qualify a pilot SQL or Prometheus
+runtime.
+
 `runtime_manifest.py` maps every schedule entry and operation to the current
 runtime capability baseline. It binds a canonical owner-only compiled plan,
 qualified readiness file, exact client pins, checked-in runner source hashes,

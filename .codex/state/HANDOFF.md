@@ -14,7 +14,8 @@
   source-summary acquisition, and local secret/workload artifact collectors
   complete; quota/reconciliation source mapping complete; read-only control
   SQL evidence snapshot and claim-version binding complete; bounded quota
-  transaction-attempt observability next
+  transaction-attempt observability and quota/reconciliation control artifact
+  collection complete; dedicated Galera source acquisition next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -692,6 +693,20 @@ release contains it yet.
   reconstruction pass the focused 74-test matrix. Full regression passes
   1140. No real SQL/Prometheus endpoint, identity, credential, container, VM,
   or remote state was read or changed.
+- Added `control_artifacts.py`. Owner-only baseline/current capture now binds
+  the identity-free SQL invariant snapshot and six fixed verified-TLS
+  Prometheus queries to one target/phase/window. Database URL and project are
+  fixed environment inputs and are never retained.
+- The compiler reconstructs observed quota attempts, edge internal errors,
+  quota charge/invariant, and worst per-reconciler health. It refuses series,
+  counter, process-start, warning, timing, topology, or hash drift and emits
+  the exact identity-free quota/reconciliation v2 artifacts consumed by the
+  existing source-summary and phase compilers.
+- Twenty-three control-collector tests, the 618-test
+  load/observability/control matrix, and the full 1163-test regression pass.
+  All endpoint behavior remains fake-adapter local evidence; no real
+  SQL/Prometheus endpoint, identity, credential, container, VM, or remote
+  runtime was read or changed.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2499,10 +2514,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Create `poc/load-soak/collector/control_artifacts.py` with an owner-only SQL
-and exact Prometheus source contract. Implement reset-aware histogram and
-bounded counter/replica reductions, then compile separate identity-free quota
-and reconciliation v2 source artifacts for `phase_evidence.py`.
+Add `poc/load-soak/collector/galera_artifacts.py`. Implement owner-only
+verified-source baseline/current capture and exact per-node transaction
+attempt plus unexpected-error phase deltas. Do not substitute configured retry
+ceilings or cluster-health gauges for observed transaction attempts.
 
 ## After This Work Package
 

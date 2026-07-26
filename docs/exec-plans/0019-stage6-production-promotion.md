@@ -2267,6 +2267,37 @@ operator-local release.
   bounded counter/replica reductions, then compile separate quota and
   reconciliation v2 source artifacts for `phase_evidence.py`.
 
+### 2026-07-26 — Quota/reconciliation control artifact collector completed
+
+- Acquisition: Added owner-only baseline/current capture around one phase.
+  The live command reads the database URL and project from two fixed
+  environment variables, calls the identity-free SQL snapshot, and queries
+  six fixed PromQL expressions through the existing verified-TLS client.
+  Neither runtime input survives.
+- Exact reductions: The compiler reconstructs observed quota attempts from
+  integer histogram bucket deltas, internal errors from every edge replica,
+  and reconciliation health from every required worker, database dependency,
+  and worst last-success age. SQL supplies quota charge and claim fencing.
+- Fail-closed reset contract: Missing, duplicate, unknown, partial-warning,
+  stale, decreasing, hash-drifted, or out-of-allowlist series are refused.
+  Any edge/reconciler restart between the two instant captures is refused
+  because it could hide a pre-restart maximum; no configured ceiling or zero
+  is substituted.
+- Retention: Raw captures stay owner-only and may contain bounded instance
+  labels. Final quota/reconciliation v2 artifacts contain only bounded
+  aggregates and provenance hashes and pass the existing source-summary,
+  phase-evidence, load-retention, and observability-retention contracts.
+- Evidence: Twenty-three focused collector tests, the 618-test load,
+  observability, and control-evidence matrix, and the full 1163-test
+  regression pass. This is fake-adapter local
+  evidence; no real SQL or Prometheus endpoint, project, credential,
+  container, VM, or remote runtime was read or changed.
+- Next exact action: Add the remaining dedicated Galera source collector
+  beginning in `poc/load-soak/collector/galera_artifacts.py`. It must derive
+  exact per-node transaction-attempt and unexpected-error phase deltas from
+  owner-only verified source captures without treating configured retry
+  ceilings or cluster-health gauges as observed transaction attempts.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2415,6 +2446,9 @@ operator-local release.
 | Read-only control SQL evidence | `uv run pytest -q tests/test_quota_control_evidence.py` | passed; 21 |
 | Quota transaction-attempt instrumentation | `uv run pytest -q tests/test_quota_transaction_observability.py tests/test_quota.py tests/test_observability.py tests/test_edge_runner.py tests/test_reconciliation_runner.py` | passed; 74 |
 | Post-attempt full Python regression | `uv run pytest -q` | passed; 1140 |
+| Quota/reconciliation control artifact collector | `uv run pytest -q tests/test_load_control_artifacts.py` | passed; 23 |
+| Post-control-collector load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 618 |
+| Post-control-collector full Python regression | `uv run pytest -q` | passed; 1163 |
 | Control SQL/migration/reconciliation focused matrix | quota, reconciliation, migration, bootstrap, maintenance, and runner tests | passed; 183 |
 | Full regression after control SQL evidence | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1126 |
 
