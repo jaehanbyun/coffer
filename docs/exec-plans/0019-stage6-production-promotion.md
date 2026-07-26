@@ -2294,9 +2294,37 @@ operator-local release.
   container, VM, or remote runtime was read or changed.
 - Next exact action: Add the remaining dedicated Galera source collector
   beginning in `poc/load-soak/collector/galera_artifacts.py`. It must derive
-  exact per-node transaction-attempt and unexpected-error phase deltas from
+  exact per-process transaction-attempt and terminal-error phase deltas from
   owner-only verified source captures without treating configured retry
   ceilings or cluster-health gauges as observed transaction attempts.
+
+### 2026-07-26 — Galera transaction artifact collector completed
+
+- Corrected source boundary: mysqld-exporter Primary/Ready/Synced gauges are
+  not application transaction-attempt evidence. The Galera auxiliary
+  collector reuses the exact Coffer retry-boundary control captures, while the
+  existing native parser remains the independent Galera node-health
+  authority.
+- Aggregate: The maximum observed attempt comes from the 1/2/3 histogram
+  phase delta. `unexpected_errors` counts only terminal `database_error` and
+  `conflict_exhausted` logical operations from the `+Inf` delta. Domain
+  `rejected` outcomes are not mislabeled as Galera failures.
+- Binding and retention: The configuration pins the Galera and control
+  collector sources, target bytes/hash, phase, and window. The v2 output
+  retains only two bounded integers and provenance hashes, with no process,
+  operation, result, node, project, URL, or error text.
+- Evidence: Sixteen focused tests, the 634-test load/observability/control
+  matrix, and the full 1179-test regression pass. Counter reset, series
+  disappearance, process restart, absent observations, capture/config/hash
+  drift, unsafe files, and aliases fail closed. No real Galera/Prometheus/SQL
+  endpoint, identity, credential, container, VM, or remote state was read or
+  changed.
+- Next exact action: Add
+  `docs/research/stage6-rgw-evidence-sources.md`. Map `kms_errors`,
+  `multipart_uploads`, and `unexpected_errors` to exact existing RGW/S3,
+  Distribution, Barbican, load-result, or metric sources. Reject fixture
+  fields, configured limits, and generic daemon-health gauges as runtime
+  substitutes before implementing `rgw_artifacts.py`.
 
 ## Verification
 
@@ -2449,6 +2477,9 @@ operator-local release.
 | Quota/reconciliation control artifact collector | `uv run pytest -q tests/test_load_control_artifacts.py` | passed; 23 |
 | Post-control-collector load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 618 |
 | Post-control-collector full Python regression | `uv run pytest -q` | passed; 1163 |
+| Galera transaction artifact collector | `uv run pytest -q tests/test_load_galera_artifacts.py` | passed; 16 |
+| Post-Galera-artifact load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 634 |
+| Post-Galera-artifact full Python regression | `uv run pytest -q` | passed; 1179 |
 | Control SQL/migration/reconciliation focused matrix | quota, reconciliation, migration, bootstrap, maintenance, and runner tests | passed; 183 |
 | Full regression after control SQL evidence | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1126 |
 

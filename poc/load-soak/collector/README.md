@@ -409,3 +409,37 @@ and hashes—never a URL, instance, project, repository, SQL error, credential,
 claim, or raw Prometheus response. Local tests qualify this contract and fake
 adapter boundary only; a fresh pilot must still qualify the live database,
 verified-TLS Prometheus path, and exact phase scheduling.
+
+## Galera transaction artifact
+
+`galera_artifacts.py` consumes the same owner-only control baseline/current
+captures instead of pretending that mysqld-exporter cluster-health gauges are
+application transaction attempts. It emits the Galera v2 source artifact with:
+
+- the maximum Coffer SQL transaction attempt actually observed across every
+  exact edge and reconciler process; and
+- terminal `database_error` plus `conflict_exhausted` operation counts from
+  the histogram's `+Inf` phase delta.
+
+`rejected` outcomes are domain decisions, not Galera failures. Successful
+retries contribute to the maximum attempt but not the error count. The
+existing native Galera parser independently verifies all expected
+mysqld-exporter nodes as Primary, Ready, and Synced; this auxiliary artifact
+does not duplicate or reinterpret those node gauges.
+
+Compile after the control baseline/current capture:
+
+```text
+uv run python poc/load-soak/collector/galera_artifacts.py source-hash
+uv run python poc/load-soak/collector/galera_artifacts.py \
+  compile /absolute/owner-only/galera-config.json \
+  /absolute/owner-only/control-baseline.json \
+  /absolute/owner-only/control-current.json \
+  /absolute/owner-only/galera-artifact.json
+```
+
+The Galera configuration pins both collector source hashes, the native target
+path/hash, phase, and window. Counter reset, process restart, absent attempts,
+source/hash drift, unsafe files, and aliases fail closed. The final artifact
+retains no process, operation, result, database node, project, URL, or error
+text.

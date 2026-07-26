@@ -15,7 +15,8 @@
   complete; quota/reconciliation source mapping complete; read-only control
   SQL evidence snapshot and claim-version binding complete; bounded quota
   transaction-attempt observability and quota/reconciliation control artifact
-  collection complete; dedicated Galera source acquisition next
+  collection complete; Galera transaction artifact collection complete; RGW
+  evidence source mapping next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -707,6 +708,14 @@ release contains it yet.
   All endpoint behavior remains fake-adapter local evidence; no real
   SQL/Prometheus endpoint, identity, credential, container, VM, or remote
   runtime was read or changed.
+- Added `galera_artifacts.py`. It reuses the exact Coffer retry-boundary
+  control captures for maximum attempts and terminal database/conflict
+  failures; it does not reinterpret mysqld-exporter cluster-health gauges as
+  application retries. Native Galera node health remains separate.
+- Sixteen Galera-artifact tests, the 634-test load/observability/control
+  matrix, and the full 1179-test regression pass. The output is identity-free
+  and source/target/phase/window bound. No real Galera/Prometheus/SQL endpoint
+  or remote state was read or changed.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2514,10 +2523,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/load-soak/collector/galera_artifacts.py`. Implement owner-only
-verified-source baseline/current capture and exact per-node transaction
-attempt plus unexpected-error phase deltas. Do not substitute configured retry
-ceilings or cluster-health gauges for observed transaction attempts.
+Add `docs/research/stage6-rgw-evidence-sources.md`. Map `kms_errors`,
+`multipart_uploads`, and `unexpected_errors` to exact existing RGW/S3,
+Distribution, Barbican, load-result, or metric sources. Reject fixture fields,
+configured limits, and generic daemon-health gauges as runtime substitutes
+before implementing `poc/load-soak/collector/rgw_artifacts.py`.
 
 ## After This Work Package
 

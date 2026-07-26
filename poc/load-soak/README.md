@@ -180,6 +180,12 @@ native target, and emits the exact two v2 artifacts accepted by
 hashes. Local fake-adapter tests do not qualify a pilot SQL or Prometheus
 runtime.
 
+`collector/galera_artifacts.py` reuses those exact owner-only attempt captures
+for the Galera auxiliary slot. It reports the maximum observed Coffer SQL
+attempt and terminal database/conflict failures; it never maps
+mysqld-exporter health gauges to application retries. Native Galera exporter
+parsing remains the separate node-health authority.
+
 `runtime_manifest.py` maps every schedule entry and operation to the current
 runtime capability baseline. It binds a canonical owner-only compiled plan,
 qualified readiness file, exact client pins, checked-in runner source hashes,
