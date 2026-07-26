@@ -240,8 +240,8 @@ state is used.
 
 ## Exact Next Action
 
-Create the phase-preparation transaction that invokes all now-implemented
-local/control/Galera/RGW collectors, compiles all six source summaries and one
-phase bundle, validates the private evidence-server configuration, and
-publishes nothing. Keep the live verified-HTTPS S3 adapter behind the fresh
-disposable-pilot gate.
+Create the verified-HTTPS live RGW evidence adapter that produces the
+canonical phase-bound SSE-KMS probe and complete `ListMultipartUploads`
+capture consumed by `rgw_artifacts.py`. Keep credentials owner-only and
+runtime-only, require explicit CA/v4/path-style/timeouts, and retain no
+endpoint, bucket, object, upload, key, credential, or error identities.

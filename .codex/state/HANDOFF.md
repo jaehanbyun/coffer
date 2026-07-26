@@ -17,7 +17,7 @@
   transaction-attempt observability and quota/reconciliation control artifact
   collection complete; Galera transaction artifact collection complete; RGW
   evidence source mapping and no-network artifact collection complete;
-  six-surface phase preparation next
+  six-surface phase preparation complete; live RGW evidence adapter next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -730,6 +730,15 @@ release contains it yet.
   load/observability/control matrix, and the full 1215-test regression pass.
   The no-network fake-adapter milestone changes no live S3 client, credential,
   endpoint, RGW, KMS, Barbican, Distribution, container, VM, or remote state.
+- Added `phase_preparation.py`. One owner-only request now drives all local,
+  control, Galera, and RGW compilers into six v2 artifacts, source summaries,
+  one phase bundle, and a preflighted private evidence-server configuration.
+- A fresh sibling staging directory makes the complete output set atomic.
+  Late collector/TLS failure leaves no final or staging residue; exact repeats
+  verify every retained byte and inode without rewrite. Seventeen end-to-end
+  fake-adapter tests cover all phases, rollback, drift, tamper, and fixed CLI
+  results. The 687-test load/observability/control matrix and full 1232-test
+  regression pass without network, SQL, S3, listener, or remote operations.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2537,10 +2546,9 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add one phase-preparation transaction that invokes the implemented local,
-control, Galera, and RGW collectors; compiles all six source summaries and the
-phase evidence bundle; and validates the private evidence-server
-configuration before any pilot execution.
+Add the verified-HTTPS live RGW evidence adapter that produces the canonical
+phase-bound SSE-KMS probe and complete `ListMultipartUploads` capture consumed
+by the now-complete phase transaction.
 
 ## After This Work Package
 

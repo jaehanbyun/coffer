@@ -486,3 +486,42 @@ cannot retain an endpoint, bucket, object, upload, project, identity,
 credential, certificate, KMS identifier, error text, or request content.
 This milestone validates the compiler with a fake adapter only; the verified
 HTTPS S3 listing/probe adapter and fresh disposable pilot remain pending.
+
+## Six-surface phase preparation
+
+`phase_preparation.py` turns the separately validated collectors into one
+all-or-nothing phase preparation transaction. One canonical owner-only request
+binds:
+
+- the native target and phase/window;
+- Prometheus secret-scan and HAProxy workload-result configurations;
+- control configuration plus baseline/current captures;
+- Galera configuration over those same control captures;
+- RGW configuration, probe result, and multipart capture;
+- the future output directory; and
+- the private evidence server certificate/key, bind, route, and source
+  contract.
+
+Prepare one phase only after every referenced input is complete:
+
+```text
+uv run python poc/load-soak/collector/phase_preparation.py source-hash
+uv run python poc/load-soak/collector/phase_preparation.py \
+  prepare /absolute/owner-only/phase-preparation-request.json
+```
+
+The preparer compiles all six v2 artifacts, the source-summary request, the
+phase bundle, and the final private evidence-server configuration inside a
+fresh mode-0700 staging directory. It validates an equivalent server
+configuration without binding a socket, removes temporary compiler inputs,
+builds a self-hashed result, atomically publishes the complete directory, and
+revalidates the final paths. A late failure removes only the exact staging
+directory created by that run; no partial final directory is published.
+
+An exact repeat validates every retained file hash, mode, link count, source,
+target, phase, window, bundle, server configuration, and result without
+rewriting any inode. A changed request, input, source, retained file, extra
+file, unsafe directory, or alias is refused and never overwritten. The
+transaction performs no network request, SQL query, S3 call, listener bind,
+credential creation, or remote operation; its inputs must already have been
+collected by the bounded pilot adapters.

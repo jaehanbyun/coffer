@@ -2379,6 +2379,34 @@ operator-local release.
   evidence bundle, then validates the private evidence-server configuration
   before any pilot execution.
 
+### 2026-07-26 — Six-surface phase preparation completed locally
+
+- Transaction: Added one canonical owner-only request that binds the exact
+  target, phase/window, nine collector inputs, output directory, private
+  evidence-server TLS files/settings, and all current source/file hashes.
+- Composition: One command invokes local secret/workload, control,
+  Galera, and RGW compilers; produces all six v2 artifacts; compiles the
+  source-summary request and phase bundle; and validates the private TLS
+  evidence-server configuration without opening a listener.
+- Atomicity: Work occurs in one fresh owner-only sibling staging directory.
+  Only a complete artifact/request/bundle/server/result set is published.
+  Late collector or TLS validation failure removes the exact staging state
+  and leaves no final directory. A successful exact repeat validates all
+  bytes/inodes without rewriting them.
+- Retention and drift: The result binds all retained hashes, target,
+  phase/window, bundle, server configuration, preparer source, and original
+  request bytes. Unsafe modes, aliases, missing/extra files, input or source
+  drift, and retained tamper fail closed and are never overwritten.
+- Evidence: Seventeen focused end-to-end fake-adapter tests pass across all
+  phases, success/idempotence, late rollback, TLS preflight failure, request/
+  input/mode/alias drift, retained tamper, unsafe parents, and fixed CLI
+  results. No network, SQL, S3, listener, credential, endpoint, container, VM,
+  or remote state was used.
+- Next exact action: Add the verified-HTTPS live RGW evidence adapter that
+  produces the canonical phase-bound SSE-KMS probe and complete
+  `ListMultipartUploads` capture consumed by the now-complete phase
+  transaction.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2537,6 +2565,9 @@ operator-local release.
 | RGW/KMS/multipart artifact collector | `uv run pytest -q tests/test_load_rgw_artifacts.py` | passed; 36 |
 | Post-RGW-artifact load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 670 |
 | Post-RGW-artifact full Python regression | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1215 |
+| Six-surface phase-preparation transaction | `uv run pytest -q tests/test_load_phase_preparation.py` | passed; 17 |
+| Post-phase-preparation load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 687 |
+| Post-phase-preparation full Python regression | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1232 |
 | Control SQL/migration/reconciliation focused matrix | quota, reconciliation, migration, bootstrap, maintenance, and runner tests | passed; 183 |
 | Full regression after control SQL evidence | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1126 |
 
@@ -2578,10 +2609,10 @@ operator-local release.
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
-- Exact next action: Add one phase-preparation transaction that invokes the
-  implemented local, control, Galera, and RGW collectors; compiles all six
-  source summaries and the phase evidence bundle; and validates the private
-  evidence-server configuration before any pilot execution.
+- Exact next action: Add the verified-HTTPS live RGW evidence adapter that
+  produces the canonical phase-bound SSE-KMS probe and complete
+  `ListMultipartUploads` capture consumed by the now-complete phase
+  transaction.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates
