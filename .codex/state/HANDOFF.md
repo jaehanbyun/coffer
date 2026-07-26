@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-26
-- Status: plans 0019 and 0022 blocked externally; plans 0020 and 0021 completed locally;
+- Status: plan 0023 active; plans 0019 and 0022 blocked externally; plans 0020 and 0021 completed locally;
   native x86_64 UI parents and derivatives built and passed provenance/runtime
   collection, but standalone Docker Scout CVE evidence requires an unauthorized
   Docker login; the disposable VM, volumes, key, and runtime residue are absent;
@@ -43,9 +43,29 @@
   `docs/exec-plans/0019-stage6-production-promotion.md` and
   `docs/exec-plans/0022-native-x86-ui-image-qualification.md`
 - Active execution plan:
-  `docs/exec-plans/0022-native-x86-ui-image-qualification.md`
+  `docs/exec-plans/0023-ui-parent-remediation-baseline.md`
 
 ## Current Objective
+
+Plan 0023 is active to turn the inherited Horizon/Skyline parent
+Critical/High findings into a deterministic, non-waiving remediation baseline.
+The accepted ARM64 evidence is now bound to both scanner finding sets, the
+actual Kolla `openstack-base` constraints archive, and OpenStack requirements
+revision `06cd4e8523cbade25fb93efc4f8ea77d6d97064f`. The owner-only
+deterministic report exits `3`, has SHA-256
+`9ecde6e3b6e2d484bd27fa05cf6c1b26e81077a3e3154a64ebf4902863fa0941`,
+and records Horizon 16 and Skyline 14 package/version groups. Parent/custom
+sets and canonical scanner counts match exactly.
+
+Twelve Horizon and ten Skyline constraint-bound package groups advertise fixes
+under all reporting scanners, but they are compatibility experiment inputs
+only. `linux`/`linux-libc-dev` remain OS no-fix groups and `oslo.messaging`
+remains constraint-bound without a fixed version. No CVE waiver, scanner
+replacement, private global constraints fork, package removal, Docker
+credential, image publication, or live cloud mutation has been accepted.
+
+The exact next action is to implement a bounded stock-parent package dependency
+and removal-safety probe before changing any image or constraint.
 
 Plan 0019 is externally blocked after converting every locally independent
 Stage 6 operation into a release-gated, checkpointed pilot harness. The latest

@@ -74,3 +74,29 @@ Non-secret evidence is retained under the ignored owner-only
 containers, images, scan archives, scanner cache, and temporary mounts on
 every exit. It does not sign, publish, push, deploy, or create a credential.
 Native x86_64 remains a separate qualification gate.
+
+## Parent remediation baseline
+
+`remediation.py` analyzes only complete inherited Critical/High evidence. It
+refuses a parent/custom finding mismatch, checks the counts against the
+canonical qualification, reads the exact root `upper-constraints.txt` member
+from Kolla's archived `openstack-base` source, and binds its SHA-256 plus the
+official OpenStack requirements revision.
+
+The report separates constraint-bound Python packages, OS packages, and
+upstream-unfixed findings. Scanner-advertised fixed versions are compatibility
+experiment inputs only. The report never applies a waiver, accepts a private
+global-constraints fork, claims reachability, or qualifies an image with an
+inherited Critical/High finding.
+
+```console
+python3 poc/ui-images/remediation.py \
+  work/ui-image-qualification/evidence \
+  --openstack-base-archive \
+    work/ui-image-qualification/contexts/docker/openstack-base/openstack-base-archive \
+  --requirements-revision 06cd4e8523cbade25fb93efc4f8ea77d6d97064f
+```
+
+Exit `3` is the expected valid-but-blocked result while inherited findings
+remain. Invalid, incomplete, or divergent evidence exits `2`; a clean report
+alone exits `0` but does not bypass the separate native AMD64 or Stage 6 gates.
