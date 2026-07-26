@@ -135,3 +135,43 @@ qualification. The native target still needs to be rendered from the exact
 disposable pilot inventory, all named sources and auxiliary views must exist
 on that pilot, and both architecture lanes must qualify the bound runtime
 before the load/soak gate can pass.
+
+## Native target renderer
+
+`render_target.py` is the no-network compiler for the pilot target. Its
+versioned request contains only:
+
+- the exact sorted controller, reconciler, storage, RGW daemon, and RGW
+  ingress identities;
+- canonical credential-free HTTPS origins with explicit ports for Prometheus,
+  HAProxy, mysqld-exporter, Ceph mgr, ceph-exporter, RGW ingress,
+  node-exporter, and the auxiliary-evidence adapter;
+- the fixed load and observability topology hashes; and
+- the exact adapter source hash.
+
+The source hash covers `render_target.py`, `native_target.py`, and
+`native_surfaces.py`. It can be obtained as canonical machine-readable output:
+
+```text
+uv run python poc/load-soak/collector/render_target.py source-hash
+```
+
+After the operator or harness creates a canonical mode-0600 request in a
+mode-0700 directory, render the target with:
+
+```text
+uv run python poc/load-soak/collector/render_target.py \
+  work/load-soak/native-target-request.json \
+  work/load-soak/native-target.json
+```
+
+The renderer rejects aliases, links, unsafe ownership or modes, noncanonical
+bytes, unsorted or incomplete inventory, role overlap, topology/hash drift,
+URL credentials, HTTP, implicit ports, paths or query strings in origins, and
+duplicate final source URLs. It writes through a mode-0600 temporary file,
+fsyncs the file and parent, and does not rewrite a byte-identical target.
+Success output contains only the result schema and target hash.
+
+This renderer does not discover inventory, start exporters, fetch metrics,
+compile the six phase-bound auxiliary evidence surfaces, or qualify a pilot.
+Those are separate runtime gates.

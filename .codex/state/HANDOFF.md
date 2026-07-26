@@ -9,7 +9,8 @@
   complete; checkpointed profile/ramp and recovery-first fault executors
   complete; owner-only telemetry collection boundary, native
   Prometheus/exporter parser seam, versioned native target, and exact-schema
-  collector dispatch complete; disposable-pilot target renderer next
+  collector dispatch complete; no-network disposable-pilot target renderer
+  complete; phase-bound auxiliary evidence compiler next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -597,6 +598,18 @@ release contains it yet.
   91 tests, the broad load matrix passes 264, and full regression and
   collection both report 889 tests. This remains local adapter evidence; no
   pilot endpoint or remote state changed.
+- Added the no-network native target renderer. One canonical owner-only
+  request now binds exact sorted pilot inventory, RGW placement, explicit
+  credential-free HTTPS origins, both topology hashes, and the checked
+  renderer/target/parser source hash. Every query, rule, metrics, and evidence
+  route plus content type and identity allowlist is generated and revalidated.
+- The renderer atomically emits mode-0600 canonical JSON under a mode-0700
+  owner directory and refuses unsafe modes/links/aliases, noncanonical bytes,
+  source/topology/inventory drift, URL credentials, HTTP, implicit ports,
+  paths, role overlap, and duplicate final URLs. Twenty-seven renderer tests
+  and 70 focused native tests pass; the broad load matrix passes 291, and full
+  regression and collection both report 916. No discovery, network, endpoint,
+  credential, container, VM, or remote state changed.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2404,11 +2417,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/load-soak/collector/render_target.py` as a no-network owner-only
-renderer from a versioned disposable-pilot inventory and explicit telemetry
-origins to canonical mode-0600 native-target JSON. Bind the adapter source hash
-and topology hashes, and prove deterministic output plus drift refusal before
-Kolla harness wiring.
+Add `poc/load-soak/collector/phase_evidence.py` as a no-network owner-only
+compiler for the six phase-bound auxiliary surfaces. Bind one exact phase and
+source-summary hashes, allow only the exact bounded aggregate fields, emit
+canonical `coffer.load-telemetry-native-evidence/v1` documents, and refuse raw
+logs, URLs, identities, credentials, unbounded values, or cross-phase reuse
+before adding a private TLS serving boundary.
 
 ## After This Work Package
 

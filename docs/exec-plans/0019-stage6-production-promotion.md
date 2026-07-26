@@ -1997,6 +1997,40 @@ operator-local release.
   and topology hashes, emit canonical mode-0600 JSON, and prove deterministic
   rendering and drift refusal before wiring it into the Kolla pilot harness.
 
+### 2026-07-26 — Disposable-pilot native target renderer completed locally
+
+- Deterministic compiler: Added
+  `coffer.load-telemetry-native-target-render-request/v1`. It accepts the
+  exact sorted controller/reconciler/storage/ingress inventory, one-to-one RGW
+  daemon placement, explicit canonical HTTPS origins, both fixed topology
+  hashes, and the current adapter source hash without performing discovery or
+  network I/O.
+- Source and route binding: The adapter source hash covers the renderer,
+  native target, and native parser. The output adapter-contract hash binds that
+  source plus both topology hashes. The renderer fixes every PromQL/rules URL,
+  exporter metrics route, phase/surface evidence route, content type, backend
+  allowlist, and node role, then validates its own result through
+  `native_target.validate_target()`.
+- File boundary: Canonical mode-0600 input, a mode-0700 owner directory,
+  distinct regular single-link paths, and atomic mode-0600 output are
+  mandatory. Unsafe ownership/modes, links, aliases, noncanonical bytes,
+  inventory/role/placement drift, credentials, HTTP, implicit ports,
+  noncanonical origins, duplicate final URLs, and topology/source drift fail
+  without output. Re-rendering byte-identical input leaves the target
+  unchanged.
+- Evidence: Twenty-seven renderer tests and 70 focused
+  renderer/target/parser/collector tests pass. The broad load matrix passes
+  291 tests; full regression and collection both report 916. The source
+  contains no network or subprocess adapter. No inventory was discovered and
+  no endpoint, exporter, credential, container, VM, or remote state changed.
+- Next exact action: Add
+  `poc/load-soak/collector/phase_evidence.py` as a no-network owner-only
+  compiler for the six phase-bound auxiliary surfaces. Bind one exact phase,
+  source summary hashes, and fixed allowed aggregate fields; emit canonical
+  `coffer.load-telemetry-native-evidence/v1` documents; and refuse raw logs,
+  URLs, identifiers, credentials, unbounded values, or cross-phase reuse
+  before adding a private TLS serving boundary.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2121,6 +2155,10 @@ operator-local release.
 | Native target collector dispatch and three-window transaction | `uv run pytest -q tests/test_load_native_target.py tests/test_load_native_surfaces.py tests/test_load_telemetry_collector_run.py tests/test_load_soak_telemetry.py tests/test_load_soak_runtime_manifest.py` | passed; 91 |
 | Broad load matrix after native collector dispatch | `uv run pytest -q tests/test_load_*.py` | passed; 264 |
 | Full regression after native collector dispatch | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 889 |
+| Disposable-pilot native target renderer | `uv run pytest -q tests/test_load_native_target_renderer.py` | passed; 27 |
+| Renderer plus native target/parser/collector | `uv run pytest -q tests/test_load_native_target_renderer.py tests/test_load_native_target.py tests/test_load_native_surfaces.py tests/test_load_telemetry_collector_run.py` | passed; 70 |
+| Broad load matrix after native target renderer | `uv run pytest -q tests/test_load_*.py` | passed; 291 |
+| Full regression after native target renderer | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 916 |
 
 ## Failures, Blockers, and Risks
 
@@ -2161,11 +2199,12 @@ operator-local release.
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
 - Exact next action: Add
-  `poc/load-soak/collector/render_target.py` as a no-network owner-only
-  renderer from a versioned disposable-pilot inventory and explicit telemetry
-  origins to canonical mode-0600 native-target JSON. Bind the adapter source
-  hash and topology hashes, and prove deterministic output plus drift refusal
-  before Kolla harness wiring.
+  `poc/load-soak/collector/phase_evidence.py` as a no-network owner-only
+  compiler for the six phase-bound auxiliary surfaces. Bind the phase and
+  source-summary hashes, allow only the exact bounded aggregate fields, emit
+  canonical native evidence documents, and refuse raw logs, URLs, identities,
+  credentials, unbounded values, or cross-phase reuse before a private TLS
+  serving boundary is added.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

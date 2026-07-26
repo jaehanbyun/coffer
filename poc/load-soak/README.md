@@ -133,6 +133,15 @@ the normalized or native path only by exact schema without fallback. Local
 three-window TLS evidence qualifies dispatch and state handling, not the
 uncreated pilot endpoints or their runtime data.
 
+`collector/render_target.py` converts one canonical owner-only disposable
+pilot inventory and its explicit credential-free HTTPS origins into that
+native target without contacting a service. It binds the checked renderer,
+parser, and target sources together with the fixed load and observability
+topologies, fixes every query and evidence route, validates the resulting
+target through the runtime parser, and atomically emits mode-0600 JSON.
+This qualifies deterministic target construction only; it does not assert
+that any declared source exists or is healthy.
+
 `runtime_manifest.py` maps every schedule entry and operation to the current
 runtime capability baseline. It binds a canonical owner-only compiled plan,
 qualified readiness file, exact client pins, checked-in runner source hashes,
