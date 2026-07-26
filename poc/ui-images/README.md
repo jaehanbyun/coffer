@@ -166,10 +166,13 @@ make -C poc/ui-images trial-python-pyjwt
 The checked-in `python_targets.json` manifest is the only target-selection
 boundary. It binds each allowed package to the official wheel URL, filename,
 SHA-256, dependency metadata, exact before/after versions, expected scanner
-findings, compatibility probe, and trial label. The loader rejects unknown
-fields, unsafe filenames or URLs, unsupported probes, arbitrary target keys,
-and linked manifests. The generic overlay retains the official wheel filename
-for pip parsing and still removes that exact build input from the final image.
+findings, compatibility probe, explicit installed UI surfaces, and trial
+label. The loader rejects unknown surfaces or fields, unsafe filenames or
+URLs, unsupported probes, arbitrary target keys, and linked manifests. The
+runner builds, inventories, and scans only those declared surfaces; it cannot
+silently install a Horizon-only dependency into Skyline. The generic overlay
+retains the official wheel filename for pip parsing and still removes that
+exact build input from the final image.
 
 Each fixed trial installs one official wheel with `--no-index`, `--no-deps`,
 and `--force-reinstall`. It requires the OS package inventory to remain

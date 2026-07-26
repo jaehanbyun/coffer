@@ -4,7 +4,7 @@ set -Eeuo pipefail
 umask 027
 
 if [[ "$#" -gt 1 ]]; then
-    echo "usage: trial_python_overlay.sh [mako|httplib2]" >&2
+    echo "usage: trial_python_overlay.sh [target-key]" >&2
     exit 1
 fi
 TARGET_KEY="${1:-mako}"
@@ -36,6 +36,7 @@ TARGET_WHEEL_SHA256=""
 TARGET_DISPLAY_NAME=""
 TARGET_TO_VERSION=""
 TARGET_TRIAL_LABEL=""
+TARGET_SURFACES=()
 TAG="2026.1-python-overlay"
 PREFIX="coffer-ui-python-trial-"
 HORIZON_PARENT="localhost/${PREFIX}horizon:${TAG}"
@@ -150,6 +151,13 @@ TARGET_TRIAL_LABEL="$(
 TARGET_KEY="${TARGET_KEY}" TARGET_MANIFEST="${TARGET_MANIFEST}" \
     PYTHONPATH="${HARNESS}" python3 -c \
     'import os; from pathlib import Path; from python_target import load_target; load_target(Path(os.environ["TARGET_MANIFEST"]), os.environ["TARGET_KEY"])'
+while IFS= read -r target_surface; do
+    TARGET_SURFACES+=("${target_surface}")
+done < <(
+    jq -er --arg target "${TARGET_KEY}" \
+        '.targets[$target].surfaces[]' "${TARGET_MANIFEST}"
+)
+test "${#TARGET_SURFACES[@]}" -gt 0
 docker scout version >/dev/null
 if [[ -e "${WORK}" ]]; then
     echo "refusing existing UI Python overlay trial work directory" >&2
@@ -345,20 +353,29 @@ cp \
     "${TARGET_MANIFEST}" \
     "${overlay_context}/"
 cp "${target_wheel}" "${overlay_context}/target.whl"
-podman build --pull-never --network none --platform "${platform}" \
-    --build-arg "BASE_IMAGE=${HORIZON_BEFORE}" \
-    --build-arg "TARGET_KEY=${TARGET_KEY}" \
-    --build-arg "TARGET_LABEL=${TARGET_TRIAL_LABEL}" \
-    --build-arg "TARGET_WHEEL_FILENAME=${TARGET_WHEEL_NAME}" \
-    --file "${overlay_context}/python_overlay.Containerfile" \
-    --tag "${HORIZON_AFTER}" "${overlay_context}"
-podman build --pull-never --network none --platform "${platform}" \
-    --build-arg "BASE_IMAGE=${SKYLINE_BEFORE}" \
-    --build-arg "TARGET_KEY=${TARGET_KEY}" \
-    --build-arg "TARGET_LABEL=${TARGET_TRIAL_LABEL}" \
-    --build-arg "TARGET_WHEEL_FILENAME=${TARGET_WHEEL_NAME}" \
-    --file "${overlay_context}/python_overlay.Containerfile" \
-    --tag "${SKYLINE_AFTER}" "${overlay_context}"
+for target_surface in "${TARGET_SURFACES[@]}"; do
+    case "${target_surface}" in
+        horizon)
+            surface_before="${HORIZON_BEFORE}"
+            surface_after="${HORIZON_AFTER}"
+            ;;
+        skyline)
+            surface_before="${SKYLINE_BEFORE}"
+            surface_after="${SKYLINE_AFTER}"
+            ;;
+        *)
+            echo "unsupported Python overlay target surface" >&2
+            exit 1
+            ;;
+    esac
+    podman build --pull-never --network none --platform "${platform}" \
+        --build-arg "BASE_IMAGE=${surface_before}" \
+        --build-arg "TARGET_KEY=${TARGET_KEY}" \
+        --build-arg "TARGET_LABEL=${TARGET_TRIAL_LABEL}" \
+        --build-arg "TARGET_WHEEL_FILENAME=${TARGET_WHEEL_NAME}" \
+        --file "${overlay_context}/python_overlay.Containerfile" \
+        --tag "${surface_after}" "${overlay_context}"
+done
 
 phase="Trivy acquisition"
 podman pull "${TRIVY_IMAGE}" >/dev/null
@@ -375,7 +392,7 @@ trivy_version="$(
 test -n "${trivy_version}"
 
 phase="trial provenance, OS, Python, and UI runtime evidence"
-python3 "${HARNESS}/collect_python_trial.py" \
+collection_args=(
     --evidence "${EVIDENCE}" \
     --horizon-wheel "${horizon_wheel}" \
     --skyline-wheel "${skyline_wheel}" \
@@ -390,20 +407,39 @@ python3 "${HARNESS}/collect_python_trial.py" \
     --horizon-revision "0a4439556517cf67be0aa949b6551a14e409af75" \
     --skyline-revision "c9000cb1be332a213009793598f17a80ce59671e" \
     --docker-scout-version "${docker_scout_version}" \
-    --trivy-version "${trivy_version}" \
-    --horizon-before "${HORIZON_BEFORE}" \
-    --horizon-after "${HORIZON_AFTER}" \
-    --skyline-before "${SKYLINE_BEFORE}" \
-    --skyline-after "${SKYLINE_AFTER}"
+    --trivy-version "${trivy_version}"
+)
+scan_entries=()
+for target_surface in "${TARGET_SURFACES[@]}"; do
+    case "${target_surface}" in
+        horizon)
+            collection_args+=(
+                --horizon-before "${HORIZON_BEFORE}"
+                --horizon-after "${HORIZON_AFTER}"
+            )
+            scan_entries+=(
+                "horizon-before=${HORIZON_BEFORE}"
+                "horizon-after=${HORIZON_AFTER}"
+            )
+            ;;
+        skyline)
+            collection_args+=(
+                --skyline-before "${SKYLINE_BEFORE}"
+                --skyline-after "${SKYLINE_AFTER}"
+            )
+            scan_entries+=(
+                "skyline-before=${SKYLINE_BEFORE}"
+                "skyline-after=${SKYLINE_AFTER}"
+            )
+            ;;
+    esac
+done
+python3 "${HARNESS}/collect_python_trial.py" "${collection_args[@]}"
 jq -e --arg architecture "${architecture}" \
     '.architecture == $architecture' "${EVIDENCE}/manifest.json" >/dev/null
 
 phase="two-scanner before and after evidence"
-for entry in \
-    "horizon-before=${HORIZON_BEFORE}" \
-    "horizon-after=${HORIZON_AFTER}" \
-    "skyline-before=${SKYLINE_BEFORE}" \
-    "skyline-after=${SKYLINE_AFTER}"; do
+for entry in "${scan_entries[@]}"; do
     key="${entry%%=*}"
     image="${entry#*=}"
     archive="${EVIDENCE}/${key}.tar"

@@ -212,7 +212,7 @@ def collect(
     if not docker_scout_version or not trivy_version:
         raise CollectionError("scanner version is empty")
     expected_keys = {
-        f"{surface}-{kind}" for surface in SURFACES for kind in KINDS
+        f"{surface}-{kind}" for surface in target.surfaces for kind in KINDS
     }
     if set(images) != expected_keys:
         raise CollectionError("trial image set is invalid")
@@ -263,7 +263,7 @@ def collect(
             arguments=[surface],
             interpreter="/var/lib/kolla/venv/bin/python",
         )
-        for surface in SURFACES
+        for surface in target.surfaces
     }
     manifest = {
         "schema": MANIFEST_SCHEMA,
@@ -299,6 +299,7 @@ def collect(
                 "trial_label": target.trial_label,
                 "finding_ids": list(target.finding_ids),
                 "requires_dist": list(target.requires_dist),
+                "surfaces": list(target.surfaces),
             },
         },
         "baseline": {
@@ -354,14 +355,21 @@ def main() -> int:
     parser.add_argument("--trivy-version", required=True)
     for surface in SURFACES:
         for kind in KINDS:
-            parser.add_argument(f"--{surface}-{kind}", required=True)
+            parser.add_argument(f"--{surface}-{kind}")
     arguments = parser.parse_args()
-    images = {
-        f"{surface}-{kind}": getattr(arguments, f"{surface}_{kind}")
-        for surface in SURFACES
-        for kind in KINDS
-    }
     try:
+        target = load_target(arguments.target_manifest, arguments.target)
+        images = {
+            f"{surface}-{kind}": getattr(arguments, f"{surface}_{kind}")
+            for surface in target.surfaces
+            for kind in KINDS
+        }
+        if any(not value for value in images.values()) or any(
+            getattr(arguments, f"{surface}_{kind}") is not None
+            for surface in set(SURFACES) - set(target.surfaces)
+            for kind in KINDS
+        ):
+            raise CollectionError("trial image arguments do not match target surfaces")
         collect(
             evidence=arguments.evidence,
             images=images,

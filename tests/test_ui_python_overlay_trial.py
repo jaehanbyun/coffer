@@ -208,6 +208,7 @@ def fixture(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     target_key: str = "mako",
+    surfaces: tuple[str, ...] | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     evidence = tmp_path / "evidence"
     evidence.mkdir(parents=True)
@@ -227,6 +228,8 @@ def fixture(
     target_document["targets"] = {
         target_key: target_document["targets"][target_key]
     }
+    if surfaces is not None:
+        target_document["targets"][target_key]["surfaces"] = list(surfaces)
     target_document["targets"][target_key]["wheel_sha256"] = TRIAL.sha256_file(
         artifacts["target"]
     )
@@ -336,6 +339,7 @@ def fixture(
                 "trial_label": target.trial_label,
                 "finding_ids": list(target.finding_ids),
                 "requires_dist": list(target.requires_dist),
+                "surfaces": list(target.surfaces),
             },
         },
         "baseline": {
@@ -353,7 +357,7 @@ def fixture(
                 ),
                 "id": digest(f"{surface}-{kind}"),
             }
-            for surface in TRIAL.SURFACES
+            for surface in target.surfaces
             for kind in TRIAL.KINDS
         },
         "scanners": {"docker_scout": "fixture", "trivy": "fixture"},
@@ -361,7 +365,7 @@ def fixture(
     (evidence / "manifest.json").write_text(json.dumps(manifest))
 
     images = {}
-    for surface in TRIAL.SURFACES:
+    for surface in target.surfaces:
         before_layers = [digest(f"{surface}-coffer"), digest(f"{surface}-cleanup")]
         common = {
             "architecture": "arm64",
@@ -400,7 +404,7 @@ def fixture(
     )
     inventories = {
         f"{surface}-{kind}": os_inventory()
-        for surface in TRIAL.SURFACES
+        for surface in target.surfaces
         for kind in TRIAL.KINDS
     }
     (evidence / "os-inventories.json").write_text(
@@ -424,10 +428,10 @@ def fixture(
                 else wheel_files["target"]
             ),
         )
-        for surface in TRIAL.SURFACES
+        for surface in target.surfaces
         for kind in TRIAL.KINDS
     }
-    ui = {
+    ui_all = {
         "horizon": {
             "package": {"name": "coffer-horizon", "version": "0.1.0"},
             "files": wheel_files["horizon"],
@@ -442,6 +446,7 @@ def fixture(
             "absent": list(TRIAL.SKYLINE_ABSENT),
         },
     }
+    ui = {surface: ui_all[surface] for surface in target.surfaces}
     (evidence / "runtimes.json").write_text(
         json.dumps(
             {
@@ -453,7 +458,7 @@ def fixture(
         )
     )
     before_findings = [*target.finding_ids, "CVE-remaining"]
-    for surface in TRIAL.SURFACES:
+    for surface in target.surfaces:
         write_trivy(
             evidence / f"{surface}-before.trivy.json",
             before_findings,
@@ -510,11 +515,28 @@ def test_valid_overlay_is_accepted_but_remains_blocked(
     assert report["decision"]["python_overlay_trial_accepted"] is True
     assert report["decision"]["target"] == target.result_name
     assert report["decision"]["private_constraint_override_accepted"] is False
-    for surface in TRIAL.SURFACES:
+    for surface in target.surfaces:
         for scanner in TRIAL.SCANNERS:
             result = report["surfaces"][surface]["scanners"][scanner]
             assert result["removed_finding_ids"] == list(target.finding_ids)
             assert result["introduced_critical_high"] == 0
+
+
+def test_surface_scoped_overlay_excludes_unselected_surface(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence, artifacts = fixture(
+        tmp_path,
+        monkeypatch,
+        surfaces=("horizon",),
+    )
+
+    report = build(evidence, artifacts)
+
+    assert set(report["surfaces"]) == {"horizon"}
+    assert artifacts["target_spec"].surfaces == ("horizon",)
+    assert not list(evidence.glob("skyline-*.json"))
 
 
 def test_python_and_os_package_delta_tamper_are_rejected(
@@ -680,6 +702,7 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
     assert targets["pyjwt"].wheel_sha256 == (
         "66adcc2aff09b3f1bbd95fc1e1577df8ac8723c978552fd43304c8a290ac5728"
     )
+    assert all(target.surfaces == ("horizon", "skyline") for target in targets.values())
 
     runner = (
         ROOT / "poc" / "ui-images" / "trial_python_overlay.sh"

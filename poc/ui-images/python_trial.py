@@ -194,7 +194,7 @@ def validate_baselines(
     remediation = _load(remediation_result_path, "remediation result")
     if remediation.get("schema") != REMEDIATION_SCHEMA:
         raise EvidenceError("remediation result schema is invalid")
-    for surface in SURFACES:
+    for surface in target.surfaces:
         packages = _array(
             _object(
                 _object(remediation.get("surfaces"), "remediation surfaces").get(
@@ -285,6 +285,7 @@ def validate_manifest(
             "trial_label": target.trial_label,
             "finding_ids": list(target.finding_ids),
             "requires_dist": list(target.requires_dist),
+            "surfaces": list(target.surfaces),
         },
     }
     if artifacts != expected_artifacts:
@@ -300,7 +301,7 @@ def validate_manifest(
         raise EvidenceError("trial baseline hashes are inconsistent")
     images = _object(manifest.get("images"), "trial images")
     expected_keys = {
-        f"{surface}-{kind}" for surface in SURFACES for kind in KINDS
+        f"{surface}-{kind}" for surface in target.surfaces for kind in KINDS
     }
     if set(images) != expected_keys:
         raise EvidenceError("trial manifest image set is invalid")
@@ -324,7 +325,7 @@ def validate_images(
     images = _object(document.get("images"), "trial inspected images")
     if set(images) != set(manifest["images"]):
         raise EvidenceError("trial inspected image set is invalid")
-    for surface in SURFACES:
+    for surface in target.surfaces:
         before = _object(images[f"{surface}-before"], f"{surface} before image")
         after = _object(images[f"{surface}-after"], f"{surface} after image")
         for kind, image in (("before", before), ("after", after)):
@@ -389,6 +390,7 @@ def validate_os_inventories(
     manifest: dict[str, Any],
     *,
     baseline_inventories_path: Path,
+    target: Target,
 ) -> None:
     document = _load(evidence / "os-inventories.json", "trial OS inventories")
     if document.get("schema") != INVENTORY_SCHEMA:
@@ -404,7 +406,7 @@ def validate_os_inventories(
         baseline_document.get("images"),
         "OS cleanup baseline images",
     )
-    for surface in SURFACES:
+    for surface in target.surfaces:
         before_document = _object(images[f"{surface}-before"], "before inventory")
         after_document = _object(images[f"{surface}-after"], "after inventory")
         for inventory in (before_document, after_document):
@@ -467,7 +469,7 @@ def validate_python_runtimes(
         "/tmp/python_target.py",
         "/tmp/python_targets.json",
     ]
-    for surface in SURFACES:
+    for surface in target.surfaces:
         before_document = _object(
             python[f"{surface}-before"],
             f"{surface} before Python runtime",
@@ -550,15 +552,16 @@ def validate_ui_runtimes(
     *,
     horizon_wheel: Path,
     skyline_wheel: Path,
+    target: Target,
 ) -> None:
     ui = _object(document.get("ui"), "trial UI runtimes")
-    if set(ui) != set(SURFACES):
+    if set(ui) != set(target.surfaces):
         raise EvidenceError("trial UI runtime set is invalid")
     wheels = {"horizon": horizon_wheel, "skyline": skyline_wheel}
     versions = {"horizon": "0.1.0", "skyline": "8.0.0+coffer.1"}
     names = {"horizon": "coffer-horizon", "skyline": "skyline-console"}
     absent = {"horizon": HORIZON_ABSENT, "skyline": SKYLINE_ABSENT}
-    for surface in SURFACES:
+    for surface in target.surfaces:
         runtime = _object(ui[surface], f"{surface} UI runtime")
         if runtime.get("package") != {
             "name": names[surface],
@@ -596,6 +599,7 @@ def validate_runtimes(
         document,
         horizon_wheel=horizon_wheel,
         skyline_wheel=skyline_wheel,
+        target=target,
     )
 
 
@@ -673,6 +677,7 @@ def build_report(
         evidence,
         manifest,
         baseline_inventories_path=baseline_inventories_path,
+        target=target,
     )
     validate_runtimes(
         evidence,
@@ -684,7 +689,7 @@ def build_report(
     )
     surfaces: dict[str, Any] = {}
     blockers: list[str] = []
-    for surface in SURFACES:
+    for surface in target.surfaces:
         scanners = {
             scanner: scanner_result(
                 evidence,

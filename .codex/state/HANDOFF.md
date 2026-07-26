@@ -36,7 +36,7 @@
   disabled-by-default immutable Horizon/Skyline image contracts and exact
   fallback lifecycle complete locally with 108 role checks; four desktop/narrow
   UI fixture screenshots visually inspected; current full Python regression
-  passes 1,505 tests and the prior Horizon/Skyline/108-check Kolla repository
+  passes 1,506 tests and the prior Horizon/Skyline/108-check Kolla repository
   gates remain complete
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
@@ -168,6 +168,14 @@ The result remains isolated and non-cumulative with
 `production_candidate=false`; no production Containerfile or constraints
 policy changed. Exact images, generated contexts, wheel copies, archives, and
 scanner caches are absent, and the harness-started Podman machine is stopped.
+
+The target contract is now surface-scoped because the accepted evidence proves
+Django 4.2.28 exists in Horizon but not Skyline. Every checked-in target names
+its sorted allow-listed installed surfaces. The runner builds and scans only
+those surfaces, the collector rejects missing or unexpected image arguments,
+and the evidence/classifier require exact matching image, OS, Python, UI, and
+scanner sets. Existing Mako, httplib2, urllib3, and PyJWT targets remain
+explicitly two-surface; no production image or package decision changed.
 
 Plan 0019 is externally blocked after converting every locally independent
 Stage 6 operation into a release-gated, checkpointed pilot harness. The latest
@@ -3031,12 +3039,13 @@ release contains it yet.
 
 ## Exact Next Action
 
-Run the final repository gates for the independent `PyJWT` derivative, stage
+Run the final repository gates for the surface-scoped target contract, stage
 only that atomic package, then commit and push it under the verified
-`jaehanbyun` account. After publication, inspect the official Django 4.2.30
-release metadata and current UI runtime consumers before admitting any Django
-trial. Do not alter production UI Containerfiles, combine upgrades, waive a
-finding, handle a Docker credential, or create a live cloud.
+`jaehanbyun` account. After publication, add Django 4.2.30 only for Horizon
+with the official wheel identity, exact three High CVEs, and an offline
+framework setup/template probe. Do not alter production UI Containerfiles,
+combine upgrades, waive a finding, handle a Docker credential, or create a
+live cloud.
 
 ## After This Work Package
 

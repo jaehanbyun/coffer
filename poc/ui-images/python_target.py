@@ -19,6 +19,7 @@ URL = re.compile(r"^https://files\.pythonhosted\.org/packages/[A-Za-z0-9/_.+-]+$
 PREFIX = re.compile(r"^[a-z][a-z0-9_]*/$")
 LABEL = re.compile(r"^coffer-ui-python-[a-z0-9.-]+-v1$")
 PROBES = {"mako-render", "module-import", "pyjwt-hs256", "urllib3-pool"}
+SURFACES = frozenset({"horizon", "skyline"})
 
 
 class TargetError(RuntimeError):
@@ -38,6 +39,7 @@ class Target:
     wheel_sha256: str
     finding_ids: tuple[str, ...]
     requires_dist: tuple[str, ...]
+    surfaces: tuple[str, ...]
     probe: str
     trial_label: str
 
@@ -98,6 +100,7 @@ def load_targets(path: Path) -> dict[str, Target]:
         "package_prefix",
         "probe",
         "requires_dist",
+        "surfaces",
         "to_version",
         "trial_label",
         "wheel_filename",
@@ -124,6 +127,7 @@ def load_targets(path: Path) -> dict[str, Target]:
             wheel_sha256=_string(raw, "wheel_sha256"),
             finding_ids=_strings(raw, "finding_ids"),
             requires_dist=_strings(raw, "requires_dist"),
+            surfaces=_strings(raw, "surfaces"),
             probe=_string(raw, "probe"),
             trial_label=_string(raw, "trial_label"),
         )
@@ -138,6 +142,7 @@ def load_targets(path: Path) -> dict[str, Target]:
             or not URL.fullmatch(target.wheel_url)
             or not DIGEST.fullmatch(target.wheel_sha256)
             or not all(FINDING.fullmatch(item) for item in target.finding_ids)
+            or not set(target.surfaces) <= SURFACES
             or target.probe not in PROBES
             or not LABEL.fullmatch(target.trial_label)
         ):
