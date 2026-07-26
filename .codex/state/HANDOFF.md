@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-27
-- Status: plan 0023 active; plans 0019 and 0022 blocked externally; plans 0020 and 0021 completed locally;
+- Status: plan 0024 active; plans 0019 and 0022 blocked externally; plans 0020, 0021, and 0023 completed locally;
   native x86_64 UI parents and derivatives built and passed provenance/runtime
   collection, but standalone Docker Scout CVE evidence requires an unauthorized
   Docker login; the disposable VM, volumes, key, and runtime residue are absent;
@@ -39,17 +39,29 @@
   passes 78 focused checks, full Python regression passes 1,533 tests, and the
   prior Horizon/Skyline/108-check Kolla repository
   gates remain complete
-- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`, `docs/exec-plans/0023-ui-parent-remediation-baseline.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Externally blocked execution plans:
   `docs/exec-plans/0019-stage6-production-promotion.md` and
   `docs/exec-plans/0022-native-x86-ui-image-qualification.md`
 - Active execution plan:
-  `docs/exec-plans/0023-ui-parent-remediation-baseline.md`
+  `docs/exec-plans/0024-ui-crypto-pair-remediation.md`
 
 ## Current Objective
 
-Plan 0023 is active to turn the inherited Horizon/Skyline parent
+Plan 0024 is active to prove the only current dependency-valid remediation for
+the remaining cryptography and pyOpenSSL findings. Installed pyOpenSSL 24.2.1
+requires `cryptography>=41.0.5,<44`, so neither cryptography 49.0.0 nor
+pyOpenSSL 26.3.0 can be tested as an honest independent overlay. Official
+pyOpenSSL 26.3.0 requires `cryptography>=49,<50`; the selected current pair is
+therefore cryptography 49.0.0 plus pyOpenSSL 26.3.0 on both native ARM64 UI
+surfaces. The exact official wheel SHA-256 values are
+`36d1709f992593689b45bda411498d62c6e365f2ca00b84657d4dadd24de16db`
+and
+`46367f8f66b92271e6d218da9c87607e1ef5a0bc5c8dea5bb3db82f395c385a3`.
+No production Containerfile, constraint, image, credential, or cloud changed.
+
+Plan 0023 is complete after turning the inherited Horizon/Skyline parent
 Critical/High findings into a deterministic, non-waiving remediation baseline.
 The accepted ARM64 evidence is now bound to both scanner finding sets, the
 actual Kolla `openstack-base` constraints archive, and OpenStack requirements
@@ -3192,10 +3204,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Query the official cryptography 46.0.5 and pyOpenSSL 26.0.0 PyPI metadata,
-then compare their dependency bounds with the installed 43.0.3/24.2.1 pair
-to decide whether the two remaining eligible findings require one coupled
-compatibility derivative.
+Add an immutable package-component model to
+`poc/ui-images/python_target.py`, preserve every accepted single-package target
+and rejection invariant, and add fixture coverage for the exact cryptography
+49.0.0 plus pyOpenSSL 26.3.0 pair before changing the runner.
 Do not alter production UI Containerfiles, combine upgrades, waive a finding,
 handle a Docker credential, or create a live cloud.
 

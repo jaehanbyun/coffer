@@ -1,6 +1,6 @@
 ---
 title: "UI parent vulnerability remediation baseline"
-status: active
+status: completed
 updated: 2026-07-27
 owner: primary-agent
 ---
@@ -29,14 +29,14 @@ absolute gate.
       separating constraint-bound Python candidates, upstream-unfixed
       findings, and OS-package findings without a waiver or arbitrary private
       constraint override.
-- [ ] A bounded experiment evaluates whether final-image OS build dependency
+- [x] A bounded experiment evaluates whether final-image OS build dependency
       cleanup and the smallest compatible Python fix candidates preserve the
       Horizon/Skyline package, runtime, and UI test contracts.
-- [ ] Any remediation image is rescanned by both accepted scanners and remains
+- [x] Any remediation image is rescanned by both accepted scanners and remains
       blocked unless its absolute Critical/High count is zero; scanner
       replacement, reachability-only suppression, or undocumented VEX is
       refused.
-- [ ] Focused and repository regression, documentation, secret, and diff gates
+- [x] Focused and repository regression, documentation, secret, and diff gates
       pass; verified atomic milestones are committed and pushed.
 
 ## Non-goals
@@ -124,7 +124,7 @@ absolute gate.
 - [x] Run the independent ujson 5.11.0 to 5.13.0 ARM64 experiment.
 - [x] Run the independent lxml 6.0.2 to 6.1.1 ARM64 experiment.
 - [x] Run the Horizon-only Pillow 12.1.1 to 12.3.0 ARM64 experiment.
-- [ ] Rescan viable derivatives, update the durable handoff, and publish each
+- [x] Rescan viable derivatives, update the durable handoff, and publish each
       verified atomic milestone.
 
 ## Progress Log
@@ -703,6 +703,30 @@ absolute gate.
   26.0.0 dependency metadata against the installed 43.0.3/24.2.1 pair and
   decide whether the two remaining candidates require one coupled derivative.
 
+### 2026-07-27 — Independent remediation baseline completed
+
+- Completed: All independently viable OS cleanup and Python package
+  derivatives are classified, tested, scanned, documented, and published.
+  The final 78 focused and 1,533 repository tests pass. Production remains
+  fail closed because every derivative is intentionally isolated and retains
+  nonzero High findings.
+- Dependency decision: Neither remaining crypto package can be upgraded
+  independently. Installed pyOpenSSL 24.2.1 requires
+  `cryptography>=41.0.5,<44`; current pyOpenSSL 26.3.0 requires
+  `cryptography>=49,<50`. Official cryptography 49.0.0 and pyOpenSSL 26.3.0
+  are therefore the first current pair that both satisfies declared
+  dependencies and exceeds every accepted fix floor for
+  `CVE-2026-26007`, `GHSA-537c-gmf6-5ccf`, and `CVE-2026-27459`.
+- Decision: A coupled crypto overlay is a materially different evidence
+  contract from this plan's single-package derivatives. It moves to plan 0024
+  rather than weakening the exact-one-package delta gate or representing a
+  broken intermediate state.
+- Evidence: Official PyPI metadata and wheel records were inspected read-only.
+  No wheel, image, constraint, credential, or live cloud state changed.
+- Next exact action: Activate plan 0024 and extend the target/runtime/evidence
+  contract to represent the exact cryptography 49.0.0 plus pyOpenSSL 26.3.0
+  pair while preserving every accepted single-package fail-closed invariant.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -740,7 +764,7 @@ absolute gate.
 | Pillow compatibility experiment | Horizon-only native ARM64 official wheel, exact OS/Python/UI runtime, native PNG round trip, and two-scanner trial | passed for Pillow only; production blocked at Horizon Trivy/Scout 19/22 High |
 | Pillow milestone gates | JSON, Bash, strict ShellCheck, Ruff, compilation, UI image suite, full pytest, case-sensitive-prefix and residue checks | passed; 78 focused and 1,533 total tests with no generated build residue |
 | Baseline milestone gates | full pytest, Ruff E/F/I, compilation, staged secret/diff | passed; 1,483 tests and no staged leak |
-| Final repository gates | dashboard packages, Kolla role, docs/links, secret, diff | pending with remediation experiment |
+| Final repository gates | JSON, Bash, ShellCheck, Ruff, compilation, focused/full pytest, staged secret, residue, and diff | passed; 78 focused and 1,533 total tests, no generated residue or staged leak |
 
 ## Failures, Blockers, and Risks
 
@@ -801,7 +825,7 @@ absolute gate.
 
 ## Handoff
 
-- Current state: Plan 0023 is active; plans 0019 and 0022 remain externally
+- Current state: Plan 0023 is complete; plans 0019 and 0022 remain externally
   blocked. The inherited ARM64 classifier, deterministic baseline, stock
   dependency probe, post-Coffer OS cleanup trial, and narrow Mako compatibility
   derivative, generic target contract, and independent httplib2/urllib3
@@ -817,11 +841,10 @@ absolute gate.
   lineage, and two-scanner delta gates but correctly remain blocked by
   nonzero Critical/High findings. Raw/report evidence is non-secret and
   remains owner-only under ignored `work/`.
-- Exact next action: Determine whether the remaining cryptography and
-  pyOpenSSL findings require one coupled compatibility derivative.
-- First file or command: Query the official cryptography 46.0.5 and pyOpenSSL
-  26.0.0 PyPI metadata, then compare their `Requires-Dist` bounds with
-  cryptography 43.0.3 and pyOpenSSL 24.2.1 in the accepted Horizon/Skyline
-  runtimes; do not modify production UI Containerfiles.
+- Exact next action: Execute plan 0024's fixture-first coupled crypto target
+  contract.
+- First file or command: Add an exact package-component model to
+  `poc/ui-images/python_target.py` without changing the accepted production UI
+  Containerfiles.
 - Questions requiring user input: None. No credential, external publication,
   live deployment, or waiver is required for the next local milestone.
