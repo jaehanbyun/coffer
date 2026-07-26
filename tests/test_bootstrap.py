@@ -32,10 +32,11 @@ def test_installed_migration_environment_is_package_local() -> None:
     assert sorted(item.name for item in (path / "versions").glob("000*.py")) == [
         "0001_quota_ledger.py",
         "0002_reconciliation_claims.py",
-        "0003_repository_metadata.py",
-        "0004_inventory_import.py",
-        "0005_maintenance_comparison_sessions.py",
-    ]
+            "0003_repository_metadata.py",
+            "0004_inventory_import.py",
+            "0005_maintenance_comparison_sessions.py",
+            "0006_claim_version_binding.py",
+        ]
 
 
 def test_bootstrap_is_repeat_safe_and_validates_the_current_schema(

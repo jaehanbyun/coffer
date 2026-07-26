@@ -47,6 +47,9 @@ PENDING_STATES = ("pending", "release_pending")
 RECONCILIATION_STATES = ("pending", "release_pending", "committed")
 MAX_RECONCILIATION_BATCH = 1000
 MAX_RECONCILIATION_LEASE_SECONDS = 3600
+MAX_CONTROL_EVIDENCE_PENDING = 1000
+MAX_CONTROL_EVIDENCE_DESCRIPTOR_ROWS = 100_000
+MAX_CONTROL_EVIDENCE_CLAIMS = 10_000
 MIN_COMPARISON_SESSION_SECONDS = 60
 MAX_COMPARISON_SESSION_SECONDS = 3600
 OCI_IMAGE_MANIFEST = "application/vnd.oci.image.manifest.v1+json"
@@ -146,8 +149,13 @@ quota_reconciliation_claims = Table(
     ),
     Column("claim_token", String(36), nullable=False),
     Column("worker_id", String(128), nullable=False),
+    Column("reservation_version", BigInteger, nullable=False),
     Column("claimed_at", DateTime(timezone=True), nullable=False),
     Column("expires_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint(
+        "reservation_version > 0",
+        name="ck_quota_reconciliation_claim_version",
+    ),
     CheckConstraint(
         "expires_at > claimed_at", name="ck_quota_reconciliation_claim_window"
     ),
@@ -506,6 +514,39 @@ class ReconciliationMetricsSnapshot:
     active_claims: int
     stale_claims: int
     oldest_pending_seconds: float
+
+
+@dataclass(frozen=True, slots=True)
+class QuotaControlEvidenceSnapshot:
+    limit_bytes: int
+    used_bytes: int
+    reserved_bytes: int
+    expected_used_bytes: int
+    expected_reserved_bytes: int
+    pending_reservations: int
+    mismatched_pending_deltas: int
+    descriptor_invariant_violations: int
+    active_claims: int
+    stale_claims: int
+    eligible_active_claims: int
+    claim_invariant_violations: int
+
+    @property
+    def quota_invariant(self) -> bool:
+        return (
+            self.used_bytes == self.expected_used_bytes
+            and self.reserved_bytes == self.expected_reserved_bytes
+            and self.mismatched_pending_deltas == 0
+            and self.descriptor_invariant_violations == 0
+            and self.used_bytes + self.reserved_bytes <= self.limit_bytes
+        )
+
+    @property
+    def claims_exact(self) -> bool:
+        return (
+            self.active_claims == self.eligible_active_claims
+            and self.claim_invariant_violations == 0
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -903,6 +944,7 @@ class QuotaStore:
                         reservation_id=row.id,
                         claim_token=claim_token,
                         worker_id=worker_id,
+                        reservation_version=row.version,
                         claimed_at=claimed_at,
                         expires_at=expires_at,
                     )
@@ -973,6 +1015,203 @@ class QuotaStore:
             oldest_pending_seconds=oldest_seconds,
         )
 
+    def control_evidence_snapshot(
+        self,
+        project_id: str,
+        *,
+        observed_at: datetime,
+    ) -> QuotaControlEvidenceSnapshot:
+        if (
+            not project_id
+            or project_id.strip() != project_id
+            or len(project_id) > 64
+            or "\x00" in project_id
+        ):
+            raise ValueError("control evidence project is invalid")
+        if observed_at.tzinfo is None or observed_at.utcoffset() is None:
+            raise ValueError("control evidence time must be timezone-aware")
+        observed_at = observed_at.astimezone(UTC)
+        with self._reader() as conn:
+            quota_row = conn.execute(
+                select(project_quotas).where(
+                    project_quotas.c.project_id == project_id
+                )
+            ).first()
+            if quota_row is None:
+                raise QuotaNotConfigured(project_id)
+
+            committed_rows = tuple(
+                conn.execute(
+                    select(
+                        quota_descriptors.c.digest,
+                        quota_descriptors.c.size,
+                        quota_descriptors.c.reference_count,
+                    )
+                    .where(quota_descriptors.c.project_id == project_id)
+                    .order_by(quota_descriptors.c.digest)
+                    .limit(MAX_CONTROL_EVIDENCE_DESCRIPTOR_ROWS + 1)
+                )
+            )
+            if len(committed_rows) > MAX_CONTROL_EVIDENCE_DESCRIPTOR_ROWS:
+                raise ValueError(
+                    "control evidence committed descriptor bound exceeded"
+                )
+
+            pending_rows = tuple(
+                conn.execute(
+                    select(
+                        quota_reservations.c.id,
+                        quota_reservations.c.delta_bytes,
+                    )
+                    .where(
+                        quota_reservations.c.project_id == project_id,
+                        quota_reservations.c.state.in_(PENDING_STATES),
+                    )
+                    .order_by(
+                        quota_reservations.c.created_at,
+                        quota_reservations.c.id,
+                    )
+                    .limit(MAX_CONTROL_EVIDENCE_PENDING + 1)
+                )
+            )
+            if len(pending_rows) > MAX_CONTROL_EVIDENCE_PENDING:
+                raise ValueError(
+                    "control evidence pending reservation bound exceeded"
+                )
+
+            reservation_ids = [row.id for row in pending_rows]
+            descriptor_rows: tuple[object, ...] = ()
+            if reservation_ids:
+                descriptor_rows = tuple(
+                    conn.execute(
+                        select(
+                            quota_reservation_descriptors.c.reservation_id,
+                            quota_reservation_descriptors.c.digest,
+                            quota_reservation_descriptors.c.size,
+                        )
+                        .where(
+                            quota_reservation_descriptors.c.reservation_id.in_(
+                                reservation_ids
+                            )
+                        )
+                        .order_by(
+                            quota_reservation_descriptors.c.reservation_id,
+                            quota_reservation_descriptors.c.digest,
+                        )
+                        .limit(MAX_CONTROL_EVIDENCE_DESCRIPTOR_ROWS + 1)
+                    )
+                )
+                if (
+                    len(descriptor_rows)
+                    > MAX_CONTROL_EVIDENCE_DESCRIPTOR_ROWS
+                ):
+                    raise ValueError(
+                        "control evidence pending descriptor bound exceeded"
+                    )
+
+            claim_rows = tuple(
+                conn.execute(
+                    select(
+                        quota_reconciliation_claims.c.expires_at,
+                        quota_reconciliation_claims.c.reservation_version,
+                        quota_reservations.c.state,
+                        quota_reservations.c.version,
+                    )
+                    .select_from(
+                        quota_reconciliation_claims.join(
+                            quota_reservations,
+                            quota_reconciliation_claims.c.reservation_id
+                            == quota_reservations.c.id,
+                        )
+                    )
+                    .order_by(
+                        quota_reconciliation_claims.c.expires_at,
+                        quota_reconciliation_claims.c.reservation_id,
+                    )
+                    .limit(MAX_CONTROL_EVIDENCE_CLAIMS + 1)
+                )
+            )
+            if len(claim_rows) > MAX_CONTROL_EVIDENCE_CLAIMS:
+                raise ValueError("control evidence claim bound exceeded")
+
+        expected_sizes: dict[str, int] = {}
+        descriptor_violations = 0
+        expected_used = 0
+        for row in committed_rows:
+            size = int(row.size)
+            references = int(row.reference_count)
+            if size < 0 or references <= 0 or row.digest in expected_sizes:
+                descriptor_violations += 1
+                continue
+            expected_sizes[row.digest] = size
+            expected_used += size
+
+        by_reservation: dict[str, list[tuple[str, int]]] = {
+            row.id: [] for row in pending_rows
+        }
+        for row in descriptor_rows:
+            by_reservation[row.reservation_id].append(
+                (row.digest, int(row.size))
+            )
+
+        expected_reserved = 0
+        mismatched_deltas = 0
+        for row in pending_rows:
+            descriptors = by_reservation[row.id]
+            if not descriptors:
+                descriptor_violations += 1
+            delta = 0
+            for digest, size in descriptors:
+                if size < 0:
+                    descriptor_violations += 1
+                    continue
+                existing_size = expected_sizes.get(digest)
+                if existing_size is not None:
+                    if existing_size != size:
+                        descriptor_violations += 1
+                    continue
+                expected_sizes[digest] = size
+                delta += size
+            expected_reserved += delta
+            if int(row.delta_bytes) != delta:
+                mismatched_deltas += 1
+
+        active_claims = 0
+        stale_claims = 0
+        eligible_active_claims = 0
+        claim_violations = 0
+        for row in claim_rows:
+            expires_at = row.expires_at
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=UTC)
+            if expires_at <= observed_at:
+                stale_claims += 1
+                continue
+            active_claims += 1
+            if (
+                row.state in RECONCILIATION_STATES
+                and row.reservation_version == row.version
+            ):
+                eligible_active_claims += 1
+            else:
+                claim_violations += 1
+
+        quota = quota_row._mapping  # type: ignore[attr-defined]
+        return QuotaControlEvidenceSnapshot(
+            limit_bytes=int(quota["limit_bytes"]),
+            used_bytes=int(quota["used_bytes"]),
+            reserved_bytes=int(quota["reserved_bytes"]),
+            expected_used_bytes=expected_used,
+            expected_reserved_bytes=expected_reserved,
+            pending_reservations=len(pending_rows),
+            mismatched_pending_deltas=mismatched_deltas,
+            descriptor_invariant_violations=descriptor_violations,
+            active_claims=active_claims,
+            stale_claims=stale_claims,
+            eligible_active_claims=eligible_active_claims,
+            claim_invariant_violations=claim_violations,
+        )
+
     @_retryable_quota_write
     def release_reconciliation_claim(self, claim_token: str) -> bool:
         if not claim_token or len(claim_token) > 36:
@@ -1036,6 +1275,8 @@ class QuotaStore:
                 quota_reservations.c.version == expected_version,
                 quota_reconciliation_claims.c.claim_token == claim_token,
                 quota_reconciliation_claims.c.worker_id == worker_id,
+                quota_reconciliation_claims.c.reservation_version
+                == expected_version,
                 quota_reconciliation_claims.c.expires_at > checked_at,
             )
         )
@@ -1505,6 +1746,7 @@ class QuotaStore:
         conn: object,
         reservation_id: str,
         expected_claim_token: str | None,
+        expected_version: int | None,
         claim_checked_at: datetime | None,
     ) -> None:
         if expected_claim_token is None:
@@ -1513,6 +1755,10 @@ class QuotaStore:
                     "claim_checked_at requires an expected reconciliation claim token"
                 )
             return
+        if expected_version is None:
+            raise ValueError(
+                "an expected reconciliation version is required with a claim token"
+            )
         if not expected_claim_token or len(expected_claim_token) > 36:
             raise ValueError("reconciliation claim token is invalid")
         checked_at = claim_checked_at or datetime.now(UTC)
@@ -1525,7 +1771,14 @@ class QuotaStore:
             )
             .with_for_update()
         ).first()
-        if claim is None or claim.claim_token != expected_claim_token:
+        if (
+            claim is None
+            or claim.claim_token != expected_claim_token
+            or (
+                expected_version is not None
+                and claim.reservation_version != expected_version
+            )
+        ):
             raise StaleReconciliationClaim(reservation_id)
         expires_at = claim.expires_at
         if expires_at.tzinfo is None:
@@ -1678,6 +1931,7 @@ class QuotaStore:
                 conn,
                 reservation_id,
                 expected_claim_token,
+                expected_version,
                 claim_checked_at,
             )
             self._check_reconciliation_version(row, expected_version)
@@ -1771,6 +2025,7 @@ class QuotaStore:
                 conn,
                 reservation_id,
                 expected_claim_token,
+                expected_version,
                 claim_checked_at,
             )
             self._check_reconciliation_version(row, expected_version)

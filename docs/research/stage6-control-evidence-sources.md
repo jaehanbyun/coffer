@@ -1,7 +1,8 @@
 # Stage 6 Quota and Reconciliation Evidence Sources
 
 - Date: 2026-07-26
-- Status: source mapping complete; runtime collector not yet implemented
+- Status: source mapping and read-only SQL snapshot implemented; transaction
+  attempt and Prometheus acquisition pending
 - Scope: the quota and reconciliation auxiliary payloads consumed by
   `poc/load-soak/collector/phase_evidence.py`
 - External operations: none; this result comes from current Coffer source,
@@ -10,10 +11,11 @@
 ## Outcome
 
 The current product has enough direct state to build part, but not all, of
-the quota and reconciliation artifacts. Four facts are already available from
-one read-only SQL snapshot, three are already available from private
-Prometheus surfaces, two can be derived only after a precise invariant query
-is added, and one quota fact has no runtime source.
+the quota and reconciliation artifacts. The read-only SQL boundary and
+version-bound claim schema now supply charge, pending-delta, stale-claim, and
+current claim-invariant facts. Private Prometheus surfaces already supply
+worker/freshness and bounded internal-error inputs. Observed quota transaction
+attempts remain the one missing runtime source.
 
 `control_artifacts.py` must therefore not be implemented as a converter over
 today's convenient metrics. Doing so would require one of three false claims:
@@ -41,7 +43,7 @@ The required implementation order is:
 | `limit_usage_percent` | `project_quotas.limit_bytes`, `used_bytes`, and `reserved_bytes` for the one load-test project | Directly derivable in one read-only SQL snapshot as `(used + reserved) / limit * 100`; the zero-limit/zero-charge case is 0% and a positive charge with zero limit is an invariant failure |
 | `headroom_percent` | Same quota row | Directly derivable as `100 - limit_usage_percent`; retain both only because the accepted verifier independently checks their sum |
 | `stale_claims` | `QuotaStore.reconciliation_metrics_snapshot()` counts `quota_reconciliation_claims.expires_at <= observed_at` | Direct SQL source already exists; reuse the count from the same snapshot rather than issuing a second time-skewed query |
-| `invariant` | `_recompute()` currently calculates expected committed and pending charge, but it mutates reservation deltas and project counters | Missing read-only form. Add a non-mutating equivalent that compares stored `used_bytes`, `reserved_bytes`, and every pending `delta_bytes` with a recomputation under one transaction |
+| `invariant` | `QuotaStore.control_evidence_snapshot()` independently recomputes committed and ordered pending charge without invoking mutating `_recompute()` | Implemented. Stored `used_bytes`, `reserved_bytes`, every pending `delta_bytes`, descriptor size consistency, and the configured limit are compared under one reader transaction |
 | `max_transaction_attempts` | `_retryable_quota_write()` knows each call's attempt number and the fixed ceiling `MAX_TRANSACTION_ATTEMPTS=3`, but only emits a warning before retry | Missing runtime evidence. The ceiling is configuration, not observation. Add bounded attempt observation at the decorator and expose phase-delta-compatible Prometheus data |
 | `unexpected_errors` | `coffer_quota_admission_total{result="internal_error"}` on each edge process | Existing metric source. Use a reset-aware phase delta across every exact edge replica; do not count expected `over_quota`, `invalid_manifest`, `unauthorized`, `missing_quota`, or injected `upstream_unavailable` outcomes as unexpected |
 
@@ -60,8 +62,8 @@ raw row survives in an artifact.
 | `workers_up` | Prometheus `up` for the exact direct reconciler instance allowlist already bound by the native target | Direct observed source; one replica may be down only in the declared `during` window |
 | `workers_total` | Exact native target reconciler instance allowlist, cross-checked with `topology.json` | Bound expected population, not a health claim; it is accepted only alongside observed `workers_up` |
 | `fresh` | Required replica `up`, bounded worst success age, and `coffer_dependency_up{component="reconcile",dependency="database"}` | Derivable only from all three direct observations. A missing, reset-only, stale, or database-down series is false, not zero/default |
-| `claims_exact` | Claim primary key/unique constraints, reservation foreign key, live claim predicates, and current reservation versions | Constraints are necessary but insufficient. Add a read-only invariant query that checks every active claim maps to exactly one eligible reservation and that no active reservation/claim version or state is inconsistent |
-| `fencing_violations` | No persistent violation counter or audit row exists | Missing as historical phase evidence. Rejected `stale_claim`/`stale_version` outcomes prove the fence worked and must not be counted as violations. Initially define this as the number of current claim-invariant violations returned by the SQL snapshot; retain rejected stale outcomes separately as diagnostic metrics |
+| `claims_exact` | Claim primary key/unique constraints, reservation foreign key, migration `0006_claim_version_binding`, and `QuotaStore.control_evidence_snapshot()` | Implemented as a current invariant. Every active claim must map to one eligible reservation whose current version equals the version persisted when the claim was acquired |
+| `fencing_violations` | `QuotaStore.control_evidence_snapshot().claim_invariant_violations` | Implemented as the number of current active claim state/version violations. Rejected `stale_claim`/`stale_version` outcomes prove the fence worked and remain separate diagnostics |
 
 `claims_exact` is true exactly when the snapshot's claim-invariant violation
 count is zero. `fencing_violations` retains that count for the current
@@ -71,15 +73,15 @@ append-only mutation audit; the Stage 6 collector must describe this limit.
 
 ## Read-Only SQL Snapshot Contract
 
-Add an identity-free `QuotaControlEvidenceSnapshot` returned by a new
-`QuotaStore.control_evidence_snapshot()` method. Its input is:
+The identity-free `QuotaControlEvidenceSnapshot` is returned by
+`QuotaStore.control_evidence_snapshot()`. Its input is:
 
 - one validated load-test project ID;
 - one timezone-aware `observed_at`;
 - the existing bounded reconciliation stale interval; and
 - no repository, digest, token, claim token, worker identity, or credential.
 
-One reader transaction must return only:
+One reader transaction returns only:
 
 - `limit_bytes`, `used_bytes`, and `reserved_bytes`;
 - recomputed expected used/reserved bytes;
@@ -89,8 +91,20 @@ One reader transaction must return only:
 - a canonical snapshot hash calculated only after identifiers have been
   reduced to counts.
 
-The public artifact compiler converts those values to percentages, booleans,
-and counts. It must fail if:
+The snapshot is immutable and exposes no project, reservation, digest, claim
+token, worker, or connection identity. It is bounded to 1,000 pending
+reservations, 100,000 committed/pending descriptor rows, and 10,000 claims;
+an exceeded bound refuses evidence rather than sampling it.
+
+Migration `0006_claim_version_binding` persists each claim's reservation
+version, backfills existing claims from their referenced reservations, adds a
+positive-version constraint, requires version plus token on mutation/read
+authorization, and refuses downgrade while any claim remains. This closes a
+real prior gap: the claim object carried a version in memory, but the claim
+row did not retain it for later invariant comparison.
+
+The public artifact compiler converts snapshot values to percentages,
+booleans, and counts. It must fail if:
 
 - the project has no quota row;
 - any stored or recomputed value is negative, exceeds signed SQL bounds, or
@@ -158,16 +172,13 @@ their fixed downstream source classes.
 
 ## Next Implementation Slice
 
-Begin in `src/coffer/quota.py`:
+Begin in `src/coffer/quota.py` and `src/coffer/observability.py`:
 
-1. add the immutable identity-free snapshot type and one read-only snapshot
-   method;
-2. test exact recomputation, charge percentages, stale claims, claim
-   consistency, snapshot isolation, and zero mutation on SQLite plus the
-   existing shared-SQL fixture boundaries; and
-3. add no metric or collector claim for transaction attempts until the retry
-   observer is implemented and tested.
-
-After that product-owned SQL boundary passes, implement the bounded retry
-observer and Prometheus contract, then add
-`poc/load-soak/collector/control_artifacts.py`.
+1. add an optional bounded attempt observer to `QuotaStore`;
+2. invoke it once when each decorated quota write terminates, including
+   terminal conflict or database failure;
+3. export fixed operation/result/attempt classes without SQL state or
+   identity; and
+4. prove exact 1/2/3-attempt observation and failure behavior before adding
+   Prometheus acquisition to
+   `poc/load-soak/collector/control_artifacts.py`.

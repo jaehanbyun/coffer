@@ -43,7 +43,7 @@ uv run alembic upgrade head
 unset COFFER_DATABASE_URL
 ```
 
-The current head is `0005_maintenance_comparison_sessions`. A fresh database
+The current head is `0006_claim_version_binding`. A fresh database
 receives repository and quota tables. A database containing the exact older PoC
 `repositories` table is migrated online: revision `0003` validates its five
 columns, primary key, string bounds, nullability, and named project/name
@@ -51,7 +51,10 @@ uniqueness, then adopts it without rewriting rows. Revision `0004` creates the
 singleton baseline-import marker; it refuses downgrade when that marker contains
 a committed import. Revision `0005` adds finite live-comparison authorization
 sessions bound to that marker and refuses downgrade while any session evidence
-is retained. Structural drift aborts before the relevant revision is recorded.
+is retained. Revision `0006` persists the reservation version captured by each
+reconciliation claim, backfills existing claims through their reservation
+foreign key, and refuses downgrade while any claim remains. Structural drift
+aborts before the relevant revision is recorded.
 Do not use `alembic stamp` to bypass validation.
 
 The conditional create-or-adopt decision cannot be made safely by offline `--sql` generation, so that path is rejected. Downgrade across revision `0003` deliberately retains repository rows; normal processes still reject the downgraded revision until re-upgrade validates and adopts them again. This is disposable recovery evidence, not a production rollback prescription.
@@ -116,13 +119,19 @@ A scheduler may pass the returned cursor while draining one scan, but it must be
 
 For each candidate it:
 
-1. Claims the candidate with an expiry, worker ID, and random token; the worker ID is diagnostic only and the token is the fencing authority.
+1. Claims the candidate with its current reservation version, an expiry,
+   worker ID, and random token; the worker ID is diagnostic only, while the
+   persisted token/version pair is the fencing authority.
 2. Resolves the stored project and repository IDs through the Coffer control authority into `p/<project-id>/<repository>`.
 3. Sends `HEAD /v2/<canonical-repository>/manifests/<sha256-digest>` to one credential-free configured HTTP(S) origin. Production must use a private TLS service path and an approved in-memory service-auth header or equivalent network identity.
 4. Commits or refreshes state only for HTTP 200 with exactly one matching `Docker-Content-Digest` header.
 5. Releases charged state only for exact HTTP 404.
 6. Leaves quota state unchanged for 401, 403, every 5xx or other status, missing/mismatched/duplicate digest headers, missing repository authority, timeout, or transport failure. The claim remains until expiry and supplies bounded retry backoff.
-7. Applies an actionable observation only if both the reservation version and current unexpired claim token match. Successful mutation consumes that claim in the same transaction. A version conflict releases only the matching old claim; an expired or reassigned token cannot remove its successor.
+7. Applies an actionable observation only if the caller version matches both
+   the current reservation and the version persisted on the current unexpired
+   claim, and the claim token matches. Successful mutation consumes that claim
+   in the same transaction. A version conflict releases only the matching old
+   claim; an expired or reassigned token cannot remove its successor.
 
 A process crash never releases quota. The committed claim remains until its lease expires, after which another process receives a new token. The old process cannot mutate state if it resumes late. The one-hour code maximum is a safety bound, not a recommended interval; production values must exceed the measured probe timeout while keeping crash recovery within the operator's reconciliation objective.
 

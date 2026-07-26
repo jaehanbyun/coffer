@@ -7,7 +7,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 
-CURRENT_SCHEMA_REVISION = "0005_maintenance_comparison_sessions"
+CURRENT_SCHEMA_REVISION = "0006_claim_version_binding"
 
 
 class SchemaNotReady(Exception):

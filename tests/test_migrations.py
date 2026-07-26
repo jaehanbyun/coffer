@@ -186,7 +186,21 @@ def test_alembic_upgrade_is_repeatable_and_downgrade_is_bounded(
         for constraint in schema.get_check_constraints(
             "quota_reconciliation_claims"
         )
-    } == {"ck_quota_reconciliation_claim_window"}
+    } == {
+        "ck_quota_reconciliation_claim_version",
+        "ck_quota_reconciliation_claim_window",
+    }
+    assert {
+        column["name"]
+        for column in schema.get_columns("quota_reconciliation_claims")
+    } == {
+        "reservation_id",
+        "claim_token",
+        "worker_id",
+        "reservation_version",
+        "claimed_at",
+        "expires_at",
+    }
     assert {
         constraint["name"]
         for constraint in schema.get_check_constraints("quota_inventory_imports")
@@ -267,6 +281,77 @@ def test_alembic_logging_preserves_existing_application_loggers(
         logger.disabled = original_disabled
 
 
+def test_claim_version_migration_backfills_and_refuses_loss(
+    tmp_path: Path,
+) -> None:
+    database_url = f"sqlite:///{tmp_path / 'claim-version.sqlite'}"
+    config = migration_config(database_url)
+    command.upgrade(config, "0005_maintenance_comparison_sessions")
+    engine = create_engine(database_url)
+    now = datetime.now(UTC).replace(microsecond=0)
+    now_sql = now.replace(tzinfo=None).isoformat(sep=" ")
+    expires_sql = (now + timedelta(minutes=1)).replace(
+        tzinfo=None
+    ).isoformat(sep=" ")
+    reservation_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO project_quotas "
+                "(project_id, limit_bytes, used_bytes, reserved_bytes, updated_at) "
+                "VALUES ('project-a', 1024, 0, 0, :now)"
+            ),
+            {"now": now_sql},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO quota_reservations "
+                "(id, project_id, repository_id, manifest_digest, request_id, "
+                "state, version, delta_bytes, created_at, updated_at) VALUES "
+                "(:id, 'project-a', "
+                "'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', :digest, "
+                "'migration-claim', 'pending', 7, 0, :now, :now)"
+            ),
+            {
+                "id": reservation_id,
+                "digest": f"sha256:{'1' * 64}",
+                "now": now_sql,
+            },
+        )
+        connection.execute(
+            text(
+                "INSERT INTO quota_reconciliation_claims "
+                "(reservation_id, claim_token, worker_id, claimed_at, expires_at) "
+                "VALUES (:reservation_id, :claim_token, 'worker-a', :now, :expires)"
+            ),
+            {
+                "reservation_id": reservation_id,
+                "claim_token": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+                "now": now_sql,
+                "expires": expires_sql,
+            },
+        )
+
+    command.upgrade(config, "head")
+    with engine.connect() as connection:
+        assert connection.execute(
+            text(
+                "SELECT reservation_version "
+                "FROM quota_reconciliation_claims"
+            )
+        ).scalar_one() == 7
+
+    with pytest.raises(RuntimeError, match="active reconciliation"):
+        command.downgrade(
+            config,
+            "0005_maintenance_comparison_sessions",
+        )
+    with engine.connect() as connection:
+        assert connection.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one() == CURRENT_SCHEMA_REVISION
+
+
 def test_retained_comparison_session_blocks_schema_downgrade(
     tmp_path: Path,
 ) -> None:
@@ -303,4 +388,4 @@ def test_retained_comparison_session_blocks_schema_downgrade(
     with create_engine(database_url).connect() as connection:
         assert connection.execute(
             text("SELECT version_num FROM alembic_version")
-        ).scalar_one() == CURRENT_SCHEMA_REVISION
+        ).scalar_one() == "0005_maintenance_comparison_sessions"

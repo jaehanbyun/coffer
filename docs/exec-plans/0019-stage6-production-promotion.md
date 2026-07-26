@@ -2210,6 +2210,38 @@ operator-local release.
   active claim consistency checks; add focused tests in
   `tests/test_quota_control_evidence.py`.
 
+### 2026-07-26 — Read-only control SQL evidence completed
+
+- Claim authority: Added migration `0006_claim_version_binding`. Every new
+  claim persists the reservation version observed at acquisition; existing
+  claims are backfilled through the foreign key. Read authorization and
+  mutation now require the caller version to match both current reservation
+  and claim, and downgrade refuses to discard a retained claim version.
+- Quota snapshot: Added immutable, identity-free
+  `QuotaControlEvidenceSnapshot` and one non-mutating reader transaction.
+  Stored used/reserved values are compared with independently recomputed
+  committed descriptors and ordered pending deltas. Missing/conflicting
+  descriptors, delta drift, and over-limit charge remain explicit invariant
+  failures.
+- Claim snapshot: The same transaction counts active/stale claims and checks
+  each active claim's current eligible state plus persisted/current
+  reservation version. No project, repository, reservation, digest, worker,
+  token, credential, URL, or connection value survives.
+- Bounds and rollback: Evidence refuses more than 1,000 pending reservations,
+  100,000 descriptor rows, or 10,000 claims rather than sampling. Migration
+  backfill and retained-claim downgrade refusal are tested. The operator
+  runbook now names head `0006` and the persisted token/version authority.
+- Evidence: Twenty-one new snapshot tests pass; the 183-test quota,
+  reconciliation, migration, bootstrap, maintenance, and runner matrix
+  passes. Full regression and collection both report 1126. No real database,
+  endpoint, identity, credential, container, VM, or remote state was read or
+  changed.
+- Next exact action: Add an optional bounded quota-write attempt observer in
+  `src/coffer/quota.py` and its Prometheus metric contract in
+  `src/coffer/observability.py`. Observe exactly once at terminal success or
+  failure with only fixed operation/result classes and attempts 1 through 3;
+  add focused coverage in `tests/test_quota_transaction_observability.py`.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2355,6 +2387,9 @@ operator-local release.
 | Broad load matrix after local artifacts | `uv run pytest -q tests/test_load_*.py` | passed; 479 |
 | Full regression after local artifacts | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1104 |
 | Quota/reconciliation source mapping | focused source/schema/metric/runner/verifier inspection; `git diff --check` | passed; unsupported substitutions recorded as missing |
+| Read-only control SQL evidence | `uv run pytest -q tests/test_quota_control_evidence.py` | passed; 21 |
+| Control SQL/migration/reconciliation focused matrix | quota, reconciliation, migration, bootstrap, maintenance, and runner tests | passed; 183 |
+| Full regression after control SQL evidence | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1126 |
 
 ## Failures, Blockers, and Risks
 
@@ -2394,12 +2429,11 @@ operator-local release.
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
-- Exact next action: Create
-  an immutable, identity-free `QuotaControlEvidenceSnapshot` and
-  `QuotaStore.control_evidence_snapshot()` in `src/coffer/quota.py`. The method
-  must use one non-mutating reader transaction to compare stored and
-  recomputed quota charge/pending deltas and validate current claim
-  consistency. Add focused tests in `tests/test_quota_control_evidence.py`.
+- Exact next action: Add an optional bounded quota-write attempt observer in
+  `src/coffer/quota.py` and its Prometheus metric contract in
+  `src/coffer/observability.py`. Emit one terminal observation per decorated
+  write with fixed operation/result classes and attempts 1 through 3; add
+  focused tests in `tests/test_quota_transaction_observability.py`.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

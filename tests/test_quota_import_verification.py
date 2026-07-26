@@ -225,6 +225,7 @@ def test_rejects_claim_and_extra_ledger_state(tmp_path: Path) -> None:
                 reservation_id=reservation_id,
                 claim_token=str(uuid.uuid4()),
                 worker_id="verification-test",
+                reservation_version=1,
                 claimed_at=IMPORTED_AT,
                 expires_at=IMPORTED_AT + timedelta(seconds=30),
             )
