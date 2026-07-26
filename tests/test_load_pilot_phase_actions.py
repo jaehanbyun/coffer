@@ -143,42 +143,6 @@ def write_collector_inputs(
             target_sha256=target_file_sha256,
             window_sha256=window_sha256,
         )
-    rgw_config = {
-        "bucket_scope_sha256": config["bucket_scope_sha256"],
-        "collector_source_sha256": (
-            ACTIONS.rgw_live_adapter.rgw_artifacts.collector_source_sha256()
-        ),
-        "expected_fault_counts": {
-            result: sum(
-                step["result"] == result for step in config["steps"]
-            )
-            for result in (
-                ACTIONS.rgw_live_adapter.rgw_artifacts.FAULT_CLASSES
-            )
-        },
-        "expected_operation_counts": config[
-            "expected_operation_counts"
-        ],
-        "kms_policy_sha256": config["kms_policy_sha256"],
-        "multipart_source_sha256": config[
-            "multipart_source_sha256"
-        ],
-        "phase": phase,
-        "probe_source_sha256": config["probe_source_sha256"],
-        "rgw_config_sha256": config["rgw_config_sha256"],
-        "schema": ACTIONS.rgw_live_adapter.rgw_artifacts.CONFIG_SCHEMA,
-        "target_file": str(target_path),
-        "target_file_sha256": target_file_sha256,
-        "window_completed_at_seconds": config[
-            "window_completed_at_seconds"
-        ],
-        "window_sha256": window_sha256,
-        "window_started_at_seconds": config[
-            "window_started_at_seconds"
-        ],
-    }
-    owner_document(paths["rgw_config"], rgw_config)
-    runtime = Path(adapter.schedule["runtime_directory"]) / phase
     collector_inputs = {
         "collector_inputs": {
             "control_baseline": descriptor(paths["control_baseline"]),
@@ -187,9 +151,6 @@ def write_collector_inputs(
             "galera_config": descriptor(paths["galera_config"]),
             "haproxy_config": descriptor(paths["haproxy_config"]),
             "prometheus_config": descriptor(paths["prometheus_config"]),
-            "rgw_config": descriptor(paths["rgw_config"]),
-            "rgw_multipart": descriptor(runtime / "rgw-multipart.json"),
-            "rgw_probe": descriptor(runtime / "rgw-probe.json"),
         },
         "evidence_server": request["evidence_server"],
         "materializer_source_sha256": ACTIONS.adapter_source_sha256(),
@@ -325,9 +286,9 @@ def test_collector_input_drift_is_refused_before_output(
     elif mutation == "schedule":
         value["schedule_sha256"] = f"sha256:{'0' * 64}"
     elif mutation == "dynamic-path":
-        value["collector_inputs"]["rgw_probe"] = value[
+        value["collector_inputs"]["control_baseline"] = value[
             "collector_inputs"
-        ]["rgw_multipart"]
+        ]["control_current"]
     elif mutation == "input-mode":
         path = Path(value["collector_inputs"]["control_current"]["file"])
         path.chmod(0o640)

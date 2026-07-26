@@ -43,6 +43,8 @@ STATE_FILE = ".pilot-executor-state.json"
 RESULT_FILE = ".pilot-executor-result.json"
 LOCK_FILE = ".pilot-executor.lock"
 RUNTIME_FILES = frozenset({STATE_FILE, RESULT_FILE, LOCK_FILE})
+FIXTURE_ADAPTER_CONTRACT = "coffer.stage6-pilot-fixture-adapter/v1"
+PILOT_ADAPTER_CONTRACT = "coffer.stage6-pilot-action-adapter/v1"
 SOURCE_FILES = (
     DIRECTORY / "rgw_live_adapter.py",
     DIRECTORY / "pilot_schedule.py",
@@ -71,7 +73,9 @@ class CommandError(RuntimeError):
 
 
 class ActionAdapter(Protocol):
+    contract: str
     name: str
+    source_sha256: str
     synthetic: bool
 
     def execute(self, action: Mapping[str, Any]) -> Mapping[str, Any]: ...
@@ -470,6 +474,8 @@ class FixtureActionAdapter:
     apply_then_raise_order: int | None = None
     name: str = "fixture"
     synthetic: bool = True
+    contract: str = FIXTURE_ADAPTER_CONTRACT
+    source_sha256: str = field(default_factory=executor_source_sha256)
     applied: dict[int, dict[str, Any]] = field(default_factory=dict)
     execute_calls: list[int] = field(default_factory=list)
     reconcile_calls: list[int] = field(default_factory=list)
@@ -549,6 +555,8 @@ def _new_state(
 ) -> dict[str, Any]:
     unsigned = {
         "adapter": adapter.name,
+        "adapter_contract": adapter.contract,
+        "adapter_source_sha256": adapter.source_sha256,
         "complete": False,
         "executor_source_sha256": executor_source_sha256(),
         "history": [],
@@ -575,6 +583,8 @@ def _validate_state(
             value,
             {
                 "adapter",
+                "adapter_contract",
+                "adapter_source_sha256",
                 "complete",
                 "executor_source_sha256",
                 "history",
@@ -594,6 +604,13 @@ def _validate_state(
     if (
         state["schema"] != STATE_SCHEMA
         or state["adapter"] != adapter.name
+        or state["adapter_contract"] != adapter.contract
+        or state["adapter_source_sha256"] != adapter.source_sha256
+        or _sha256(
+            state["adapter_source_sha256"],
+            "pilot adapter source hash",
+        )
+        != state["adapter_source_sha256"]
         or state["synthetic"] is not adapter.synthetic
         or state["executor_source_sha256"] != executor_source_sha256()
         or state["readiness_evidence_sha256"] != readiness_sha256
@@ -642,7 +659,80 @@ def _save_state(path: Path, state: dict[str, Any]) -> None:
     _write(path, state)
 
 
-def _runtime(schedule: Mapping[str, Any]) -> Path:
+def _owner_runtime_file(path: Path) -> None:
+    try:
+        metadata = path.stat(follow_symlinks=False)
+    except OSError as error:
+        raise PilotExecutorError(
+            "pilot runtime entry is unavailable"
+        ) from error
+    if (
+        not stat.S_ISREG(metadata.st_mode)
+        or stat.S_IMODE(metadata.st_mode) != 0o600
+        or metadata.st_uid != os.getuid()
+        or metadata.st_nlink != 1
+    ):
+        raise PilotExecutorError("pilot runtime entry is unsafe")
+
+
+def _phase_runtime(
+    path: Path,
+    *,
+    phase: str,
+    schedule: Mapping[str, Any],
+) -> None:
+    try:
+        metadata = path.stat(follow_symlinks=False)
+        children = list(path.iterdir())
+    except OSError as error:
+        raise PilotExecutorError(
+            "pilot phase runtime is unavailable"
+        ) from error
+    allowed = {
+        "collector-inputs.json",
+        "rgw-artifact-config.json",
+        "rgw-step-set.json",
+    }
+    for action in schedule["actions"]:
+        if action["phase"] != phase:
+            continue
+        for field in ("input_file", "output_file"):
+            candidate = Path(action[field])
+            try:
+                relative = candidate.relative_to(path)
+            except ValueError:
+                continue
+            if relative.parts:
+                allowed.add(relative.parts[0])
+    if (
+        not stat.S_ISDIR(metadata.st_mode)
+        or stat.S_IMODE(metadata.st_mode) != 0o700
+        or metadata.st_uid != os.getuid()
+        or any(child.name not in allowed for child in children)
+    ):
+        raise PilotExecutorError("pilot phase runtime is unsafe")
+    for child in children:
+        details = child.stat(follow_symlinks=False)
+        if stat.S_ISDIR(details.st_mode):
+            if (
+                child.name != "phase-evidence"
+                or stat.S_IMODE(details.st_mode) != 0o700
+                or details.st_uid != os.getuid()
+            ):
+                raise PilotExecutorError(
+                    "pilot phase runtime is unsafe"
+                )
+            for retained in child.iterdir():
+                _owner_runtime_file(retained)
+        else:
+            _owner_runtime_file(child)
+
+
+def _runtime(
+    schedule: Mapping[str, Any],
+    *,
+    allow_phase_directories: bool = False,
+) -> Path:
     runtime = Path(schedule["runtime_directory"])
     try:
         if not runtime.exists() and not runtime.is_symlink():
@@ -653,13 +743,25 @@ def _runtime(schedule: Mapping[str, Any]) -> Path:
         raise PilotExecutorError(
             "pilot runtime directory is unavailable"
         ) from error
+    allowed = set(RUNTIME_FILES)
+    if allow_phase_directories:
+        allowed.update(native_target.PHASES)
     if (
         not stat.S_ISDIR(metadata.st_mode)
         or stat.S_IMODE(metadata.st_mode) != 0o700
         or metadata.st_uid != os.getuid()
-        or not names <= RUNTIME_FILES
+        or not names <= allowed
     ):
         raise PilotExecutorError("pilot runtime directory is unsafe")
+    if allow_phase_directories:
+        for phase in native_target.PHASES:
+            path = runtime / phase
+            if path.exists() or path.is_symlink():
+                _phase_runtime(
+                    path,
+                    phase=phase,
+                    schedule=schedule,
+                )
     return runtime
 
 
@@ -745,15 +847,29 @@ def execute(
     *,
     adapter: ActionAdapter,
 ) -> dict[str, Any]:
-    if adapter.synthetic is not True or adapter.name != "fixture":
+    fixture = (
+        adapter.synthetic is True
+        and adapter.name == "fixture"
+        and adapter.contract == FIXTURE_ADAPTER_CONTRACT
+    )
+    pilot = (
+        adapter.synthetic is False
+        and adapter.name == "pilot"
+        and adapter.contract == PILOT_ADAPTER_CONTRACT
+    )
+    if not fixture and not pilot:
         raise PilotExecutorError(
-            "live pilot executor adapter is not implemented"
+            "pilot executor adapter is unsupported"
         )
+    _sha256(adapter.source_sha256, "pilot adapter source hash")
     schedule, _ = _schedule_output(
         schedule_directory,
         readiness_path,
     )
-    runtime = _runtime(schedule)
+    runtime = _runtime(
+        schedule,
+        allow_phase_directories=pilot,
+    )
     state_path = runtime / STATE_FILE
     result_path = runtime / RESULT_FILE
     readiness_sha256 = schedule["readiness_evidence_sha256"]

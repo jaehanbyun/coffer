@@ -590,10 +590,12 @@ The fixture adapter produces synthetic hashes only. Seventeen tests prove all
 53 checkpoints, exact resume after a failure-before-apply, reconciliation
 after an apply-before-response interruption, idempotent completion,
 nonblocking locking, fixed CLI failures, and input/state/result tamper
-rejection. Non-synthetic adapters are refused. The next milestone must
-materialize the owner-only helper runtime and action outputs while preserving
-this state protocol; it still cannot execute against the blocked stable
-release pair.
+rejection. The executor now also accepts exactly one non-synthetic
+`coffer.stage6-pilot-action-adapter/v1` contract named `pilot`. Its source hash
+is persisted with the checkpoint state. Phase runtime directories admit only
+the scheduled files plus the fixed collector/config inputs, with mode-0700
+directories and mode-0600 single-link files. Partial RGW, fault, or phase
+adapters remain refused.
 
 `rgw_cleanup.py` closes the exact-prefix deletion contract used by the
 scheduled cleanup/verification pair:
@@ -680,11 +682,10 @@ uv run python poc/load-soak/collector/pilot_phase_actions.py source-hash
 The externally rendered `collector-inputs.json` is an owner-only deployment
 input contract until the Kolla renderer owns it. It contains no credential.
 The materializer binds its exact source, the phase-preparer source, qualified
-schedule, phase, window, and native target. Static Prometheus, HAProxy,
-control, and Galera descriptors may be supplied by the pilot collector. The
-RGW artifact configuration must be byte-for-byte equivalent to the qualified
-live schedule, while the probe and multipart descriptors must name the exact
-files produced beneath that phase runtime.
+schedule, phase, window, and native target. It accepts only the six static
+Prometheus, HAProxy, control, and Galera descriptors. At action time it derives
+the RGW artifact configuration from the qualified live schedule and binds the
+probe and multipart descriptors to the exact preceding runtime files.
 
 `render-phase-preparation-request` validates every descriptor and emits the
 existing preparation request at its scheduled path.
@@ -697,6 +698,26 @@ without rebuilding it. Twelve tests cover all three phases, repeat
 reconciliation, static/dynamic/target/source drift, unsafe input mode,
 cleanup tamper, output preservation, unsupported actions, and the source-only
 CLI. Tests use only local fixtures and fake RGW clients.
+
+`pilot_actions.py` is the sole non-synthetic adapter accepted by the
+checkpoint executor:
+
+```text
+uv run python poc/load-soak/collector/pilot_actions.py source-hash
+```
+
+It loads the qualified schedule once, constructs the RGW, external-fault, and
+phase adapters, rejects overlapping or missing routes, and converts each
+independently validated sub-result into the single `pilot` checkpoint result.
+Per-phase clocks are injectable for tests; the default uses wall time. The
+module exposes no execution CLI while released dependencies remain blocked.
+
+Thirteen tests execute all 53 actions through the real checkpoint loop with
+fake S3 clients and a fake external controller. They prove completion and
+idempotent rerun, exact resume after failure-before-action, RGW output
+reconciliation without a duplicate storage call, fault apply reconciliation
+through read-only external observation, adapter contract/name/source
+enforcement, owner-only runtime enforcement, and the source-only CLI.
 
 ## Six-surface phase preparation
 

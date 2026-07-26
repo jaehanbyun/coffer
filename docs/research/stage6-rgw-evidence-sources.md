@@ -242,8 +242,8 @@ state is used.
 
 ## Exact Next Action
 
-Compose the completed RGW, external-fault, and phase action materializers
-behind one non-synthetic checkpoint adapter accepted by the executor. Prove
-all 53 checkpoints and interruption recovery with injected clients and
-owner-only collector inputs. Keep actual invocation disabled while the
-selected released Distribution/Ceph inputs remain unqualified.
+Implement the owner-only deployment-input renderer and bounded concrete fault
+controller required by the completed 53-action adapter. Then expose a live
+command that reuses the qualified schedule gate. Keep remote invocation
+disabled while the selected released Distribution/Ceph inputs remain
+unqualified.

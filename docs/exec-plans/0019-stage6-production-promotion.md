@@ -2611,6 +2611,41 @@ operator-local release.
   resume, and completion with injected clients/controller and owner-only
   collector inputs. Actual invocation remains release-gated.
 
+### 2026-07-26 — Complete non-synthetic checkpoint adapter completed locally
+
+- Sole executor contract: The executor accepts either its original synthetic
+  fixture contract or exactly one non-synthetic `pilot` contract. Partial
+  RGW/fault/phase adapters and a name-only spoof are refused. Adapter source
+  hash is persisted with state so a changed implementation cannot resume an
+  old checkpoint.
+- Owner-only runtime: Non-synthetic runs may preseed the three phase
+  directories only with scheduled/fixed input names. Directories must be
+  owner mode 0700; retained files must be owner mode 0600, regular, and
+  single-link. The atomic phase-evidence directory is checked recursively.
+- Static/dynamic split: `collector-inputs.json` now contains only the six
+  static Prometheus/HAProxy/control/Galera descriptors. The phase action
+  derives the exact RGW artifact config after RGW collection and binds probe
+  and multipart hashes to the preceding scheduled outputs, so inputs can be
+  safely preseeded before execution.
+- Complete routing: `pilot_actions.py` loads the qualified schedule and routes
+  every one of its 53 actions to exactly one RGW, external-fault, or phase
+  implementation. Each sub-result is independently revalidated before it
+  becomes the single `pilot` checkpoint result.
+- Interruption evidence: The complete adapter resumes a failure before action
+  from the exact pending checkpoint. An RGW output written before response is
+  revalidated without another fake S3 call. A fault applied before controller
+  response is recovered through read-only observation without a duplicate
+  apply.
+- Evidence: Thirteen complete-adapter and 171 combined focused tests pass.
+  The load/observability matrix passes 841 tests and the full Python
+  regression passes 1386. All execution used injected fake clients/controller
+  and local owner-only fixtures; no Kolla, service restart, boto3, credential,
+  endpoint, S3, KMS, Barbican, container, VM, or remote state changed.
+- Next exact action: Implement the owner-only deployment-input renderer and a
+  bounded concrete fault controller needed by the composite adapter, then add
+  a CLI that remains hard-gated by qualified released dependencies. Do not
+  invoke the remote pilot while current stable releases remain blocked.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2799,6 +2834,10 @@ operator-local release.
 | Phase, fault, and RGW action stack | phase actions, fault actions, RGW actions, phase preparation, cleanup, executor, schedule, and live-adapter focused tests | passed; 158 |
 | Post-phase-actions load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 828 |
 | Post-phase-actions full Python regression | `uv run pytest -q` | passed; 1373 |
+| Complete non-synthetic checkpoint adapter | `uv run pytest -q tests/test_load_pilot_actions.py` | passed; 13 |
+| Complete pilot action stack | complete adapter, phase/fault/RGW actions, phase preparation, cleanup, executor, schedule, and live-adapter focused tests | passed; 171 |
+| Post-composite load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 841 |
+| Post-composite full Python regression | `uv run pytest -q` | passed; 1386 |
 | Control SQL/migration/reconciliation focused matrix | quota, reconciliation, migration, bootstrap, maintenance, and runner tests | passed; 183 |
 | Full regression after control SQL evidence | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1126 |
 
@@ -2840,10 +2879,10 @@ operator-local release.
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
-- Exact next action: Compose RGW, external-fault, and phase adapters behind
-  one checkpoint adapter accepted by the executor, then prove all 53 actions,
-  resume, and completion with injected clients/controller and owner-only
-  collector inputs. Actual invocation remains release-gated.
+- Exact next action: Implement the owner-only deployment-input renderer and a
+  bounded concrete fault controller needed by the composite adapter, then add
+  a CLI that remains hard-gated by qualified released dependencies. Do not
+  invoke the remote pilot while current stable releases remain blocked.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

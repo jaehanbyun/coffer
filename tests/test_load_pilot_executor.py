@@ -280,7 +280,7 @@ def test_input_and_runtime_drift_is_refused(
         )
 
 
-def test_live_adapter_boundary_is_not_implemented(
+def test_spoofed_pilot_adapter_contract_is_refused(
     tmp_path: Path,
 ) -> None:
     schedule, readiness, runtime = fixture(tmp_path)
@@ -291,7 +291,7 @@ def test_live_adapter_boundary_is_not_implemented(
 
     with pytest.raises(
         EXECUTOR.PilotExecutorError,
-        match="not implemented",
+        match="unsupported",
     ):
         EXECUTOR.execute(
             schedule,

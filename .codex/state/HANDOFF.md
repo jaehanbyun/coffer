@@ -2601,6 +2601,24 @@ release contains it yet.
   passes 1373. No Kolla, service restart, credential, endpoint, S3, KMS,
   Barbican, container, VM, or remote state changed. The full 53-action
   checkpoint adapter and real fault controller still do not exist.
+- Added the sole non-synthetic `pilot` adapter accepted by the executor. It
+  routes all 53 actions to the RGW, external-fault, or phase implementation
+  and independently validates each sub-result before checkpointing. Partial
+  adapters and name-only spoofs are refused.
+- Adapter source hash is persisted in executor state. Non-synthetic runtime
+  directories admit only fixed/scheduled names with owner-only directory/file
+  modes and single-link regular files.
+- Collector inputs now contain only six static surface descriptors. The phase
+  action derives the exact RGW artifact config and dynamic probe/multipart
+  descriptors after the preceding collection, allowing safe preseed before
+  the executor starts.
+- Thirteen complete-adapter and 171 combined focused tests pass. The complete
+  fake pilot proves all 53 actions, idempotent rerun, failure-before-action
+  resume, RGW apply-before-response reconciliation without another storage
+  call, and fault apply-before-response reconciliation through observation.
+  The load/observability matrix passes 841 tests and the full regression
+  passes 1386. No real Kolla, service restart, credential, endpoint, S3, KMS,
+  Barbican, container, VM, or remote state changed.
 
 ## Blockers and Risks
 
@@ -2635,10 +2653,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Compose RGW, external-fault, and phase adapters behind one non-synthetic
-checkpoint adapter accepted by the executor, then prove all 53 actions,
-resume, and completion with injected clients/controller and owner-only
-collector inputs. Actual invocation remains release-gated.
+Implement the owner-only deployment-input renderer and bounded concrete fault
+controller needed by the composite adapter, then add a CLI that remains
+hard-gated by qualified released dependencies. Do not invoke the remote pilot
+while current stable releases remain blocked.
 
 ## After This Work Package
 

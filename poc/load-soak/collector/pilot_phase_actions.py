@@ -60,9 +60,6 @@ COLLECTOR_INPUT_NAMES = frozenset(
         "galera_config",
         "haproxy_config",
         "prometheus_config",
-        "rgw_config",
-        "rgw_multipart",
-        "rgw_probe",
     }
 )
 SOURCE_FILES = (
@@ -206,6 +203,7 @@ def _phase_paths(
         "preparation_request": root / "phase-preparation-request.json",
         "preparation_result": root / "phase-evidence" / "result.json",
         "probe": root / "rgw-probe.json",
+        "rgw_artifact_config": root / "rgw-artifact-config.json",
     }
 
 
@@ -215,6 +213,7 @@ def _collector_input_request(
     action: Mapping[str, Any],
     config: Mapping[str, Any],
     schedule: Mapping[str, Any],
+    materialize_rgw_config: bool = False,
 ) -> dict[str, Any]:
     raw = _exact(
         value,
@@ -277,27 +276,6 @@ def _collector_input_request(
         inputs[name] = descriptor
         metadata.append((Path(descriptor["file"]), details))
     paths = _phase_paths(schedule, phase)
-    expected_dynamic = {
-        "rgw_multipart": {
-            "file": str(paths["multipart"]),
-            "file_sha256": _payload_hash(paths["multipart"].read_bytes()),
-        },
-        "rgw_probe": {
-            "file": str(paths["probe"]),
-            "file_sha256": _payload_hash(paths["probe"].read_bytes()),
-        },
-    }
-    if any(
-        inputs[name] != expected
-        for name, expected in expected_dynamic.items()
-    ):
-        raise PilotPhaseActionError(
-            "pilot dynamic collector input changed"
-        )
-    _, rgw_config_value, _ = _descriptor(
-        inputs["rgw_config"],
-        "pilot collector RGW artifact configuration",
-    )
     expected_faults = {
         result: sum(
             step["result"] == result for step in config["steps"]
@@ -331,10 +309,45 @@ def _collector_input_request(
             "window_started_at_seconds"
         ],
     }
-    if rgw_config_value != expected_rgw_config:
+    rgw_config_path = paths["rgw_artifact_config"]
+    if not rgw_config_path.exists() and not rgw_config_path.is_symlink():
+        if not materialize_rgw_config:
+            raise PilotPhaseActionError(
+                "pilot RGW artifact configuration is unavailable"
+            )
+        _write(rgw_config_path, expected_rgw_config)
+    rgw_config_value, rgw_config_payload, rgw_config_metadata = (
+        _owner_document(
+            rgw_config_path,
+            "pilot collector RGW artifact configuration",
+        )
+    )
+    if (
+        rgw_config_value != expected_rgw_config
+        or rgw_config_payload != _canonical(expected_rgw_config)
+    ):
         raise PilotPhaseActionError(
             "pilot RGW artifact configuration changed"
         )
+    inputs.update(
+        {
+            "rgw_config": {
+                "file": str(rgw_config_path),
+                "file_sha256": _payload_hash(rgw_config_payload),
+            },
+            "rgw_multipart": {
+                "file": str(paths["multipart"]),
+                "file_sha256": _payload_hash(
+                    paths["multipart"].read_bytes()
+                ),
+            },
+            "rgw_probe": {
+                "file": str(paths["probe"]),
+                "file_sha256": _payload_hash(paths["probe"].read_bytes()),
+            },
+        }
+    )
+    metadata.append((rgw_config_path, rgw_config_metadata))
     try:
         control_artifacts._distinct_inputs(metadata)
     except control_artifacts.ControlArtifactError as error:
@@ -661,10 +674,11 @@ class PilotPhaseActionAdapter:
                 output,
                 _collector_input_request(
                     value,
-                    action=action,
-                    config=config,
-                    schedule=self.schedule,
-                ),
+                action=action,
+                config=config,
+                schedule=self.schedule,
+                materialize_rgw_config=True,
+            ),
             )
         elif kind == "prepare-phase-atomically":
             if output.exists() or output.is_symlink():
