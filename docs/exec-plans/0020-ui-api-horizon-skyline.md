@@ -241,6 +241,29 @@ catalog, Keystone, API, and browser evidence.
   catalog discovery, token forwarding, panel, table/form, and test seams
   before creating `ui/horizon/`.
 
+### 2026-07-26 — Horizon 26.0.0 integration baseline accepted
+
+- Source pin: Inspected official Horizon 26.0.0 at
+  `e48473ce019c69eea261f2116bbeb161a660d3b6` and Designate Dashboard 22.0.0 at
+  `650c95862360194e969831dc46f4834150311151`.
+- Decision: Build `coffer-horizon` as an out-of-tree, server-rendered Django
+  plugin on the Project dashboard. Use Horizon's catalog selection and a
+  server-side `keystoneauth1` token session; do not add AngularJS, CORS,
+  browser token storage, a hard-coded endpoint, or a Horizon core patch.
+- Surface: Registry/Repositories panel with bounded forward list, quota card,
+  create modal, and detail view only. A local Horizon policy mirror controls
+  visibility while the Coffer API remains authoritative.
+- Security/failure contract: Preserve the `/v1` catalog endpoint, honor the
+  dashboard TLS settings, use finite timeouts and bounded request IDs, validate
+  remote JSON, and never interpolate raw remote failures into messages.
+- Changed files: `docs/research/horizon-integration-baseline.md`, this plan,
+  and `.codex/state/HANDOFF.md`. Upstream source clones remain ignored under
+  `work/`.
+- Next exact action: Create `ui/horizon/pyproject.toml` and the
+  `cofferdashboard.api.coffer` adapter with isolated unit tests for catalog,
+  token-session, TLS, timeout, endpoint joining, response validation, and
+  secret-safe failures before adding panel views.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -259,6 +282,7 @@ catalog, Keystone, API, and browser evidence.
 | Control request correlation | Repository, token, maintenance, observability, and runner focused tests | passed; 64 |
 | OpenAPI/runtime drift contract | OpenAPI, API, policy, token, maintenance, observability, and runner focused tests | passed; 123 |
 | Full regression after REST/OpenAPI baseline | `uv run pytest -q` | passed; 1450 |
+| Horizon source/package baseline | Official Horizon 26.0.0 and Designate Dashboard 22.0.0 source inspection | passed; revisions pinned |
 
 ## Failures, Blockers, and Risks
 
@@ -278,11 +302,10 @@ catalog, Keystone, API, and browser evidence.
 - Current state: Plan 0019 is externally blocked, its local pilot harness is
   complete but uninvoked, and no six-VM pilot exists. Plan 0020 is active for
   API/Horizon/Skyline work that can be locally proven independently.
-- Exact next action: Pin the current supported Horizon source/release and
-  create `docs/research/horizon-integration-baseline.md` from the official
-  plugin contract and a maintained out-of-tree service dashboard.
-- First file or command: Fetch the current official Horizon and
-  Designate-dashboard refs into `work/` without modifying either upstream.
+- Exact next action: Add `ui/horizon/pyproject.toml` and
+  `ui/horizon/cofferdashboard/api/coffer.py` with isolated adapter contract
+  tests before adding the panel.
+- First file or command: Create the package skeleton with `apply_patch`.
 - Questions requiring user input: None. The user authorized autonomous
   milestone commits and pushes through Horizon and Skyline; accepted security,
   release, and deployment gates remain fail closed.
