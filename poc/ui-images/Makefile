@@ -1,7 +1,7 @@
 REPO_ROOT := $(abspath $(CURDIR)/../..)
 
 .PHONY: probe-parents qualify trial-os-cleanup trial-python-httplib2 \
-	trial-python-overlay trial-python-urllib3 verify
+	trial-python-overlay trial-python-pyjwt trial-python-urllib3 verify
 
 verify:
 	cd "$(REPO_ROOT)" && uv run pytest -q tests/test_ui_image_qualification.py \
@@ -20,6 +20,9 @@ trial-python-overlay:
 
 trial-python-httplib2:
 	./trial_python_overlay.sh httplib2
+
+trial-python-pyjwt:
+	./trial_python_overlay.sh pyjwt
 
 trial-python-urllib3:
 	./trial_python_overlay.sh urllib3

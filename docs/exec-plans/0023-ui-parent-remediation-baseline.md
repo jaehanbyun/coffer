@@ -84,6 +84,7 @@ absolute gate.
 | Use one strict checked-in target manifest for all single-package overlay trials | One validated data contract preserves exact wheel identity and fail-closed delta checks without copying target-specific code | Free-form shell inputs; one script per package; runtime code from the manifest | 2026-07-27 |
 | Accept httplib2 0.32.0 only as the second independent compatibility derivative | Both surfaces preserved OS and non-target Python state while both scanners removed exactly CVE-2026-59939 | Combining it with Mako or other upgrades; changing production images before the matrix is complete | 2026-07-27 |
 | Accept urllib3 2.7.0 only as the third independent compatibility derivative | The official non-yanked wheel, no-network HTTPS pool probe, exact runtime delta, and both scanners passed on both surfaces | Treating an HTTP stack import alone as compatibility; combining accepted derivatives; immediate production adoption | 2026-07-27 |
+| Accept PyJWT 2.13.0 only as the fourth independent compatibility derivative | The official non-yanked wheel, offline HS256 round trip, exact runtime delta, and both scanners passed on both surfaces | Treating an import alone as token compatibility; combining accepted derivatives; changing the production image | 2026-07-27 |
 
 ## Tasks
 
@@ -95,6 +96,7 @@ absolute gate.
       wheel, runtime, lineage, or scanner gates.
 - [x] Run the independent httplib2 0.31.2 to 0.32.0 experiment.
 - [x] Run the independent urllib3 2.6.3 to 2.7.0 experiment.
+- [x] Run the independent PyJWT 2.11.0 to 2.13.0 experiment.
 - [ ] Rescan viable derivatives, update the durable handoff, and publish each
       verified atomic milestone.
 
@@ -339,6 +341,41 @@ absolute gate.
   exact `CVE-2026-32597`/`CVE-2026-48526` expectations, add an offline
   encode/decode probe, and run that target alone.
 
+### 2026-07-27 — PyJWT 2.13.0 derivative accepted
+
+- Completed: Bound the official non-yanked PyPI wheel, SHA-256, Python 3.9+
+  metadata, optional dependency markers, and exact expected CVEs. Added a
+  bounded `pyjwt-hs256` probe that performs an offline encode/decode round trip
+  with fixture-only key material.
+- Compatibility: Both native ARM64 surfaces preserve the accepted cleanup OS
+  inventory and all non-target Python distribution version multisets. PyJWT
+  alone changes from 2.11.0 to 2.13.0. `pip check`, HS256 round trip, official
+  source hashes, package-local bytecode boundaries, Coffer UI runtime hashes,
+  image lineage, and build-input absence pass.
+- Scan result: Horizon Trivy High changed 31 to 29 and Scout 34 to 32;
+  Skyline Trivy High changed 16 to 14 and Scout 19 to 17. Both scanners
+  removed exactly `CVE-2026-32597` and `CVE-2026-48526`, introduced zero
+  Critical/High finding, and Trivy found zero secrets.
+- Decision: `python_overlay_trial_accepted=true`, status `blocked`, and
+  `production_candidate=false`. The accepted result is specific to
+  `PyJWT==2.13.0`; it is not cumulative with another derivative and changes no
+  production Containerfile or constraints policy.
+- Evidence: Owner-only ignored result SHA-256
+  `dd51d44d5fb049aa88362a8ce7579de24f7ffee85fc812f373259f85fabf9b7b`;
+  manifest `f928fc3ea0ab3458cbe624e9a6dcaa4efd28ffc71fd913ee4ad2e532845020c8`,
+  images `928a689da4958dec954c599b39c4842720f25f0b68651c2f69c07da66c1356a2`,
+  OS inventories
+  `8e7fe70bc16543c09475f69c7c66557e97d991cac7b716a8491092e05d6677af`,
+  and runtimes
+  `891429b12920e1a027a8ebebb4539d30d15821d9633599b7e254b281e9be246f`.
+- Cleanup: Exact trial images, generated contexts, wheel copies, archives, and
+  scanner caches are absent. The harness-started Podman machine is stopped.
+  Non-secret evidence remains owner-only under ignored
+  `work/ui-python-overlay-trial-pyjwt/evidence/`.
+- Next exact action: Inspect only the official Django 4.2.30 release metadata
+  and current runtime consumers before deciding whether its three-finding
+  derivative can enter the same bounded compatibility matrix.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -358,6 +395,8 @@ absolute gate.
 | httplib2 milestone gates | Bash syntax, strict ShellCheck, Ruff, compilation, UI image suite, full pytest, lock, secret, and diff checks | passed; 48 focused and 1,503 total tests with no staged leak |
 | urllib3 compatibility experiment | native ARM64 official wheel, OS/Python/UI runtime, HTTPS pool, and two-scanner trial | passed for urllib3 only; production blocked at Horizon Trivy/Scout 29/32 High and Skyline 14/17 High |
 | urllib3 milestone gates | JSON, Bash, strict ShellCheck, Ruff, compilation, UI image suite, full pytest, lock, secret, and diff checks | passed; 49 focused and 1,504 total tests with no staged leak |
+| PyJWT compatibility experiment | native ARM64 official wheel, OS/Python/UI runtime, offline HS256 round trip, and two-scanner trial | passed for PyJWT only; production blocked at Horizon Trivy/Scout 29/32 High and Skyline 14/17 High |
+| PyJWT milestone gates | JSON, Bash, strict ShellCheck, Ruff, compilation, UI image suite, full pytest, lock, secret, and diff checks | passed; 50 focused and 1,505 total tests with no staged leak |
 | Baseline milestone gates | full pytest, Ruff E/F/I, compilation, staged secret/diff | passed; 1,483 tests and no staged leak |
 | Final repository gates | dashboard packages, Kolla role, docs/links, secret, diff | pending with remediation experiment |
 
@@ -381,6 +420,9 @@ absolute gate.
 - urllib3 2.7.0 is accepted only as a separate compatibility derivative.
   Its stronger pool probe is not live HTTP traffic, and the result does not
   authorize a cumulative image or constraints override.
+- PyJWT 2.13.0 is accepted only as a separate compatibility derivative. Its
+  offline symmetric round trip is not Keystone/asymmetric token-path evidence
+  and does not authorize a cumulative image or constraints override.
 - The derivative proves static Kolla metadata, package integrity, installed UI
   runtime files, input cleanup, parent availability, and scan behavior. A
   production adoption still needs the Python compatibility matrix and later
@@ -393,14 +435,16 @@ absolute gate.
   blocked. The inherited ARM64 classifier, deterministic baseline, stock
   dependency probe, post-Coffer OS cleanup trial, and narrow Mako compatibility
   derivative, generic target contract, and independent httplib2/urllib3
-  compatibility derivatives are complete locally with no waiver. The trials
+  and PyJWT compatibility derivatives are complete locally with no waiver. The trials
   passed package, runtime, lineage, and two-scanner delta gates but correctly
   remain blocked by nonzero Critical/High findings. Raw/report evidence is
   non-secret and remains owner-only under ignored `work/`.
-- Exact next action: Bind the official pure-Python PyJWT 2.13.0 wheel and its
-  two expected CVEs in the target manifest, then run it alone.
-- First file or command: Inspect the official PyPI PyJWT 2.13.0 JSON, add one
-  strict entry and offline encode/decode probe, and add its bounded Make
-  target; do not modify production UI Containerfiles.
+- Exact next action: Inspect the official Django 4.2.30 release metadata and
+  repository runtime consumers, then admit it only if one bounded offline
+  framework probe can cover both UI surfaces without changing production
+  Containerfiles.
+- First file or command: Inspect the official PyPI Django 4.2.30 JSON and run
+  `rg -n "\\bDjango\\b|django\\." poc/ui-images ui tests`; do not modify
+  production UI Containerfiles.
 - Questions requiring user input: None. No credential, external publication,
   live deployment, or waiver is required for the next local milestone.

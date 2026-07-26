@@ -18,7 +18,7 @@ WHEEL = re.compile(r"^[A-Za-z0-9._+-]+-py3-none-any\.whl$")
 URL = re.compile(r"^https://files\.pythonhosted\.org/packages/[A-Za-z0-9/_.+-]+$")
 PREFIX = re.compile(r"^[a-z][a-z0-9_]*/$")
 LABEL = re.compile(r"^coffer-ui-python-[a-z0-9.-]+-v1$")
-PROBES = {"mako-render", "module-import", "urllib3-pool"}
+PROBES = {"mako-render", "module-import", "pyjwt-hs256", "urllib3-pool"}
 
 
 class TargetError(RuntimeError):
@@ -46,8 +46,12 @@ class Target:
         return f"{self.display_name}=={self.to_version}"
 
     @property
+    def module_name(self) -> str:
+        return self.package_prefix.removesuffix("/")
+
+    @property
     def expected_probe_result(self) -> str:
-        if self.probe == "mako-render":
+        if self.probe in {"mako-render", "pyjwt-hs256"}:
             return "coffer"
         if self.probe == "urllib3-pool":
             return "https://registry.example"
@@ -150,10 +154,23 @@ def load_target(path: Path, key: str) -> Target:
 
 
 def probe_target(target: Target) -> str:
-    module = importlib.import_module(target.normalized_name)
+    module = importlib.import_module(target.module_name)
     if target.probe == "mako-render":
         template = importlib.import_module("mako.template").Template
         result = template("${value}").render(value="coffer")
+    elif target.probe == "pyjwt-hs256":
+        fixture_key = b"coffer-fixture-key-material-only-0001"
+        token = module.encode(
+            {"scope": "coffer"},
+            fixture_key,
+            algorithm="HS256",
+        )
+        payload = module.decode(
+            token,
+            fixture_key,
+            algorithms=["HS256"],
+        )
+        result = payload.get("scope")
     elif target.probe == "urllib3-pool":
         manager = module.PoolManager()
         pool = manager.connection_from_url("https://registry.example")
