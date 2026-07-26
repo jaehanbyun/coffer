@@ -22,6 +22,7 @@ ROUTES = frozenset(
         "/metrics",
         "/readyz",
         "/v1/internal/maintenance/registry-token",
+        "/v1/quota",
         "/v1/repositories",
         "/v1/repositories/{repository_id}",
         "edge-auth",

@@ -462,6 +462,14 @@ class QuotaUsage:
     used_bytes: int
     reserved_bytes: int
 
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "project_id": self.project_id,
+            "limit_bytes": self.limit_bytes,
+            "used_bytes": self.used_bytes,
+            "reserved_bytes": self.reserved_bytes,
+        }
+
 
 @dataclass(frozen=True, slots=True)
 class ReconciliationCursor:

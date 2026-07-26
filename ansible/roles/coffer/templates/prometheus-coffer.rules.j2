@@ -47,14 +47,14 @@ groups:
           (
             sum(rate(coffer_http_requests_total{
               component="api",
-              route=~"/auth/token|/v1/repositories.*",
+              route=~"/auth/token|/v1/quota|/v1/repositories.*",
               status=~"2xx|3xx"
             }[5m]))
             /
             clamp_min(
               sum(rate(coffer_http_requests_total{
                 component="api",
-                route=~"/auth/token|/v1/repositories.*",
+                route=~"/auth/token|/v1/quota|/v1/repositories.*",
                 status=~"2xx|3xx|5xx"
               }[5m])),
               0.000000001

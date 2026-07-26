@@ -12,6 +12,7 @@ from coffer.db import (
     RepositoryStore,
 )
 from coffer.identity import Identity
+from coffer.quota import QuotaNotConfigured, QuotaStore
 
 
 REPOSITORY_NAME = re.compile(
@@ -126,3 +127,24 @@ class RepositoryResource:
         if repository is None:
             raise falcon.HTTPNotFound()
         resp.media = {"repository": repository.to_dict()}
+
+
+class QuotaResource:
+    def __init__(self, store: QuotaStore, enforcer: policy.Enforcer) -> None:
+        self._store = store
+        self._enforcer = enforcer
+
+    def on_get(self, req: falcon.Request, resp: falcon.Response) -> None:
+        identity = Identity.from_environ(req.env)
+        target = {"project_id": identity.project_id}
+        _authorize(self._enforcer, "quota:get", identity, target)
+        try:
+            usage = self._store.usage(identity.project_id)
+        except QuotaNotConfigured as exc:
+            raise falcon.HTTPNotFound(
+                title="Quota not configured",
+                description=(
+                    "No registry quota is configured for the current project."
+                ),
+            ) from exc
+        resp.media = {"quota": usage.to_dict()}

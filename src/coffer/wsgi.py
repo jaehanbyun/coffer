@@ -8,7 +8,11 @@ import falcon
 from keystonemiddleware import auth_token
 from oslo_config import cfg
 
-from coffer.api import RepositoryCollectionResource, RepositoryResource
+from coffer.api import (
+    QuotaResource,
+    RepositoryCollectionResource,
+    RepositoryResource,
+)
 from coffer.authorization import RegistryScopeAuthorizer
 from coffer.config import parse_config, setup_logging
 from coffer.db import RepositoryStore
@@ -74,6 +78,7 @@ def build_application(
     maintenance_resource: Any | None = None,
     maintenance_trusted_proxy_addresses: frozenset[str] | None = None,
     maintenance_workload_ids: frozenset[str] | None = None,
+    quota_store: QuotaStore | None = None,
 ) -> Any:
     store = store or RepositoryStore(conf.database.connection)
     enforcer = enforcer or create_enforcer(conf)
@@ -84,6 +89,8 @@ def build_application(
     repository = RepositoryResource(store, enforcer)
     application.add_route("/v1/repositories", collection)
     application.add_route("/v1/repositories/{repository_id}", repository)
+    if quota_store is not None:
+        application.add_route("/v1/quota", QuotaResource(quota_store, enforcer))
     if maintenance_resource is not None:
         application.add_route(INTERNAL_TOKEN_PATH, maintenance_resource)
 
@@ -116,6 +123,7 @@ def build_application(
 
 def build_product_application(conf: cfg.ConfigOpts) -> Any:
     store = RepositoryStore(conf.database.connection)
+    quotas = QuotaStore(conf.database.connection)
     enforcer = create_enforcer(conf)
     metrics = CofferMetrics(component="api")
     operational_application = build_operational_application(
@@ -148,7 +156,6 @@ def build_product_application(conf: cfg.ConfigOpts) -> Any:
         maintenance_trusted_proxy_addresses = frozenset(
             conf.maintenance.trusted_proxy_addresses
         )
-        quotas = QuotaStore(conf.database.connection)
         authority = MaintenanceAuthorityRouter(
             ReconciliationMaintenanceAuthority(quotas, store),
             LiveComparisonMaintenanceAuthority(quotas, store),
@@ -173,6 +180,7 @@ def build_product_application(conf: cfg.ConfigOpts) -> Any:
         maintenance_resource=maintenance_resource,
         maintenance_trusted_proxy_addresses=maintenance_trusted_proxy_addresses,
         maintenance_workload_ids=maintenance_workload_ids,
+        quota_store=quotas,
     )
 
 

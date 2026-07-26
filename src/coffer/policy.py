@@ -27,6 +27,13 @@ RULES = [
         scope_types=["project"],
     ),
     policy.DocumentedRuleDefault(
+        name="quota:get",
+        check_str="role:reader or role:member or role:admin",
+        description="Read registry quota usage for the scoped project.",
+        operations=[{"path": "/v1/quota", "method": "GET"}],
+        scope_types=["project"],
+    ),
+    policy.DocumentedRuleDefault(
         name="registry:pull",
         check_str="role:reader or role:member or role:admin",
         description="Pull content from an existing project repository.",

@@ -172,6 +172,31 @@ catalog, Keystone, API, and browser evidence.
   `src/coffer/wsgi.py`, and prove project-scoped quota read behavior before
   adding the OpenAPI document.
 
+### 2026-07-26 — Read-only current-project quota API completed
+
+- Completed: Added `GET /v1/quota`, `quota:get`, and the stable quota
+  representation. The production application constructs one migrated
+  `QuotaStore` and reuses it for both public quota reads and the optional
+  maintenance authority.
+- Isolation and absence: The resource resolves only the authenticated project.
+  Reader/member/admin may read; invalid or non-project scopes retain 401/403;
+  an unconfigured project returns fixed 404 without creating or borrowing a
+  limit.
+- Observability: `/v1/quota` is a bounded API metric route and participates in
+  the same control-plane SLO numerator/denominator as token and repository
+  operations.
+- Evidence: API/quota/token/maintenance/observability focused tests pass 127
+  cases, the Kolla companion role passes 96 lifecycle checks, and the full
+  Python regression passes 1442 tests. Compilation and diff checks pass.
+- Changed files: `src/coffer/api.py`, `src/coffer/quota.py`,
+  `src/coffer/policy.py`, `src/coffer/wsgi.py`,
+  `src/coffer/observability.py`, observability contract/rules, tests, this
+  plan, and `.codex/state/HANDOFF.md`.
+- Next exact action: Add a bounded control request-ID middleware in
+  `src/coffer/api.py`, prove valid incoming preservation and generated
+  fallback without changing Keystone-owned outer 401 responses, then write
+  `api-ref/openapi.json`.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -184,6 +209,9 @@ catalog, Keystone, API, and browser evidence.
 | Project UI API contract inventory | Exact API/policy/store/middleware/test and Kolla endpoint inspection | passed; implementation boundary fixed |
 | Repository keyset pagination | `uv run pytest -q tests/test_repositories.py tests/test_tokens.py tests/test_token_api.py tests/test_observability.py` | passed; 70 |
 | Full regression after repository pagination | `uv run pytest -q` | passed; 1438 |
+| Read-only project quota API and observability | API, quota, token, maintenance, observability, contract, and runner focused tests | passed; 127 |
+| Kolla role after quota SLO expansion | `make -C poc/kolla-ansible-role verify` | passed; 96 |
+| Full regression after project quota API | `uv run pytest -q` | passed; 1442 |
 
 ## Failures, Blockers, and Risks
 
@@ -203,10 +231,10 @@ catalog, Keystone, API, and browser evidence.
 - Current state: Plan 0019 is externally blocked, its local pilot harness is
   complete but uninvoked, and no six-VM pilot exists. Plan 0020 is active for
   API/Horizon/Skyline work that can be locally proven independently.
-- Exact next action: Add `QuotaResource` in `src/coffer/api.py`, register
-  `quota:get` in `src/coffer/policy.py`, construct `QuotaStore` in
-  `src/coffer/wsgi.py`, and add focused current-project read tests.
-- First file or command: `sed -n '1,190p' src/coffer/api.py`.
+- Exact next action: Add a bounded control request-ID middleware in
+  `src/coffer/api.py`, prove preservation/generation and secret-safe error
+  behavior, then write `api-ref/openapi.json`.
+- First file or command: `sed -n '1,220p' src/coffer/api.py`.
 - Questions requiring user input: None. The user authorized autonomous
   milestone commits and pushes through Horizon and Skyline; accepted security,
   release, and deployment gates remain fail closed.

@@ -11,6 +11,7 @@ from keystonemiddleware.fixture import AuthTokenFixture
 
 from coffer.config import new_config
 from coffer.db import RepositoryStore
+from coffer.quota import QuotaStore
 from coffer.wsgi import build_application
 
 
@@ -85,6 +86,10 @@ def client(tmp_path: Any, auth_fixture: AuthTokenFixture) -> testing.TestClient:
     store = RepositoryStore(
         f"sqlite:///{tmp_path / 'coffer.sqlite'}", bootstrap_schema=True
     )
+    quotas = QuotaStore(
+        f"sqlite:///{tmp_path / 'coffer.sqlite'}", bootstrap_schema=True
+    )
+    quotas.set_limit(PROJECT_A_ID, 10 * 1024 * 1024 * 1024)
     middleware = build_application(
         conf,
         store=store,
@@ -95,6 +100,7 @@ def client(tmp_path: Any, auth_fixture: AuthTokenFixture) -> testing.TestClient:
             "service_token_roles": "service",
             "token_cache_time": "-1",
         },
+        quota_store=quotas,
     )
 
     # Falcon's test client introspects a callable to distinguish WSGI from

@@ -197,3 +197,50 @@ def test_repository_name_is_validated(client: testing.TestClient) -> None:
     result = _create(client, "project-a-member", "INVALID NAME")
 
     assert result.status_code == 400
+
+
+def test_reader_gets_only_the_current_project_quota(
+    client: testing.TestClient,
+) -> None:
+    result = client.simulate_get(
+        "/v1/quota",
+        headers=_headers("project-a-reader"),
+    )
+
+    assert result.status_code == 200
+    assert result.json == {
+        "quota": {
+            "project_id": PROJECT_A_ID,
+            "limit_bytes": 10 * 1024 * 1024 * 1024,
+            "used_bytes": 0,
+            "reserved_bytes": 0,
+        }
+    }
+
+
+def test_missing_project_quota_is_not_created_or_borrowed(
+    client: testing.TestClient,
+) -> None:
+    result = client.simulate_get(
+        "/v1/quota",
+        headers=_headers("project-b-member"),
+    )
+
+    assert result.status_code == 404
+    assert result.json["title"] == "Quota not configured"
+
+
+def test_quota_requires_a_valid_project_scoped_reader(
+    client: testing.TestClient,
+) -> None:
+    for token, status in (
+        ("invalid-token", 401),
+        ("unscoped-reader", 403),
+        ("domain-reader", 403),
+        ("system-admin", 403),
+    ):
+        result = client.simulate_get(
+            "/v1/quota",
+            headers=_headers(token),
+        )
+        assert result.status_code == status
