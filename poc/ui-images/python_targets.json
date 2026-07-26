@@ -1,5 +1,5 @@
 {
-  "schema": "coffer.ui-python-overlay-targets/v3",
+  "schema": "coffer.ui-python-overlay-targets/v4",
   "targets": {
     "click": {
       "display_name": "click",
@@ -26,6 +26,68 @@
       "wheel_filename": "click-8.3.3-py3-none-any.whl",
       "wheel_sha256": "a2bf429bb3033c89fa4936ffb35d5cb471e3719e1f3c8a7c3fff0b8314305613",
       "wheel_url": "https://files.pythonhosted.org/packages/ae/44/c1221527f6a71a01ec6fbad7fa78f1d50dfa02217385cf0fa3eec7087d59/click-8.3.3-py3-none-any.whl"
+    },
+    "cryptography-pyopenssl": {
+      "companions": [
+        {
+          "display_name": "pyOpenSSL",
+          "finding_ids_by_scanner": {
+            "scout": [
+              "CVE-2026-27459"
+            ],
+            "trivy": [
+              "CVE-2026-27459"
+            ]
+          },
+          "from_version": "24.2.1",
+          "normalized_name": "pyopenssl",
+          "package_prefix": "OpenSSL/",
+          "requires_dist": [
+            "cryptography<50,>=49.0.0",
+            "pretend; extra == \"test\"",
+            "pytest-rerunfailures; extra == \"test\"",
+            "pytest>=3.0.1; extra == \"test\"",
+            "sphinx!=5.2.0,!=5.2.0.post0,!=7.2.5; extra == \"docs\"",
+            "sphinx_rtd_theme; extra == \"docs\"",
+            "typing-extensions>=4.9; python_version < \"3.13\""
+          ],
+          "to_version": "26.3.0",
+          "wheel_architecture": "any",
+          "wheel_filename": "pyopenssl-26.3.0-py3-none-any.whl",
+          "wheel_sha256": "46367f8f66b92271e6d218da9c87607e1ef5a0bc5c8dea5bb3db82f395c385a3",
+          "wheel_url": "https://files.pythonhosted.org/packages/54/18/1dd71c9b43192ab83f1d531ad6002dc81108ac36c475f79fb7a295abe2f4/pyopenssl-26.3.0-py3-none-any.whl"
+        }
+      ],
+      "display_name": "cryptography",
+      "finding_ids_by_scanner": {
+        "scout": [
+          "CVE-2026-26007",
+          "GHSA-537c-gmf6-5ccf"
+        ],
+        "trivy": [
+          "CVE-2026-26007",
+          "GHSA-537c-gmf6-5ccf"
+        ]
+      },
+      "from_version": "43.0.3",
+      "normalized_name": "cryptography",
+      "package_prefix": "cryptography/",
+      "probe": "pyca-pair",
+      "requires_dist": [
+        "bcrypt>=3.1.5; extra == \"ssh\"",
+        "cffi>=2.0.0; platform_python_implementation != \"PyPy\"",
+        "typing-extensions>=4.13.2; python_full_version < \"3.11\""
+      ],
+      "surfaces": [
+        "horizon",
+        "skyline"
+      ],
+      "to_version": "49.0.0",
+      "trial_label": "coffer-ui-python-cryptography-pyopenssl-49.0.0-26.3.0-v1",
+      "wheel_architecture": "arm64",
+      "wheel_filename": "cryptography-49.0.0-cp311-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl",
+      "wheel_sha256": "36d1709f992593689b45bda411498d62c6e365f2ca00b84657d4dadd24de16db",
+      "wheel_url": "https://files.pythonhosted.org/packages/09/41/3797cfaf69cae04a13ee78ebd83f0678d9c02b4779d21ce24445326f1a69/cryptography-49.0.0-cp311-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl"
     },
     "django": {
       "display_name": "Django",

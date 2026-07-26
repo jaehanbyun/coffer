@@ -9,9 +9,9 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from python_target import TargetError, load_target
+from python_target import PackageComponent, TargetError, load_target
 
-MANIFEST_SCHEMA = "coffer.ui-python-overlay-evidence/v3"
+MANIFEST_SCHEMA = "coffer.ui-python-overlay-evidence/v4"
 IMAGE_SCHEMA = "coffer.ui-python-overlay-images/v1"
 INVENTORY_SCHEMA = "coffer.ui-python-overlay-os-inventories/v1"
 RUNTIME_SCHEMA = "coffer.ui-python-overlay-runtimes/v1"
@@ -176,13 +176,28 @@ def container_json(
     return document
 
 
+def component_projection(component: PackageComponent) -> dict[str, Any]:
+    return {
+        "name": component.display_name,
+        "normalized_name": component.normalized_name,
+        "from_version": component.from_version,
+        "to_version": component.to_version,
+        "filename": component.wheel_filename,
+        "wheel_architecture": component.wheel_architecture,
+        "sha256": component.wheel_sha256,
+        "finding_ids": list(component.finding_ids),
+        "finding_ids_by_scanner": component.scanner_finding_ids,
+        "requires_dist": list(component.requires_dist),
+    }
+
+
 def collect(
     *,
     evidence: Path,
     images: dict[str, str],
     horizon_wheel: Path,
     skyline_wheel: Path,
-    target_wheel: Path,
+    target_wheels: tuple[Path, ...],
     target_manifest: Path,
     target_key: str,
     baseline_result: Path,
@@ -200,8 +215,18 @@ def collect(
     except TargetError as error:
         raise CollectionError("Python target is invalid") from error
     if (
-        target_wheel.name != target.wheel_filename
-        or sha256_file(target_wheel) != target.wheel_sha256
+        len(target_wheels) != len(target.components)
+        or tuple(path.name for path in target_wheels)
+        != tuple(component.wheel_filename for component in target.components)
+        or len({path.name for path in target_wheels}) != len(target_wheels)
+        or any(
+            sha256_file(path) != component.wheel_sha256
+            for path, component in zip(
+                target_wheels,
+                target.components,
+                strict=True,
+            )
+        )
     ):
         raise CollectionError("Python target wheel identity is invalid")
     revisions = (kolla_revision, horizon_revision, skyline_revision)
@@ -290,20 +315,16 @@ def collect(
             },
             "target": {
                 "key": target.key,
-                "name": target.display_name,
-                "normalized_name": target.normalized_name,
-                "from_version": target.from_version,
-                "to_version": target.to_version,
-                "filename": target_wheel.name,
-                "wheel_architecture": target.wheel_architecture,
-                "sha256": target.wheel_sha256,
                 "manifest_sha256": sha256_file(target_manifest),
                 "probe": target.probe,
                 "trial_label": target.trial_label,
                 "finding_ids": list(target.finding_ids),
                 "finding_ids_by_scanner": target.scanner_finding_ids,
-                "requires_dist": list(target.requires_dist),
                 "surfaces": list(target.surfaces),
+                "components": [
+                    component_projection(component)
+                    for component in target.components
+                ],
             },
         },
         "baseline": {
@@ -345,7 +366,12 @@ def main() -> int:
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument("--horizon-wheel", type=Path, required=True)
     parser.add_argument("--skyline-wheel", type=Path, required=True)
-    parser.add_argument("--target-wheel", type=Path, required=True)
+    parser.add_argument(
+        "--target-wheel",
+        type=Path,
+        action="append",
+        required=True,
+    )
     parser.add_argument("--target-manifest", type=Path, required=True)
     parser.add_argument("--target", required=True)
     parser.add_argument("--baseline-result", type=Path, required=True)
@@ -379,7 +405,7 @@ def main() -> int:
             images=images,
             horizon_wheel=arguments.horizon_wheel,
             skyline_wheel=arguments.skyline_wheel,
-            target_wheel=arguments.target_wheel,
+            target_wheels=tuple(arguments.target_wheel),
             target_manifest=arguments.target_manifest,
             target_key=arguments.target,
             baseline_result=arguments.baseline_result,

@@ -12,15 +12,15 @@ from pathlib import Path
 from typing import Any
 from zipfile import ZipFile
 
-from python_target import Target, TargetError, load_target
+from python_target import PackageComponent, Target, TargetError, load_target
 
-MANIFEST_SCHEMA = "coffer.ui-python-overlay-evidence/v3"
+MANIFEST_SCHEMA = "coffer.ui-python-overlay-evidence/v4"
 IMAGE_SCHEMA = "coffer.ui-python-overlay-images/v1"
 INVENTORY_SCHEMA = "coffer.ui-python-overlay-os-inventories/v1"
 RUNTIME_SCHEMA = "coffer.ui-python-overlay-runtimes/v1"
-PYTHON_RUNTIME_SCHEMA = "coffer.ui-python-overlay-runtime/v2"
+PYTHON_RUNTIME_SCHEMA = "coffer.ui-python-overlay-runtime/v3"
 PACKAGE_INVENTORY_SCHEMA = "coffer.ui-package-inventory/v1"
-RESULT_SCHEMA = "coffer.ui-python-overlay-trial/v3"
+RESULT_SCHEMA = "coffer.ui-python-overlay-trial/v4"
 OS_CLEANUP_RESULT_SCHEMA = "coffer.ui-os-cleanup-trial/v1"
 REMEDIATION_SCHEMA = "coffer.ui-parent-remediation/v1"
 KOLLA_REVISION = "686c6d13dc1c31092b22c6c481e16a7329e935ea"
@@ -166,10 +166,13 @@ def _wheel_members(path: Path, surface: str) -> dict[str, str]:
         raise EvidenceError(f"{surface} wheel runtime member is missing") from error
 
 
-def _target_wheel_members(path: Path, target: Target) -> dict[str, str]:
+def _target_wheel_members(
+    path: Path,
+    component: PackageComponent,
+) -> dict[str, str]:
     if (
-        path.name != target.wheel_filename
-        or sha256_file(path) != target.wheel_sha256
+        path.name != component.wheel_filename
+        or sha256_file(path) != component.wheel_sha256
     ):
         raise EvidenceError("target wheel identity is invalid")
     try:
@@ -177,7 +180,8 @@ def _target_wheel_members(path: Path, target: Target) -> dict[str, str]:
             members = tuple(
                 name
                 for name in archive.namelist()
-                if name.startswith(target.package_prefix) and not name.endswith("/")
+                if name.startswith(component.package_prefix)
+                and not name.endswith("/")
             )
             if not members:
                 raise EvidenceError("target wheel package is empty")
@@ -187,6 +191,41 @@ def _target_wheel_members(path: Path, target: Target) -> dict[str, str]:
             }
     except OSError as error:
         raise EvidenceError("target wheel is invalid") from error
+
+
+def _target_wheel_map(
+    paths: tuple[Path, ...],
+    target: Target,
+) -> dict[str, Path]:
+    expected = tuple(
+        component.wheel_filename for component in target.components
+    )
+    actual = tuple(path.name for path in paths)
+    if (
+        actual != expected
+        or len(set(actual)) != len(actual)
+        or len(paths) != len(target.components)
+    ):
+        raise EvidenceError("target wheel set is invalid")
+    result = dict(zip(expected, paths, strict=True))
+    for component in target.components:
+        _target_wheel_members(result[component.wheel_filename], component)
+    return result
+
+
+def _component_artifact(component: PackageComponent) -> dict[str, Any]:
+    return {
+        "name": component.display_name,
+        "normalized_name": component.normalized_name,
+        "from_version": component.from_version,
+        "to_version": component.to_version,
+        "filename": component.wheel_filename,
+        "wheel_architecture": component.wheel_architecture,
+        "sha256": component.wheel_sha256,
+        "finding_ids": list(component.finding_ids),
+        "finding_ids_by_scanner": component.scanner_finding_ids,
+        "requires_dist": list(component.requires_dist),
+    }
 
 
 def validate_baselines(
@@ -224,44 +263,49 @@ def validate_baselines(
             ).get("packages"),
             f"{surface} remediation packages",
         )
-        candidates = [
-            _object(value, f"{surface} candidate")
-            for value in packages
-            if _object(value, f"{surface} package").get("package")
-            == target.normalized_name
-        ]
-        if len(candidates) != 1:
-            raise EvidenceError(f"{surface} target candidate is ambiguous")
-        candidate = candidates[0]
-        fixed_versions = _array(
-            candidate.get("fixed_versions"),
-            "target fixed versions",
-        )
-        if (
-            candidate.get("classification")
-            != "constraint-bound-all-findings-have-fix"
-            or candidate.get("eligible_for_compatibility_trial") is not True
-            or candidate.get("constraint_match") is not True
-            or candidate.get("installed_version") != target.from_version
-            or candidate.get("constraint_version") != target.from_version
-            or not _release_at_least(
-                target.to_version,
-                target.from_version,
-                "target upgrade",
-            )
-            or target.to_version == target.from_version
-            or not any(
-                _release_at_least(
-                    target.to_version,
-                    fixed_version,
-                    "target fixed version",
+        for component in target.components:
+            candidates = [
+                _object(value, f"{surface} candidate")
+                for value in packages
+                if _object(value, f"{surface} package").get("package")
+                == component.normalized_name
+            ]
+            if len(candidates) != 1:
+                raise EvidenceError(
+                    f"{surface} target candidate is ambiguous"
                 )
-                for fixed_version in fixed_versions
+            candidate = candidates[0]
+            fixed_versions = _array(
+                candidate.get("fixed_versions"),
+                "target fixed versions",
             )
-            or frozenset(candidate.get("finding_ids") or ())
-            != frozenset(target.finding_ids)
-        ):
-            raise EvidenceError(f"{surface} target candidate is invalid")
+            if (
+                candidate.get("classification")
+                != "constraint-bound-all-findings-have-fix"
+                or candidate.get("eligible_for_compatibility_trial") is not True
+                or candidate.get("constraint_match") is not True
+                or candidate.get("installed_version") != component.from_version
+                or candidate.get("constraint_version") != component.from_version
+                or not _release_at_least(
+                    component.to_version,
+                    component.from_version,
+                    "target upgrade",
+                )
+                or component.to_version == component.from_version
+                or not any(
+                    _release_at_least(
+                        component.to_version,
+                        fixed_version,
+                        "target fixed version",
+                    )
+                    for fixed_version in fixed_versions
+                )
+                or frozenset(candidate.get("finding_ids") or ())
+                != frozenset(component.finding_ids)
+            ):
+                raise EvidenceError(
+                    f"{surface} target candidate is invalid"
+                )
     inventories = _load(baseline_inventories_path, "OS cleanup inventories")
     if inventories.get("schema") != "coffer.ui-os-cleanup-inventories/v1":
         raise EvidenceError("OS cleanup inventory schema is invalid")
@@ -272,13 +316,14 @@ def validate_manifest(
     *,
     horizon_wheel: Path,
     skyline_wheel: Path,
-    target_wheel: Path,
+    target_wheels: tuple[Path, ...],
     target_manifest_path: Path,
     target: Target,
     baseline_result_path: Path,
     baseline_inventories_path: Path,
     remediation_result_path: Path,
 ) -> dict[str, Any]:
+    _target_wheel_map(target_wheels, target)
     manifest = _load(evidence / "manifest.json", "trial manifest")
     if manifest.get("schema") != MANIFEST_SCHEMA:
         raise EvidenceError("trial manifest schema is unsupported")
@@ -310,25 +355,25 @@ def validate_manifest(
         },
         "target": {
             "key": target.key,
-            "name": target.display_name,
-            "normalized_name": target.normalized_name,
-            "from_version": target.from_version,
-            "to_version": target.to_version,
-            "filename": target.wheel_filename,
-            "wheel_architecture": target.wheel_architecture,
-            "sha256": target.wheel_sha256,
             "manifest_sha256": sha256_file(target_manifest_path),
             "probe": target.probe,
             "trial_label": target.trial_label,
             "finding_ids": list(target.finding_ids),
             "finding_ids_by_scanner": target.scanner_finding_ids,
-            "requires_dist": list(target.requires_dist),
             "surfaces": list(target.surfaces),
+            "components": [
+                _component_artifact(component)
+                for component in target.components
+            ],
         },
     }
     if artifacts != expected_artifacts:
         raise EvidenceError("trial artifacts do not match exact inputs")
-    if target.wheel_architecture not in {"any", manifest["architecture"]}:
+    if any(
+        component.wheel_architecture
+        not in {"any", manifest["architecture"]}
+        for component in target.components
+    ):
         raise EvidenceError("target wheel architecture is incompatible")
     baseline = _object(manifest.get("baseline"), "trial baseline")
     if baseline != {
@@ -497,15 +542,22 @@ def validate_python_runtimes(
     document: dict[str, Any],
     *,
     manifest: dict[str, Any],
-    target_wheel: Path,
+    target_wheels: tuple[Path, ...],
     target: Target,
 ) -> None:
     python = _object(document.get("python"), "trial Python runtimes")
     if set(python) != set(manifest["images"]):
         raise EvidenceError("trial Python runtime set is invalid")
-    expected_files = _target_wheel_members(target_wheel, target)
+    wheel_map = _target_wheel_map(target_wheels, target)
+    expected_files = {
+        component.normalized_name: _target_wheel_members(
+            wheel_map[component.wheel_filename],
+            component,
+        )
+        for component in target.components
+    }
     expected_absent = [
-        f"/tmp/{target.wheel_filename}",
+        "/tmp/target-wheels",
         "/tmp/python_target.py",
         "/tmp/python_targets.json",
     ]
@@ -533,46 +585,82 @@ def validate_python_runtimes(
                 "message": "No broken requirements found.",
             }:
                 raise EvidenceError(f"{surface} {kind} pip check failed")
-            target_runtime = _object(
-                runtime.get("target"),
-                f"{surface} {kind} target runtime",
+            runtime_components = _array(
+                runtime.get("components"),
+                f"{surface} {kind} target components",
             )
-            expected_version = (
-                target.from_version if kind == "before" else target.to_version
+            if len(runtime_components) != len(target.components):
+                raise EvidenceError(
+                    f"{surface} {kind} target component count is invalid"
+                )
+            for component, value in zip(
+                target.components,
+                runtime_components,
+                strict=True,
+            ):
+                target_runtime = _object(
+                    value,
+                    f"{surface} {kind} target component",
+                )
+                expected_version = (
+                    component.from_version
+                    if kind == "before"
+                    else component.to_version
+                )
+                if (
+                    target_runtime.get("name")
+                    != component.normalized_name
+                    or target_runtime.get("version") != expected_version
+                ):
+                    raise EvidenceError(
+                        f"{surface} {kind} target runtime is invalid"
+                    )
+            probe = _object(
+                runtime.get("probe"),
+                f"{surface} {kind} target probe",
             )
             if (
-                target_runtime.get("name") != target.normalized_name
-                or target_runtime.get("version") != expected_version
-                or target_runtime.get("probe") != target.probe
-                or target_runtime.get("probe_mode")
+                probe.get("name") != target.probe
+                or probe.get("mode")
                 != ("baseline" if kind == "before" else "candidate")
-                or target_runtime.get("probe_result")
-                != target.expected_probe_result
+                or probe.get("result") != target.expected_probe_result
                 or runtime.get("absent") != expected_absent
             ):
                 raise EvidenceError(f"{surface} {kind} target runtime is invalid")
-        installed_files = _object(
-            _object(after_document["target"], "after target").get("files"),
-            f"{surface} installed target files",
+        after_components = _array(
+            after_document.get("components"),
+            f"{surface} after target components",
         )
-        installed_source = {
-            name: digest
-            for name, digest in installed_files.items()
-            if "/__pycache__/" not in name
-        }
-        generated_files = set(installed_files) - set(installed_source)
-        if (
-            installed_source != expected_files
-            or any(
-                not re.fullmatch(
-                    rf"{re.escape(target.package_prefix)}"
-                    r"(?:[^/]+/)*__pycache__/[^/]+\.pyc",
-                    name,
-                )
-                for name in generated_files
-            )
+        for component, value in zip(
+            target.components,
+            after_components,
+            strict=True,
         ):
-            raise EvidenceError(f"{surface} target wheel files are invalid")
+            installed_files = _object(
+                _object(value, "after target component").get("files"),
+                f"{surface} installed target files",
+            )
+            installed_source = {
+                name: digest
+                for name, digest in installed_files.items()
+                if "/__pycache__/" not in name
+            }
+            generated_files = set(installed_files) - set(installed_source)
+            if (
+                installed_source
+                != expected_files[component.normalized_name]
+                or any(
+                    not re.fullmatch(
+                        rf"{re.escape(component.package_prefix)}"
+                        r"(?:[^/]+/)*__pycache__/[^/]+\.pyc",
+                        name,
+                    )
+                    for name in generated_files
+                )
+            ):
+                raise EvidenceError(
+                    f"{surface} target wheel files are invalid"
+                )
         before = _python_packages(before_document, f"{surface} before")
         after = _python_packages(after_document, f"{surface} after")
         changed = {
@@ -582,9 +670,18 @@ def validate_python_runtimes(
         }
         if (
             set(before) != set(after)
-            or changed != {target.normalized_name}
-            or before.get(target.normalized_name) != [target.from_version]
-            or after.get(target.normalized_name) != [target.to_version]
+            or changed
+            != {
+                component.normalized_name
+                for component in target.components
+            }
+            or any(
+                before.get(component.normalized_name)
+                != [component.from_version]
+                or after.get(component.normalized_name)
+                != [component.to_version]
+                for component in target.components
+            )
         ):
             raise EvidenceError(f"{surface} Python package delta is not exact")
 
@@ -622,7 +719,7 @@ def validate_runtimes(
     manifest: dict[str, Any],
     horizon_wheel: Path,
     skyline_wheel: Path,
-    target_wheel: Path,
+    target_wheels: tuple[Path, ...],
     target: Target,
 ) -> None:
     document = _load(evidence / "runtimes.json", "trial runtimes")
@@ -634,7 +731,7 @@ def validate_runtimes(
     validate_python_runtimes(
         document,
         manifest=manifest,
-        target_wheel=target_wheel,
+        target_wheels=target_wheels,
         target=target,
     )
     validate_ui_runtimes(
@@ -695,7 +792,7 @@ def build_report(
     remediation_result_path: Path,
     horizon_wheel: Path,
     skyline_wheel: Path,
-    target_wheel: Path,
+    target_wheels: tuple[Path, ...],
 ) -> dict[str, Any]:
     validate_baselines(
         target=target,
@@ -707,7 +804,7 @@ def build_report(
         evidence,
         horizon_wheel=horizon_wheel,
         skyline_wheel=skyline_wheel,
-        target_wheel=target_wheel,
+        target_wheels=target_wheels,
         target_manifest_path=target_manifest_path,
         target=target,
         baseline_result_path=baseline_result_path,
@@ -726,7 +823,7 @@ def build_report(
         manifest=manifest,
         horizon_wheel=horizon_wheel,
         skyline_wheel=skyline_wheel,
-        target_wheel=target_wheel,
+        target_wheels=target_wheels,
         target=target,
     )
     surfaces: dict[str, Any] = {}
@@ -824,7 +921,12 @@ def main() -> int:
     parser.add_argument("--remediation-result", type=Path, required=True)
     parser.add_argument("--horizon-wheel", type=Path, required=True)
     parser.add_argument("--skyline-wheel", type=Path, required=True)
-    parser.add_argument("--target-wheel", type=Path, required=True)
+    parser.add_argument(
+        "--target-wheel",
+        type=Path,
+        action="append",
+        required=True,
+    )
     parser.add_argument("--target-manifest", type=Path, required=True)
     parser.add_argument("--target", required=True)
     arguments = parser.parse_args()
@@ -839,7 +941,7 @@ def main() -> int:
             remediation_result_path=arguments.remediation_result,
             horizon_wheel=arguments.horizon_wheel,
             skyline_wheel=arguments.skyline_wheel,
-            target_wheel=arguments.target_wheel,
+            target_wheels=tuple(arguments.target_wheel),
         )
         write_result(arguments.evidence / "python-trial.json", report)
     except (EvidenceError, TargetError) as error:

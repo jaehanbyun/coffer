@@ -153,12 +153,13 @@ an image publication, or a production deployment. Exit `3` remains the
 expected successful result while the cleaned images have nonzero
 Critical/High findings.
 
-Test one constraint-bound Python fix at a time on top of the accepted cleanup
-derivative:
+Test one constraint-bound Python fix, or one dependency-coupled exact package
+set, at a time on top of the accepted cleanup derivative:
 
 ```console
 make -C poc/ui-images trial-python-overlay
 make -C poc/ui-images trial-python-click
+make -C poc/ui-images trial-python-cryptography-pyopenssl
 make -C poc/ui-images trial-python-django
 make -C poc/ui-images trial-python-httplib2
 make -C poc/ui-images trial-python-lxml
@@ -170,11 +171,14 @@ make -C poc/ui-images trial-python-ujson
 ```
 
 The checked-in `python_targets.json` manifest is the only target-selection
-boundary. Its v3 contract binds each allowed package to the official wheel
-URL, filename, SHA-256, wheel architecture, dependency metadata, exact
-before/after versions, scanner-specific expected findings, compatibility
-probe, explicit installed UI surfaces, and trial label. Both `trivy` and
-`scout` keys are mandatory;
+boundary. Its v4 contract binds each allowed target to one or more exact
+package components. Every component records its official wheel URL, filename,
+SHA-256, wheel architecture, dependency metadata, exact before/after versions,
+and scanner-specific expected findings; the target also binds the
+compatibility probe, explicit installed UI surfaces, and trial label.
+Component names, wheel filenames, and findings must be disjoint, companions
+must be sorted, and the target key must exactly identify the component set.
+Both `trivy` and `scout` keys are mandatory;
 each scanner may have an empty expected set, but their union must be nonempty,
 sorted, unique, canonical CVE or GHSA identifiers and must exactly equal the accepted
 remediation candidate. The classifier requires each scanner to remove exactly
@@ -192,8 +196,8 @@ URLs, unsupported probes, arbitrary target keys, and linked manifests. The
 runner builds the target overlay and inventories and scans only those declared
 surfaces; it cannot silently install a Horizon-only dependency into Skyline.
 Stock parent preparation may still build both accepted UI baselines. The
-generic overlay retains the official wheel filename for pip parsing and still
-removes that exact build input from the final image.
+generic overlay retains every official wheel filename for pip parsing and
+removes the bounded wheel directory and target contract from the final image.
 
 Pure-Python wheels must declare `wheel_architecture=any` and use the exact
 `py3-none-any` tag. Native CPython wheels must declare either `arm64` with an
@@ -201,11 +205,12 @@ Pure-Python wheels must declare `wheel_architecture=any` and use the exact
 runner preflight, evidence manifest, and classifier all reject a wheel whose
 declared architecture does not match the trial runtime.
 
-Each fixed trial installs one official wheel with `--no-index`, `--no-deps`,
-and `--force-reinstall`. It requires the OS package inventory to remain
-byte-for-byte equivalent to the accepted cleanup result, preserves every
-installed Python distribution version including duplicate development/install
-metadata, and permits no Python package delta except the selected target.
+Each fixed trial installs only the declared official wheel set with
+`--no-index`, `--no-deps`, and `--force-reinstall`. It requires the OS package
+inventory to remain byte-for-byte equivalent to the accepted cleanup result,
+preserves every installed Python distribution version including duplicate
+development/install metadata, and permits no Python package delta except every
+and only declared component.
 `pip check`, the target-specific compatibility probe, installed wheel source
 hashes, Horizon/Skyline Coffer runtime hashes, image lineage, input removal,
 and the two-scanner/secret gates are all mandatory.
@@ -396,4 +401,33 @@ The result remains isolated with `production_candidate=false` and changes no
 production Containerfile or constraints policy. Owner-only evidence is
 retained under ignored `work/ui-python-overlay-trial-pillow/evidence/`;
 generated images, contexts, wheel copies, archives, scanner caches, and the
+harness-started Podman machine are absent after exit.
+
+The 2026-07-27 native ARM64 trial accepted the dependency-coupled
+`cryptography` 43.0.3 to 49.0.0 and `pyOpenSSL` 24.2.1 to 26.3.0 derivative
+on both surfaces. The exact two-wheel offline build is necessary because the
+old pyOpenSSL requires cryptography below 44 while the selected pyOpenSSL
+requires cryptography 49.x. The compatibility probe requires the native
+cryptography Rust binding, performs an AES-GCM round trip, and constructs and
+configures a pyOpenSSL TLS context. Both surfaces preserve the accepted
+cleanup OS inventory and every non-target Python distribution version
+multiset; `pip check`, official source hashes, per-component file boundaries,
+Coffer UI runtime hashes, lineage, and build-input absence pass.
+
+Both scanners removed exactly `CVE-2026-26007`, `CVE-2026-27459`, and
+`GHSA-537c-gmf6-5ccf`. Horizon changed from Trivy 31 to 28 High and Scout 34
+to 31 High; Skyline changed from Trivy 16 to 13 High and Scout 19 to 16 High.
+Neither scanner introduced a Critical/High finding, and Trivy found no
+secret. The accepted isolated result SHA-256 is
+`1195c893ca4d634652a5d0b77517d3e8b45536883d577e1585d4129cfda4dfbe`.
+
+The first build deliberately stopped before evidence collection when the TLS
+probe assumed a pyOpenSSL context getter that does not exist. That bounded
+state was removed, the probe was corrected to use supported setters, and a
+clean rerun passed. The result remains
+`production_candidate=false`, changes no production Containerfile or
+constraints policy, and applies no waiver. Owner-only evidence is retained
+under ignored
+`work/ui-python-overlay-trial-cryptography-pyopenssl/evidence/`; generated
+images, contexts, wheel copies, archives, scanner caches, and the
 harness-started Podman machine are absent after exit.

@@ -1,6 +1,6 @@
 ---
 title: "UI coupled crypto package remediation"
-status: active
+status: completed
 updated: 2026-07-27
 owner: primary-agent
 ---
@@ -17,21 +17,21 @@ Containerfile or weakening the absolute production gate.
 
 ## Done Criteria
 
-- [ ] The checked-in target contract represents one or more exact package
+- [x] The checked-in target contract represents one or more exact package
       components while preserving strict wheel, architecture, finding,
       surface, dependency, and path validation for all existing targets.
-- [ ] Runner, build, runtime collector, evidence manifest, and classifier bind
+- [x] Runner, build, runtime collector, evidence manifest, and classifier bind
       every component and refuse missing, extra, duplicate, wrong-platform, or
       wrong-hash wheels and package deltas.
-- [ ] Both native ARM64 surfaces change exactly cryptography 43.0.3 to 49.0.0
+- [x] Both native ARM64 surfaces change exactly cryptography 43.0.3 to 49.0.0
       and pyOpenSSL 24.2.1 to 26.3.0, pass `pip check`, native cryptographic
       operations, OpenSSL TLS-context compatibility, UI runtime, lineage, and
       build-input cleanup.
-- [ ] Trivy and Docker Scout remove exactly `CVE-2026-26007`,
+- [x] Trivy and Docker Scout remove exactly `CVE-2026-26007`,
       `GHSA-537c-gmf6-5ccf`, and `CVE-2026-27459`, introduce no
       Critical/High finding, report zero secrets, and retain the absolute
       nonzero gate as blocked.
-- [ ] Focused and full regression, static, documentation, secret, residue, and
+- [x] Focused and full regression, static, documentation, secret, residue, and
       diff gates pass; the verified milestone is committed and pushed.
 
 ## Non-goals
@@ -74,16 +74,60 @@ Containerfile or weakening the absolute production gate.
 
 ## Tasks
 
-- [ ] Add a strict package-component model with positive and rejection
+- [x] Add a strict package-component model with positive and rejection
       fixtures while preserving every plan 0023 target.
-- [ ] Carry exact component wheels through the offline build, runtime
+- [x] Carry exact component wheels through the offline build, runtime
       collector, manifest, and classifier.
-- [ ] Add native cryptography and pyOpenSSL compatibility probes.
-- [ ] Run and independently inspect the two-surface native ARM64 transaction.
-- [ ] Complete repository gates, update this plan and handoff, commit, and
+- [x] Add native cryptography and pyOpenSSL compatibility probes.
+- [x] Run and independently inspect the two-surface native ARM64 transaction.
+- [x] Complete repository gates, update this plan and handoff, commit, and
       push.
 
 ## Progress Log
+
+### 2026-07-27 — Coupled native ARM64 trial accepted
+
+- Completed: Reran the complete transaction from a clean work boundary. Both
+  UI surfaces changed exactly cryptography 43.0.3 to 49.0.0 and pyOpenSSL
+  24.2.1 to 26.3.0. `pip check`, native `_rust`, AES-GCM, TLS context,
+  Coffer UI runtimes, exact wheel files, lineage, OS invariance, and build
+  input cleanup passed.
+- Scanner evidence: Trivy and Scout each removed exactly
+  `CVE-2026-26007`, `CVE-2026-27459`, and
+  `GHSA-537c-gmf6-5ccf` on both surfaces with zero introduced Critical/High
+  and zero Trivy secrets. Horizon High changed 31 to 28 in Trivy and 34 to
+  31 in Scout; Skyline changed 16 to 13 and 19 to 16.
+- Decision: The isolated coupled derivative is accepted with
+  `production_candidate=false`. It changes no production Containerfile or
+  constraints policy and applies no waiver. The owner-only result SHA-256 is
+  `1195c893ca4d634652a5d0b77517d3e8b45536883d577e1585d4129cfda4dfbe`.
+- Cleanup and gates: Generated images, contexts, wheels, archives, and scanner
+  caches are absent; the pre-existing Podman machine is stopped. JSON, Bash,
+  strict ShellCheck, Ruff, compilation, 86 focused UI image tests, and all
+  1,541 repository tests pass.
+- Next exact action: Create plan 0025 for a cumulative ARM64 remediation
+  matrix that combines only the independently accepted targets and proves
+  dependency, runtime, and exact scanner deltas before any production
+  Containerfile change.
+
+### 2026-07-27 — First native trial stopped at the TLS probe
+
+- Completed: Implemented the v4 exact component target/evidence contract,
+  v3 multi-component runtime contract, repeatable wheel input, offline
+  multi-wheel build, exact two-package delta classifier, AES-GCM and
+  pyOpenSSL TLS-context probes, Make target, documentation, and rejection
+  fixtures. Forty-five focused tests pass.
+- Failure: The first native ARM64 transaction installed cryptography 49.0.0
+  and pyOpenSSL 26.3.0 and passed `pip check`, then stopped because
+  pyOpenSSL's `Context` supports `set_min_proto_version()` but not the assumed
+  `get_min_proto_version()` method. No scanner evidence was accepted.
+- Cleanup: All bounded images, contexts, wheels, caches, archives, and empty
+  work directories are absent; the pre-existing Podman machine is stopped.
+  The probe now uses supported minimum-version, cipher-list, and option
+  setters without claiming a nonexistent getter.
+- Next exact action: Rerun
+  `make -C poc/ui-images trial-python-cryptography-pyopenssl` from a clean
+  bounded work directory.
 
 ### 2026-07-27 — Work package activated
 
@@ -105,9 +149,10 @@ Containerfile or weakening the absolute production gate.
 | Check | Command or method | Result |
 |---|---|---|
 | Official metadata and wheel identity | PyPI JSON plus SHA-256 fields | passed read-only |
-| Existing target regression | focused pytest | pending |
-| Coupled runtime and scanner transaction | native ARM64 harness | pending |
-| Final repository gates | static, focused/full pytest, secret, residue, diff | pending |
+| Existing and coupled target regression | UI image focused pytest | passed; 86 tests |
+| Coupled runtime and scanner transaction | native ARM64 harness | passed; accepted blocked result |
+| Runtime and scanner delta | exact inventories and two scanners | passed; three High IDs removed on both surfaces |
+| Final repository gates | JSON, Bash, ShellCheck, Ruff, compilation, focused/full pytest, secret, residue, diff | passed; 1,541 tests |
 
 ## Failures, Blockers, and Risks
 
@@ -118,15 +163,20 @@ Containerfile or weakening the absolute production gate.
 - Multi-package support expands the evidence schema. Existing single-package
   targets must retain exact behavior and rejection coverage; a schema bump
   cannot silently reinterpret accepted evidence.
+- The first live trial exposed and removed one unsupported pyOpenSSL getter
+  assumption. That stopped before evidence collection and is not accepted
+  trial evidence.
 - Production remains independently blocked by Distribution/Ceph release gates,
   canonical AMD64 Scout evidence, nonzero findings outside this pair,
   cumulative compatibility, signed publication, and live Kolla/UI acceptance.
 
 ## Handoff
 
-- Current state: Plan 0024 is active; no production file or image changed.
-- Exact next action: Add the exact package-component model and fixtures.
-- First file or command: Edit `poc/ui-images/python_target.py`, then run
-  `uv run pytest -q tests/test_ui_python_overlay_trial.py`.
+- Current state: Plan 0024 is complete; no production file or image changed.
+- Exact next action: Create plan 0025 for the cumulative accepted remediation
+  matrix.
+- First file or command: Create
+  `docs/exec-plans/0025-ui-cumulative-remediation-matrix.md` from the
+  execution-plan template.
 - Questions requiring user input: None. No credential, external publication,
   live deployment, waiver, or security-boundary change is required.

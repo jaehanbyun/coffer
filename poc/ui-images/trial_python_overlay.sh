@@ -30,12 +30,11 @@ WHEEL_INPUT="${ROOT}/work/ui-image-qualification/wheels"
 OS_CLEANUP_RESULT="${ROOT}/work/ui-os-cleanup-trial/evidence/cleanup-trial.json"
 OS_CLEANUP_INVENTORIES="${ROOT}/work/ui-os-cleanup-trial/evidence/inventories.json"
 REMEDIATION_RESULT="${ROOT}/work/ui-image-qualification/evidence/remediation.json"
-TARGET_WHEEL_NAME=""
-TARGET_WHEEL_URL=""
-TARGET_WHEEL_SHA256=""
-TARGET_WHEEL_ARCHITECTURE=""
-TARGET_DISPLAY_NAME=""
-TARGET_TO_VERSION=""
+TARGET_WHEEL_NAMES=()
+TARGET_WHEEL_URLS=()
+TARGET_WHEEL_SHA256S=()
+TARGET_WHEEL_ARCHITECTURES=()
+TARGET_RESULT_NAME=""
 TARGET_TRIAL_LABEL=""
 TARGET_SURFACES=()
 TAG="2026.1-python-overlay"
@@ -125,29 +124,35 @@ for command_name in curl docker git jq podman python3 shasum; do
 done
 test -f "${TARGET_MANIFEST}"
 test ! -L "${TARGET_MANIFEST}"
-TARGET_WHEEL_NAME="$(
-    jq -er --arg target "${TARGET_KEY}" \
-        '.targets[$target].wheel_filename' "${TARGET_MANIFEST}"
-)"
-TARGET_WHEEL_URL="$(
-    jq -er --arg target "${TARGET_KEY}" \
-        '.targets[$target].wheel_url' "${TARGET_MANIFEST}"
-)"
-TARGET_WHEEL_SHA256="$(
-    jq -er --arg target "${TARGET_KEY}" \
-        '.targets[$target].wheel_sha256' "${TARGET_MANIFEST}"
-)"
-TARGET_WHEEL_ARCHITECTURE="$(
-    jq -er --arg target "${TARGET_KEY}" \
-        '.targets[$target].wheel_architecture' "${TARGET_MANIFEST}"
-)"
-TARGET_DISPLAY_NAME="$(
-    jq -er --arg target "${TARGET_KEY}" \
-        '.targets[$target].display_name' "${TARGET_MANIFEST}"
-)"
-TARGET_TO_VERSION="$(
-    jq -er --arg target "${TARGET_KEY}" \
-        '.targets[$target].to_version' "${TARGET_MANIFEST}"
+while IFS=$'\t' read -r wheel_name wheel_url wheel_sha256 wheel_architecture; do
+    TARGET_WHEEL_NAMES+=("${wheel_name}")
+    TARGET_WHEEL_URLS+=("${wheel_url}")
+    TARGET_WHEEL_SHA256S+=("${wheel_sha256}")
+    TARGET_WHEEL_ARCHITECTURES+=("${wheel_architecture}")
+done < <(
+    jq -er --arg target "${TARGET_KEY}" '
+        .targets[$target] as $entry
+        | ([$entry] + ($entry.companions // []))[]
+        | [
+            .wheel_filename,
+            .wheel_url,
+            .wheel_sha256,
+            .wheel_architecture
+          ]
+        | @tsv
+    ' "${TARGET_MANIFEST}"
+)
+test "${#TARGET_WHEEL_NAMES[@]}" -gt 0
+test "${#TARGET_WHEEL_NAMES[@]}" = "${#TARGET_WHEEL_URLS[@]}"
+test "${#TARGET_WHEEL_NAMES[@]}" = "${#TARGET_WHEEL_SHA256S[@]}"
+test "${#TARGET_WHEEL_NAMES[@]}" = "${#TARGET_WHEEL_ARCHITECTURES[@]}"
+TARGET_RESULT_NAME="$(
+    jq -er --arg target "${TARGET_KEY}" '
+        .targets[$target] as $entry
+        | ([$entry] + ($entry.companions // []))
+        | map(.display_name + "==" + .to_version)
+        | join(" + ")
+    ' "${TARGET_MANIFEST}"
 )"
 TARGET_TRIAL_LABEL="$(
     jq -er --arg target "${TARGET_KEY}" \
@@ -244,17 +249,21 @@ test "$(shasum -a 256 "${REMEDIATION_RESULT}" | awk '{print $1}')" = \
 
 horizon_wheel="${WHEELS}/coffer_horizon-0.1.0-py3-none-any.whl"
 skyline_wheel="${WHEELS}/skyline_console-8.0.0+coffer.1-py3-none-any.whl"
-target_wheel="${WHEELS}/${TARGET_WHEEL_NAME}"
+target_wheels=()
 cp "${WHEEL_INPUT}/$(basename "${horizon_wheel}")" "${horizon_wheel}"
 cp "${WHEEL_INPUT}/$(basename "${skyline_wheel}")" "${skyline_wheel}"
 test "$(shasum -a 256 "${horizon_wheel}" | awk '{print $1}')" = \
     "33f0d950818f2d18d9ef6b5e3766445e1e867f39d4bc83a2c2739227b0bee957"
 test "$(shasum -a 256 "${skyline_wheel}" | awk '{print $1}')" = \
     "8df1ca2aff8ee05766ba963e3e3a746b8d40a8051591afcf3a526464faa8a034"
-curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error \
-    --output "${target_wheel}" "${TARGET_WHEEL_URL}"
-test "$(shasum -a 256 "${target_wheel}" | awk '{print $1}')" = \
-    "${TARGET_WHEEL_SHA256}"
+for wheel_index in "${!TARGET_WHEEL_NAMES[@]}"; do
+    target_wheel="${WHEELS}/${TARGET_WHEEL_NAMES[wheel_index]}"
+    target_wheels+=("${target_wheel}")
+    curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error \
+        --output "${target_wheel}" "${TARGET_WHEEL_URLS[wheel_index]}"
+    test "$(shasum -a 256 "${target_wheel}" | awk '{print $1}')" = \
+        "${TARGET_WHEEL_SHA256S[wheel_index]}"
+done
 
 docker_scout_version="$(
     docker scout version | awk '/^version:/ {print $2; exit}'
@@ -294,11 +303,13 @@ case "${runtime_arch}" in
         exit 1
         ;;
 esac
-if [[ "${TARGET_WHEEL_ARCHITECTURE}" != "any" ]] \
-    && [[ "${TARGET_WHEEL_ARCHITECTURE}" != "${architecture}" ]]; then
-    echo "target wheel is incompatible with runtime architecture" >&2
-    exit 1
-fi
+for wheel_architecture in "${TARGET_WHEEL_ARCHITECTURES[@]}"; do
+    if [[ "${wheel_architecture}" != "any" ]] \
+        && [[ "${wheel_architecture}" != "${architecture}" ]]; then
+        echo "target wheel is incompatible with runtime architecture" >&2
+        exit 1
+    fi
+done
 
 phase="stock Kolla parent build"
 "${KOLLA_BUILD}" \
@@ -354,15 +365,18 @@ podman build --pull-never --network none --platform "${platform}" \
     --file "${cleanup_context}/os_cleanup.Containerfile" \
     --tag "${SKYLINE_BEFORE}" "${cleanup_context}"
 
-phase="fixed ${TARGET_DISPLAY_NAME} overlay derivatives"
+phase="fixed ${TARGET_RESULT_NAME} overlay derivatives"
 overlay_context="${CONTEXTS}/python-overlay"
-mkdir -p "${overlay_context}"
+target_wheel_context="${overlay_context}/target-wheels"
+mkdir -p "${target_wheel_context}"
 cp \
     "${HARNESS}/python_overlay.Containerfile" \
     "${HARNESS}/python_target.py" \
     "${TARGET_MANIFEST}" \
     "${overlay_context}/"
-cp "${target_wheel}" "${overlay_context}/target.whl"
+for target_wheel in "${target_wheels[@]}"; do
+    cp "${target_wheel}" "${target_wheel_context}/"
+done
 for target_surface in "${TARGET_SURFACES[@]}"; do
     case "${target_surface}" in
         horizon)
@@ -382,7 +396,6 @@ for target_surface in "${TARGET_SURFACES[@]}"; do
         --build-arg "BASE_IMAGE=${surface_before}" \
         --build-arg "TARGET_KEY=${TARGET_KEY}" \
         --build-arg "TARGET_LABEL=${TARGET_TRIAL_LABEL}" \
-        --build-arg "TARGET_WHEEL_FILENAME=${TARGET_WHEEL_NAME}" \
         --file "${overlay_context}/python_overlay.Containerfile" \
         --tag "${surface_after}" "${overlay_context}"
 done
@@ -406,7 +419,6 @@ collection_args=(
     --evidence "${EVIDENCE}" \
     --horizon-wheel "${horizon_wheel}" \
     --skyline-wheel "${skyline_wheel}" \
-    --target-wheel "${target_wheel}" \
     --target-manifest "${TARGET_MANIFEST}" \
     --target "${TARGET_KEY}" \
     --baseline-result "${OS_CLEANUP_RESULT}" \
@@ -419,6 +431,9 @@ collection_args=(
     --docker-scout-version "${docker_scout_version}" \
     --trivy-version "${trivy_version}"
 )
+for target_wheel in "${target_wheels[@]}"; do
+    collection_args+=(--target-wheel "${target_wheel}")
+done
 scan_entries=()
 for target_surface in "${TARGET_SURFACES[@]}"; do
     case "${target_surface}" in
@@ -478,19 +493,24 @@ done
 
 phase="fail-closed Python compatibility classification"
 trial_exit=0
-python3 "${HARNESS}/python_trial.py" "${EVIDENCE}" \
+trial_args=(
+    "${EVIDENCE}" \
     --baseline-result "${OS_CLEANUP_RESULT}" \
     --baseline-inventories "${OS_CLEANUP_INVENTORIES}" \
     --remediation-result "${REMEDIATION_RESULT}" \
     --horizon-wheel "${horizon_wheel}" \
     --skyline-wheel "${skyline_wheel}" \
-    --target-wheel "${target_wheel}" \
     --target-manifest "${TARGET_MANIFEST}" \
-    --target "${TARGET_KEY}" || trial_exit=$?
+    --target "${TARGET_KEY}"
+)
+for target_wheel in "${target_wheels[@]}"; do
+    trial_args+=(--target-wheel "${target_wheel}")
+done
+python3 "${HARNESS}/python_trial.py" "${trial_args[@]}" || trial_exit=$?
 if [[ "${trial_exit}" -ne 3 ]]; then
     exit "${trial_exit}"
 fi
-jq -e --arg target "${TARGET_DISPLAY_NAME}==${TARGET_TO_VERSION}" '
+jq -e --arg target "${TARGET_RESULT_NAME}" '
     .decision.status == "blocked"
     and .decision.production_candidate == false
     and .decision.python_overlay_trial_accepted == true
@@ -498,4 +518,4 @@ jq -e --arg target "${TARGET_DISPLAY_NAME}==${TARGET_TO_VERSION}" '
     and .decision.production_containerfile_changed == false
 ' "${EVIDENCE}/python-trial.json" >/dev/null
 
-echo "UI ${TARGET_DISPLAY_NAME} overlay trial accepted but production remains blocked; evidence=${EVIDENCE}"
+echo "UI ${TARGET_RESULT_NAME} overlay trial accepted but production remains blocked; evidence=${EVIDENCE}"

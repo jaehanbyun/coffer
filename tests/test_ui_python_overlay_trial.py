@@ -71,7 +71,16 @@ def wheel(
 
 
 def write_trivy(path: Path, identifiers: list[str], target: Any) -> None:
-    target_findings = target.finding_ids_for("trivy")
+    def component_for(identifier: str) -> Any | None:
+        return next(
+            (
+                component
+                for component in target.components
+                if identifier in component.finding_ids_for("trivy")
+            ),
+            None,
+        )
+
     path.write_text(
         json.dumps(
             {
@@ -85,18 +94,18 @@ def write_trivy(path: Path, identifiers: list[str], target: Any) -> None:
                             {
                                 "VulnerabilityID": identifier,
                                 "PkgName": (
-                                    target.display_name
-                                    if identifier in target_findings
+                                    component_for(identifier).display_name
+                                    if component_for(identifier) is not None
                                     else "remaining"
                                 ),
                                 "InstalledVersion": (
-                                    target.from_version
-                                    if identifier in target_findings
+                                    component_for(identifier).from_version
+                                    if component_for(identifier) is not None
                                     else "1"
                                 ),
                                 "FixedVersion": (
-                                    target.to_version
-                                    if identifier in target_findings
+                                    component_for(identifier).to_version
+                                    if component_for(identifier) is not None
                                     else ""
                                 ),
                                 "Severity": "HIGH",
@@ -111,7 +120,16 @@ def write_trivy(path: Path, identifiers: list[str], target: Any) -> None:
 
 
 def write_scout(path: Path, identifiers: list[str], target: Any) -> None:
-    target_findings = target.finding_ids_for("scout")
+    def component_for(identifier: str) -> Any | None:
+        return next(
+            (
+                component
+                for component in target.components
+                if identifier in component.finding_ids_for("scout")
+            ),
+            None,
+        )
+
     path.write_text(
         json.dumps(
             {
@@ -129,18 +147,22 @@ def write_scout(path: Path, identifiers: list[str], target: Any) -> None:
                                             "cvssV3_severity": "HIGH",
                                             "purls": [
                                                 (
-                                                    f"pkg:pypi/{target.normalized_name}"
-                                                    f"@{target.from_version}"
-                                                    if identifier
-                                                    in target_findings
+                                                    "pkg:pypi/"
+                                                    f"{component_for(identifier).normalized_name}"
+                                                    "@"
+                                                    f"{component_for(identifier).from_version}"
+                                                    if component_for(identifier)
+                                                    is not None
                                                     else "pkg:pypi/remaining@1"
                                                 )
                                             ],
                                             "affected_version": "1",
                                             "fixed_version": (
-                                                target.to_version
-                                                if identifier
-                                                in target_findings
+                                                component_for(
+                                                    identifier
+                                                ).to_version
+                                                if component_for(identifier)
+                                                is not None
                                                 else "not fixed"
                                             ),
                                         },
@@ -180,28 +202,49 @@ def os_inventory() -> dict[str, object]:
 def python_runtime(
     *,
     target: Any,
-    version: str,
-    target_files: dict[str, str],
+    kind: str,
+    target_files: dict[str, dict[str, str]],
     probe_mode: str,
 ) -> dict[str, object]:
+    if kind not in {"before", "after"}:
+        raise ValueError("invalid fixture runtime kind")
     return {
         "schema": TRIAL.PYTHON_RUNTIME_SCHEMA,
         "architecture": "arm64",
-        "packages": {"base": ["1"], target.normalized_name: [version]},
-        "target": {
-            "name": target.normalized_name,
-            "version": version,
-            "files": target_files,
-            "probe": target.probe,
-            "probe_mode": probe_mode,
-            "probe_result": target.expected_probe_result,
+        "packages": {
+            "base": ["1"],
+            **{
+                component.normalized_name: [
+                    component.from_version
+                    if kind == "before"
+                    else component.to_version
+                ]
+                for component in target.components
+            },
+        },
+        "components": [
+            {
+                "name": component.normalized_name,
+                "version": (
+                    component.from_version
+                    if kind == "before"
+                    else component.to_version
+                ),
+                "files": target_files[component.normalized_name],
+            }
+            for component in target.components
+        ],
+        "probe": {
+            "name": target.probe,
+            "mode": probe_mode,
+            "result": target.expected_probe_result,
         },
         "pip_check": {
             "clean": True,
             "message": "No broken requirements found.",
         },
         "absent": [
-            f"/tmp/{target.wheel_filename}",
+            "/tmp/target-wheels",
             "/tmp/python_target.py",
             "/tmp/python_targets.json",
         ],
@@ -220,15 +263,22 @@ def fixture(
     artifacts: dict[str, Any] = {}
     wheel_files: dict[str, dict[str, str]] = {}
     base_target = BASE_TARGETS[target_key]
-    for surface in (*TRIAL.SURFACES, "target"):
-        filename = (
-            base_target.wheel_filename if surface == "target" else f"{surface}.whl"
-        )
+    for surface in TRIAL.SURFACES:
         artifacts[surface], wheel_files[surface] = wheel(
-            tmp_path / filename,
+            tmp_path / f"{surface}.whl",
             surface,
             base_target,
         )
+    target_wheels: list[Path] = []
+    target_wheel_files: dict[str, dict[str, str]] = {}
+    for component in base_target.components:
+        target_wheel, files = wheel(
+            tmp_path / component.wheel_filename,
+            "target",
+            component,
+        )
+        target_wheels.append(target_wheel)
+        target_wheel_files[component.normalized_name] = files
     target_document = json.loads(TARGET_MANIFEST.read_text())
     target_document["targets"] = {
         target_key: target_document["targets"][target_key]
@@ -239,14 +289,20 @@ def fixture(
         target_document["targets"][target_key][
             "finding_ids_by_scanner"
         ] = finding_ids_by_scanner
-    target_document["targets"][target_key]["wheel_sha256"] = TRIAL.sha256_file(
-        artifacts["target"]
-    )
+    target_entry = target_document["targets"][target_key]
+    target_entry["wheel_sha256"] = TRIAL.sha256_file(target_wheels[0])
+    for companion, target_wheel in zip(
+        target_entry.get("companions", []),
+        target_wheels[1:],
+        strict=True,
+    ):
+        companion["wheel_sha256"] = TRIAL.sha256_file(target_wheel)
     target_manifest = tmp_path / "python_targets.json"
     target_manifest.write_text(json.dumps(target_document, sort_keys=True))
     target = TARGET_MODULE.load_target(target_manifest, target_key)
     artifacts["target_manifest"] = target_manifest
     artifacts["target_spec"] = target
+    artifacts["target_wheels"] = tuple(target_wheels)
 
     baseline = tmp_path / "cleanup-trial.json"
     baseline.write_text(
@@ -262,22 +318,25 @@ def fixture(
         )
     )
     remediation = tmp_path / "remediation.json"
-    candidate = {
-        "package": target.normalized_name,
-        "classification": "constraint-bound-all-findings-have-fix",
-        "eligible_for_compatibility_trial": True,
-        "constraint_match": True,
-        "installed_version": target.from_version,
-        "constraint_version": target.from_version,
-        "fixed_versions": [target.to_version],
-        "finding_ids": list(target.finding_ids),
-    }
+    candidates = [
+        {
+            "package": component.normalized_name,
+            "classification": "constraint-bound-all-findings-have-fix",
+            "eligible_for_compatibility_trial": True,
+            "constraint_match": True,
+            "installed_version": component.from_version,
+            "constraint_version": component.from_version,
+            "fixed_versions": [component.to_version],
+            "finding_ids": list(component.finding_ids),
+        }
+        for component in target.components
+    ]
     remediation.write_text(
         json.dumps(
             {
                 "schema": TRIAL.REMEDIATION_SCHEMA,
                 "surfaces": {
-                    surface: {"packages": [candidate]}
+                    surface: {"packages": candidates}
                     for surface in TRIAL.SURFACES
                 },
             }
@@ -337,20 +396,16 @@ def fixture(
             },
             "target": {
                 "key": target.key,
-                "name": target.display_name,
-                "normalized_name": target.normalized_name,
-                "from_version": target.from_version,
-                "to_version": target.to_version,
-                "filename": target.wheel_filename,
-                "wheel_architecture": target.wheel_architecture,
-                "sha256": target.wheel_sha256,
                 "manifest_sha256": TRIAL.sha256_file(target_manifest),
                 "probe": target.probe,
                 "trial_label": target.trial_label,
                 "finding_ids": list(target.finding_ids),
                 "finding_ids_by_scanner": target.scanner_finding_ids,
-                "requires_dist": list(target.requires_dist),
                 "surfaces": list(target.surfaces),
+                "components": [
+                    TRIAL._component_artifact(component)
+                    for component in target.components
+                ],
             },
         },
         "baseline": {
@@ -424,19 +479,18 @@ def fixture(
     python = {
         f"{surface}-{kind}": python_runtime(
             target=target,
-            version=(
-                target.from_version
-                if kind == "before"
-                else target.to_version
-            ),
+            kind=kind,
             target_files=(
                 {
-                    f"{target.package_prefix}old.py": digest("old").removeprefix(
-                        "sha256:"
-                    )
+                    component.normalized_name: {
+                        f"{component.package_prefix}old.py": digest(
+                            f"{component.normalized_name}-old"
+                        ).removeprefix("sha256:")
+                    }
+                    for component in target.components
                 }
                 if kind == "before"
-                else wheel_files["target"]
+                else target_wheel_files
             ),
             probe_mode="baseline" if kind == "before" else "candidate",
         )
@@ -495,7 +549,12 @@ def fixture(
     return evidence, artifacts
 
 
-def build(evidence: Path, artifacts: dict[str, Any]) -> dict[str, object]:
+def build(
+    evidence: Path,
+    artifacts: dict[str, Any],
+    *,
+    target_wheels: tuple[Path, ...] | None = None,
+) -> dict[str, object]:
     return TRIAL.build_report(
         evidence,
         target=artifacts["target_spec"],
@@ -505,7 +564,7 @@ def build(evidence: Path, artifacts: dict[str, Any]) -> dict[str, object]:
         remediation_result_path=artifacts["remediation"],
         horizon_wheel=artifacts["horizon"],
         skyline_wheel=artifacts["skyline"],
-        target_wheel=artifacts["target"],
+        target_wheels=target_wheels or artifacts["target_wheels"],
     )
 
 
@@ -513,6 +572,7 @@ def build(evidence: Path, artifacts: dict[str, Any]) -> dict[str, object]:
     "target_key",
     [
         "click",
+        "cryptography-pyopenssl",
         "django",
         "mako",
         "httplib2",
@@ -546,6 +606,50 @@ def test_valid_overlay_is_accepted_but_remains_blocked(
                 target.finding_ids_for(scanner)
             )
             assert result["introduced_critical_high"] == 0
+
+
+@pytest.mark.parametrize("wheel_set", ["missing", "reversed", "duplicate"])
+def test_coupled_overlay_rejects_inexact_wheel_set(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    wheel_set: str,
+) -> None:
+    evidence, artifacts = fixture(
+        tmp_path,
+        monkeypatch,
+        "cryptography-pyopenssl",
+    )
+    target_wheels = artifacts["target_wheels"]
+    candidates = {
+        "missing": target_wheels[:1],
+        "reversed": tuple(reversed(target_wheels)),
+        "duplicate": (target_wheels[0], target_wheels[0]),
+    }
+
+    with pytest.raises(TRIAL.EvidenceError, match="target wheel set"):
+        build(
+            evidence,
+            artifacts,
+            target_wheels=candidates[wheel_set],
+        )
+
+
+def test_coupled_overlay_rejects_missing_runtime_component(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence, artifacts = fixture(
+        tmp_path,
+        monkeypatch,
+        "cryptography-pyopenssl",
+    )
+    runtimes_path = evidence / "runtimes.json"
+    runtimes = json.loads(runtimes_path.read_text())
+    runtimes["python"]["horizon-after"]["components"].pop()
+    runtimes_path.write_text(json.dumps(runtimes))
+
+    with pytest.raises(TRIAL.EvidenceError, match="component count"):
+        build(evidence, artifacts)
 
 
 def test_surface_scoped_overlay_excludes_unselected_surface(
@@ -669,7 +773,7 @@ def test_lineage_runtime_and_target_finding_tamper_are_rejected(
     evidence, artifacts = fixture(tmp_path / "second", monkeypatch)
     runtimes_path = evidence / "runtimes.json"
     runtimes = json.loads(runtimes_path.read_text())
-    runtimes["python"]["skyline-after"]["target"]["files"] = {}
+    runtimes["python"]["skyline-after"]["components"][0]["files"] = {}
     runtimes_path.write_text(json.dumps(runtimes))
     with pytest.raises(TRIAL.EvidenceError, match="target wheel files"):
         build(evidence, artifacts)
@@ -828,15 +932,16 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
     assert "--no-deps" in containerfile
     assert "--no-index" in containerfile
     assert "--force-reinstall" in containerfile
-    assert "target.whl" in containerfile
+    assert "target-wheels/*.whl" in containerfile
     assert "python_targets.json" in containerfile
     assert "pip check" in containerfile
     assert "TARGET_LABEL" in containerfile
-    assert "TARGET_WHEEL_FILENAME" in containerfile
+    assert "TARGET_WHEEL_FILENAME" not in containerfile
 
     targets = TARGET_MODULE.load_targets(TARGET_MANIFEST)
     assert set(targets) == {
         "click",
+        "cryptography-pyopenssl",
         "django",
         "mako",
         "httplib2",
@@ -858,6 +963,20 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
     assert targets["click"].wheel_sha256 == (
         "a2bf429bb3033c89fa4936ffb35d5cb471e3719e1f3c8a7c3fff0b8314305613"
     )
+    crypto_target = targets["cryptography-pyopenssl"]
+    assert tuple(
+        component.normalized_name for component in crypto_target.components
+    ) == ("cryptography", "pyopenssl")
+    assert crypto_target.result_name == (
+        "cryptography==49.0.0 + pyOpenSSL==26.3.0"
+    )
+    assert crypto_target.finding_ids == (
+        "CVE-2026-26007",
+        "CVE-2026-27459",
+        "GHSA-537c-gmf6-5ccf",
+    )
+    assert crypto_target.components[0].wheel_architecture == "arm64"
+    assert crypto_target.components[1].wheel_architecture == "any"
     assert targets["msgpack"].wheel_architecture == "arm64"
     assert targets["msgpack"].requires_dist == ()
     assert targets["msgpack"].finding_ids == ("GHSA-6v7p-g79w-8964",)
@@ -927,8 +1046,9 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
     ).read_text()
     assert 'WORK="${ROOT}/work/ui-python-overlay-trial-${TARGET_KEY}"' in runner
     assert "refusing existing UI Python overlay trial work directory" in runner
-    assert ".targets[$target].wheel_sha256" in runner
-    assert ".targets[$target].wheel_architecture" in runner
+    assert "TARGET_WHEEL_SHA256S" in runner
+    assert "TARGET_WHEEL_ARCHITECTURES" in runner
+    assert "($entry.companions // [])" in runner
     assert "target wheel is incompatible with runtime architecture" in runner
     assert "--network none" in runner
     assert "--no-deps" in containerfile
@@ -980,6 +1100,42 @@ def test_target_manifest_rejects_invalid_scanner_finding_contract(
         TARGET_MODULE.TargetError,
         match="finding_ids_by_scanner",
     ):
+        TARGET_MODULE.load_targets(path)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["duplicate-name", "duplicate-finding", "unsorted-companions"],
+)
+def test_target_manifest_rejects_invalid_component_contract(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    document = json.loads(TARGET_MANIFEST.read_text())
+    entry = document["targets"]["cryptography-pyopenssl"]
+    if mutation == "duplicate-name":
+        entry["companions"][0]["normalized_name"] = "cryptography"
+    elif mutation == "duplicate-finding":
+        entry["companions"][0]["finding_ids_by_scanner"] = {
+            "trivy": ["CVE-2026-26007"],
+            "scout": ["CVE-2026-26007"],
+        }
+    else:
+        entry["companions"].append(
+            {
+                **entry["companions"][0],
+                "display_name": "alpha",
+                "normalized_name": "alpha",
+                "package_prefix": "alpha/",
+                "wheel_filename": "alpha-26.3.0-py3-none-any.whl",
+                "wheel_sha256": "a" * 64,
+            }
+        )
+    document["targets"] = {"cryptography-pyopenssl": entry}
+    path = tmp_path / "python_targets.json"
+    path.write_text(json.dumps(document))
+
+    with pytest.raises(TARGET_MODULE.TargetError):
         TARGET_MODULE.load_targets(path)
 
 

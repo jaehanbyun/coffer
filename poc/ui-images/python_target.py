@@ -10,7 +10,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
-SCHEMA = "coffer.ui-python-overlay-targets/v3"
+SCHEMA = "coffer.ui-python-overlay-targets/v4"
 KEY = re.compile(r"^[a-z][a-z0-9-]{1,31}$")
 NAME = re.compile(r"^[A-Za-z][A-Za-z0-9._-]{0,63}$")
 VERSION = re.compile(r"^[0-9][A-Za-z0-9.+!-]{0,31}$")
@@ -34,6 +34,7 @@ PROBES = {
     "msgpack-binary",
     "module-import",
     "pillow-png",
+    "pyca-pair",
     "pyjwt-hs256",
     "ujson-binary",
     "urllib3-pool",
@@ -48,8 +49,7 @@ class TargetError(RuntimeError):
 
 
 @dataclass(frozen=True)
-class Target:
-    key: str
+class PackageComponent:
     display_name: str
     normalized_name: str
     package_prefix: str
@@ -61,13 +61,6 @@ class Target:
     wheel_architecture: str
     finding_ids_by_scanner: tuple[tuple[str, tuple[str, ...]], ...]
     requires_dist: tuple[str, ...]
-    surfaces: tuple[str, ...]
-    probe: str
-    trial_label: str
-
-    @property
-    def result_name(self) -> str:
-        return f"{self.display_name}=={self.to_version}"
 
     @property
     def module_name(self) -> str:
@@ -98,6 +91,87 @@ class Target:
             for scanner, findings in self.finding_ids_by_scanner
         }
 
+
+@dataclass(frozen=True)
+class Target:
+    key: str
+    display_name: str
+    normalized_name: str
+    package_prefix: str
+    from_version: str
+    to_version: str
+    wheel_filename: str
+    wheel_url: str
+    wheel_sha256: str
+    wheel_architecture: str
+    finding_ids_by_scanner: tuple[tuple[str, tuple[str, ...]], ...]
+    requires_dist: tuple[str, ...]
+    surfaces: tuple[str, ...]
+    probe: str
+    trial_label: str
+    companions: tuple[PackageComponent, ...]
+
+    @property
+    def primary(self) -> PackageComponent:
+        return PackageComponent(
+            display_name=self.display_name,
+            normalized_name=self.normalized_name,
+            package_prefix=self.package_prefix,
+            from_version=self.from_version,
+            to_version=self.to_version,
+            wheel_filename=self.wheel_filename,
+            wheel_url=self.wheel_url,
+            wheel_sha256=self.wheel_sha256,
+            wheel_architecture=self.wheel_architecture,
+            finding_ids_by_scanner=self.finding_ids_by_scanner,
+            requires_dist=self.requires_dist,
+        )
+
+    @property
+    def components(self) -> tuple[PackageComponent, ...]:
+        return (self.primary, *self.companions)
+
+    @property
+    def result_name(self) -> str:
+        return " + ".join(
+            f"{component.display_name}=={component.to_version}"
+            for component in self.components
+        )
+
+    @property
+    def module_name(self) -> str:
+        return self.package_prefix.rstrip("/.")
+
+    @property
+    def finding_ids(self) -> tuple[str, ...]:
+        return tuple(
+            sorted(
+                {
+                    finding
+                    for component in self.components
+                    for finding in component.finding_ids
+                }
+            )
+        )
+
+    def finding_ids_for(self, scanner: str) -> tuple[str, ...]:
+        return tuple(
+            sorted(
+                {
+                    finding
+                    for component in self.components
+                    for finding in component.finding_ids_for(scanner)
+                }
+            )
+        )
+
+    @property
+    def scanner_finding_ids(self) -> dict[str, list[str]]:
+        return {
+            scanner: list(self.finding_ids_for(scanner))
+            for scanner in SCANNERS
+        }
+
     @property
     def expected_probe_result(self) -> str:
         if self.probe in {
@@ -107,6 +181,7 @@ class Target:
             "mako-render",
             "msgpack-binary",
             "pillow-png",
+            "pyca-pair",
             "pyjwt-hs256",
             "ujson-binary",
         }:
@@ -192,6 +267,71 @@ def _scanner_findings(
     return tuple(result)
 
 
+def _component(document: dict[str, Any]) -> PackageComponent:
+    expected_fields = {
+        "display_name",
+        "finding_ids_by_scanner",
+        "from_version",
+        "normalized_name",
+        "package_prefix",
+        "requires_dist",
+        "to_version",
+        "wheel_filename",
+        "wheel_architecture",
+        "wheel_sha256",
+        "wheel_url",
+    }
+    if set(document) != expected_fields:
+        raise TargetError("target component entry is invalid")
+    component = PackageComponent(
+        display_name=_string(document, "display_name"),
+        normalized_name=_string(document, "normalized_name"),
+        package_prefix=_string(document, "package_prefix"),
+        from_version=_string(document, "from_version"),
+        to_version=_string(document, "to_version"),
+        wheel_filename=_string(document, "wheel_filename"),
+        wheel_url=_string(document, "wheel_url"),
+        wheel_sha256=_string(document, "wheel_sha256"),
+        wheel_architecture=_string(document, "wheel_architecture"),
+        finding_ids_by_scanner=_scanner_findings(document),
+        requires_dist=_strings(document, "requires_dist", allow_empty=True),
+    )
+    if (
+        not NAME.fullmatch(component.display_name)
+        or not KEY.fullmatch(component.normalized_name)
+        or not PREFIX.fullmatch(component.package_prefix)
+        or not VERSION.fullmatch(component.from_version)
+        or not VERSION.fullmatch(component.to_version)
+        or component.from_version == component.to_version
+        or not WHEEL.fullmatch(component.wheel_filename)
+        or component.wheel_architecture not in WHEEL_ARCHITECTURES
+        or not _wheel_matches_architecture(
+            component.wheel_filename,
+            component.wheel_architecture,
+        )
+        or not URL.fullmatch(component.wheel_url)
+        or not DIGEST.fullmatch(component.wheel_sha256)
+    ):
+        raise TargetError("target component value is invalid")
+    return component
+
+
+def _companions(document: dict[str, Any]) -> tuple[PackageComponent, ...]:
+    value = document.get("companions", [])
+    if (
+        not isinstance(value, list)
+        or len(value) > 3
+        or any(not isinstance(item, dict) for item in value)
+    ):
+        raise TargetError("target companions are invalid")
+    result = tuple(_component(item) for item in value)
+    if tuple(item.normalized_name for item in result) != tuple(
+        sorted(item.normalized_name for item in result)
+    ):
+        raise TargetError("target companions are not sorted")
+    return result
+
+
 def load_targets(path: Path) -> dict[str, Target]:
     if not path.is_file() or path.is_symlink():
         raise TargetError("target manifest is missing or linked")
@@ -222,13 +362,19 @@ def load_targets(path: Path) -> dict[str, Target]:
         "wheel_url",
     }
     for key, raw in sorted(raw_targets.items()):
+        raw_fields = frozenset(raw) if isinstance(raw, dict) else frozenset()
         if (
             not isinstance(key, str)
             or not KEY.fullmatch(key)
             or not isinstance(raw, dict)
-            or set(raw) != expected_fields
+            or raw_fields
+            not in {
+                frozenset(expected_fields),
+                frozenset({*expected_fields, "companions"}),
+            }
         ):
             raise TargetError("target entry is invalid")
+        companions = _companions(raw)
         target = Target(
             key=key,
             display_name=_string(raw, "display_name"),
@@ -245,10 +391,16 @@ def load_targets(path: Path) -> dict[str, Target]:
             surfaces=_strings(raw, "surfaces"),
             probe=_string(raw, "probe"),
             trial_label=_string(raw, "trial_label"),
+            companions=companions,
         )
+        component_names = tuple(
+            component.normalized_name for component in target.components
+        )
+        finding_sets = [
+            set(component.finding_ids) for component in target.components
+        ]
         if (
             not NAME.fullmatch(target.display_name)
-            or target.normalized_name != key
             or not PREFIX.fullmatch(target.package_prefix)
             or not VERSION.fullmatch(target.from_version)
             or not VERSION.fullmatch(target.to_version)
@@ -264,6 +416,27 @@ def load_targets(path: Path) -> dict[str, Target]:
             or not set(target.surfaces) <= SURFACES
             or target.probe not in PROBES
             or not LABEL.fullmatch(target.trial_label)
+            or len(set(component_names)) != len(component_names)
+            or len(
+                {
+                    component.wheel_filename
+                    for component in target.components
+                }
+            )
+            != len(target.components)
+            or any(
+                left & right
+                for index, left in enumerate(finding_sets)
+                for right in finding_sets[index + 1 :]
+            )
+            or (
+                not companions
+                and target.normalized_name != key
+            )
+            or (
+                companions
+                and "-".join(component_names) != key
+            )
         ):
             raise TargetError("target value is invalid")
         targets[key] = target
@@ -374,6 +547,33 @@ def probe_target(target: Target, *, enforce_security: bool = True) -> str:
             ):
                 raise TargetError("Pillow PNG round trip failed")
         result = "coffer"
+    elif target.probe == "pyca-pair":
+        native_module = importlib.import_module(
+            "cryptography.hazmat.bindings._rust"
+        )
+        module_path = str(getattr(native_module, "__file__", ""))
+        if not any(module_path.endswith(suffix) for suffix in EXTENSION_SUFFIXES):
+            raise TargetError("cryptography native extension is not active")
+        aesgcm_type = importlib.import_module(
+            "cryptography.hazmat.primitives.ciphers.aead"
+        ).AESGCM
+        key = bytes(range(32))
+        nonce = bytes(range(12))
+        plaintext = b"coffer"
+        associated_data = b"coffer-fixture-only"
+        cipher = aesgcm_type(key)
+        ciphertext = cipher.encrypt(nonce, plaintext, associated_data)
+        if (
+            not ciphertext
+            or cipher.decrypt(nonce, ciphertext, associated_data) != plaintext
+        ):
+            raise TargetError("cryptography AEAD round trip failed")
+        ssl_module = importlib.import_module("OpenSSL.SSL")
+        context = ssl_module.Context(ssl_module.TLS_METHOD)
+        context.set_min_proto_version(ssl_module.TLS1_2_VERSION)
+        context.set_cipher_list(b"ECDHE+AESGCM")
+        context.set_options(ssl_module.OP_NO_COMPRESSION)
+        result = plaintext.decode("ascii")
     elif target.probe == "django-template":
         settings = importlib.import_module("django.conf").settings
         if settings.configured:

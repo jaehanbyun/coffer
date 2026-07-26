@@ -10,9 +10,15 @@ from importlib import metadata
 from pathlib import Path
 from typing import Any
 
-from python_target import Target, TargetError, load_target, probe_target
+from python_target import (
+    PackageComponent,
+    Target,
+    TargetError,
+    load_target,
+    probe_target,
+)
 
-SCHEMA = "coffer.ui-python-overlay-runtime/v2"
+SCHEMA = "coffer.ui-python-overlay-runtime/v3"
 PROBE_MODES = frozenset({"baseline", "candidate"})
 PACKAGE_NAME = re.compile(r"[-_.]+")
 
@@ -43,7 +49,10 @@ def package_versions(target: Target) -> dict[str, list[str]]:
         if not name or not version:
             raise RuntimeCollectionError("Python package inventory is invalid")
         packages.setdefault(name, []).append(version)
-    if target.normalized_name not in packages:
+    if any(
+        component.normalized_name not in packages
+        for component in target.components
+    ):
         raise RuntimeCollectionError("target Python package is absent")
     return {
         name: sorted(versions)
@@ -51,15 +60,15 @@ def package_versions(target: Target) -> dict[str, list[str]]:
     }
 
 
-def target_files(target: Target) -> dict[str, str]:
-    distribution = metadata.distribution(target.display_name)
+def component_files(component: PackageComponent) -> dict[str, str]:
+    distribution = metadata.distribution(component.display_name)
     files = distribution.files
     if files is None:
         raise RuntimeCollectionError("target Python package has no RECORD")
     result: dict[str, str] = {}
     for member in files:
         relative = str(member)
-        if not relative.startswith(target.package_prefix):
+        if not relative.startswith(component.package_prefix):
             continue
         path = Path(distribution.locate_file(member))
         if not path.is_file() or path.is_symlink():
@@ -90,7 +99,7 @@ def collect(target: Target, *, probe_mode: str) -> dict[str, Any]:
     if probe_mode not in PROBE_MODES:
         raise RuntimeCollectionError("target probe mode is invalid")
     target_input_paths = (
-        f"/tmp/{target.wheel_filename}",
+        "/tmp/target-wheels",
         "/tmp/python_target.py",
         "/tmp/python_targets.json",
     )
@@ -112,13 +121,18 @@ def collect(target: Target, *, probe_mode: str) -> dict[str, Any]:
         "schema": SCHEMA,
         "architecture": architecture,
         "packages": package_versions(target),
-        "target": {
-            "name": target.normalized_name,
-            "version": metadata.version(target.display_name),
-            "files": target_files(target),
-            "probe": target.probe,
-            "probe_mode": probe_mode,
-            "probe_result": probe_result,
+        "components": [
+            {
+                "name": component.normalized_name,
+                "version": metadata.version(component.display_name),
+                "files": component_files(component),
+            }
+            for component in target.components
+        ],
+        "probe": {
+            "name": target.probe,
+            "mode": probe_mode,
+            "result": probe_result,
         },
         "pip_check": check,
         "absent": [
@@ -144,7 +158,7 @@ def main() -> int:
         target = load_target(arguments.manifest, arguments.target)
         result = collect(target, probe_mode=arguments.probe_mode)
         expected_absent = [
-            f"/tmp/{target.wheel_filename}",
+            "/tmp/target-wheels",
             "/tmp/python_target.py",
             "/tmp/python_targets.json",
         ]
