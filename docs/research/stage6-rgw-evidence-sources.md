@@ -242,8 +242,9 @@ state is used.
 
 ## Exact Next Action
 
-Add one owner-only live invocation request and CLI that loads the qualified
-schedule, rendered deployment inputs, bounded command controller, and
-composite adapter. Prove blocked readiness fails before controller, boto3, or
-credential-environment access and qualified fixtures complete. Keep the CLI
-uninvoked remotely while selected stable releases remain unqualified.
+Refresh the official readiness classifier. If the selected stable releases
+remain blocked, retain the complete local 53-action runner as
+complete-but-not-promoted and do not create the six-VM pilot. Freeze the
+Coffer REST/OpenAPI contract needed by Horizon and Skyline as the next
+independent work package without treating UI work as Stage 6 deployment
+evidence.

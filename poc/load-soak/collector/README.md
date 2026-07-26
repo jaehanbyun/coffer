@@ -770,6 +770,31 @@ runtime, or a partial publication fails closed. Fourteen renderer tests pass,
 and the complete 53-action tests now use this renderer instead of manually
 preseeding their phase inputs.
 
+`pilot_run.py` is the single live invocation surface:
+
+```text
+uv run python poc/load-soak/collector/pilot_run.py source-hash
+uv run python poc/load-soak/collector/pilot_run.py \
+  run /absolute/owner-only/pilot-live-invocation.json
+```
+
+The canonical owner-only invocation binds its runner source, qualified
+schedule/readiness, deployment-input request, and fault-controller config.
+Readiness and all 53 schedule actions are revalidated before reading the
+controller config or constructing RGW clients, so a blocked stable pair
+cannot reach boto3 or credential environment access. The runner atomically
+renders inputs, loads the bounded command controller and sole composite
+adapter, derives a run-specific adapter hash from the exact invocation, and
+enters the checkpoint executor.
+
+An exact complete rerun performs no storage or fault action. A changed
+invocation/controller cannot resume existing state. Fourteen tests prove the
+qualified 53-action path, complete rerun, blocked-readiness ordering with zero
+controller/client calls, request/hash/mode/alias drift, changed-invocation
+resume refusal, and fixed source/CLI output. The current stable release pair
+remains blocked, so this command has not been invoked against remote
+infrastructure.
+
 ## Six-surface phase preparation
 
 `phase_preparation.py` turns the separately validated collectors into one

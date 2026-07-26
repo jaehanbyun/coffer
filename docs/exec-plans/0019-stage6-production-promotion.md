@@ -2708,6 +2708,38 @@ operator-local release.
   the CLI uninvoked against remote infrastructure until stable releases
   qualify.
 
+### 2026-07-26 — Release-gated live pilot invocation completed locally
+
+- Single invocation: `pilot_run.py` accepts one canonical owner-only request
+  binding runner source, qualified schedule/readiness, deployment-input
+  request, and bounded controller config. The invocation and all referenced
+  files are exact-hash and distinct-inode checked.
+- Gate ordering: Readiness and the complete schedule are validated before the
+  deployment/controller descriptors are consumed and before controller load,
+  boto3 construction, or credential-environment access. A blocked fixture
+  proves zero controller/client calls and no runtime creation.
+- Complete composition: Qualified fixtures run input rendering, command
+  controller, composite adapter, and all 53 durable checkpoints through one
+  callable. A run-specific adapter hash binds the exact invocation to
+  executor state; changing controller or another invocation descriptor cannot
+  resume the old checkpoint.
+- Idempotence: A complete rerun reconstructs clients only after qualification
+  but executes no storage or fault action and returns byte-equivalent terminal
+  evidence.
+- Evidence: Fourteen runner tests cover qualified completion, repeat,
+  blocked-ordering, all invocation binding failures, hardlink alias, changed
+  invocation resume refusal, and fixed CLI results. The load/observability
+  matrix passes 891 tests and the full Python regression passes 1436. The
+  current stable Distribution/Ceph pair remains blocked; the live command was
+  not invoked remotely and no Kolla, service restart, credential, endpoint,
+  S3, KMS, Barbican, container, VM, or remote state changed.
+- Next exact action: Refresh the official upstream readiness classifier. If
+  the stable pair remains blocked, record the local Stage 6 pilot harness as
+  complete-but-not-promoted and do not create the six-VM pilot. Then open the
+  UI prerequisite work package by freezing the Coffer REST/OpenAPI contract
+  required by Horizon and Skyline, without representing either UI as deployed
+  Stage 6 evidence.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2908,6 +2940,9 @@ operator-local release.
 | Command controller plus external-fault adapter | `uv run pytest -q tests/test_load_pilot_fault_controller.py tests/test_load_pilot_fault_actions.py` | passed; 42 |
 | Post-command-controller load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 877 |
 | Post-command-controller full Python regression | `uv run pytest -q` | passed; 1422 |
+| Release-gated live pilot invocation | `uv run pytest -q tests/test_load_pilot_run.py` | passed; 14 |
+| Post-live-runner load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 891 |
+| Post-live-runner full Python regression | `uv run pytest -q` | passed; 1436 |
 | Control SQL/migration/reconciliation focused matrix | quota, reconciliation, migration, bootstrap, maintenance, and runner tests | passed; 183 |
 | Full regression after control SQL evidence | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1126 |
 
@@ -2949,12 +2984,12 @@ operator-local release.
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
-- Exact next action: Add one owner-only live invocation request and CLI that
-  loads the qualified schedule, rendered deployment inputs, bounded command
-  controller, and composite adapter. Prove blocked readiness fails before
-  controller/boto3/environment access and qualified fixtures complete. Keep
-  the CLI uninvoked against remote infrastructure until stable releases
-  qualify.
+- Exact next action: Refresh the official upstream readiness classifier. If
+  the stable pair remains blocked, record the local Stage 6 pilot harness as
+  complete-but-not-promoted and do not create the six-VM pilot. Then open the
+  UI prerequisite work package by freezing the Coffer REST/OpenAPI contract
+  required by Horizon and Skyline, without representing either UI as deployed
+  Stage 6 evidence.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

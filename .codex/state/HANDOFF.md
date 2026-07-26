@@ -2648,6 +2648,21 @@ release contains it yet.
   full regression passes 1422. Only local owner-only helpers ran; no Kolla,
   service restart, credential, endpoint, S3, KMS, Barbican, container, VM, or
   remote state changed.
+- Added the sole live pilot invocation surface. Its owner-only request binds
+  runner source, qualified schedule/readiness, deployment inputs, and
+  controller config. Exact readiness/schedule validation occurs before
+  controller load, boto3 client construction, or credential-environment
+  access.
+- Qualified fixtures complete renderer, bounded controller, composite
+  adapter, and all 53 checkpoints. The exact invocation is incorporated into
+  the adapter state hash, so changed controller/invocation descriptors cannot
+  resume existing state. Complete reruns execute no storage or fault action.
+- Fourteen runner tests pass, including blocked readiness with zero
+  controller/client calls and no runtime creation. The load/observability
+  matrix passes 891 tests and the full regression passes 1436. The current
+  stable pair is still blocked, so the command was not invoked remotely and no
+  Kolla, service restart, credential, endpoint, S3, KMS, Barbican, container,
+  VM, or remote state changed.
 
 ## Blockers and Risks
 
@@ -2682,11 +2697,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add one owner-only live invocation request and CLI that loads the qualified
-schedule, rendered deployment inputs, bounded command controller, and
-composite adapter. Prove blocked readiness fails before controller, boto3, or
-credential-environment access and qualified fixtures complete. Keep the CLI
-uninvoked against remote infrastructure until stable releases qualify.
+Refresh the official upstream readiness classifier. If the stable pair remains
+blocked, record the local Stage 6 pilot harness as complete-but-not-promoted
+and do not create the six-VM pilot. Then open the UI prerequisite work package
+by freezing the Coffer REST/OpenAPI contract required by Horizon and Skyline,
+without representing either UI as deployed Stage 6 evidence.
 
 ## After This Work Package
 
