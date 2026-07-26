@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-26
-- Status: plan 0019 blocked externally; plan 0020 completed locally; local production observability, disposable
+- Status: plan 0019 blocked externally; plan 0020 completed locally; plan 0021 active for native UI image qualification; local production observability, disposable
   filesystem GC/restore, load model/lifecycle, and canonical evidence verifier
   complete; raw OCI and five real-client execution boundaries complete;
   telemetry, deterministic plan, and fixture orchestrator complete; runtime
@@ -35,7 +35,7 @@
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Externally blocked execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
-- Active execution plan: none; plan 0019 remains externally blocked
+- Active execution plan: `docs/exec-plans/0021-ui-image-production-qualification.md`
 
 ## Current Objective
 
@@ -51,6 +51,21 @@ Kolla lifecycle, and rendered fixtures pass their final gates. Local UI tests,
 packages, role fixtures, and screenshots remain separate from deployed
 catalog/Keystone/browser evidence until the production promotion gate permits
 a disposable cloud.
+
+Plan 0021 is active for the actual immutable Horizon and Skyline Console image
+supply-chain boundary. It builds stock parents from the accepted Kolla 2026.1
+source rather than Quay test images, layers the exact Coffer wheels, compares
+parent/custom SBOM and security evidence, and cleans exact local artifacts.
+The first executable target is native ARM64; signing, publication, x86_64, and
+live cloud acceptance remain separate fail-closed gates.
+
+The plan 0021 pure verifier is complete. It binds the exact source revisions
+and actual wheel hashes to four immutable image inspections, runtime file
+hashes, SPDX, Trivy, Docker Scout SARIF, inherited findings, and the custom
+delta. Eight focused tests prove source/wheel/runtime/layer tamper, secret,
+parent finding, introduced finding, missing-parent-finding, and evidence
+overwrite failures. The full repository passes 1,463 tests. Podman has not
+been started for this work package yet.
 
 Skyline Console `stable/2026.1` is pinned at
 `c9000cb1be332a213009793598f17a80ce59671e` with API Server
@@ -2809,15 +2824,16 @@ release contains it yet.
 
 ## Exact Next Action
 
-When official stable release metadata changes, run
-`make -C poc/production-images check-upstream`. Do not invoke the live Stage 6
-pilot unless the exact released pair reaches `candidate-qualified`.
+Add `poc/ui-images/qualify.sh` and pinned build inputs. Materialize the current
+Horizon/Skyline wheels, build stock parent images from Kolla commit
+`686c6d1`, and collect the exact evidence accepted by the completed verifier.
 
 ## After This Work Package
 
 The REST/OpenAPI, Horizon, Skyline, disabled-by-default Kolla UI lifecycle,
 rendered fixture, and full repository verification scope is complete locally.
-Stage 6 resumes only after released dependency gates pass; its qualified pilot
-must then build/scan/sign immutable UI images and capture live catalog,
+Plan 0021 now closes the actual local UI image build/scan gap. Stage 6's
+qualified pilot still requires released dependency gates, native x86_64,
+signing/publication through an approved operator pipeline, and live catalog,
 Keystone, Kolla, and browser acceptance. Official OpenStack/Kolla governance
 work remains later.
