@@ -242,8 +242,9 @@ state is used.
 
 ## Exact Next Action
 
-Implement the owner-only deployment-input renderer and bounded concrete fault
-controller required by the completed 53-action adapter. Then expose a live
-command that reuses the qualified schedule gate. Keep remote invocation
+Implement and locally prove the bounded concrete fault command controller
+required by the completed 53-action adapter. Use fixed owner-only executable
+descriptors, no shell expansion, a minimal environment, bounded process-group
+termination, and canonical self-hashed observations. Keep remote invocation
 disabled while the selected released Distribution/Ceph inputs remain
 unqualified.

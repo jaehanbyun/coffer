@@ -719,6 +719,30 @@ reconciliation without a duplicate storage call, fault apply reconciliation
 through read-only external observation, adapter contract/name/source
 enforcement, owner-only runtime enforcement, and the source-only CLI.
 
+`pilot_inputs.py` renders the deployment-owned inputs required before that
+loop starts:
+
+```text
+uv run python poc/load-soak/collector/pilot_inputs.py source-hash
+uv run python poc/load-soak/collector/pilot_inputs.py \
+  render /absolute/owner-only/pilot-deployment-input-request.json
+```
+
+One request binds the qualified schedule/readiness pair and the exact six
+static collector descriptors, native target, and private evidence-server
+settings for each phase. Static documents are checked against the scheduled
+phase, target, and window before any runtime is published. The renderer
+creates one staging tree, writes all three mode-0700 phase directories,
+mode-0600 `collector-inputs.json` documents, and a source/request/schedule-
+bound result, then atomically publishes the exact scheduled runtime root.
+
+An exact repeat revalidates without rewriting either the deployment inputs or
+later scheduled action files. Unknown fields, missing phases, descriptor
+hash/mode/alias drift, target/window substitution, existing tamper, an unsafe
+runtime, or a partial publication fails closed. Fourteen renderer tests pass,
+and the complete 53-action tests now use this renderer instead of manually
+preseeding their phase inputs.
+
 ## Six-surface phase preparation
 
 `phase_preparation.py` turns the separately validated collectors into one

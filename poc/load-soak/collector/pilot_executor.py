@@ -42,7 +42,15 @@ SOURCE_RESULT_SCHEMA = "coffer.stage6-pilot-executor-source-result/v1"
 STATE_FILE = ".pilot-executor-state.json"
 RESULT_FILE = ".pilot-executor-result.json"
 LOCK_FILE = ".pilot-executor.lock"
-RUNTIME_FILES = frozenset({STATE_FILE, RESULT_FILE, LOCK_FILE})
+DEPLOYMENT_INPUT_RESULT_FILE = ".pilot-deployment-input-result.json"
+RUNTIME_FILES = frozenset(
+    {
+        STATE_FILE,
+        RESULT_FILE,
+        LOCK_FILE,
+        DEPLOYMENT_INPUT_RESULT_FILE,
+    }
+)
 FIXTURE_ADAPTER_CONTRACT = "coffer.stage6-pilot-fixture-adapter/v1"
 PILOT_ADAPTER_CONTRACT = "coffer.stage6-pilot-action-adapter/v1"
 SOURCE_FILES = (

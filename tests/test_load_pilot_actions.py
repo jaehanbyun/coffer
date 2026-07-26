@@ -28,17 +28,17 @@ ACTIONS = load_module(
     "coffer_load_pilot_actions_tests",
     COLLECTOR_DIRECTORY / "pilot_actions.py",
 )
-SCHEDULE_TESTS = load_module(
-    "coffer_load_pilot_actions_schedule_fixtures",
-    ROOT / "tests" / "test_load_pilot_schedule.py",
-)
 RGW_TESTS = load_module(
     "coffer_load_pilot_actions_rgw_fixtures",
     ROOT / "tests" / "test_load_pilot_rgw_actions.py",
 )
-PHASE_TESTS = load_module(
-    "coffer_load_pilot_actions_phase_fixtures",
-    ROOT / "tests" / "test_load_pilot_phase_actions.py",
+INPUTS = load_module(
+    "coffer_load_pilot_actions_input_renderer",
+    COLLECTOR_DIRECTORY / "pilot_inputs.py",
+)
+INPUT_TESTS = load_module(
+    "coffer_load_pilot_actions_input_fixtures",
+    ROOT / "tests" / "test_load_pilot_inputs.py",
 )
 
 
@@ -173,10 +173,10 @@ def fixture(
     ClientSet,
     FakeController,
 ]:
-    request_path, schedule_output, runtime, request = (
-        SCHEDULE_TESTS.fixture(tmp_path)
+    deployment_request, schedule_output, _, request = (
+        INPUT_TESTS.fixture(tmp_path)
     )
-    SCHEDULE_TESTS.RENDERER.render_file(request_path)
+    INPUTS.render_file(deployment_request)
     clients = ClientSet()
     controller = FakeController()
     clocks = {
@@ -191,25 +191,6 @@ def fixture(
         controller=controller,
         clocks=clocks,
     )
-    runtime.mkdir(mode=0o700)
-    schedule = json.loads(
-        (schedule_output / "schedule.json").read_bytes()
-    )
-    for phase in ACTIONS.native_target.PHASES:
-        phase_root = runtime / phase
-        phase_root.mkdir(mode=0o700)
-        render_action = next(
-            action
-            for action in schedule["actions"]
-            if action["phase"] == phase
-            and action["action"]
-            == "render-phase-preparation-request"
-        )
-        PHASE_TESTS.write_collector_inputs(
-            adapter=adapter.phase,
-            action=render_action,
-            source_root=tmp_path / f"{phase}-collector-source",
-        )
     return (
         adapter,
         schedule_output,
@@ -418,7 +399,7 @@ def test_executor_and_owner_only_runtime_boundary_is_closed(
     elif mutation == "synthetic":
         wrapped.synthetic = True
     elif mutation == "phase-extra":
-        PHASE_TESTS.owner_document(
+        INPUT_TESTS.owner_document(
             runtime / "before" / "unexpected.json",
             {},
         )

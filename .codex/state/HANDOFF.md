@@ -2619,6 +2619,20 @@ release contains it yet.
   The load/observability matrix passes 841 tests and the full regression
   passes 1386. No real Kolla, service restart, credential, endpoint, S3, KMS,
   Barbican, container, VM, or remote state changed.
+- Added the atomic pilot deployment-input renderer. One owner-only request
+  binds the qualified schedule/readiness and each phase's exact target,
+  evidence-server settings, and six static collector descriptors without
+  retaining credential values.
+- Static documents are checked against scheduled phase/target/window before
+  one staging tree publishes all three owner-only phase inputs and the
+  source/request/schedule-bound result at the exact runtime path. Exact reruns
+  preserve later scheduled outputs; tamper or unsafe partial state is never
+  replaced.
+- Fourteen renderer and 27 renderer/composite tests pass. Complete-pilot tests
+  now use the renderer rather than manual phase preseed. The
+  load/observability matrix passes 855 tests and the full regression passes
+  1400. No Kolla, service restart, credential, endpoint, S3, KMS, Barbican,
+  container, VM, or remote state changed.
 
 ## Blockers and Risks
 
@@ -2653,10 +2667,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Implement the owner-only deployment-input renderer and bounded concrete fault
-controller needed by the composite adapter, then add a CLI that remains
-hard-gated by qualified released dependencies. Do not invoke the remote pilot
-while current stable releases remain blocked.
+Implement and locally prove the bounded concrete fault command controller for
+wrong-key/KMS-outage apply/recover/observe. It must use fixed owner-only
+executable descriptors, no shell expansion, a minimal environment,
+timeout/process-group termination, canonical self-hashed observations, and no
+secret-bearing output. Remote invocation remains release-gated.
 
 ## After This Work Package
 

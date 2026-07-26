@@ -2646,6 +2646,34 @@ operator-local release.
   a CLI that remains hard-gated by qualified released dependencies. Do not
   invoke the remote pilot while current stable releases remain blocked.
 
+### 2026-07-26 — Atomic pilot deployment-input renderer completed locally
+
+- Deployment contract: `pilot_inputs.py` accepts one owner-only request bound
+  to the qualified schedule/readiness pair and the exact native target,
+  evidence-server settings, and six static collector descriptors for every
+  phase. It contains no credential value.
+- Pre-execution validation: Every static document is checked against the
+  scheduled phase, target, and window. Missing/extra phases, unknown fields,
+  hash/mode/alias drift, or a substituted target fails before the runtime
+  directory exists.
+- Atomic publication: All three mode-0700 phase directories, canonical
+  mode-0600 `collector-inputs.json` documents, and the source/request/schedule
+  bound deployment result are assembled in one staging tree and renamed to
+  the exact scheduled runtime root. Failure removes only that staging tree.
+- Idempotence and composition: Exact reruns revalidate without rewriting
+  deployment inputs or later scheduled outputs. The complete 53-action tests
+  now use this renderer rather than a manual preseed.
+- Evidence: Fourteen renderer tests and 27 renderer/composite tests pass. The
+  load/observability matrix passes 855 tests and the full Python regression
+  passes 1400. No Kolla, service restart, boto3, credential, endpoint, S3,
+  KMS, Barbican, container, VM, or remote state changed.
+- Next exact action: Implement and locally prove the bounded concrete fault
+  command controller for wrong-key/KMS-outage apply/recover/observe. It must
+  use fixed owner-only executable descriptors, no shell expansion, a minimal
+  environment, timeout/process-group termination, canonical self-hashed
+  observations, and no secret-bearing output. Remote invocation remains
+  release-gated.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2838,6 +2866,10 @@ operator-local release.
 | Complete pilot action stack | complete adapter, phase/fault/RGW actions, phase preparation, cleanup, executor, schedule, and live-adapter focused tests | passed; 171 |
 | Post-composite load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 841 |
 | Post-composite full Python regression | `uv run pytest -q` | passed; 1386 |
+| Atomic pilot deployment-input renderer | `uv run pytest -q tests/test_load_pilot_inputs.py` | passed; 14 |
+| Renderer through complete pilot adapter | `uv run pytest -q tests/test_load_pilot_inputs.py tests/test_load_pilot_actions.py` | passed; 27 |
+| Post-input-renderer load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 855 |
+| Post-input-renderer full Python regression | `uv run pytest -q` | passed; 1400 |
 | Control SQL/migration/reconciliation focused matrix | quota, reconciliation, migration, bootstrap, maintenance, and runner tests | passed; 183 |
 | Full regression after control SQL evidence | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1126 |
 
@@ -2879,10 +2911,12 @@ operator-local release.
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
-- Exact next action: Implement the owner-only deployment-input renderer and a
-  bounded concrete fault controller needed by the composite adapter, then add
-  a CLI that remains hard-gated by qualified released dependencies. Do not
-  invoke the remote pilot while current stable releases remain blocked.
+- Exact next action: Implement and locally prove the bounded concrete fault
+  command controller for wrong-key/KMS-outage apply/recover/observe. It must
+  use fixed owner-only executable descriptors, no shell expansion, a minimal
+  environment, timeout/process-group termination, canonical self-hashed
+  observations, and no secret-bearing output. Remote invocation remains
+  release-gated.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates
