@@ -301,7 +301,7 @@ owner-only inputs. Output is atomic, mode 0600, idempotent, and secret-safe.
 
 This seam does not fabricate artifacts or infer one subsystem from another.
 Secret scan/workload, Galera attempts, RGW/KMS/multipart, quota ledger, and
-reconciliation claims still require their correctly scoped read-only
+reconciliation claims must still be produced by their correctly scoped
 collectors.
 
 ## Local secret and workload artifacts
@@ -443,3 +443,46 @@ path/hash, phase, and window. Counter reset, process restart, absent attempts,
 source/hash drift, unsafe files, and aliases fail closed. The final artifact
 retains no process, operation, result, database node, project, URL, or error
 text.
+
+## RGW, KMS, and multipart artifact
+
+`rgw_artifacts.py` compiles one RGW v2 source artifact from two canonical,
+owner-only pilot inputs:
+
+- one bounded RGW/SSE-KMS probe result with complete fixed-operation and
+  fixed-result counts; and
+- one complete bucket-scoped multipart listing reduced to count plus unique
+  page hashes.
+
+The probe always covers positive- and zero-size put/copy plus head, get, and
+multipart listing. The `during` phase additionally requires both declared
+wrong-key and Barbican-outage outcomes. Those expected fail-closed responses
+must be observed but do not increment `kms_errors`; only
+`unexpected_kms_error` does. Unexpected non-KMS S3/storage outcomes populate
+`unexpected_errors` without being conflated with the separate end-client
+workload aggregate.
+
+Compile after a live adapter has produced the two canonical inputs:
+
+```text
+uv run python poc/load-soak/collector/rgw_artifacts.py source-hash
+uv run python poc/load-soak/collector/rgw_artifacts.py \
+  compile /absolute/owner-only/rgw-config.json \
+  /absolute/owner-only/rgw-probe-result.json \
+  /absolute/owner-only/rgw-multipart-capture.json \
+  /absolute/owner-only/rgw-artifact.json
+```
+
+The configuration pins the native target, exact phase window, bucket scope,
+RGW/KMS configuration, probe and multipart source hashes, required operation
+counts, and expected fault counts. Probe and listing timestamps must stay
+inside that window. Missing operations or expected faults, synthetic/fixture
+inputs, incomplete/repeated multipart pages, cross-target/hash drift, unsafe
+files, aliases, and unknown fields fail closed.
+
+The final artifact retains only `kms_errors`, `multipart_uploads`,
+`unexpected_errors`, bounded observation count, and provenance hashes. It
+cannot retain an endpoint, bucket, object, upload, project, identity,
+credential, certificate, KMS identifier, error text, or request content.
+This milestone validates the compiler with a fake adapter only; the verified
+HTTPS S3 listing/probe adapter and fresh disposable pilot remain pending.

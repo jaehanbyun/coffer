@@ -1,7 +1,8 @@
 # Stage 6 RGW, KMS, and Multipart Evidence Sources
 
 - Date: 2026-07-26
-- Status: source mapping accepted; collector implementation pending
+- Status: source mapping and no-network collector core implemented;
+  verified-HTTPS live adapter and disposable-pilot qualification pending
 - Scope: the RGW auxiliary payload consumed by
   `poc/load-soak/collector/phase_evidence.py`
 - External operations: read-only inspection of exact released upstream source
@@ -62,7 +63,7 @@ show which storage/KMS operation failed.
 
 ## Canonical Probe Contract
 
-`rgw_artifacts.py` will accept one owner-only canonical
+`rgw_artifacts.py` accepts one owner-only canonical
 `coffer.load-rgw-probe-result/v1` document for each phase. A later disposable
 pilot adapter will produce it from verified-TLS S3 calls; local tests use an
 explicit fake adapter. The canonical result must bind:
@@ -164,8 +165,9 @@ upstream error boundary would fabricate precision and is rejected.
    describe the same selected RGW target and bucket scope;
 5. reduce unexpected KMS and non-KMS outcomes without counting declared
    expected failure injections;
-6. emit one `coffer.load-source-artifact/v2` document with source class
-   `rgw-load-state` and exactly the three nonnegative integer fields; and
+6. emit one `coffer.load-telemetry-source-artifact/v2` document with source
+   class `rgw-load-state-aggregate` and exactly the three nonnegative integer
+   fields; and
 7. retain only source/target/window/configuration/canonical-input hashes,
    observation bounds, and the normalized payload.
 
@@ -211,10 +213,35 @@ identifiers.
 - [Barbican health-check configuration and sensitive-detail
   warning](https://docs.openstack.org/barbican/latest/configuration/config.html)
 
+## Implemented Collector Boundary
+
+`poc/load-soak/collector/rgw_artifacts.py` now:
+
+1. validates the exact target, phase window, RGW/bucket/KMS configuration,
+   source hashes, required operations, and declared fault counts;
+2. refuses synthetic, incomplete, out-of-window, cross-target, unknown,
+   missing-operation, or missing-expected-fault probe results;
+3. validates complete, bounded, unique-page multipart captures without
+   accepting configured or fixture defaults;
+4. reduces only `unexpected_kms_error` to `kms_errors`, expected wrong-key and
+   outage outcomes to zero promotion errors, and unexpected non-KMS outcomes
+   to `unexpected_errors`;
+5. emits one retainable `coffer.load-telemetry-source-artifact/v2` with the
+   existing `rgw-load-state-aggregate` source class; and
+6. enforces canonical mode-0600, single-link, distinct inputs and atomic,
+   idempotent mode-0600 output with fixed secret-safe CLI failures.
+
+Thirty-six focused fake-adapter tests cover every phase, declared fault
+semantics, nonzero failure retention, operation/result completeness, phase
+time bounds, multipart completion/pages, target/config/source drift,
+owner-only files, aliases, idempotence, retention, and CLI behavior. No live
+S3 client, credential, endpoint, RGW, KMS, Barbican, container, VM, or remote
+state is used.
+
 ## Exact Next Action
 
-Create `poc/load-soak/collector/rgw_artifacts.py` and focused tests. Implement
-the canonical probe-result validator and multipart-capture validator first,
-then compile the bounded v2 `rgw-load-state` artifact. Keep live S3 acquisition
-behind an explicit adapter so the local milestone performs no network,
-credential, RGW, KMS, or remote operation.
+Create the phase-preparation transaction that invokes all now-implemented
+local/control/Galera/RGW collectors, compiles all six source summaries and one
+phase bundle, validates the private evidence-server configuration, and
+publishes nothing. Keep the live verified-HTTPS S3 adapter behind the fresh
+disposable-pilot gate.

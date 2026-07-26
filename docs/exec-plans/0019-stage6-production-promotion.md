@@ -2351,7 +2351,33 @@ operator-local release.
 - Next exact action: Create
   `poc/load-soak/collector/rgw_artifacts.py` and focused tests. Implement the
   canonical probe-result and multipart-capture validators, then compile one
-  bounded v2 `rgw-load-state` artifact without a live adapter.
+  bounded v2 `rgw-load-state-aggregate` artifact without a live adapter.
+
+### 2026-07-26 — RGW/KMS/multipart artifact collector completed
+
+- Probe contract: One canonical nonsynthetic pilot result binds the exact
+  target, phase window, RGW/bucket/KMS configuration, fixed source hashes,
+  seven required S3 operation classes, and five result classes. Every phase
+  exercises positive and zero-size paths; `during` additionally requires
+  observed wrong-key and Barbican-outage outcomes.
+- Error semantics: Expected injected failures remain required evidence but do
+  not increment `kms_errors`. Unexpected KMS and unexpected non-KMS
+  S3/storage results remain nonzero in their separate retained fields.
+- Multipart contract: One complete point-in-time bucket listing binds its
+  source/configuration and exact window, enforces bounded unique page hashes,
+  and supplies the direct upload count. Incomplete, repeated, synthetic, or
+  cross-target captures fail closed.
+- Retention: The compiler emits one v2 `rgw-load-state-aggregate` artifact
+  with only three bounded counts, observation count, and provenance hashes.
+  Owner-only canonical distinct inputs and atomic idempotent output are
+  enforced; sensitive or unbounded fields cannot enter the exact schemas.
+- Evidence: Thirty-six focused fake-adapter tests pass. No live S3 client,
+  credential, endpoint, RGW, KMS, Barbican, Distribution, container, VM, or
+  remote state was read or changed.
+- Next exact action: Add one phase-preparation transaction that invokes the
+  implemented collectors, compiles all six source summaries and the phase
+  evidence bundle, then validates the private evidence-server configuration
+  before any pilot execution.
 
 ## Verification
 
@@ -2508,6 +2534,9 @@ operator-local release.
 | Post-Galera-artifact load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 634 |
 | Post-Galera-artifact full Python regression | `uv run pytest -q` | passed; 1179 |
 | RGW/KMS/multipart source mapping | Exact Ceph v20.2.2 and Distribution v3.1.1 source plus official Ceph, Distribution, and Barbican documentation; `git diff --check` | passed; unsupported substitutions recorded as missing |
+| RGW/KMS/multipart artifact collector | `uv run pytest -q tests/test_load_rgw_artifacts.py` | passed; 36 |
+| Post-RGW-artifact load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 670 |
+| Post-RGW-artifact full Python regression | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1215 |
 | Control SQL/migration/reconciliation focused matrix | quota, reconciliation, migration, bootstrap, maintenance, and runner tests | passed; 183 |
 | Full regression after control SQL evidence | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1126 |
 
@@ -2549,11 +2578,10 @@ operator-local release.
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
-- Exact next action: Create
-  `poc/load-soak/collector/rgw_artifacts.py` and focused tests. Implement the
-  accepted canonical RGW/SSE-KMS probe-result and complete multipart-capture
-  validators, then compile one bounded v2 `rgw-load-state` artifact without a
-  live S3 adapter.
+- Exact next action: Add one phase-preparation transaction that invokes the
+  implemented local, control, Galera, and RGW collectors; compiles all six
+  source summaries and the phase evidence bundle; and validates the private
+  evidence-server configuration before any pilot execution.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

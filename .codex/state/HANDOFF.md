@@ -16,7 +16,8 @@
   SQL evidence snapshot and claim-version binding complete; bounded quota
   transaction-attempt observability and quota/reconciliation control artifact
   collection complete; Galera transaction artifact collection complete; RGW
-  evidence source mapping complete; RGW artifact collector next
+  evidence source mapping and no-network artifact collection complete;
+  six-surface phase preparation next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -716,6 +717,19 @@ release contains it yet.
   matrix, and the full 1179-test regression pass. The output is identity-free
   and source/target/phase/window bound. No real Galera/Prometheus/SQL endpoint
   or remote state was read or changed.
+- Exact Ceph v20.2.2 and Distribution v3.1.1 source inspection confirmed that
+  generic aborted-request and storage-action metrics cannot attribute KMS or
+  unexpected storage failures. Only complete bucket-scoped
+  `ListMultipartUploads` is a direct multipart-residue source.
+- Added `rgw_artifacts.py`. One canonical phase-bound pilot probe must cover
+  all seven fixed positive/zero-size operations; `during` must additionally
+  observe wrong-key and KMS-outage results. Expected injected failures remain
+  bound evidence but do not become promotion errors. A separate complete,
+  unique-page multipart capture supplies the direct residue count.
+- Thirty-six focused RGW-artifact tests, the 670-test
+  load/observability/control matrix, and the full 1215-test regression pass.
+  The no-network fake-adapter milestone changes no live S3 client, credential,
+  endpoint, RGW, KMS, Barbican, Distribution, container, VM, or remote state.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2523,10 +2537,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Create `poc/load-soak/collector/rgw_artifacts.py` and focused tests. Implement
-the accepted canonical RGW/SSE-KMS probe-result and complete
-multipart-capture validators, then compile one bounded v2
-`rgw-load-state` artifact without a live S3 adapter.
+Add one phase-preparation transaction that invokes the implemented local,
+control, Galera, and RGW collectors; compiles all six source summaries and the
+phase evidence bundle; and validates the private evidence-server
+configuration before any pilot execution.
 
 ## After This Work Package
 
