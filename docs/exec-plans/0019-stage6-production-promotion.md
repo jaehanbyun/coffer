@@ -2031,6 +2031,46 @@ operator-local release.
   URLs, identifiers, credentials, unbounded values, or cross-phase reuse
   before adding a private TLS serving boundary.
 
+### 2026-07-26 — Phase-bound auxiliary evidence compiler completed locally
+
+- Exact source seam: Added
+  `coffer.load-telemetry-auxiliary-source-summary/v1` for the secret scan,
+  HAProxy workload-error aggregate, Galera transaction-attempt aggregate, RGW
+  KMS/multipart/error aggregate, quota-ledger aggregate, and reconciliation
+  claim/fencing/freshness aggregate. Each summary binds one exact phase,
+  surface, source class, window hash, payload, and summary hash.
+- Honest evidence: Only the fixed numeric and boolean fields accepted by the
+  native surface parser can survive. Nonzero errors, a false quota invariant,
+  stale claims, fencing violations, or unavailable workers are retained as
+  bounded failure evidence for the independent verifier rather than rejected
+  or rewritten as success.
+- Atomic provenance: The compiler validates the exact owner-only native target
+  bytes and target hash, fixed topology, and current compiler/parser/renderer
+  sources. One canonical mode-0600 bundle binds all six exact
+  `coffer.load-telemetry-native-evidence/v1` documents, document hashes,
+  source-summary hashes, target/window/topology hashes, compiler contract, and
+  bundle hash. A separate validator detects retained bundle or document
+  tamper.
+- Refusal boundary: Raw/extra fields, URLs, identities, credentials, missing
+  surfaces, phase/window/source-class/hash drift, unsafe files, aliases,
+  noncanonical bytes, nonfinite/negative/excessive aggregates, inconsistent
+  quota percentages, and reconciliation topology drift fail without output.
+  The compiler has no SQL, RGW, log, network, subprocess, listener, or runtime
+  acquisition adapter.
+- Evidence: Fifty-eight compiler/validator/file tests pass, including exact
+  compatibility with the native evidence reader. The focused evidence/
+  renderer/target/parser/collector matrix passes 129 tests, the broad load
+  matrix passes 349, and full regression and collection both report 974. No
+  source summary was collected and no endpoint, credential, container, VM, or
+  remote state changed.
+- Next exact action: Add
+  `poc/load-soak/collector/evidence_server.py` as the private serving boundary.
+  Load one validated owner-only target and phase bundle, require a non-wildcard
+  loopback/private bind plus explicit owner-only TLS certificate/key, allow
+  only exact bodyless `GET /v1/evidence/{surface}/{phase}`, and prove TLS 1.2+,
+  hostname verification, content type, no redirects/listing/query, bounded
+  concurrency, and interruption cleanup with local TLS tests.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2159,6 +2199,10 @@ operator-local release.
 | Renderer plus native target/parser/collector | `uv run pytest -q tests/test_load_native_target_renderer.py tests/test_load_native_target.py tests/test_load_native_surfaces.py tests/test_load_telemetry_collector_run.py` | passed; 70 |
 | Broad load matrix after native target renderer | `uv run pytest -q tests/test_load_*.py` | passed; 291 |
 | Full regression after native target renderer | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 916 |
+| Phase-bound auxiliary evidence compiler | `uv run pytest -q tests/test_load_phase_evidence.py` | passed; 58 |
+| Evidence compiler plus native target pipeline | phase evidence, renderer, target, native parser, and collector tests | passed; 129 |
+| Broad load matrix after phase evidence compiler | `uv run pytest -q tests/test_load_*.py` | passed; 349 |
+| Full regression after phase evidence compiler | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 974 |
 
 ## Failures, Blockers, and Risks
 
@@ -2199,12 +2243,12 @@ operator-local release.
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
 - Exact next action: Add
-  `poc/load-soak/collector/phase_evidence.py` as a no-network owner-only
-  compiler for the six phase-bound auxiliary surfaces. Bind the phase and
-  source-summary hashes, allow only the exact bounded aggregate fields, emit
-  canonical native evidence documents, and refuse raw logs, URLs, identities,
-  credentials, unbounded values, or cross-phase reuse before a private TLS
-  serving boundary is added.
+  `poc/load-soak/collector/evidence_server.py` as the private serving boundary.
+  Load one validated owner-only target and phase bundle, require a
+  non-wildcard loopback/private bind plus explicit owner-only TLS material,
+  serve only exact bodyless `GET /v1/evidence/{surface}/{phase}`, and prove
+  verified TLS, content type, no redirects/listing/query, bounded concurrency,
+  and interruption cleanup through local TLS tests.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

@@ -175,3 +175,46 @@ Success output contains only the result schema and target hash.
 This renderer does not discover inventory, start exporters, fetch metrics,
 compile the six phase-bound auxiliary evidence surfaces, or qualify a pilot.
 Those are separate runtime gates.
+
+## Phase-bound auxiliary evidence
+
+`phase_evidence.py` converts six versioned owner-only source summaries into
+the exact `coffer.load-telemetry-native-evidence/v1` documents expected by the
+native collector:
+
+| Surface | Required source summary | Retained payload |
+|---|---|---|
+| Prometheus | secret scan | `secret_leaks` |
+| HAProxy | workload error aggregate | `unexpected_errors` |
+| Galera | transaction-attempt aggregate | maximum attempts and unexpected errors |
+| RGW | load-state aggregate | KMS errors, multipart residue, unexpected errors |
+| quota | ledger aggregate | headroom, usage, invariant, attempts, stale claims, errors |
+| reconciliation | claim aggregate | exactness, fencing, freshness, stale claims, worker counts |
+
+Every summary binds its phase, surface, source class, window hash, normalized
+payload, and summary hash. The compiler additionally binds the exact native
+target bytes/hash, fixed load topology, and checked compiler source. The
+atomic output bundle retains each document, document hash, and source-summary
+hash plus one bundle hash. It contains no raw log, URL, project, repository,
+credential, claim, object, or workload identity.
+
+The compiler accepts bounded failure values such as nonzero errors or a false
+invariant. It does not convert those values into success; the independent
+telemetry verifier applies the phase gates later. Invalid types, nonfinite or
+negative numbers, inconsistent quota percentages, topology drift, excessive
+counts, cross-phase summaries, raw fields, and any hash drift fail closed.
+
+Get the current compiler hash and compile one phase with:
+
+```text
+uv run python poc/load-soak/collector/phase_evidence.py source-hash
+uv run python poc/load-soak/collector/phase_evidence.py \
+  work/load-soak/before-summary-request.json \
+  work/load-soak/native-target.json \
+  work/load-soak/before-evidence-bundle.json
+```
+
+All three files use the same owner-only canonical/mode boundary as the target
+renderer. Success output contains only the phase and bundle hash. This
+compiler does not read SQL, RGW, Prometheus, logs, credentials, or the
+network, and it does not yet serve the six documents.

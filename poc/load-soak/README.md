@@ -142,6 +142,14 @@ target through the runtime parser, and atomically emits mode-0600 JSON.
 This qualifies deterministic target construction only; it does not assert
 that any declared source exists or is healthy.
 
+`collector/phase_evidence.py` compiles the six auxiliary sources that have no
+equivalent native metric. Each phase binds fixed summary classes, an exact
+window hash, the native target file/hash, the current compiler sources, and
+only bounded numeric or boolean payload fields. It emits one canonical
+owner-only bundle containing the exact native evidence documents and their
+independent hashes. It deliberately preserves bounded failure evidence for the
+independent verifier; compilation is not a pass decision.
+
 `runtime_manifest.py` maps every schedule entry and operation to the current
 runtime capability baseline. It binds a canonical owner-only compiled plan,
 qualified readiness file, exact client pins, checked-in runner source hashes,
