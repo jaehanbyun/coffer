@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 SCHEMA = "coffer.ui-parent-package-probe/v1"
+INVENTORY_SCHEMA = "coffer.ui-package-inventory/v1"
 PACKAGE_LINE = re.compile(r"^([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]*)\t([^\t]*)$")
 REMOVAL_LINE = re.compile(r"^(?:Remv|Purg)\s+(\S+)(?:\s+\[([^\]]+)])?")
 PACKAGE_NAME = re.compile(r"^[a-z0-9][a-z0-9+.-]*$")
@@ -236,12 +237,65 @@ def collect(target: str) -> dict[str, Any]:
     }
 
 
+def collect_inventory() -> dict[str, Any]:
+    inventory = _run(
+        [
+            "dpkg-query",
+            "-W",
+            "-f=${Package}\\t${Version}\\t${db:Status-Abbrev}"
+            "\\t${Depends}\\t${Pre-Depends}\\n",
+        ]
+    )
+    if inventory.returncode != 0:
+        raise ProbeError("dpkg package inventory failed")
+    packages = parse_packages(inventory.stdout)
+    manual_result = _run(["apt-mark", "showmanual"])
+    automatic_result = _run(["apt-mark", "showauto"])
+    if manual_result.returncode != 0 or automatic_result.returncode != 0:
+        raise ProbeError("apt package marks are unavailable")
+    manual = parse_package_marks(manual_result.stdout)
+    automatic = parse_package_marks(automatic_result.stdout)
+    if manual & automatic:
+        raise ProbeError("apt package marks overlap")
+    dependency_check = _run(
+        ["apt-get", "-s", "-o", "Debug::NoLocking=true", "check"]
+    )
+    audit = _run(["dpkg", "--audit"])
+    architecture = _run(["dpkg", "--print-architecture"])
+    if architecture.returncode != 0 or not architecture.stdout.strip():
+        raise ProbeError("dpkg architecture is unavailable")
+    return {
+        "schema": INVENTORY_SCHEMA,
+        "architecture": architecture.stdout.strip(),
+        "os": _os_release(),
+        "packages": [
+            {
+                "name": package.name,
+                "version": package.version,
+                "status": package.status,
+                "manual": package.name in manual,
+                "automatic": package.name in automatic,
+            }
+            for package in sorted(packages.values(), key=lambda item: item.name)
+        ],
+        "package_database": {
+            "dpkg_audit_clean": audit.returncode == 0 and not audit.stdout.strip(),
+            "apt_dependency_check_clean": dependency_check.returncode == 0,
+        },
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--target", default="linux-libc-dev")
+    parser.add_argument("--inventory-only", action="store_true")
     arguments = parser.parse_args()
     try:
-        report = collect(arguments.target)
+        report = (
+            collect_inventory()
+            if arguments.inventory_only
+            else collect(arguments.target)
+        )
     except ProbeError as error:
         print(f"coffer-ui-parent-package-probe: {error}")
         return 2

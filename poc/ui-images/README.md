@@ -114,3 +114,41 @@ contexts. It records package marks, direct reverse dependencies, package-file
 classes, clean package-database checks, and an `apt-get -s` purge plan. The
 read-only result always sets `safe_to_apply` to false; a separate derivative
 build/runtime/scan experiment is required before any cleanup can be accepted.
+
+Apply that exact simulated transaction only to disposable post-Coffer
+derivatives:
+
+```console
+make -C poc/ui-images trial-os-cleanup
+```
+
+The trial does not change either production UI Containerfile. It builds the
+exact stock parents and Coffer wheels first, derives new images by purging
+`linux-libc-dev` and its exact 17 dependent development packages, and requires:
+
+- no added or version-changed Debian package and the exact simulated removal
+  set;
+- clean `dpkg --audit` and `apt-get -s check` results;
+- unchanged Kolla user, entrypoint, command, and inherited layer prefix;
+- byte-identical installed Coffer runtime files and no retained wheel/build
+  inputs;
+- exact source, wheel, image, scanner, and stock-probe identities;
+- zero introduced Critical/High finding under both Trivy and Docker Scout;
+- at least one removed Critical/High finding for every scanner and surface;
+- zero Trivy secret finding.
+
+The 2026-07-26 native ARM64 trial accepted the cleanup mechanism but correctly
+kept production blocked. Trivy Critical/High fell from 1/83 to 0/31 for
+Horizon and from 1/68 to 0/16 for Skyline. Docker Scout High fell from 75 to
+34 and from 60 to 19 respectively. Neither scanner found a newly introduced
+Critical/High issue, and Trivy found no secret. The exact images, generated
+contexts, wheel copies, archives, and scanner caches were deleted; the
+pre-existing Podman machine was restored to stopped. Owner-only, non-secret
+evidence remains under ignored `work/ui-os-cleanup-trial/evidence/`.
+
+This result permits a later production-image design to include an equivalent
+final-image cleanup only after the remaining compatibility and release gates
+close. It does not approve a private OpenStack constraints fork, a CVE waiver,
+an image publication, or a production deployment. Exit `3` remains the
+expected successful result while the cleaned images have nonzero
+Critical/High findings.

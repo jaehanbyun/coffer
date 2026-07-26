@@ -85,3 +85,63 @@ def test_runner_is_bounded_and_read_only() -> None:
     assert "safe_to_apply == false" in runner
     assert 'rm -rf -- "${CONTEXTS:?}"' in runner
     assert "podman image rm --force" in runner
+
+
+def test_inventory_mode_is_compact_and_package_db_bound(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    outputs = {
+        "dpkg-query": PROBE.subprocess.CompletedProcess(
+            [],
+            0,
+            "alpha\t1\tii \t\t\nbeta\t2\tii \talpha\t\n",
+            "",
+        ),
+        "apt-mark-manual": PROBE.subprocess.CompletedProcess([], 0, "alpha\n", ""),
+        "apt-mark-auto": PROBE.subprocess.CompletedProcess([], 0, "beta\n", ""),
+        "apt-get": PROBE.subprocess.CompletedProcess([], 0, "", ""),
+        "dpkg-audit": PROBE.subprocess.CompletedProcess([], 0, "", ""),
+        "dpkg-arch": PROBE.subprocess.CompletedProcess([], 0, "arm64\n", ""),
+    }
+
+    def fake_run(command: list[str]):
+        if command[0] == "apt-mark":
+            key = f"apt-mark-{'manual' if command[1] == 'showmanual' else 'auto'}"
+        elif command[:2] == ["dpkg", "--audit"]:
+            key = "dpkg-audit"
+        elif command[:2] == ["dpkg", "--print-architecture"]:
+            key = "dpkg-arch"
+        else:
+            key = command[0]
+        return outputs[key]
+
+    monkeypatch.setattr(PROBE, "_run", fake_run)
+    monkeypatch.setattr(
+        PROBE,
+        "_os_release",
+        lambda: {"id": "ubuntu", "version_id": "24.04"},
+    )
+
+    result = PROBE.collect_inventory()
+
+    assert result["schema"] == PROBE.INVENTORY_SCHEMA
+    assert result["package_database"] == {
+        "dpkg_audit_clean": True,
+        "apt_dependency_check_clean": True,
+    }
+    assert result["packages"] == [
+        {
+            "name": "alpha",
+            "version": "1",
+            "status": "ii ",
+            "manual": True,
+            "automatic": False,
+        },
+        {
+            "name": "beta",
+            "version": "2",
+            "status": "ii ",
+            "manual": False,
+            "automatic": True,
+        },
+    ]

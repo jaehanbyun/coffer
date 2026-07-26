@@ -35,8 +35,9 @@
   production bundle, and versioned wheel complete locally with 31 tests;
   disabled-by-default immutable Horizon/Skyline image contracts and exact
   fallback lifecycle complete locally with 108 role checks; four desktop/narrow
-  UI fixture screenshots visually inspected; final 1,478-test/Horizon/Skyline/
-  108-check Kolla regression and repository gates complete
+  UI fixture screenshots visually inspected; current full Python regression
+  passes 1,496 tests and the prior Horizon/Skyline/108-check Kolla repository
+  gates remain complete
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Externally blocked execution plans:
@@ -61,8 +62,9 @@ Twelve Horizon and ten Skyline constraint-bound package groups advertise fixes
 under all reporting scanners, but they are compatibility experiment inputs
 only. `linux`/`linux-libc-dev` remain OS no-fix groups and `oslo.messaging`
 remains constraint-bound without a fixed version. No CVE waiver, scanner
-replacement, private global constraints fork, package removal, Docker
-credential, image publication, or live cloud mutation has been accepted.
+replacement, production package removal, private global constraints fork,
+Docker credential, image publication, or live cloud mutation has been
+accepted.
 
 That stock-parent probe is now complete. Exact native ARM64 Horizon and Skyline
 parents produced byte-identical mode-0640 package evidence at SHA-256
@@ -76,13 +78,25 @@ including `build-essential`, C++ toolchains, Python headers, and XML/XSLT/zlib
 development packages. The package DB is clean and `safe_to_apply` remains
 false.
 
-The final probe removed all five exact images and generated contexts and
-restored the retained Podman machine to stopped. Two failed owner-only probe
-directories were moved to the user's Trash after diagnosing the normal Ubuntu
-`os-release` symlink and apt `Purg` record variants; they are recoverable and
-were not committed. The exact next action is a separate disposable post-Coffer
-18-package cleanup derivative with package/runtime/rollback and two-scanner
-verification. The production UI Containerfiles remain unchanged.
+The separate post-Coffer OS cleanup trial is now complete on native ARM64.
+Both surfaces removed exactly the 18 simulated development packages with no
+added or version-changed package and clean package databases. Kolla runtime
+metadata, pre-cleanup layer prefixes, Coffer wheel runtime hashes, build-input
+absence, and trial provenance pass. Trivy Critical/High changed from Horizon
+1/83 to 0/31 and Skyline 1/68 to 0/16; Scout changed from 0/75 to 0/34 and
+0/60 to 0/19. There are zero introduced Critical/High and zero Trivy secrets.
+
+The cleanup mechanism is accepted only for later remediation design:
+`os_cleanup_trial_accepted=true`, status `blocked`, and
+`production_candidate=false`. Production UI Containerfiles remain unchanged,
+and neither a waiver nor a private constraints fork is accepted. The owner-only
+result SHA-256 is
+`a8da7856f955f25866a0b9fbe9214d34863a502714a1624ac2ae66ce6caac2d3`.
+All exact images, contexts, wheel copies, archives, and scanner caches are
+absent; the retained Podman machine is stopped. The exact next action is the
+smallest fixture-first Python constraints compatibility derivative with
+dependency resolution, UI build/runtime, rollback-parent, exact delta, and the
+same two-scanner absolute gate.
 
 Plan 0019 is externally blocked after converting every locally independent
 Stage 6 operation into a release-gated, checkpointed pilot harness. The latest
@@ -2946,11 +2960,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Inspect and stage exactly the five plan 0022 files, run the staged secret check,
-then commit and push the honest blocked native-AMD64 result and Scout
-preflight/cache correction. Do not retry Scout, restore the destroyed VM, or
-handle a Docker credential. After publication, activate the next Stage 6
-package that is independent of the Docker Scout credential boundary.
+Run the final repository gates for the post-Coffer OS cleanup trial, stage only
+that atomic package, then commit and push it under the verified `jaehanbyun`
+account. After publication, implement the smallest fixture-first Python
+constraints compatibility derivative. Do not alter production UI
+Containerfiles, waive a finding, handle a Docker credential, or create a live
+cloud.
 
 ## After This Work Package
 

@@ -79,12 +79,14 @@ absolute gate.
 | Bind classification to the actual archived upper-constraints payload and official requirements revision | Package remediation is meaningful only against the exact Kolla build input | Copying a hand-selected vulnerable package list; mutable latest constraints | 2026-07-26 |
 | Treat fixed-version data as an experiment candidate, not an accepted upgrade | OpenStack global constraints encode cross-project compatibility and cannot be privately reversed without tests | Blind latest-version upgrade; broad constraints fork | 2026-07-26 |
 | Refuse build-only or reachability claims without direct evidence | Package names and scanner classes do not prove runtime irrelevance | Automatic `linux-libc-dev` removal; undocumented VEX | 2026-07-26 |
+| Accept the exact 18-package purge only as a reusable experimental mechanism | Native ARM64 package, runtime, lineage, rollback-parent, and two-scanner evidence passed with no introduced Critical/High finding | Editing production Containerfiles immediately; treating a lower count as production qualification | 2026-07-26 |
 
 ## Tasks
 
 - [x] Implement and fixture-test the inherited-finding/constraints classifier.
 - [x] Generate and independently reproduce the ARM64 remediation baseline.
-- [ ] Run bounded OS cleanup and Python constraint compatibility experiments.
+- [x] Run the bounded post-Coffer OS cleanup experiment.
+- [ ] Run the smallest Python constraint compatibility experiment.
 - [ ] Rescan viable derivatives, update the durable handoff, and publish each
       verified atomic milestone.
 
@@ -173,6 +175,41 @@ absolute gate.
   rollback parent availability, and two-scanner comparison before accepting or
   rejecting the cleanup.
 
+### 2026-07-26 — Post-Coffer OS cleanup trial accepted
+
+- Completed: Added an inventory-only package collector, fixed experimental
+  cleanup Containerfile, owner-only provenance/package/runtime evidence
+  collector, fail-closed classifier, bounded native runner, and focused
+  fixtures. Production Horizon and Skyline Containerfiles remain unchanged.
+- Exact transaction: Native ARM64 derivatives removed exactly the 18 packages
+  from the accepted stock-parent simulation. No package was added or changed;
+  both resulting package databases are clean. Kolla user/entrypoint/command,
+  exact pre-cleanup layer prefix, Coffer labels, wheel-installed runtime file
+  hashes, and build-input absence all pass.
+- Scan result: Horizon Trivy Critical/High changed from 1/83 to 0/31 and Scout
+  from 0/75 to 0/34. Skyline changed from Trivy 1/68 to 0/16 and Scout 0/60 to
+  0/19. Trivy removed 53 Critical/High identities per surface and Scout
+  removed 41; neither scanner introduced one and Trivy found zero secrets.
+- Decision: `os_cleanup_trial_accepted=true`, but status remains `blocked` and
+  `production_candidate=false`. No waiver or private constraint override was
+  accepted. The remaining Python findings and constraint-bound
+  `oslo.messaging` no-fix finding keep the absolute gate closed.
+- Evidence: Owner-only ignored result SHA-256
+  `a8da7856f955f25866a0b9fbe9214d34863a502714a1624ac2ae66ce6caac2d3`;
+  manifest `6a55442007af74444f441ac4d07938330a957d71078c57c010d6bd81a39de7e8`,
+  images `d717fdd62330d36a3c56d14ec5b2921b30e5347a2273f42b6fe2bbef28c33c99`,
+  inventories `cce5364a6a2202ae822b8510cb0b4339afef1133d3f8f0affacb75e28cf721db`,
+  and runtime `e659ef7fd56227632b5252c9650ea2e7df074216a3e944b1feb9389fa9671e01`.
+- Cleanup: All exact trial images, generated contexts, wheel copies, image
+  archives, and scanner caches are absent. The retained Podman machine is
+  stopped. Non-secret evidence remains owner-only under ignored
+  `work/ui-os-cleanup-trial/evidence/`.
+- Next exact action: Add a fixture-first constraint-overlay classifier and
+  disposable derivative for the smallest coherent Python candidate set. Begin
+  with independently upgradable pure-Python candidates; require dependency
+  resolution, `pip check`, Horizon/Skyline build/runtime tests, exact package
+  delta, rollback-parent preservation, and the same two-scanner absolute gate.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -184,7 +221,9 @@ absolute gate.
 | Accepted evidence classification | deterministic repeat and SHA-256 comparison | passed; exit 3, mode 0640, stable SHA-256 `9ecde6e...` |
 | Stock-parent package probe | bounded native ARM64 build and read-only inspection | passed; identical surfaces, exact cleanup, summary `e0b95fe...` |
 | Package-probe milestone gates | 35 focused tests, ShellCheck, Ruff E/F/I, compilation, full pytest | passed; 1,490 tests |
-| Compatibility/remediation experiment | bounded image/package/UI tests | pending |
+| OS cleanup compatibility experiment | native ARM64 image/package/runtime/two-scanner trial | passed as a reusable mechanism; production blocked at Horizon Trivy/Scout 31/34 High and Skyline 16/19 High |
+| OS cleanup milestone gates | strict ShellCheck, Ruff E/F/I, compilation, 41 focused tests, full pytest | passed; 1,496 tests |
+| Python constraints compatibility experiment | bounded image/package/UI tests | pending |
 | Baseline milestone gates | full pytest, Ruff E/F/I, compilation, staged secret/diff | passed; 1,483 tests and no staged leak |
 | Final repository gates | dashboard packages, Kolla role, docs/links, secret, diff | pending with remediation experiment |
 
@@ -196,25 +235,28 @@ absolute gate.
 - OpenStack upper constraints may intentionally exclude scanner-advertised
   fixed releases. A private override could introduce API/runtime incompatibility
   and remains unaccepted until the exact test matrix passes.
-- The OS purge simulation removes 18 development packages rather than only
-  `linux-libc-dev`. It is not accepted until a post-Coffer derivative proves
-  package integrity, dashboard runtime, rebuild, fallback, and scan behavior.
-- A lower scanner count after deleting build packages is insufficient unless
-  Kolla startup, package ownership, Horizon/Skyline runtime, and upgrade/
-  rollback behavior also remain correct.
+- The exact 18-package OS purge is accepted only as an experimental mechanism.
+  It is not yet in production Containerfiles and cannot promote an image while
+  either scanner retains Critical/High findings.
+- The derivative proves static Kolla metadata, package integrity, installed UI
+  runtime files, input cleanup, parent availability, and scan behavior. A
+  production adoption still needs the Python compatibility matrix and later
+  live Kolla startup/reconfigure/upgrade/rollback evidence after release gates
+  permit a disposable cloud.
 
 ## Handoff
 
 - Current state: Plan 0023 is active; plans 0019 and 0022 remain externally
-  blocked. The inherited ARM64 classifier and deterministic baseline are
-  complete locally with no waiver. The stock-parent dependency probe is also
-  complete and proves an exact 18-package purge set, but explicitly does not
-  accept it. Raw/report evidence is non-secret and remains owner-only under
-  ignored `work/`.
-- Exact next action: Implement the bounded post-Coffer OS cleanup derivative,
-  runtime/rollback verifier, and two-scanner comparison.
-- First file or command: Add an experimental Containerfile and a
-  cleanup-specific disposable runner under `poc/ui-images/`; do not modify the
-  production UI Containerfiles yet.
+  blocked. The inherited ARM64 classifier, deterministic baseline, stock
+  dependency probe, and post-Coffer OS cleanup trial are complete locally with
+  no waiver. The exact cleanup mechanism passed package/runtime/lineage and
+  two-scanner delta gates but correctly remains blocked by nonzero Python
+  Critical/High findings. Raw/report evidence is non-secret and remains
+  owner-only under ignored `work/`.
+- Exact next action: Implement the smallest fixture-first Python constraint
+  compatibility derivative and preserve the same absolute scanner gate.
+- First file or command: Add the constraint-overlay manifest/classifier under
+  `poc/ui-images/`, beginning with independently upgradable pure-Python
+  candidates; do not modify production UI Containerfiles yet.
 - Questions requiring user input: None. No credential, external publication,
   live deployment, or waiver is required for the next local milestone.
