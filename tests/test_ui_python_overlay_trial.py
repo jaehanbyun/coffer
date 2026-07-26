@@ -508,7 +508,16 @@ def build(evidence: Path, artifacts: dict[str, Any]) -> dict[str, object]:
 
 @pytest.mark.parametrize(
     "target_key",
-    ["click", "django", "mako", "httplib2", "msgpack", "pyjwt", "urllib3"],
+    [
+        "click",
+        "django",
+        "mako",
+        "httplib2",
+        "msgpack",
+        "pyjwt",
+        "ujson",
+        "urllib3",
+    ],
 )
 def test_valid_overlay_is_accepted_but_remains_blocked(
     tmp_path: Path,
@@ -701,6 +710,61 @@ def test_baseline_and_candidate_tamper_are_rejected(
         build(evidence, artifacts)
 
 
+def test_selected_release_may_be_newer_than_reported_fix(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence, artifacts = fixture(tmp_path, monkeypatch, "ujson")
+    remediation = json.loads(artifacts["remediation"].read_text())
+    for surface in TRIAL.SURFACES:
+        remediation["surfaces"][surface]["packages"][0]["fixed_versions"] = [
+            "5.12.0",
+            "5.12.1",
+        ]
+    artifacts["remediation"].write_text(json.dumps(remediation))
+    monkeypatch.setattr(
+        TRIAL,
+        "REMEDIATION_RESULT_SHA256",
+        TRIAL.sha256_file(artifacts["remediation"]),
+    )
+    manifest_path = evidence / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["baseline"]["remediation_result_sha256"] = TRIAL.sha256_file(
+        artifacts["remediation"]
+    )
+    manifest_path.write_text(json.dumps(manifest))
+
+    report = build(evidence, artifacts)
+
+    assert report["decision"]["target"] == "ujson==5.13.0"
+
+
+@pytest.mark.parametrize("fixed_version", ["5.14.0", "not-a-release"])
+def test_selected_release_must_reach_a_numeric_reported_fix(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    fixed_version: str,
+) -> None:
+    evidence, artifacts = fixture(tmp_path, monkeypatch, "ujson")
+    remediation = json.loads(artifacts["remediation"].read_text())
+    for surface in TRIAL.SURFACES:
+        remediation["surfaces"][surface]["packages"][0]["fixed_versions"] = [
+            fixed_version
+        ]
+    artifacts["remediation"].write_text(json.dumps(remediation))
+    monkeypatch.setattr(
+        TRIAL,
+        "REMEDIATION_RESULT_SHA256",
+        TRIAL.sha256_file(artifacts["remediation"]),
+    )
+
+    with pytest.raises(
+        TRIAL.EvidenceError,
+        match="target (candidate|fixed version)",
+    ):
+        build(evidence, artifacts)
+
+
 def test_collector_projection_and_runtime_helpers_are_bounded(
     tmp_path: Path,
 ) -> None:
@@ -774,6 +838,7 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
         "pyjwt",
         "msgpack",
         "urllib3",
+        "ujson",
     }
     assert targets["django"].surfaces == ("horizon",)
     assert targets["click"].scanner_finding_ids == {
@@ -791,6 +856,18 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
     assert targets["msgpack"].finding_ids == ("GHSA-6v7p-g79w-8964",)
     assert targets["msgpack"].wheel_sha256 == (
         "60926b75d00c8e816ef98f3034f484a8bc64242d66839cef4cf7e503142316a0"
+    )
+    assert targets["ujson"].package_prefix == "ujson."
+    assert targets["ujson"].module_name == "ujson"
+    assert targets["ujson"].wheel_architecture == "arm64"
+    assert targets["ujson"].requires_dist == ()
+    assert targets["ujson"].finding_ids == (
+        "CVE-2026-32874",
+        "CVE-2026-32875",
+        "CVE-2026-44660",
+    )
+    assert targets["ujson"].wheel_sha256 == (
+        "fdde6341d213b29f413b5fa9fad1392d5408074c75f0900ed949e97e546fa5df"
     )
     assert targets["django"].finding_ids == (
         "CVE-2026-25673",

@@ -178,6 +178,36 @@
       "wheel_sha256": "66adcc2aff09b3f1bbd95fc1e1577df8ac8723c978552fd43304c8a290ac5728",
       "wheel_url": "https://files.pythonhosted.org/packages/a3/5e/ecf12fdb62546d64385c158514e9b2b671f7832108ef2ecd2020ce0af2d1/pyjwt-2.13.0-py3-none-any.whl"
     },
+    "ujson": {
+      "display_name": "ujson",
+      "finding_ids_by_scanner": {
+        "scout": [
+          "CVE-2026-32874",
+          "CVE-2026-32875",
+          "CVE-2026-44660"
+        ],
+        "trivy": [
+          "CVE-2026-32874",
+          "CVE-2026-32875",
+          "CVE-2026-44660"
+        ]
+      },
+      "from_version": "5.11.0",
+      "normalized_name": "ujson",
+      "package_prefix": "ujson.",
+      "probe": "ujson-binary",
+      "requires_dist": [],
+      "surfaces": [
+        "horizon",
+        "skyline"
+      ],
+      "to_version": "5.13.0",
+      "trial_label": "coffer-ui-python-ujson-5.13.0-v1",
+      "wheel_architecture": "arm64",
+      "wheel_filename": "ujson-5.13.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.whl",
+      "wheel_sha256": "fdde6341d213b29f413b5fa9fad1392d5408074c75f0900ed949e97e546fa5df",
+      "wheel_url": "https://files.pythonhosted.org/packages/bc/1d/f68e14cf476d149945211142f4c20782c1f232c489e8edcc4f4b58ce4997/ujson-5.13.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.whl"
+    },
     "urllib3": {
       "display_name": "urllib3",
       "finding_ids_by_scanner": {

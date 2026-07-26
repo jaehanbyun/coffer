@@ -2,7 +2,8 @@ REPO_ROOT := $(abspath $(CURDIR)/../..)
 
 .PHONY: probe-parents qualify trial-os-cleanup trial-python-click \
 	trial-python-django trial-python-httplib2 trial-python-overlay \
-	trial-python-msgpack trial-python-pyjwt trial-python-urllib3 verify
+	trial-python-msgpack trial-python-pyjwt trial-python-ujson \
+	trial-python-urllib3 verify
 
 verify:
 	cd "$(REPO_ROOT)" && uv run pytest -q tests/test_ui_image_qualification.py \
@@ -33,6 +34,9 @@ trial-python-msgpack:
 
 trial-python-pyjwt:
 	./trial_python_overlay.sh pyjwt
+
+trial-python-ujson:
+	./trial_python_overlay.sh ujson
 
 trial-python-urllib3:
 	./trial_python_overlay.sh urllib3

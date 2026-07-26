@@ -249,6 +249,33 @@ Containerfile or constraints policy changed. Exact images, generated contexts,
 wheel copies, archives, and scanner caches are absent, and the harness-started
 Podman machine is stopped.
 
+The eighth independent native ARM64 derivative changes only `ujson` 5.11.0
+to 5.13.0 using the exact official CPython 3.12 manylinux ARM64 wheel. Both
+surfaces preserve the accepted cleanup OS inventory and every non-target
+Python distribution version multiset. `pip check`, the active native
+extension, a Unicode/nested JSON round trip, official source hashes, exact
+top-level extension file boundaries, Coffer UI runtime hashes, lineage, and
+build-input absence pass.
+
+The classifier now accepts a numeric selected release at or above at least one
+scanner-reported fixed floor, rather than requiring exact string equality.
+Lower and nonnumeric floors fail closed. This admits ujson 5.13.0 above the
+reported 5.12.0/5.12.1 floors without weakening baseline eligibility, exact
+finding identities, or scanner delta gates.
+
+Both Trivy and Scout remove exactly `CVE-2026-32874`,
+`CVE-2026-32875`, and `CVE-2026-44660`. Horizon changes from Trivy 31 to 28
+and Scout 34 to 31 High; Skyline changes from Trivy 16 to 13 and Scout 19 to
+16 High. Each scanner also removes the Medium `CVE-2026-54911`. Both scanners
+introduce zero Critical/High finding, and Trivy finds zero secrets. The
+owner-only result SHA-256 is
+`1e6c6695ac16ef9883458cf9d5661918b48154f4d6b0601b6333748589df8830`.
+The result remains isolated with `production_candidate=false`; no production
+Containerfile or constraints policy changed. Exact images, generated contexts,
+wheel copies, archives, and scanner caches are absent, and the harness-started
+Podman machine is stopped. JSON, Bash, strict ShellCheck, Ruff, compilation,
+76 focused UI image checks, and all 1,531 repository tests pass.
+
 Plan 0019 is externally blocked after converting every locally independent
 Stage 6 operation into a release-gated, checkpointed pilot harness. The latest
 stable Distribution and Ceph/RGW inputs still fail before deployment, so no
@@ -3111,8 +3138,9 @@ release contains it yet.
 
 ## Exact Next Action
 
-Inspect the official `ujson` release metadata and the accepted scanner
-evidence, then select the smallest exact CPython 3.12 ARM64 fixed candidate.
+Inspect the official `lxml` 6.1.0 release metadata and the accepted scanner
+evidence, then bind its exact CPython 3.12 ARM64 wheel as the ninth independent
+compatibility derivative.
 Do not alter production UI Containerfiles, combine upgrades, waive a finding,
 handle a Docker credential, or create a live cloud.
 

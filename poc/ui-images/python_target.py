@@ -5,6 +5,7 @@ import importlib
 import json
 import re
 from dataclasses import dataclass
+from importlib.machinery import EXTENSION_SUFFIXES
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +23,7 @@ WHEEL = re.compile(
     r"cp[0-9]{2,3}-(?:cp[0-9]{2,3}|abi3)-[A-Za-z0-9._]+)\.whl$"
 )
 URL = re.compile(r"^https://files\.pythonhosted\.org/packages/[A-Za-z0-9/_.+-]+$")
-PREFIX = re.compile(r"^[a-z][a-z0-9_]*/$")
+PREFIX = re.compile(r"^[a-z][a-z0-9_]*[/.]$")
 LABEL = re.compile(r"^coffer-ui-python-[a-z0-9.-]+-v1$")
 PROBES = {
     "click-cli",
@@ -31,6 +32,7 @@ PROBES = {
     "msgpack-binary",
     "module-import",
     "pyjwt-hs256",
+    "ujson-binary",
     "urllib3-pool",
 }
 SURFACES = frozenset({"horizon", "skyline"})
@@ -66,7 +68,7 @@ class Target:
 
     @property
     def module_name(self) -> str:
-        return self.package_prefix.removesuffix("/")
+        return self.package_prefix.rstrip("/.")
 
     @property
     def finding_ids(self) -> tuple[str, ...]:
@@ -101,6 +103,7 @@ class Target:
             "mako-render",
             "msgpack-binary",
             "pyjwt-hs256",
+            "ujson-binary",
         }:
             return "coffer"
         if self.probe == "urllib3-pool":
@@ -295,6 +298,20 @@ def probe_target(target: Target) -> str:
         if decoded != [first, second]:
             raise TargetError("msgpack streaming round trip failed")
         result = decoded[0]["scope"]
+    elif target.probe == "ujson-binary":
+        module_path = str(getattr(module, "__file__", ""))
+        if not any(module_path.endswith(suffix) for suffix in EXTENSION_SUFFIXES):
+            raise TargetError("ujson native extension is not active")
+        payload = {
+            "items": [1, 2.5, True, None],
+            "nested": {"utf8": "장독"},
+            "scope": "coffer",
+        }
+        encoded = module.dumps(payload, ensure_ascii=False, sort_keys=True)
+        decoded = module.loads(encoded)
+        if decoded != payload:
+            raise TargetError("ujson round trip failed")
+        result = decoded["scope"]
     elif target.probe == "django-template":
         settings = importlib.import_module("django.conf").settings
         if settings.configured:

@@ -7,6 +7,7 @@ import json
 import re
 import sys
 import tempfile
+from itertools import zip_longest
 from pathlib import Path
 from typing import Any
 from zipfile import ZipFile
@@ -108,6 +109,25 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _numeric_release(value: object, label: str) -> tuple[int, ...]:
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", value):
+        raise EvidenceError(f"{label} is not a numeric release")
+    return tuple(int(part) for part in value.split("."))
+
+
+def _release_at_least(candidate: object, floor: object, label: str) -> bool:
+    candidate_parts = _numeric_release(candidate, f"{label} candidate")
+    floor_parts = _numeric_release(floor, f"{label} floor")
+    for candidate_part, floor_part in zip_longest(
+        candidate_parts,
+        floor_parts,
+        fillvalue=0,
+    ):
+        if candidate_part != floor_part:
+            return candidate_part > floor_part
+    return True
 
 
 def _load_sibling(name: str):
@@ -213,6 +233,10 @@ def validate_baselines(
         if len(candidates) != 1:
             raise EvidenceError(f"{surface} target candidate is ambiguous")
         candidate = candidates[0]
+        fixed_versions = _array(
+            candidate.get("fixed_versions"),
+            "target fixed versions",
+        )
         if (
             candidate.get("classification")
             != "constraint-bound-all-findings-have-fix"
@@ -220,8 +244,20 @@ def validate_baselines(
             or candidate.get("constraint_match") is not True
             or candidate.get("installed_version") != target.from_version
             or candidate.get("constraint_version") != target.from_version
-            or target.to_version
-            not in _array(candidate.get("fixed_versions"), "target fixed versions")
+            or not _release_at_least(
+                target.to_version,
+                target.from_version,
+                "target upgrade",
+            )
+            or target.to_version == target.from_version
+            or not any(
+                _release_at_least(
+                    target.to_version,
+                    fixed_version,
+                    "target fixed version",
+                )
+                for fixed_version in fixed_versions
+            )
             or frozenset(candidate.get("finding_ids") or ())
             != frozenset(target.finding_ids)
         ):

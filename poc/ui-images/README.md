@@ -164,6 +164,7 @@ make -C poc/ui-images trial-python-httplib2
 make -C poc/ui-images trial-python-msgpack
 make -C poc/ui-images trial-python-urllib3
 make -C poc/ui-images trial-python-pyjwt
+make -C poc/ui-images trial-python-ujson
 ```
 
 The checked-in `python_targets.json` manifest is the only target-selection
@@ -320,5 +321,30 @@ finding, and Trivy found no secret. The result remains isolated with
 `production_candidate=false` and changes no production Containerfile or
 constraints policy. Owner-only evidence is retained under ignored
 `work/ui-python-overlay-trial-msgpack/evidence/`; generated images, contexts,
+wheel copies, archives, scanner caches, and the harness-started Podman machine
+are absent after exit.
+
+The 2026-07-27 native ARM64 trial independently accepted the two-surface
+`ujson` 5.11.0 to 5.13.0 derivative using the exact official CPython 3.12
+manylinux ARM64 wheel. The offline compatibility probe requires the native
+extension and performs a Unicode, nested-value JSON encode/decode round trip.
+Both surfaces preserve the accepted cleanup OS inventory and every non-target
+Python distribution version multiset; `pip check`, official source hashes,
+exact top-level extension file boundaries, Coffer UI runtime hashes, lineage,
+and build-input absence pass.
+
+The selected 5.13.0 release is newer than the scanners' first fixed releases
+5.12.0 and 5.12.1. The classifier compares numeric release components and
+requires the selected target to reach at least one reported fixed floor; a
+lower or nonnumeric floor fails closed.
+
+Both scanners removed exactly `CVE-2026-32874`, `CVE-2026-32875`, and
+`CVE-2026-44660`. Horizon changed from Trivy 31 to 28 High and Scout 34 to 31
+High; Skyline changed from Trivy 16 to 13 High and Scout 19 to 16 High. Each
+scanner also removed one Medium finding. Neither scanner introduced a
+Critical/High finding, and Trivy found no secret. The result remains isolated
+with `production_candidate=false` and changes no production Containerfile or
+constraints policy. Owner-only evidence is retained under ignored
+`work/ui-python-overlay-trial-ujson/evidence/`; generated images, contexts,
 wheel copies, archives, scanner caches, and the harness-started Podman machine
 are absent after exit.
