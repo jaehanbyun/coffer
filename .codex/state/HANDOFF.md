@@ -17,7 +17,8 @@
   transaction-attempt observability and quota/reconciliation control artifact
   collection complete; Galera transaction artifact collection complete; RGW
   evidence source mapping and no-network artifact collection complete;
-  six-surface phase preparation complete; live RGW evidence adapter next
+  six-surface phase preparation and verified-HTTPS live RGW evidence adapter
+  contract complete; disposable-pilot schedule/input renderer next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -2512,6 +2513,20 @@ release contains it yet.
   domain, volume, temporary file, and known-host entry. It added the
   `poc/kolla-aio/` harness, completed plan 0016, strengthened the runtime role
   contracts, and passed the final regression/security/documentation matrix.
+- Added `poc/load-soak/collector/rgw_live_adapter.py`. Its owner-only contract
+  requires an explicit verified-HTTPS endpoint and CA hash, v4/path-style S3,
+  finite timeouts, exact target/window/config bindings, and credentials plus
+  the Barbican key ID only through fixed runtime environment variables.
+- The healthy path is dependency-safe zero/positive put, head/get,
+  zero/positive copy, and multipart listing. Only the `during` phase may add
+  externally evidenced wrong-key and KMS-outage puts. Unexpected success,
+  KMS errors, or other storage failures are retained as nonzero evidence.
+- Bounded explicit multipart pagination, fixed safe error classes, canonical
+  step/probe/capture schemas, dynamic boto3 loading, and owner-only atomic
+  outputs pass 32 focused tests. The related load/observability matrix passes
+  719 tests and the full Python regression passes 1264. This is fake-client
+  local evidence: no credential, boto3 runtime, endpoint, RGW, KMS, Barbican,
+  container, VM, or remote state was used.
 
 ## Blockers and Risks
 
@@ -2546,9 +2561,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add the verified-HTTPS live RGW evidence adapter that produces the canonical
-phase-bound SSE-KMS probe and complete `ListMultipartUploads` capture consumed
-by the now-complete phase transaction.
+Add the disposable-pilot schedule/input renderer that binds healthy steps,
+external wrong-key/outage evidence, recovery, multipart capture, exact
+probe-prefix cleanup, and atomic phase preparation, while refusing
+unqualified released dependencies.
 
 ## After This Work Package
 

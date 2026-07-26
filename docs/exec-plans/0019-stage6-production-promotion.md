@@ -2407,6 +2407,39 @@ operator-local release.
   `ListMultipartUploads` capture consumed by the now-complete phase
   transaction.
 
+### 2026-07-26 — Verified-HTTPS live RGW evidence adapter completed locally
+
+- Runtime boundary: The owner-only config accepts only an explicit HTTPS
+  endpoint/port, pinned CA, v4/path-style S3, region, finite timeout, fixed
+  bucket/prefix, phase/window/target/config hashes, and a bounded step plan.
+  Access key, secret key, and Barbican key ID come from three fixed runtime
+  environment variables and never enter outputs.
+- Healthy path: The first seven steps are ordered zero/positive put, head/get,
+  zero/positive copy, and multipart listing so source dependencies exist
+  before read/copy. Each successful object response must report the selected
+  SSE-KMS key, and GET must reproduce the fixed payload.
+- Fault path: Only `during` may append wrong-key/outage put steps, each bound
+  to external fault-evidence hashes. Fixed HTTP/error classes prove fail
+  closed. Unexpected success, KMS failure, or other storage failure remains a
+  nonzero result rather than being relabeled.
+- Multipart path: Explicit marker pagination is bounded, validates every
+  key/upload shape, rejects repeated/incomplete/excessive pages, and emits
+  only unique page hashes plus the total count.
+- Compatibility and safety: Canonical per-step results compile into the exact
+  probe schema consumed by `rgw_artifacts.py`; multipart output uses its exact
+  capture schema. Files are mode 0600 and credentials, endpoint, bucket,
+  prefix, object/upload identity, KMS ID, and error details never survive.
+- Evidence: Thirty-two focused tests pass across all phases, expected and
+  unexpected result retention, config/CA/fault/order/window drift, multipart
+  bounds, boto3 operation/error/pagination behavior, owner-only file
+  composition, dynamic dependency/credential boundary, and fixed CLI errors.
+  No actual boto3 dependency, credential, S3 endpoint, RGW, KMS, Barbican,
+  container, VM, or remote state was used.
+- Next exact action: Add the disposable-pilot schedule/input renderer that
+  binds healthy steps, external wrong-key/outage evidence, recovery,
+  multipart capture, exact probe-prefix cleanup, and atomic phase preparation,
+  while refusing unqualified released dependencies.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2568,6 +2601,9 @@ operator-local release.
 | Six-surface phase-preparation transaction | `uv run pytest -q tests/test_load_phase_preparation.py` | passed; 17 |
 | Post-phase-preparation load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 687 |
 | Post-phase-preparation full Python regression | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1232 |
+| Verified-HTTPS live RGW adapter contract | `uv run pytest -q tests/test_load_rgw_live_adapter.py` | passed; 32 |
+| Post-live-adapter load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 719 |
+| Post-live-adapter full Python regression | `uv run pytest -q` | passed; 1264 |
 | Control SQL/migration/reconciliation focused matrix | quota, reconciliation, migration, bootstrap, maintenance, and runner tests | passed; 183 |
 | Full regression after control SQL evidence | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1126 |
 
@@ -2609,10 +2645,10 @@ operator-local release.
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
-- Exact next action: Add the verified-HTTPS live RGW evidence adapter that
-  produces the canonical phase-bound SSE-KMS probe and complete
-  `ListMultipartUploads` capture consumed by the now-complete phase
-  transaction.
+- Exact next action: Add the disposable-pilot schedule/input renderer that
+  binds healthy steps, external wrong-key/outage evidence, recovery,
+  multipart capture, exact probe-prefix cleanup, and atomic phase preparation,
+  while refusing unqualified released dependencies.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

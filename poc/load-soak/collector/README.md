@@ -484,8 +484,53 @@ The final artifact retains only `kms_errors`, `multipart_uploads`,
 `unexpected_errors`, bounded observation count, and provenance hashes. It
 cannot retain an endpoint, bucket, object, upload, project, identity,
 credential, certificate, KMS identifier, error text, or request content.
-This milestone validates the compiler with a fake adapter only; the verified
-HTTPS S3 listing/probe adapter and fresh disposable pilot remain pending.
+
+`rgw_live_adapter.py` is the bounded producer for those two inputs. Its
+owner-only configuration requires:
+
+- one explicit HTTPS endpoint with a port, pinned owner-only CA bytes/hash,
+  S3 v4, path-style addressing, region, and finite timeout;
+- exact target/window, RGW configuration, bucket-scope, and KMS-policy hashes;
+- a fixed probe prefix and dependency-safe healthy order:
+  zero/positive put, head/get, zero/positive copy, then multipart listing;
+- one expected operation count for every step; and
+- only in `during`, extra wrong-key and KMS-outage steps with non-empty
+  external fault-evidence hashes.
+
+Credentials and the selected Barbican key ID never enter that configuration.
+The live boto3 factory reads only
+`COFFER_RGW_EVIDENCE_ACCESS_KEY`,
+`COFFER_RGW_EVIDENCE_SECRET_KEY`, and
+`COFFER_RGW_EVIDENCE_KMS_KEY_ID` at runtime. boto3/botocore are dynamically
+loaded by the disposable helper runtime; they are intentionally not assumed
+to exist in the Coffer API/edge images.
+
+The fault controller changes external state between step commands. The
+adapter never accepts a caller-provided result:
+
+```text
+uv run python poc/load-soak/collector/rgw_live_adapter.py source-hash
+uv run python poc/load-soak/collector/rgw_live_adapter.py \
+  collect-step RGW-LIVE-CONFIG.json STEP-INDEX STEP-RESULT.json
+uv run python poc/load-soak/collector/rgw_live_adapter.py \
+  compile-probe RGW-LIVE-CONFIG.json STEP-0.json ... PROBE.json
+uv run python poc/load-soak/collector/rgw_live_adapter.py \
+  collect-multipart RGW-LIVE-CONFIG.json MULTIPART.json
+```
+
+Each expected fault must both have external evidence and return one fixed
+fail-closed HTTP/error class. A fault that succeeds becomes an unexpected
+storage error; an unplanned KMS or other storage failure remains nonzero.
+Multipart collection follows explicit key/upload markers, rejects repeats or
+incomplete/excessive pages, and reduces object/upload identities to one-way
+page hashes plus a total count. Step, probe, and multipart files are canonical
+owner-only inputs; retained artifacts contain none of their operational
+identities.
+
+The adapter core and low-level boto3 behavior are fake-client tested. A fresh
+disposable pilot must still pin the boto3 runtime, deliver the three
+environment values owner-only, coordinate wrong-key/outage/recovery, clean
+the exact probe prefix, and prove zero credential/object/multipart residue.
 
 ## Six-surface phase preparation
 

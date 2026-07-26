@@ -1,8 +1,8 @@
 # Stage 6 RGW, KMS, and Multipart Evidence Sources
 
 - Date: 2026-07-26
-- Status: source mapping and no-network collector core implemented;
-  verified-HTTPS live adapter and disposable-pilot qualification pending
+- Status: source mapping, no-network collector core, and verified-HTTPS live
+  adapter contract implemented; disposable runtime/pilot qualification pending
 - Scope: the RGW auxiliary payload consumed by
   `poc/load-soak/collector/phase_evidence.py`
 - External operations: read-only inspection of exact released upstream source
@@ -240,8 +240,8 @@ state is used.
 
 ## Exact Next Action
 
-Create the verified-HTTPS live RGW evidence adapter that produces the
-canonical phase-bound SSE-KMS probe and complete `ListMultipartUploads`
-capture consumed by `rgw_artifacts.py`. Keep credentials owner-only and
-runtime-only, require explicit CA/v4/path-style/timeouts, and retain no
-endpoint, bucket, object, upload, key, credential, or error identities.
+Add the disposable-pilot input/schedule renderer that binds the live adapter's
+healthy steps, externally evidenced wrong-key/outage steps, recovery, complete
+multipart collection, exact probe-prefix cleanup, and the existing atomic
+phase-preparation request. It must refuse execution while exact released
+Distribution/Ceph inputs remain unqualified.
