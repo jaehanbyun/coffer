@@ -442,6 +442,32 @@ catalog, Keystone, API, and browser evidence.
   browser at desktop and narrow viewports, and retain visually inspected
   screenshots explicitly labelled as fixture evidence.
 
+### 2026-07-26 — Horizon and Skyline fixture rendering inspected
+
+- Fixture: Added dependency-free Horizon and Skyline shells with identical
+  bounded repository/quota data, a persistent local-fixture warning, no
+  credential/endpoint/script/API behavior, and explicit interpretation
+  boundaries.
+- Desktop: At 1440 × 900 both documents equal the viewport width and both
+  tables fit their containers. Navigation, quota, action, three rows, and
+  fixture notice are readable without clipping.
+- Narrow: At a 375 × 812 capture viewport both documents remain width 375.
+  Only the table scroll regions overflow horizontally (Horizon 345/726,
+  Skyline 345/722); the banner, compact navigation, full-width action, quota,
+  rows, and note remain visible.
+- Evidence: Four JPEG screenshots were visually inspected and retained.
+  Browser warning/error logs are empty. The temporary viewport was reset,
+  controlled tab finalized, and loopback server stopped.
+- Boundary: Screenshots are local static fixture evidence, not Horizon Django
+  rendering, Skyline React runtime behavior, Kolla deployment, catalog,
+  Keystone, live API, or production evidence.
+- Changed files: `docs/fixtures/ui/`,
+  `docs/research/ui-rendered-fixture-evidence.md`, this plan, and the handoff.
+- Next exact action: Run the full Python regression plus Horizon, Skyline,
+  Kolla role, OpenAPI, lock, compile, structured-document/link, secret, and
+  diff gates from the clean fixture boundary. Close plan 0020 only if every
+  locally executable gate passes.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -471,6 +497,7 @@ catalog, Keystone, API, and browser evidence.
 | UI image contract and Horizon installer | `uv run pytest -q tests/test_ui_image_contract.py` | passed; 5 |
 | Real wheel contract generation | `ui/images/write_contract.py` over current Horizon and Skyline wheels | passed; exact mode-0640 contracts |
 | Kolla UI lifecycle | `make -C poc/kolla-ansible-role verify` | passed; 108 checks |
+| UI desktop/narrow render | In-app browser over loopback fixtures | passed; 4 visually inspected screenshots, zero warning/error logs |
 
 ## Failures, Blockers, and Risks
 
@@ -495,11 +522,10 @@ catalog, Keystone, API, and browser evidence.
 - Current state: Plan 0019 is externally blocked, its local pilot harness is
   complete but uninvoked, and no six-VM pilot exists. Plan 0020 is active for
   API/Horizon/Skyline work that can be locally proven independently.
-- Exact next action: Create the deterministic local UI fixture shell and
-  Horizon/Skyline repository views under `docs/fixtures/ui/`, then render and
-  visually inspect both at desktop and narrow viewports.
-- First file or command: Create `docs/fixtures/ui/index.html` and its bounded
-  fixture stylesheet without importing a production runtime or credential.
+- Exact next action: Run `uv run pytest -q`, then the independent Horizon,
+  Skyline, Kolla-role, lock/compile, documentation/link, Gitleaks, and diff
+  gates. Close plan 0020 only after recording all exact results.
+- First file or command: Run `uv run pytest -q` from the repository root.
 - Questions requiring user input: None. The user authorized autonomous
   milestone commits and pushes through Horizon and Skyline; accepted security,
   release, and deployment gates remain fail closed.

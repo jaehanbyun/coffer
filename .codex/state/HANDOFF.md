@@ -29,8 +29,8 @@
   accepted; equivalent Skyline Registry pages/routes/menu/quota surface,
   production bundle, and versioned wheel complete locally with 31 tests;
   disabled-by-default immutable Horizon/Skyline image contracts and exact
-  fallback lifecycle complete locally with 108 role checks; rendered fixture
-  evidence next
+  fallback lifecycle complete locally with 108 role checks; four desktop/narrow
+  UI fixture screenshots visually inspected; full plan 0020 regression next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Externally blocked execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -85,6 +85,13 @@ custom image selection, enabled/disabled idempotency, exact fallback restore,
 and zero marker residue. Current Horizon and Skyline wheels generate valid
 mode-0640 contracts. No custom image has been built, scanned, signed, pushed,
 pulled from a real registry, or deployed.
+
+The dependency-free Horizon and Skyline fixtures now retain the same three
+repositories and quota data plus an explicit not-deployed banner. Browser
+inspection at 1440 × 900 and 375 × 812 proves no document overflow, desktop
+table fit, bounded narrow table-only scrolling, visible action/quota/rows, and
+zero warning/error logs. Four JPEG screenshots are retained. This is static
+fixture layout evidence, not framework or cloud deployment evidence.
 
 The approved teardown removed every exact Stage 5 identity, credential,
 bucket, object namespace, guest, volume, and network. Repeated status reports
@@ -2747,6 +2754,11 @@ release contains it yet.
   and removes all markers. The pinned isolated harness passes 108 checks and
   leaves stock dashboards running with zero Coffer UI residue. No real image,
   dashboard container, registry, cloud, or remote state changed.
+- Added and visually inspected dependency-free Horizon and Skyline fixture
+  pages at desktop and narrow viewports. Both keep the not-deployed warning,
+  action, quota, and three rows visible; narrow document width stays bounded
+  while only the table scrolls. Four JPEGs were retained, browser logs were
+  empty, the viewport was reset, and the local server was stopped.
 
 ## Blockers and Risks
 
@@ -2781,11 +2793,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Create `docs/fixtures/ui/index.html` and the bounded fixture assets for the
-completed Horizon and Skyline repository/quota surfaces. Render and visually
-inspect both at desktop and narrow viewports, retain screenshots labelled as
-fixture-only evidence, then run the full plan 0020 regression and close its
-handoff without claiming a deployed cloud.
+Run the full root regression, independent Horizon/Skyline/Kolla gates,
+dependency lock and compilation, structured-document/local-link validation,
+secret scans, and diff checks. Record exact results and close plan 0020 only
+if every locally executable gate passes, without claiming a deployed cloud.
 
 ## After This Work Package
 
