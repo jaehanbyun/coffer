@@ -1,8 +1,6 @@
-diff --git a/src/client/client/constants.js b/src/client/client/constants.js
-index a7cb59f..aefcf81 100644
 --- a/src/client/client/constants.js
 +++ b/src/client/client/constants.js
-@@ -36,6 +36,7 @@ export const endpointVersionMap = {
+@@ -36,6 +36,7 @@
    magnum: 'v1',
    designate: 'v2',
    masakari: 'v1',
@@ -10,11 +8,68 @@ index a7cb59f..aefcf81 100644
  };
  
  export const endpointsDefault = {
-@@ -75,6 +76,7 @@ export const magnumBase = () => getOpenstackEndpoint('magnum');
+@@ -75,6 +76,8 @@
  export const magnumBase = () => getOpenstackEndpoint('magnum');
  export const designateBase = () => getOpenstackEndpoint('designate');
  export const masakariBase = () => getOpenstackEndpoint('masakari');
-+export const cofferBase = () => getOpenstackEndpoint('coffer');
++export const cofferBase = () =>
++  getOriginEndpoint('coffer') ? getOpenstackEndpoint('coffer') : '';
  
  export const ironicOriginEndpoint = () => getOriginEndpoint('ironic');
  export const vpnEndpoint = () => getOriginEndpoint('neutron_vpn');
+--- a/src/pages/basic/routes/index.js
++++ b/src/pages/basic/routes/index.js
+@@ -65,6 +65,9 @@
+ const InstanceHA = lazy(() =>
+   import(/* webpackChunkName: "Inctance-HA" */ 'pages/ha/App')
+ );
++const Coffer = lazy(() =>
++  import(/* webpackChunkName: "coffer" */ 'pages/coffer/App')
++);
+ const PATH = '/';
+ 
+ export default [
+@@ -130,6 +133,10 @@
+         path: `/ha`,
+         component: InstanceHA,
+       },
++      {
++        path: `/registry`,
++        component: Coffer,
++      },
+       { path: '*', component: E404 },
+     ],
+   },
+--- a/src/layouts/menu.jsx
++++ b/src/layouts/menu.jsx
+@@ -637,6 +637,30 @@
+               key: 'secretDetail',
+               level: 2,
+               routePath: '/key-manager/secret/detail/:id',
++            },
++          ],
++        },
++      ],
++    },
++    {
++      path: '/registry',
++      name: t('Registry'),
++      key: 'cofferRegistry',
++      endpoints: 'coffer',
++      icon: <ContainerOutlined />,
++      children: [
++        {
++          path: '/registry/repository',
++          name: t('Repositories'),
++          key: 'cofferRepository',
++          level: 1,
++          children: [
++            {
++              path: /^\/registry\/repository\/detail\/.[^/]+$/,
++              name: t('Repository Detail'),
++              key: 'cofferRepositoryDetail',
++              level: 2,
++              routePath: '/registry/repository/detail/:id',
+             },
+           ],
+         },

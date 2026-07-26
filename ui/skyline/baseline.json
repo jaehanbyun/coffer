@@ -1,5 +1,6 @@
 {
   "schema_version": 1,
+  "overlay_version": "8.0.0+coffer.1",
   "skyline_console": {
     "branch": "stable/2026.1",
     "revision": "c9000cb1be332a213009793598f17a80ce59671e",

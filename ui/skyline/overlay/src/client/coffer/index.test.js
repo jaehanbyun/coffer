@@ -1,11 +1,14 @@
 import { CofferClient } from './index';
+import CofferRequestError from './errors';
+
+const mockRootStore = {
+  endpoints: {
+    coffer: '/api/openstack/regionone/coffer',
+  },
+};
 
 jest.mock('stores/root', () => ({
-  default: {
-    endpoints: {
-      coffer: '/api/openstack/regionone/coffer',
-    },
-  },
+  default: mockRootStore,
 }));
 
 const makeRequest = () => ({
@@ -23,6 +26,7 @@ describe('CofferClient', () => {
   let client;
 
   beforeEach(() => {
+    mockRootStore.endpoints.coffer = '/api/openstack/regionone/coffer';
     request = makeRequest();
     client = new CofferClient();
     Object.defineProperty(client, 'originRequest', {
@@ -32,6 +36,11 @@ describe('CofferClient', () => {
 
   it('uses the mapped same-origin v1 endpoint', () => {
     expect(client.baseUrl).toBe('/api/openstack/regionone/coffer/v1');
+  });
+
+  it('does not synthesize a v1 endpoint when the catalog entry is absent', () => {
+    delete mockRootStore.endpoints.coffer;
+    expect(client.baseUrl).toBe('');
   });
 
   it('lists repositories with a bounded marker request', async () => {
@@ -72,4 +81,27 @@ describe('CofferClient', () => {
     expect(client.repositories.delete).toBeUndefined();
     expect(client.repositories.update).toBeUndefined();
   });
+
+  it.each([401, 403, 404, 409, 503])(
+    'collapses HTTP %s failures without retaining remote data',
+    async (status) => {
+      request.get.mockRejectedValueOnce({
+        response: {
+          status,
+          data: {
+            description: 'remote detail',
+          },
+        },
+      });
+      let caught;
+      try {
+        await client.quota();
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(CofferRequestError);
+      expect(caught.message).not.toContain('remote detail');
+      expect(caught.response).toEqual({ status, data: '' });
+    }
+  );
 });

@@ -26,8 +26,9 @@
   REST/OpenAPI UI contract, Kolla 2026.1 Horizon 25.7.3 baseline, and
   server-side Horizon adapter and independently packaged Project Registry
   dashboard complete locally; exact-revision Skyline source-overlay baseline
-  accepted; exact-source Skyline client/store overlay complete with 21 tests;
-  Skyline pages/routes/menu/locales next
+  accepted; equivalent Skyline Registry pages/routes/menu/quota surface,
+  production bundle, and versioned wheel complete locally with 31 tests;
+  disabled Kolla UI lifecycle contracts next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Externally blocked execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -61,9 +62,12 @@ Skyline request layer remains the sole browser token/request-ID boundary.
 clean revision and matching package/lock digests. Its client exposes
 repository list/show/create and quota read only. Store pagination trusts only
 the API `next_marker`; create sends the unwrapped public request; repository
-name validation matches OpenAPI. Twenty-one focused Jest cases and upstream
-ESLint/Prettier checks pass on Node 16.16.0/Yarn 1.22.22. This is local source
-and fixture evidence, not a deployed Skyline result.
+name validation matches OpenAPI. Catalog absence fails closed at both menu and
+client base, while remote response bodies are discarded before fixed safe
+errors reach the UI. Thirty-one focused Jest cases, targeted upstream ESLint,
+locale generation, Webpack production build, direct versioned wheel build,
+and source/bundle/wheel verification pass on Node 16.16.0/Yarn 1.22.22. This
+is local source and package evidence, not a deployed Skyline result.
 
 The approved teardown removed every exact Stage 5 identity, credential,
 bucket, object namespace, guest, volume, and network. Repeated status reports
@@ -2704,6 +2708,17 @@ release contains it yet.
   E/F/I source checks and deployable wheel-content inspection pass. This is
   local pinned-framework evidence; no Horizon image, Kolla configuration,
   endpoint, cloud, browser session, or remote state changed.
+- Completed the equivalent local Skyline Registry Console surface. The
+  exact-revision overlay adds a catalog-gated Registry menu, repository
+  list/create/detail routes, quota summary, role-aware create action, and
+  generated English locale entries without browser token storage, hard-coded
+  endpoints, destructive operations, or raw remote failure payloads.
+- `make -C ui/skyline verify` passes exact source/materialization checks,
+  locale generation, targeted upstream ESLint, 31 Jest cases, Webpack
+  production build, direct `8.0.0+coffer.1` wheel build, and source/bundle/wheel
+  inspection. This is local pinned-source/package evidence; no Skyline image,
+  Kolla configuration, live catalog, Keystone browser session, cloud, or
+  remote state changed.
 
 ## Blockers and Risks
 
@@ -2738,14 +2753,15 @@ release contains it yet.
 
 ## Exact Next Action
 
-Pin the Skyline Console revision matching Kolla `stable/2026.1` and create
-`docs/research/skyline-integration-baseline.md` from exact source inspection.
-Fix its integration, service-catalog, token/request, store, route, menu,
-locale, test, and build seams before adding product code.
+Extend `ansible/roles/coffer/defaults/main.yml` and
+`poc/kolla-ansible-role/verify.py` with disabled-by-default Horizon wheel and
+Skyline immutable-image contracts. Prove default nonmutation and exact
+artifact validation before adding enable, reconfigure, disable, or residue
+tasks.
 
 ## After This Work Package
 
-After the REST/OpenAPI baseline, implement Horizon first, then Skyline Console,
-then disabled-by-default Kolla UI lifecycle contracts. Stage 6 resumes only
-after released dependency gates pass. Official OpenStack/Kolla governance
-work remains later.
+After the completed REST/OpenAPI, Horizon, and Skyline local integrations,
+implement disabled-by-default Kolla UI lifecycle contracts, then run rendered
+fixture and full repository verification. Stage 6 resumes only after released
+dependency gates pass. Official OpenStack/Kolla governance work remains later.

@@ -30,7 +30,7 @@ catalog, Keystone, API, and browser evidence.
       current token server-side, lists and creates repositories, shows quota
       usage, handles 401/403/404/409/503 safely, and passes focused Django/UI
       tests without hard-coded endpoints or stored credentials.
-- [ ] A Skyline Console integration discovers the same catalog service,
+- [x] A Skyline Console integration discovers the same catalog service,
       implements the equivalent repository list/create/detail and quota view,
       carries the current scoped token through Skyline's supported client
       boundary, and passes lint/unit/build checks against a pinned upstream
@@ -102,7 +102,7 @@ catalog, Keystone, API, and browser evidence.
       frozen contract and a pinned supported Horizon baseline.
 - [x] Inspect and pin current Skyline Console extension seams; record the
       overlay/fork decision.
-- [ ] Build/test the equivalent Console surface from the accepted exact-source
+- [x] Build/test the equivalent Console surface from the accepted exact-source
       overlay.
 - [ ] Add disabled-by-default Kolla companion-role UI artifact/configuration
       contracts and lifecycle validation.
@@ -375,6 +375,37 @@ catalog, Keystone, API, and browser evidence.
   overlay. Extend the central patch and run focused UI tests before the full
   localization/lint/production build.
 
+### 2026-07-26 — Skyline Registry Console surface completed locally
+
+- Surface: Added the catalog-gated Registry menu, repository list/create/detail
+  routes, quota summary, role-aware create action, and generated English
+  localization. The list is forward-only and deliberately omits search,
+  download, custom columns, delete, update, and backend operations.
+- Security: A missing mapped endpoint produces an empty client base and hides
+  the menu. Coffer code does not read browser token storage or contain an
+  endpoint URL. All client failures discard remote response bodies and expose
+  only fixed 401/403/404/409/503-safe messages through Skyline's existing
+  request/error boundary.
+- Packaging: The exact source overlay builds the lazy `coffer` production
+  bundle and a direct versioned `skyline_console-8.0.0+coffer.1` wheel.
+  Generated Python build directories are removed through a bounded,
+  source-tree-validated helper so stale bundles cannot enter the wheel.
+- Evidence: Exact-source materialization, locale generation, targeted upstream
+  ESLint, 31 Jest cases across client/resources/stores/quota/routes/menu,
+  Webpack production build, wheel build, and source/bundle/wheel contract
+  verification pass. The upstream whole-tree lint retains seven unrelated
+  baseline failures, so Coffer's gate scopes lint to every changed central
+  seam and owned source.
+- Boundary: This proves an immutable local source/package integration against
+  the pinned 2026.1 line. It does not prove a Kolla image, live catalog,
+  Keystone session, browser deployment, or production cloud.
+- Changed files: `ui/skyline/`, this plan, and
+  `.codex/state/HANDOFF.md`.
+- Next exact action: Extend `ansible/roles/coffer/defaults/main.yml` and the
+  companion-role verifier with disabled-by-default Horizon wheel and Skyline
+  immutable-image contracts before adding any enable/reconfigure/disable
+  task.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -399,16 +430,18 @@ catalog, Keystone, API, and browser evidence.
 | Horizon panel and adapter | `make -C ui/horizon verify` | passed; exact baseline, 36 tests, compilation |
 | Horizon source style | `ruff check --select E,F,I ui/horizon/cofferdashboard ui/horizon/verify.py` | passed |
 | Horizon deployable wheel contents | Built wheel archive inspection | passed; enabled, policy, modules, and templates present |
+| Skyline exact overlay and production package | `make -C ui/skyline verify` | passed; exact source, locales, targeted lint, 31 tests, Webpack bundle, wheel |
+| Skyline generated artifact contract | `ui/skyline/verify_build.py` over materialized source and wheel | passed; current Coffer bundle and index present |
 
 ## Failures, Blockers, and Risks
 
 - Live UI deployment evidence cannot be produced while plan 0019 prevents
   creation of the fresh Kolla pilot. Local API/framework/browser evidence must
   remain explicitly labelled.
-- Skyline Console does not currently document a Horizon-equivalent external
-  plugin loader. The accepted implementation may require a small maintained
-  source overlay and image build rather than a separately installed runtime
-  plugin; current upstream inspection decides this before implementation.
+- Skyline Console has no Horizon-equivalent external plugin loader. The
+  accepted exact-revision source overlay therefore requires an immutable
+  custom Console image and a deliberate rebase for every supported upstream
+  revision; runtime asset mutation remains prohibited.
 - Adding UI convenience endpoints can accidentally expand the product or
   authorization model. Only existing repository authority and a read-only
   current-project quota view are in scope.
@@ -423,12 +456,12 @@ catalog, Keystone, API, and browser evidence.
 - Current state: Plan 0019 is externally blocked, its local pilot harness is
   complete but uninvoked, and no six-VM pilot exists. Plan 0020 is active for
   API/Horizon/Skyline work that can be locally proven independently.
-- Exact next action: Pin the Skyline Console revision matching Kolla
-  `stable/2026.1` and record its supported integration boundary before
-  implementation.
-- First file or command: Create
-  `docs/research/skyline-integration-baseline.md` after inspecting the exact
-  Kolla image/source mapping and matching `skyline-console` revision.
+- Exact next action: Add disabled-by-default Horizon wheel and Skyline
+  immutable-image inputs to `ansible/roles/coffer/defaults/main.yml`, then
+  reject incomplete or mutable opt-in configurations in the role verifier.
+- First file or command: Inspect and extend
+  `ansible/roles/coffer/defaults/main.yml` together with
+  `poc/kolla-ansible-role/verify.py`.
 - Questions requiring user input: None. The user authorized autonomous
   milestone commits and pushes through Horizon and Skyline; accepted security,
   release, and deployment gates remain fail closed.
