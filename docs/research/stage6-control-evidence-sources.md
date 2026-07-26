@@ -1,8 +1,8 @@
 # Stage 6 Quota and Reconciliation Evidence Sources
 
 - Date: 2026-07-26
-- Status: source mapping and read-only SQL snapshot implemented; transaction
-  attempt and Prometheus acquisition pending
+- Status: source mapping, read-only SQL snapshot, and transaction-attempt
+  instrumentation implemented; Prometheus acquisition pending
 - Scope: the quota and reconciliation auxiliary payloads consumed by
   `poc/load-soak/collector/phase_evidence.py`
 - External operations: none; this result comes from current Coffer source,
@@ -13,9 +13,10 @@
 The current product has enough direct state to build part, but not all, of
 the quota and reconciliation artifacts. The read-only SQL boundary and
 version-bound claim schema now supply charge, pending-delta, stale-claim, and
-current claim-invariant facts. Private Prometheus surfaces already supply
-worker/freshness and bounded internal-error inputs. Observed quota transaction
-attempts remain the one missing runtime source.
+current claim-invariant facts. Private Prometheus surfaces now supply observed
+quota transaction attempts in addition to worker/freshness and bounded
+internal-error inputs. Exact phase-window acquisition and compilation remain
+open.
 
 `control_artifacts.py` must therefore not be implemented as a converter over
 today's convenient metrics. Doing so would require one of three false claims:
@@ -27,9 +28,10 @@ today's convenient metrics. Doing so would require one of three false claims:
 
 The required implementation order is:
 
-1. add one identity-free, read-only SQL evidence snapshot to `QuotaStore`;
+1. add one identity-free, read-only SQL evidence snapshot to `QuotaStore`
+   (completed);
 2. add direct observed transaction-attempt instrumentation at the quota write
-   retry boundary;
+   retry boundary (completed);
 3. fix exact Prometheus query/result contracts for the required replicas and
    phase window; and
 4. only then compile quota and reconciliation v2 source artifacts.
@@ -44,7 +46,7 @@ The required implementation order is:
 | `headroom_percent` | Same quota row | Directly derivable as `100 - limit_usage_percent`; retain both only because the accepted verifier independently checks their sum |
 | `stale_claims` | `QuotaStore.reconciliation_metrics_snapshot()` counts `quota_reconciliation_claims.expires_at <= observed_at` | Direct SQL source already exists; reuse the count from the same snapshot rather than issuing a second time-skewed query |
 | `invariant` | `QuotaStore.control_evidence_snapshot()` independently recomputes committed and ordered pending charge without invoking mutating `_recompute()` | Implemented. Stored `used_bytes`, `reserved_bytes`, every pending `delta_bytes`, descriptor size consistency, and the configured limit are compared under one reader transaction |
-| `max_transaction_attempts` | `_retryable_quota_write()` knows each call's attempt number and the fixed ceiling `MAX_TRANSACTION_ATTEMPTS=3`, but only emits a warning before retry | Missing runtime evidence. The ceiling is configuration, not observation. Add bounded attempt observation at the decorator and expose phase-delta-compatible Prometheus data |
+| `max_transaction_attempts` | `coffer_quota_transaction_attempts` at the `_retryable_quota_write()` terminal boundary | Implemented as a histogram with exact integer buckets 1, 2, and 3 plus fixed operation/result labels. A reset-aware phase delta can reconstruct the maximum actually observed; the configured ceiling is never substituted |
 | `unexpected_errors` | `coffer_quota_admission_total{result="internal_error"}` on each edge process | Existing metric source. Use a reset-aware phase delta across every exact edge replica; do not count expected `over_quota`, `invalid_manifest`, `unauthorized`, `missing_quota`, or injected `upstream_unavailable` outcomes as unexpected |
 
 The selected logical usage includes `reserved_bytes`. Pending admission is
@@ -121,21 +123,24 @@ and quota counters.
 ## Transaction Attempt Instrumentation
 
 The retry decorator is the only exact place that sees a logical quota write's
-observed attempt count. Add an optional bounded observer to `QuotaStore` and
-invoke it once when a decorated operation terminates, including terminal
+observed attempt count. `QuotaStore` now accepts an optional bounded observer
+and invokes it once when a decorated operation terminates, including terminal
 failure. The observer receives only:
 
-- a fixed operation class from an allowlist;
+- a fixed operation class: `claim`, `commit`, `limit`, `reconcile`, `release`,
+  or `reserve`;
 - attempts in the closed interval 1 through 3; and
-- a fixed result class such as `success`, `conflict_exhausted`, or
-  `database_error`.
+- a fixed result class: `success`, `conflict_exhausted`, `database_error`, or
+  `rejected`.
 
 Do not expose exception text, SQL state, project, repository, digest, request
-ID, connection string, or method name. A Prometheus histogram with exact
-integer buckets or an equivalent bounded counter set must support a
-reset-aware phase delta and reconstruction of the maximum observed attempt.
-The maximum is absent when no quota write occurred; the collector must refuse
-that phase instead of substituting 1 or 3.
+ID, connection string, or method name. The
+`coffer_quota_transaction_attempts` histogram has exact integer buckets 1, 2,
+and 3. Edge and reconciliation stores bind it to their existing private
+process-local metrics; disabled edge metrics bind no observer. Observer
+failure is logged without exception text and never changes the quota
+transaction result. The maximum is absent when no quota write occurred; the
+collector must refuse that phase instead of substituting 1 or 3.
 
 ## Prometheus and Phase Binding
 
@@ -172,13 +177,12 @@ their fixed downstream source classes.
 
 ## Next Implementation Slice
 
-Begin in `src/coffer/quota.py` and `src/coffer/observability.py`:
+Begin in `poc/load-soak/collector/control_artifacts.py`:
 
-1. add an optional bounded attempt observer to `QuotaStore`;
-2. invoke it once when each decorated quota write terminates, including
-   terminal conflict or database failure;
-3. export fixed operation/result/attempt classes without SQL state or
-   identity; and
-4. prove exact 1/2/3-attempt observation and failure behavior before adding
-   Prometheus acquisition to
-   `poc/load-soak/collector/control_artifacts.py`.
+1. define the owner-only SQL and exact Prometheus source contract;
+2. acquire the before/after histogram buckets, edge internal-error counters,
+   per-reconciler `up`, success timestamp, and database dependency series;
+3. reject missing, duplicate, partial-warning, stale, reset-without-process-
+   restart, or out-of-allowlist series; and
+4. compile separate identity-free quota and reconciliation v2 source
+   artifacts for `phase_evidence.py`.

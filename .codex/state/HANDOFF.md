@@ -683,6 +683,15 @@ release contains it yet.
   bootstrap/maintenance/runner matrix pass. Full regression and collection
   both report 1126. No real database, endpoint, identity, credential,
   container, VM, or remote state was read or changed.
+- Quota write retries now emit one terminal observation with fixed operation
+  and result classes plus the actual attempt count 1 through 3. The
+  `coffer_quota_transaction_attempts` histogram has exact integer buckets;
+  edge and reconciler stores bind it only to their private process metrics.
+- Retry success, conflict exhaustion, non-retryable database failure, domain
+  rejection, observer-failure isolation, bounded labels, and exact histogram
+  reconstruction pass the focused 74-test matrix. Full regression passes
+  1140. No real SQL/Prometheus endpoint, identity, credential, container, VM,
+  or remote state was read or changed.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2490,11 +2499,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add an optional bounded quota-write attempt observer in `src/coffer/quota.py`
-and its Prometheus metric contract in `src/coffer/observability.py`. Emit one
-terminal observation per decorated write using only fixed operation/result
-classes and attempts 1 through 3. Add focused tests in
-`tests/test_quota_transaction_observability.py`.
+Create `poc/load-soak/collector/control_artifacts.py` with an owner-only SQL
+and exact Prometheus source contract. Implement reset-aware histogram and
+bounded counter/replica reductions, then compile separate identity-free quota
+and reconciliation v2 source artifacts for `phase_evidence.py`.
 
 ## After This Work Package
 

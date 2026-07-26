@@ -2242,6 +2242,31 @@ operator-local release.
   failure with only fixed operation/result classes and attempts 1 through 3;
   add focused coverage in `tests/test_quota_transaction_observability.py`.
 
+### 2026-07-26 — Quota transaction-attempt evidence completed
+
+- Terminal observation: The retry decorator now emits exactly one observation
+  after success, domain rejection, non-retryable database failure, or bounded
+  conflict exhaustion. A retry followed by success emits only its final
+  attempt count.
+- Bounded contract: Operations are reduced to `claim`, `commit`, `limit`,
+  `reconcile`, `release`, or `reserve`; results are reduced to `success`,
+  `rejected`, `database_error`, or `conflict_exhausted`; attempts are integers
+  1 through 3. No method, identity, SQL state, or exception value is passed.
+- Prometheus source: `coffer_quota_transaction_attempts` uses exact 1/2/3
+  histogram buckets, so reset-aware phase deltas can reconstruct the observed
+  maximum rather than report the configured ceiling.
+- Runtime binding: Metrics-enabled edge stores and every reconciler store bind
+  the observer to their existing private per-process collectors. Observer
+  failure is secret-safe and cannot change the completed quota operation.
+- Evidence: The 74-test quota/observability/edge/reconciler focused matrix and
+  full 1140-test regression pass. No real database, Prometheus endpoint,
+  identity, credential, container, VM, or remote runtime was read or changed.
+- Next exact action: Create
+  `poc/load-soak/collector/control_artifacts.py` with an owner-only SQL and
+  exact Prometheus source contract. Begin with reset-aware histogram and
+  bounded counter/replica reductions, then compile separate quota and
+  reconciliation v2 source artifacts for `phase_evidence.py`.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2388,6 +2413,8 @@ operator-local release.
 | Full regression after local artifacts | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1104 |
 | Quota/reconciliation source mapping | focused source/schema/metric/runner/verifier inspection; `git diff --check` | passed; unsupported substitutions recorded as missing |
 | Read-only control SQL evidence | `uv run pytest -q tests/test_quota_control_evidence.py` | passed; 21 |
+| Quota transaction-attempt instrumentation | `uv run pytest -q tests/test_quota_transaction_observability.py tests/test_quota.py tests/test_observability.py tests/test_edge_runner.py tests/test_reconciliation_runner.py` | passed; 74 |
+| Post-attempt full Python regression | `uv run pytest -q` | passed; 1140 |
 | Control SQL/migration/reconciliation focused matrix | quota, reconciliation, migration, bootstrap, maintenance, and runner tests | passed; 183 |
 | Full regression after control SQL evidence | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1126 |
 

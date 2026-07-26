@@ -336,7 +336,7 @@ def test_quota_writes_retry_only_known_transaction_conflicts(
     ]
     assert len(records) == 2
     assert [record.quota_retry_attempt for record in records] == [2, 3]
-    assert all(record.quota_operation == "set_limit" for record in records)
+    assert all(record.quota_operation == "limit" for record in records)
 
 
 def test_quota_writes_do_not_retry_unclassified_database_failures(

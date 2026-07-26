@@ -67,6 +67,12 @@ BOUNDED_DEPENDENCIES = frozenset(
 EDGE_ROUTE_CLASSES = frozenset(
     {"edge-auth", "edge-blob", "edge-manifest", "edge-other", "edge-upload"}
 )
+QUOTA_TRANSACTION_OPERATIONS = frozenset(
+    {"claim", "commit", "limit", "reconcile", "release", "reserve"}
+)
+QUOTA_TRANSACTION_RESULTS = frozenset(
+    {"conflict_exhausted", "database_error", "rejected", "success"}
+)
 
 
 class ReadinessStore(Protocol):
@@ -161,6 +167,13 @@ class CofferMetrics:
             "coffer_quota_admission_duration_seconds",
             "Manifest quota admission duration.",
             buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10),
+            registry=self.registry,
+        )
+        self._quota_transaction_attempts = Histogram(
+            "coffer_quota_transaction_attempts",
+            "Observed attempts for one completed quota write.",
+            ["operation", "result"],
+            buckets=(1, 2, 3),
             registry=self.registry,
         )
         self._reconciliation = Counter(
@@ -276,6 +289,27 @@ class CofferMetrics:
             raise ValueError("quota admission metric result is not bounded")
         self._quota_admission.labels(result=result).inc()
         self._quota_admission_duration.observe(_duration(duration_seconds))
+
+    def observe_quota_transaction(
+        self,
+        operation: str,
+        attempts: int,
+        result: str,
+    ) -> None:
+        if operation not in QUOTA_TRANSACTION_OPERATIONS:
+            raise ValueError("quota transaction operation is not bounded")
+        if result not in QUOTA_TRANSACTION_RESULTS:
+            raise ValueError("quota transaction result is not bounded")
+        if (
+            isinstance(attempts, bool)
+            or not isinstance(attempts, int)
+            or not 1 <= attempts <= 3
+        ):
+            raise ValueError("quota transaction attempts are invalid")
+        self._quota_transaction_attempts.labels(
+            operation=operation,
+            result=result,
+        ).observe(attempts)
 
     def observe_reconciliation(self, result: str) -> None:
         if result not in RECONCILIATION_RESULTS:

@@ -61,6 +61,12 @@ DOCKER_MANIFEST_LIST = (
 IMAGE_MEDIA_TYPES = frozenset({OCI_IMAGE_MANIFEST, DOCKER_IMAGE_MANIFEST})
 INDEX_MEDIA_TYPES = frozenset({OCI_IMAGE_INDEX, DOCKER_MANIFEST_LIST})
 MAX_TRANSACTION_ATTEMPTS = 3
+QUOTA_WRITE_OPERATIONS = frozenset(
+    {"claim", "commit", "limit", "reconcile", "release", "reserve"}
+)
+QUOTA_TRANSACTION_RESULTS = frozenset(
+    {"conflict_exhausted", "database_error", "rejected", "success"}
+)
 
 LOG = logging.getLogger(__name__)
 P = ParamSpec("P")
@@ -338,29 +344,63 @@ def _retryable_transaction_error(exc: SQLAlchemyError) -> bool:
 
 
 def _retryable_quota_write(
-    method: Callable[Concatenate["QuotaStore", P], R],
-) -> Callable[Concatenate["QuotaStore", P], R]:
-    @wraps(method)
-    def wrapped(store: "QuotaStore", *args: P.args, **kwargs: P.kwargs) -> R:
-        for attempt in range(MAX_TRANSACTION_ATTEMPTS):
-            try:
-                return method(store, *args, **kwargs)
-            except SQLAlchemyError as exc:
-                if (
-                    not _retryable_transaction_error(exc)
-                    or attempt + 1 >= MAX_TRANSACTION_ATTEMPTS
-                ):
-                    raise
-                LOG.warning(
-                    "retrying quota write after database transaction conflict",
-                    extra={
-                        "quota_operation": method.__name__,
-                        "quota_retry_attempt": attempt + 2,
-                    },
-                )
-        raise AssertionError("bounded quota write attempts were exhausted")
+    operation: str,
+) -> Callable[
+    [Callable[Concatenate["QuotaStore", P], R]],
+    Callable[Concatenate["QuotaStore", P], R],
+]:
+    if operation not in QUOTA_WRITE_OPERATIONS:
+        raise ValueError("quota write operation is not bounded")
 
-    return wrapped
+    def decorate(
+        method: Callable[Concatenate["QuotaStore", P], R],
+    ) -> Callable[Concatenate["QuotaStore", P], R]:
+        @wraps(method)
+        def wrapped(
+            store: "QuotaStore", *args: P.args, **kwargs: P.kwargs
+        ) -> R:
+            for attempt in range(1, MAX_TRANSACTION_ATTEMPTS + 1):
+                try:
+                    result = method(store, *args, **kwargs)
+                except SQLAlchemyError as exc:
+                    retryable = _retryable_transaction_error(exc)
+                    if retryable and attempt < MAX_TRANSACTION_ATTEMPTS:
+                        LOG.warning(
+                            "retrying quota write after database transaction conflict",
+                            extra={
+                                "quota_operation": operation,
+                                "quota_retry_attempt": attempt + 1,
+                            },
+                        )
+                        continue
+                    store._observe_quota_transaction(
+                        operation,
+                        attempt,
+                        (
+                            "conflict_exhausted"
+                            if retryable
+                            else "database_error"
+                        ),
+                    )
+                    raise
+                except Exception:
+                    store._observe_quota_transaction(
+                        operation,
+                        attempt,
+                        "rejected",
+                    )
+                    raise
+                store._observe_quota_transaction(
+                    operation,
+                    attempt,
+                    "success",
+                )
+                return result
+            raise AssertionError("bounded quota write attempts were exhausted")
+
+        return wrapped
+
+    return decorate
 
 
 @dataclass(frozen=True, slots=True)
@@ -675,7 +715,18 @@ def parse_manifest(body: bytes, *, media_type: str | None = None) -> ParsedManif
 
 
 class QuotaStore:
-    def __init__(self, connection: str, *, bootstrap_schema: bool = False) -> None:
+    def __init__(
+        self,
+        connection: str,
+        *,
+        bootstrap_schema: bool = False,
+        transaction_observer: Callable[[str, int, str], None] | None = None,
+    ) -> None:
+        if transaction_observer is not None and not callable(
+            transaction_observer
+        ):
+            raise ValueError("quota transaction observer must be callable")
+        self._transaction_observer = transaction_observer
         engine_options: dict[str, object] = {"pool_pre_ping": True}
         if connection.startswith("sqlite:"):
             engine_options["connect_args"] = {
@@ -689,6 +740,27 @@ class QuotaStore:
             quota_metadata.create_all(self._engine)
         else:
             self._require_migrated_schema()
+
+    def _observe_quota_transaction(
+        self,
+        operation: str,
+        attempts: int,
+        result: str,
+    ) -> None:
+        observer = self._transaction_observer
+        if observer is None:
+            return
+        try:
+            observer(operation, attempts, result)
+        except Exception:
+            LOG.error(
+                "quota transaction observation failed",
+                extra={
+                    "quota_operation": operation,
+                    "quota_transaction_attempts": attempts,
+                    "quota_transaction_result": result,
+                },
+            )
 
     def _require_migrated_schema(self) -> None:
         require_current_schema(
@@ -730,7 +802,7 @@ class QuotaStore:
         with self._engine.connect() as connection:
             yield connection
 
-    @_retryable_quota_write
+    @_retryable_quota_write("limit")
     def set_limit(self, project_id: str, limit_bytes: int) -> QuotaUsage:
         if (
             isinstance(limit_bytes, bool)
@@ -849,7 +921,7 @@ class QuotaStore:
             )
         return ReconciliationPage(candidates=candidates, next_cursor=next_cursor)
 
-    @_retryable_quota_write
+    @_retryable_quota_write("claim")
     def claim_reconciliation_candidates(
         self,
         *,
@@ -1212,7 +1284,7 @@ class QuotaStore:
             claim_invariant_violations=claim_violations,
         )
 
-    @_retryable_quota_write
+    @_retryable_quota_write("claim")
     def release_reconciliation_claim(self, claim_token: str) -> bool:
         if not claim_token or len(claim_token) > 36:
             raise ValueError("reconciliation claim token is invalid")
@@ -1593,7 +1665,7 @@ class QuotaStore:
         )
         return used, reserved
 
-    @_retryable_quota_write
+    @_retryable_quota_write("reserve")
     def reserve(
         self,
         *,
@@ -1888,12 +1960,12 @@ class QuotaStore:
         ).one()
         return Reservation.from_row(committed)
 
-    @_retryable_quota_write
+    @_retryable_quota_write("commit")
     def commit(self, reservation_id: str) -> Reservation:
         with self._writer() as conn:
             return self._commit_locked(conn, self._get_locked(conn, reservation_id))
 
-    @_retryable_quota_write
+    @_retryable_quota_write("release")
     def mark_release_pending(self, reservation_id: str) -> Reservation:
         with self._writer() as conn:
             row = self._get_locked(conn, reservation_id)
@@ -1916,7 +1988,7 @@ class QuotaStore:
             ).one()
             return Reservation.from_row(result)
 
-    @_retryable_quota_write
+    @_retryable_quota_write("reconcile")
     def reconcile_present(
         self,
         reservation_id: str,
@@ -2010,7 +2082,7 @@ class QuotaStore:
             )
             return reconciled
 
-    @_retryable_quota_write
+    @_retryable_quota_write("reconcile")
     def reconcile_absent(
         self,
         reservation_id: str,

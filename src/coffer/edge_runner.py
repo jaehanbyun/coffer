@@ -147,13 +147,18 @@ def build_product_application(
     settings: EdgeSettings,
 ) -> Any:
     repositories = RepositoryStore(conf.database.connection)
-    quotas = QuotaStore(conf.database.connection)
-    registry = HTTPManifestUpstream(settings.registry_origin)
     metrics = (
         CofferMetrics(component="edge")
         if conf.observability.metrics_enabled
         else None
     )
+    quotas = QuotaStore(
+        conf.database.connection,
+        transaction_observer=(
+            metrics.observe_quota_transaction if metrics is not None else None
+        ),
+    )
+    registry = HTTPManifestUpstream(settings.registry_origin)
     manifest_application = build_manifest_admission_application(
         RegistryTokenVerifier(
             load_jwks(settings.jwks_file),

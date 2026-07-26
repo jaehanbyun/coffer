@@ -224,7 +224,10 @@ def build_reconciler(
     settings: RunnerSettings,
     metrics: CofferMetrics,
 ) -> QuotaReconciler:
-    quotas = QuotaStore(conf.database.connection)
+    quotas = QuotaStore(
+        conf.database.connection,
+        transaction_observer=metrics.observe_quota_transaction,
+    )
     repositories = RepositoryStore(conf.database.connection)
     tls_context = (
         ssl.create_default_context(cafile=settings.cafile)
