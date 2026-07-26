@@ -33,6 +33,7 @@ REMEDIATION_RESULT="${ROOT}/work/ui-image-qualification/evidence/remediation.jso
 TARGET_WHEEL_NAME=""
 TARGET_WHEEL_URL=""
 TARGET_WHEEL_SHA256=""
+TARGET_WHEEL_ARCHITECTURE=""
 TARGET_DISPLAY_NAME=""
 TARGET_TO_VERSION=""
 TARGET_TRIAL_LABEL=""
@@ -135,6 +136,10 @@ TARGET_WHEEL_URL="$(
 TARGET_WHEEL_SHA256="$(
     jq -er --arg target "${TARGET_KEY}" \
         '.targets[$target].wheel_sha256' "${TARGET_MANIFEST}"
+)"
+TARGET_WHEEL_ARCHITECTURE="$(
+    jq -er --arg target "${TARGET_KEY}" \
+        '.targets[$target].wheel_architecture' "${TARGET_MANIFEST}"
 )"
 TARGET_DISPLAY_NAME="$(
     jq -er --arg target "${TARGET_KEY}" \
@@ -289,6 +294,11 @@ case "${runtime_arch}" in
         exit 1
         ;;
 esac
+if [[ "${TARGET_WHEEL_ARCHITECTURE}" != "any" ]] \
+    && [[ "${TARGET_WHEEL_ARCHITECTURE}" != "${architecture}" ]]; then
+    echo "target wheel is incompatible with runtime architecture" >&2
+    exit 1
+fi
 
 phase="stock Kolla parent build"
 "${KOLLA_BUILD}" \

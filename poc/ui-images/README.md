@@ -161,15 +161,17 @@ make -C poc/ui-images trial-python-overlay
 make -C poc/ui-images trial-python-click
 make -C poc/ui-images trial-python-django
 make -C poc/ui-images trial-python-httplib2
+make -C poc/ui-images trial-python-msgpack
 make -C poc/ui-images trial-python-urllib3
 make -C poc/ui-images trial-python-pyjwt
 ```
 
 The checked-in `python_targets.json` manifest is the only target-selection
-boundary. Its v2 contract binds each allowed package to the official wheel
-URL, filename, SHA-256, dependency metadata, exact before/after versions,
-scanner-specific expected findings, compatibility probe, explicit installed
-UI surfaces, and trial label. Both `trivy` and `scout` keys are mandatory;
+boundary. Its v3 contract binds each allowed package to the official wheel
+URL, filename, SHA-256, wheel architecture, dependency metadata, exact
+before/after versions, scanner-specific expected findings, compatibility
+probe, explicit installed UI surfaces, and trial label. Both `trivy` and
+`scout` keys are mandatory;
 each scanner may have an empty expected set, but their union must be nonempty,
 sorted, unique, canonical CVE or GHSA identifiers and must exactly equal the accepted
 remediation candidate. The classifier requires each scanner to remove exactly
@@ -189,6 +191,12 @@ surfaces; it cannot silently install a Horizon-only dependency into Skyline.
 Stock parent preparation may still build both accepted UI baselines. The
 generic overlay retains the official wheel filename for pip parsing and still
 removes that exact build input from the final image.
+
+Pure-Python wheels must declare `wheel_architecture=any` and use the exact
+`py3-none-any` tag. Native CPython wheels must declare either `arm64` with an
+`aarch64` platform tag or `amd64` with an `x86_64` tag. The target loader,
+runner preflight, evidence manifest, and classifier all reject a wheel whose
+declared architecture does not match the trial runtime.
 
 Each fixed trial installs one official wheel with `--no-index`, `--no-deps`,
 and `--force-reinstall`. It requires the OS package inventory to remain
@@ -295,3 +303,22 @@ changes no production Containerfile or constraints policy. Owner-only evidence
 is retained under ignored `work/ui-python-overlay-trial-click/evidence/`;
 generated images, contexts, wheel copies, archives, scanner caches, and the
 harness-started Podman machine are absent after exit.
+
+The 2026-07-27 native ARM64 trial independently accepted the two-surface
+`msgpack` 1.1.2 to 1.2.1 derivative using the exact official CPython 3.12
+manylinux ARM64 wheel. The offline compatibility probe requires the native
+`msgpack._cmsgpack` extension and performs a two-object streaming binary
+pack/unpack round trip. Both surfaces preserve the accepted cleanup OS
+inventory and every non-target Python distribution version multiset;
+`pip check`, official source hashes, package-local bytecode boundaries,
+Coffer UI runtime hashes, lineage, and build-input absence pass.
+
+Both scanners removed exactly `GHSA-6v7p-g79w-8964`. Horizon changed from
+Trivy 31 to 30 High and Scout 34 to 33 High; Skyline changed from Trivy 16 to
+15 High and Scout 19 to 18 High. Neither scanner introduced a Critical/High
+finding, and Trivy found no secret. The result remains isolated with
+`production_candidate=false` and changes no production Containerfile or
+constraints policy. Owner-only evidence is retained under ignored
+`work/ui-python-overlay-trial-msgpack/evidence/`; generated images, contexts,
+wheel copies, archives, scanner caches, and the harness-started Podman machine
+are absent after exit.

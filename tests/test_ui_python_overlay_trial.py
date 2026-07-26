@@ -340,6 +340,7 @@ def fixture(
                 "from_version": target.from_version,
                 "to_version": target.to_version,
                 "filename": target.wheel_filename,
+                "wheel_architecture": target.wheel_architecture,
                 "sha256": target.wheel_sha256,
                 "manifest_sha256": TRIAL.sha256_file(target_manifest),
                 "probe": target.probe,
@@ -507,7 +508,7 @@ def build(evidence: Path, artifacts: dict[str, Any]) -> dict[str, object]:
 
 @pytest.mark.parametrize(
     "target_key",
-    ["click", "django", "mako", "httplib2", "pyjwt", "urllib3"],
+    ["click", "django", "mako", "httplib2", "msgpack", "pyjwt", "urllib3"],
 )
 def test_valid_overlay_is_accepted_but_remains_blocked(
     tmp_path: Path,
@@ -771,6 +772,7 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
         "mako",
         "httplib2",
         "pyjwt",
+        "msgpack",
         "urllib3",
     }
     assert targets["django"].surfaces == ("horizon",)
@@ -783,6 +785,12 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
     )
     assert targets["click"].wheel_sha256 == (
         "a2bf429bb3033c89fa4936ffb35d5cb471e3719e1f3c8a7c3fff0b8314305613"
+    )
+    assert targets["msgpack"].wheel_architecture == "arm64"
+    assert targets["msgpack"].requires_dist == ()
+    assert targets["msgpack"].finding_ids == ("GHSA-6v7p-g79w-8964",)
+    assert targets["msgpack"].wheel_sha256 == (
+        "60926b75d00c8e816ef98f3034f484a8bc64242d66839cef4cf7e503142316a0"
     )
     assert targets["django"].finding_ids == (
         "CVE-2026-25673",
@@ -820,6 +828,8 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
     assert 'WORK="${ROOT}/work/ui-python-overlay-trial-${TARGET_KEY}"' in runner
     assert "refusing existing UI Python overlay trial work directory" in runner
     assert ".targets[$target].wheel_sha256" in runner
+    assert ".targets[$target].wheel_architecture" in runner
+    assert "target wheel is incompatible with runtime architecture" in runner
     assert "--network none" in runner
     assert "--no-deps" in containerfile
     assert 'rm -rf -- \\' in runner
@@ -870,4 +880,39 @@ def test_target_manifest_rejects_invalid_scanner_finding_contract(
         TARGET_MODULE.TargetError,
         match="finding_ids_by_scanner",
     ):
+        TARGET_MODULE.load_targets(path)
+
+
+@pytest.mark.parametrize(
+    ("architecture", "filename"),
+    [
+        ("amd64", "msgpack-1.2.1-cp312-cp312-manylinux_2_28_aarch64.whl"),
+        ("arm64", "msgpack-1.2.1-cp312-cp312-manylinux_2_28_x86_64.whl"),
+        ("any", "msgpack-1.2.1-cp312-cp312-manylinux_2_28_aarch64.whl"),
+        ("arm64", "msgpack-1.2.1-py3-none-any.whl"),
+        ("other", "msgpack-1.2.1-py3-none-any.whl"),
+        ("arm64", "aarch64pkg-1.2.1-cp312-cp312-any.whl"),
+        ("arm64", "msgpack-1.2.1-cp312-cp311-manylinux_2_28_aarch64.whl"),
+        (
+            "arm64",
+            (
+                "msgpack-1.2.1-cp312-cp312-"
+                "manylinux_2_28_aarch64.manylinux_2_28_x86_64.whl"
+            ),
+        ),
+    ],
+)
+def test_target_manifest_rejects_incompatible_wheel_architecture(
+    tmp_path: Path,
+    architecture: str,
+    filename: str,
+) -> None:
+    document = json.loads(TARGET_MANIFEST.read_text())
+    document["targets"] = {"msgpack": document["targets"]["msgpack"]}
+    document["targets"]["msgpack"]["wheel_architecture"] = architecture
+    document["targets"]["msgpack"]["wheel_filename"] = filename
+    path = tmp_path / "python_targets.json"
+    path.write_text(json.dumps(document))
+
+    with pytest.raises(TARGET_MODULE.TargetError, match="target value"):
         TARGET_MODULE.load_targets(path)

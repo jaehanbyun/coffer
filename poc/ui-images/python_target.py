@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-SCHEMA = "coffer.ui-python-overlay-targets/v2"
+SCHEMA = "coffer.ui-python-overlay-targets/v3"
 KEY = re.compile(r"^[a-z][a-z0-9-]{1,31}$")
 NAME = re.compile(r"^[A-Za-z][A-Za-z0-9._-]{0,63}$")
 VERSION = re.compile(r"^[0-9][A-Za-z0-9.+!-]{0,31}$")
@@ -17,7 +17,10 @@ FINDING = re.compile(
     r"^(?:CVE-[0-9]{4}-[0-9]{4,}|"
     r"GHSA(?:-[23456789cfghjmpqrvwx]{4}){3})$"
 )
-WHEEL = re.compile(r"^[A-Za-z0-9._+-]+-py3-none-any\.whl$")
+WHEEL = re.compile(
+    r"^[A-Za-z0-9._+-]+-(?:py3-none-any|"
+    r"cp[0-9]{2,3}-(?:cp[0-9]{2,3}|abi3)-[A-Za-z0-9._]+)\.whl$"
+)
 URL = re.compile(r"^https://files\.pythonhosted\.org/packages/[A-Za-z0-9/_.+-]+$")
 PREFIX = re.compile(r"^[a-z][a-z0-9_]*/$")
 LABEL = re.compile(r"^coffer-ui-python-[a-z0-9.-]+-v1$")
@@ -25,12 +28,14 @@ PROBES = {
     "click-cli",
     "django-template",
     "mako-render",
+    "msgpack-binary",
     "module-import",
     "pyjwt-hs256",
     "urllib3-pool",
 }
 SURFACES = frozenset({"horizon", "skyline"})
 SCANNERS = ("trivy", "scout")
+WHEEL_ARCHITECTURES = frozenset({"any", "arm64", "amd64"})
 
 
 class TargetError(RuntimeError):
@@ -48,6 +53,7 @@ class Target:
     wheel_filename: str
     wheel_url: str
     wheel_sha256: str
+    wheel_architecture: str
     finding_ids_by_scanner: tuple[tuple[str, tuple[str, ...]], ...]
     requires_dist: tuple[str, ...]
     surfaces: tuple[str, ...]
@@ -93,6 +99,7 @@ class Target:
             "click-cli",
             "django-template",
             "mako-render",
+            "msgpack-binary",
             "pyjwt-hs256",
         }:
             return "coffer"
@@ -108,16 +115,47 @@ def _string(document: dict[str, Any], key: str) -> str:
     return value
 
 
-def _strings(document: dict[str, Any], key: str) -> tuple[str, ...]:
+def _strings(
+    document: dict[str, Any],
+    key: str,
+    *,
+    allow_empty: bool = False,
+) -> tuple[str, ...]:
     value = document.get(key)
     if (
         not isinstance(value, list)
-        or not value
+        or (not allow_empty and not value)
         or any(not isinstance(item, str) or not item for item in value)
         or value != sorted(set(value))
     ):
         raise TargetError(f"target {key} is invalid")
     return tuple(value)
+
+
+def _wheel_matches_architecture(filename: str, architecture: str) -> bool:
+    try:
+        _, python_tag, abi_tag, platform_tag = filename.removesuffix(
+            ".whl"
+        ).rsplit("-", 3)
+    except ValueError:
+        return False
+    if architecture == "any":
+        return (python_tag, abi_tag, platform_tag) == ("py3", "none", "any")
+    python_match = re.fullmatch(r"cp([0-9]{2,3})", python_tag)
+    if (
+        python_match is None
+        or abi_tag not in {python_tag, "abi3"}
+        or not platform_tag
+    ):
+        return False
+    architecture_suffix = {
+        "arm64": "_aarch64",
+        "amd64": "_x86_64",
+    }.get(architecture)
+    return architecture_suffix is not None and all(
+        platform.endswith(architecture_suffix)
+        for platform in platform_tag.split(".")
+    )
 
 
 def _scanner_findings(
@@ -171,6 +209,7 @@ def load_targets(path: Path) -> dict[str, Target]:
         "to_version",
         "trial_label",
         "wheel_filename",
+        "wheel_architecture",
         "wheel_sha256",
         "wheel_url",
     }
@@ -192,8 +231,9 @@ def load_targets(path: Path) -> dict[str, Target]:
             wheel_filename=_string(raw, "wheel_filename"),
             wheel_url=_string(raw, "wheel_url"),
             wheel_sha256=_string(raw, "wheel_sha256"),
+            wheel_architecture=_string(raw, "wheel_architecture"),
             finding_ids_by_scanner=_scanner_findings(raw),
-            requires_dist=_strings(raw, "requires_dist"),
+            requires_dist=_strings(raw, "requires_dist", allow_empty=True),
             surfaces=_strings(raw, "surfaces"),
             probe=_string(raw, "probe"),
             trial_label=_string(raw, "trial_label"),
@@ -206,6 +246,11 @@ def load_targets(path: Path) -> dict[str, Target]:
             or not VERSION.fullmatch(target.to_version)
             or target.from_version == target.to_version
             or not WHEEL.fullmatch(target.wheel_filename)
+            or target.wheel_architecture not in WHEEL_ARCHITECTURES
+            or not _wheel_matches_architecture(
+                target.wheel_filename,
+                target.wheel_architecture,
+            )
             or not URL.fullmatch(target.wheel_url)
             or not DIGEST.fullmatch(target.wheel_sha256)
             or not set(target.surfaces) <= SURFACES
@@ -238,6 +283,18 @@ def probe_target(target: Target) -> str:
         if invocation.exit_code != 0 or invocation.exception is not None:
             raise TargetError("Click CLI invocation failed")
         result = invocation.output.strip()
+    elif target.probe == "msgpack-binary":
+        if module.Packer.__module__ != "msgpack._cmsgpack":
+            raise TargetError("msgpack native extension is not active")
+        first = {"scope": "coffer", "values": [1, 2, 3]}
+        second = {"scope": "next"}
+        unpacker = module.Unpacker(raw=False)
+        unpacker.feed(module.packb(first, use_bin_type=True))
+        unpacker.feed(module.packb(second, use_bin_type=True))
+        decoded = list(unpacker)
+        if decoded != [first, second]:
+            raise TargetError("msgpack streaming round trip failed")
+        result = decoded[0]["scope"]
     elif target.probe == "django-template":
         settings = importlib.import_module("django.conf").settings
         if settings.configured:

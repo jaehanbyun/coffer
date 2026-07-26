@@ -13,13 +13,13 @@ from zipfile import ZipFile
 
 from python_target import Target, TargetError, load_target
 
-MANIFEST_SCHEMA = "coffer.ui-python-overlay-evidence/v2"
+MANIFEST_SCHEMA = "coffer.ui-python-overlay-evidence/v3"
 IMAGE_SCHEMA = "coffer.ui-python-overlay-images/v1"
 INVENTORY_SCHEMA = "coffer.ui-python-overlay-os-inventories/v1"
 RUNTIME_SCHEMA = "coffer.ui-python-overlay-runtimes/v1"
 PYTHON_RUNTIME_SCHEMA = "coffer.ui-python-overlay-runtime/v1"
 PACKAGE_INVENTORY_SCHEMA = "coffer.ui-package-inventory/v1"
-RESULT_SCHEMA = "coffer.ui-python-overlay-trial/v2"
+RESULT_SCHEMA = "coffer.ui-python-overlay-trial/v3"
 OS_CLEANUP_RESULT_SCHEMA = "coffer.ui-os-cleanup-trial/v1"
 REMEDIATION_SCHEMA = "coffer.ui-parent-remediation/v1"
 KOLLA_REVISION = "686c6d13dc1c31092b22c6c481e16a7329e935ea"
@@ -279,6 +279,7 @@ def validate_manifest(
             "from_version": target.from_version,
             "to_version": target.to_version,
             "filename": target.wheel_filename,
+            "wheel_architecture": target.wheel_architecture,
             "sha256": target.wheel_sha256,
             "manifest_sha256": sha256_file(target_manifest_path),
             "probe": target.probe,
@@ -291,6 +292,8 @@ def validate_manifest(
     }
     if artifacts != expected_artifacts:
         raise EvidenceError("trial artifacts do not match exact inputs")
+    if target.wheel_architecture not in {"any", manifest["architecture"]}:
+        raise EvidenceError("target wheel architecture is incompatible")
     baseline = _object(manifest.get("baseline"), "trial baseline")
     if baseline != {
         "os_cleanup_result_sha256": sha256_file(baseline_result_path),

@@ -11,7 +11,7 @@ from typing import Any
 
 from python_target import TargetError, load_target
 
-MANIFEST_SCHEMA = "coffer.ui-python-overlay-evidence/v2"
+MANIFEST_SCHEMA = "coffer.ui-python-overlay-evidence/v3"
 IMAGE_SCHEMA = "coffer.ui-python-overlay-images/v1"
 INVENTORY_SCHEMA = "coffer.ui-python-overlay-os-inventories/v1"
 RUNTIME_SCHEMA = "coffer.ui-python-overlay-runtimes/v1"
@@ -293,6 +293,7 @@ def collect(
                 "from_version": target.from_version,
                 "to_version": target.to_version,
                 "filename": target_wheel.name,
+                "wheel_architecture": target.wheel_architecture,
                 "sha256": target.wheel_sha256,
                 "manifest_sha256": sha256_file(target_manifest),
                 "probe": target.probe,

@@ -1,5 +1,5 @@
 {
-  "schema": "coffer.ui-python-overlay-targets/v2",
+  "schema": "coffer.ui-python-overlay-targets/v3",
   "targets": {
     "click": {
       "display_name": "click",
@@ -22,6 +22,7 @@
       ],
       "to_version": "8.3.3",
       "trial_label": "coffer-ui-python-click-8.3.3-v1",
+      "wheel_architecture": "any",
       "wheel_filename": "click-8.3.3-py3-none-any.whl",
       "wheel_sha256": "a2bf429bb3033c89fa4936ffb35d5cb471e3719e1f3c8a7c3fff0b8314305613",
       "wheel_url": "https://files.pythonhosted.org/packages/ae/44/c1221527f6a71a01ec6fbad7fa78f1d50dfa02217385cf0fa3eec7087d59/click-8.3.3-py3-none-any.whl"
@@ -57,6 +58,7 @@
       ],
       "to_version": "4.2.30",
       "trial_label": "coffer-ui-python-django-4.2.30-v1",
+      "wheel_architecture": "any",
       "wheel_filename": "django-4.2.30-py3-none-any.whl",
       "wheel_sha256": "4d07aaf1c62f9984842b67c2874ebbf7056a17be253860299b93ae1881faad65",
       "wheel_url": "https://files.pythonhosted.org/packages/39/b7/a7c96f239cf91313a6589233fed55111c7063b26683b226802732c455dbc/django-4.2.30-py3-none-any.whl"
@@ -84,6 +86,7 @@
       ],
       "to_version": "0.32.0",
       "trial_label": "coffer-ui-python-httplib2-0.32.0-v1",
+      "wheel_architecture": "any",
       "wheel_filename": "httplib2-0.32.0-py3-none-any.whl",
       "wheel_sha256": "dc6705cacdf3fb0a2aba7629fa33c90fd93e30035db0c157325826be177e4816",
       "wheel_url": "https://files.pythonhosted.org/packages/33/a0/550eec327e5f5c7b732531c489f5307efec41f047b0d703bd4ca1e5ad2db/httplib2-0.32.0-py3-none-any.whl"
@@ -113,9 +116,36 @@
       ],
       "to_version": "1.3.12",
       "trial_label": "coffer-ui-python-mako-1.3.12-v1",
+      "wheel_architecture": "any",
       "wheel_filename": "mako-1.3.12-py3-none-any.whl",
       "wheel_sha256": "8f61569480282dbf557145ce441e4ba888be453c30989f879f0d652e39f53ea9",
       "wheel_url": "https://files.pythonhosted.org/packages/bc/b1/a0ec7a5a9db730a08daef1fdfb8090435b82465abbf758a596f0ea88727e/mako-1.3.12-py3-none-any.whl"
+    },
+    "msgpack": {
+      "display_name": "msgpack",
+      "finding_ids_by_scanner": {
+        "scout": [
+          "GHSA-6v7p-g79w-8964"
+        ],
+        "trivy": [
+          "GHSA-6v7p-g79w-8964"
+        ]
+      },
+      "from_version": "1.1.2",
+      "normalized_name": "msgpack",
+      "package_prefix": "msgpack/",
+      "probe": "msgpack-binary",
+      "requires_dist": [],
+      "surfaces": [
+        "horizon",
+        "skyline"
+      ],
+      "to_version": "1.2.1",
+      "trial_label": "coffer-ui-python-msgpack-1.2.1-v1",
+      "wheel_architecture": "arm64",
+      "wheel_filename": "msgpack-1.2.1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl",
+      "wheel_sha256": "60926b75d00c8e816ef98f3034f484a8bc64242d66839cef4cf7e503142316a0",
+      "wheel_url": "https://files.pythonhosted.org/packages/26/aa/753ad8b007b464e1d8aa0c8e650b9c5f4f725e658fc5ac8a7635c55b7f6e/msgpack-1.2.1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl"
     },
     "pyjwt": {
       "display_name": "PyJWT",
@@ -143,6 +173,7 @@
       ],
       "to_version": "2.13.0",
       "trial_label": "coffer-ui-python-pyjwt-2.13.0-v1",
+      "wheel_architecture": "any",
       "wheel_filename": "pyjwt-2.13.0-py3-none-any.whl",
       "wheel_sha256": "66adcc2aff09b3f1bbd95fc1e1577df8ac8723c978552fd43304c8a290ac5728",
       "wheel_url": "https://files.pythonhosted.org/packages/a3/5e/ecf12fdb62546d64385c158514e9b2b671f7832108ef2ecd2020ce0af2d1/pyjwt-2.13.0-py3-none-any.whl"
@@ -176,6 +207,7 @@
       ],
       "to_version": "2.7.0",
       "trial_label": "coffer-ui-python-urllib3-2.7.0-v1",
+      "wheel_architecture": "any",
       "wheel_filename": "urllib3-2.7.0-py3-none-any.whl",
       "wheel_sha256": "9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897",
       "wheel_url": "https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl"

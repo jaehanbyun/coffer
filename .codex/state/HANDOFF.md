@@ -35,8 +35,9 @@
   production bundle, and versioned wheel complete locally with 31 tests;
   disabled-by-default immutable Horizon/Skyline image contracts and exact
   fallback lifecycle complete locally with 108 role checks; four desktop/narrow
-  UI fixture screenshots visually inspected; current full Python regression
-  passes 1,518 tests and the prior Horizon/Skyline/108-check Kolla repository
+  UI fixture screenshots visually inspected; current UI remediation suite
+  passes 72 focused checks, full Python regression passes 1,527 tests, and the
+  prior Horizon/Skyline/108-check Kolla repository
   gates remain complete
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
@@ -201,8 +202,11 @@ fixtures pass, while uppercase, invalid alphabet, truncated groups, free-form
 names, missing scanner keys, and empty unions fail closed. This enables the
 actual msgpack remediation identity without translating or waiving it.
 
-The target and evidence contracts are now v2 and encode exact expected
-findings separately for Trivy and Docker Scout. Both scanner keys are
+The target and evidence contracts are now v3 and encode exact expected
+findings separately for Trivy and Docker Scout, plus an exact wheel
+architecture. Pure wheels must be `py3-none-any`; native wheels must bind
+`arm64` to `aarch64` or `amd64` to `x86_64`. Loader, runner, evidence, and
+classifier mismatches fail closed. Both scanner keys are
 mandatory; a scanner-local set may be empty only while the nonempty union
 exactly matches the accepted remediation baseline. Each scanner must still
 remove exactly its own declared set, introduce no Critical/High finding, and
@@ -222,6 +226,24 @@ exactly `CVE-2026-7246`, changing Horizon 34 to 33 and Skyline 19 to 18 High.
 Both scanners introduce zero Critical/High finding, and Trivy finds zero
 secrets. The owner-only result SHA-256 is
 `d81fab9acf6234c9f7d87eb06ec150530565abf63bbe95e5a2c9473b78661dbe`.
+The result remains isolated with `production_candidate=false`; no production
+Containerfile or constraints policy changed. Exact images, generated contexts,
+wheel copies, archives, and scanner caches are absent, and the harness-started
+Podman machine is stopped.
+
+The seventh independent native ARM64 derivative changes only `msgpack` 1.1.2
+to 1.2.1 using the exact official CPython 3.12 manylinux ARM64 wheel. Both
+surfaces preserve the accepted cleanup OS inventory and every non-target
+Python distribution version multiset. `pip check`, the native `_cmsgpack`
+extension, a two-object streaming pack/unpack round trip, official source
+hashes, package-local bytecode boundaries, Coffer UI runtime hashes, lineage,
+and build-input absence pass.
+
+Both Trivy and Scout remove exactly `GHSA-6v7p-g79w-8964`. Horizon changes
+from Trivy 31 to 30 and Scout 34 to 33 High; Skyline changes from Trivy 16 to
+15 and Scout 19 to 18 High. Both scanners introduce zero Critical/High
+finding, and Trivy finds zero secrets. The owner-only result SHA-256 is
+`4aa5eb03534e4aefedde1fc87a0d87db3e38c7eaf3e779d2a1296f9d07b41c3c`.
 The result remains isolated with `production_candidate=false`; no production
 Containerfile or constraints policy changed. Exact images, generated contexts,
 wheel copies, archives, and scanner caches are absent, and the harness-started
@@ -3089,11 +3111,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Extend the strict target finding grammar to accept only canonical CVE or GHSA
-identities while preserving scanner-local exact deltas and the nonempty
-remediation union, then evaluate the independent msgpack 1.2.1 native ARM64
-trial. Do not alter production UI Containerfiles, combine upgrades, waive a
-finding, handle a Docker credential, or create a live cloud.
+Inspect the official `ujson` release metadata and the accepted scanner
+evidence, then select the smallest exact CPython 3.12 ARM64 fixed candidate.
+Do not alter production UI Containerfiles, combine upgrades, waive a finding,
+handle a Docker credential, or create a live cloud.
 
 ## After This Work Package
 

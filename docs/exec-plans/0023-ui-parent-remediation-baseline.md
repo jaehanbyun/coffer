@@ -90,6 +90,8 @@ absolute gate.
 | Model expected findings per scanner while preserving their nonempty union | Click is reported by Scout but not Trivy; exact scanner-local sets preserve fail-closed delta checks without fabricating a Trivy finding | Requiring a fabricated common set; accepting arbitrary removals; dropping either scanner; waiving a finding | 2026-07-27 |
 | Accept Click 8.3.3 only as the sixth independent compatibility derivative | Official wheel identity, offline CLI invocation, exact runtime delta, unchanged Trivy set, and exact Scout-only CVE removal passed on both surfaces | Fabricating a Trivy finding; combining upgrades; changing production images while High findings remain | 2026-07-27 |
 | Admit only canonical CVE and GHSA finding namespaces | Trivy and Scout both identify the msgpack issue by GHSA; GitHub documents a strict lowercase alphabet and 4-4-4 shape | Converting GHSA to a nonexistent CVE; accepting free-form scanner IDs; waiving GHSA-only findings | 2026-07-27 |
+| Bind native wheels to the exact trial architecture | Compiled Python artifacts are not portable across ARM64 and AMD64; loader, runner, evidence, and classifier agreement prevents a wrong-platform wheel from entering a trial | Treating every wheel as architecture-neutral; inferring compatibility only after a failed image build | 2026-07-27 |
+| Accept msgpack 1.2.1 only as the seventh independent compatibility derivative | The official ARM64 wheel, native extension streaming probe, exact runtime delta, and exact two-scanner GHSA removal passed on both surfaces | Building from sdist; combining upgrades; changing production images while High findings remain | 2026-07-27 |
 
 ## Tasks
 
@@ -110,6 +112,9 @@ absolute gate.
 - [x] Run the independent Click 8.3.1 to 8.3.3 experiment.
 - [x] Extend the strict finding identifier grammar to canonical CVE and GHSA
       values with positive and rejection fixtures.
+- [x] Bind compiled wheels to an exact architecture across target, runner,
+      evidence, and classifier contracts.
+- [x] Run the independent msgpack 1.1.2 to 1.2.1 ARM64 experiment.
 - [ ] Rescan viable derivatives, update the durable handoff, and publish each
       verified atomic milestone.
 
@@ -517,6 +522,43 @@ absolute gate.
   exact `GHSA-6v7p-g79w-8964` expectation, add an offline binary
   pack/unpack/streaming probe, and run that target alone on both UI surfaces.
 
+### 2026-07-27 — msgpack 1.2.1 ARM64 derivative accepted
+
+- Completed: Advanced the target, evidence, and result contracts to v3 and
+  bound every wheel to `any`, `arm64`, or `amd64`. Pure wheels must use
+  `py3-none-any`; native wheels must carry the matching `aarch64` or `x86_64`
+  platform tag. Loader fixtures and runner preflight reject incompatible
+  combinations before an image is built.
+- Compatibility: Both native ARM64 derivatives preserve the accepted cleanup
+  OS inventory and every non-target Python distribution version multiset.
+  msgpack alone changes from 1.1.2 to 1.2.1. `pip check`, the active native
+  `_cmsgpack` extension, a two-object streaming pack/unpack round trip,
+  official source hashes, package-local bytecode boundaries, Coffer UI
+  runtime hashes, image lineage, and build-input absence pass.
+- Scan result: Both Trivy and Scout remove exactly
+  `GHSA-6v7p-g79w-8964`. Horizon changes from Trivy 31 to 30 and Scout 34 to
+  33 High; Skyline changes from Trivy 16 to 15 and Scout 19 to 18 High. Both
+  scanners introduce zero Critical/High finding, and Trivy finds zero secrets.
+- Decision: `python_overlay_trial_accepted=true`, status `blocked`, and
+  `production_candidate=false`. The accepted result is specific to the
+  independent ARM64 `msgpack==1.2.1` derivative; it is not cumulative and
+  changes no production Containerfile or constraints policy.
+- Evidence: Owner-only ignored result SHA-256
+  `4aa5eb03534e4aefedde1fc87a0d87db3e38c7eaf3e779d2a1296f9d07b41c3c`;
+  manifest `b7af4804339c8d05cf661cf2fe0502bf97ce4e9f9fdc85d9ae54c4c60da2b308`,
+  images `3ad3d99126b3efb9204f7d4d5ef8af859fd1049996553c261ec0690f4b2f5bd2`,
+  OS inventories
+  `8e7fe70bc16543c09475f69c7c66557e97d991cac7b716a8491092e05d6677af`,
+  and runtimes
+  `4461b35095fca45ac0c84de8a47b86a84637c647eaf7bb6f51cc759202dfb11e`.
+- Cleanup: Exact trial images, generated contexts, wheel copies, archives,
+  and scanner caches are absent. The harness-started Podman machine is
+  stopped. Non-secret evidence remains owner-only under ignored
+  `work/ui-python-overlay-trial-msgpack/evidence/`.
+- Next exact action: Inspect the official `ujson` release metadata and the
+  accepted scanner evidence, then bind only its smallest fixed native ARM64
+  candidate if the wheel and finding identities are exact.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -545,6 +587,8 @@ absolute gate.
 | Click compatibility experiment | native ARM64 official wheel, exact OS/Python/UI runtime, offline CLI invocation, and scanner-specific two-scanner trial | passed for Click only; production blocked at Horizon Trivy/Scout 31/33 High and Skyline 16/18 High |
 | Click milestone gates | JSON, Bash, strict ShellCheck, Ruff, compilation, UI image suite, full pytest, lock, secret, and diff checks | passed; 59 focused and 1,514 total tests |
 | Canonical GHSA contract | documented grammar, positive two-surface GHSA delta, malformed/uppercase/alphabet/truncation rejection fixtures | passed; 63 focused and 1,518 total tests |
+| msgpack compatibility experiment | native ARM64 official wheel, exact OS/Python/UI runtime, native streaming probe, and two-scanner trial | passed for msgpack only; production blocked at Horizon Trivy/Scout 30/33 High and Skyline 15/18 High |
+| msgpack milestone gates | JSON, Bash, strict ShellCheck, Ruff, compilation, UI image suite, full pytest, architecture and residue checks | passed; 72 focused and 1,527 total tests with no generated build residue |
 | Baseline milestone gates | full pytest, Ruff E/F/I, compilation, staged secret/diff | passed; 1,483 tests and no staged leak |
 | Final repository gates | dashboard packages, Kolla role, docs/links, secret, diff | pending with remediation experiment |
 
@@ -583,6 +627,9 @@ absolute gate.
 - Click 8.3.3 is accepted only as a separate two-surface derivative. A
   scanner-local empty expected set records absent Trivy coverage; it does not
   waive the Scout CVE or weaken either scanner's remaining absolute gate.
+- msgpack 1.2.1 is accepted only as a separate native ARM64 two-surface
+  derivative. Its binary streaming probe does not authorize a cumulative
+  constraints override, an AMD64 wheel, or a production Containerfile change.
 - The derivative proves static Kolla metadata, package integrity, installed UI
   runtime files, input cleanup, parent availability, and scan behavior. A
   production adoption still needs the Python compatibility matrix and later
@@ -597,15 +644,17 @@ absolute gate.
   derivative, generic target contract, and independent httplib2/urllib3
   and PyJWT compatibility derivatives, exact target-surface selection, the
   Horizon-only Django derivative, scanner-specific finding identities, and the
-  independent Click derivative are complete locally with no waiver. The
-  trials passed package, runtime, lineage, and two-scanner delta gates but
-  correctly remain blocked by nonzero Critical/High findings. Raw/report
-  evidence is non-secret and remains owner-only under ignored `work/`.
-- Exact next action: Admit canonical GHSA identifiers without weakening the
-  strict finding contract, then evaluate msgpack 1.2.1 independently.
-- First file or command: Extend `FINDING` in
-  `poc/ui-images/python_target.py` to accept only canonical CVE or GHSA
-  identities and add rejection fixtures before adding a msgpack target; do not
-  modify production UI Containerfiles.
+  independent Click derivative, canonical GHSA contract, architecture-bound
+  wheel contract, and independent native ARM64 msgpack derivative are complete
+  locally with no waiver. The trials passed package, runtime, lineage, and
+  two-scanner delta gates but correctly remain blocked by nonzero
+  Critical/High findings. Raw/report evidence is non-secret and remains
+  owner-only under ignored `work/`.
+- Exact next action: Inspect official `ujson` release metadata and the accepted
+  scanner evidence, then select the smallest exact native ARM64 fix candidate.
+- First file or command: Query `https://pypi.org/pypi/ujson/json` and compare
+  its CPython 3.12 ARM64 wheels with the ujson finding identities in the
+  accepted Horizon and Skyline scanner evidence; do not modify production UI
+  Containerfiles.
 - Questions requiring user input: None. No credential, external publication,
   live deployment, or waiver is required for the next local milestone.
