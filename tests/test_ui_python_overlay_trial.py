@@ -182,6 +182,7 @@ def python_runtime(
     target: Any,
     version: str,
     target_files: dict[str, str],
+    probe_mode: str,
 ) -> dict[str, object]:
     return {
         "schema": TRIAL.PYTHON_RUNTIME_SCHEMA,
@@ -192,6 +193,7 @@ def python_runtime(
             "version": version,
             "files": target_files,
             "probe": target.probe,
+            "probe_mode": probe_mode,
             "probe_result": target.expected_probe_result,
         },
         "pip_check": {
@@ -436,6 +438,7 @@ def fixture(
                 if kind == "before"
                 else wheel_files["target"]
             ),
+            probe_mode="baseline" if kind == "before" else "candidate",
         )
         for surface in target.surfaces
         for kind in TRIAL.KINDS
@@ -513,6 +516,7 @@ def build(evidence: Path, artifacts: dict[str, Any]) -> dict[str, object]:
         "django",
         "mako",
         "httplib2",
+        "lxml",
         "msgpack",
         "pyjwt",
         "ujson",
@@ -835,6 +839,7 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
         "django",
         "mako",
         "httplib2",
+        "lxml",
         "pyjwt",
         "msgpack",
         "urllib3",
@@ -856,6 +861,13 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
     assert targets["msgpack"].finding_ids == ("GHSA-6v7p-g79w-8964",)
     assert targets["msgpack"].wheel_sha256 == (
         "60926b75d00c8e816ef98f3034f484a8bc64242d66839cef4cf7e503142316a0"
+    )
+    assert targets["lxml"].package_prefix == "lxml/"
+    assert targets["lxml"].module_name == "lxml"
+    assert targets["lxml"].wheel_architecture == "arm64"
+    assert targets["lxml"].finding_ids == ("CVE-2026-41066",)
+    assert targets["lxml"].wheel_sha256 == (
+        "c921ba5c51e4e9f63b8b00267d06566e1f63407408a0496da2d1d0bfc819c7fc"
     )
     assert targets["ujson"].package_prefix == "ujson."
     assert targets["ujson"].module_name == "ujson"

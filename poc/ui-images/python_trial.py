@@ -18,7 +18,7 @@ MANIFEST_SCHEMA = "coffer.ui-python-overlay-evidence/v3"
 IMAGE_SCHEMA = "coffer.ui-python-overlay-images/v1"
 INVENTORY_SCHEMA = "coffer.ui-python-overlay-os-inventories/v1"
 RUNTIME_SCHEMA = "coffer.ui-python-overlay-runtimes/v1"
-PYTHON_RUNTIME_SCHEMA = "coffer.ui-python-overlay-runtime/v1"
+PYTHON_RUNTIME_SCHEMA = "coffer.ui-python-overlay-runtime/v2"
 PACKAGE_INVENTORY_SCHEMA = "coffer.ui-package-inventory/v1"
 RESULT_SCHEMA = "coffer.ui-python-overlay-trial/v3"
 OS_CLEANUP_RESULT_SCHEMA = "coffer.ui-os-cleanup-trial/v1"
@@ -544,6 +544,8 @@ def validate_python_runtimes(
                 target_runtime.get("name") != target.normalized_name
                 or target_runtime.get("version") != expected_version
                 or target_runtime.get("probe") != target.probe
+                or target_runtime.get("probe_mode")
+                != ("baseline" if kind == "before" else "candidate")
                 or target_runtime.get("probe_result")
                 != target.expected_probe_result
                 or runtime.get("absent") != expected_absent

@@ -247,6 +247,8 @@ def collect(
                 "/opt/python_targets.json",
                 "--target",
                 target.key,
+                "--probe-mode",
+                "baseline" if key.endswith("-before") else "candidate",
             ],
             interpreter="/var/lib/kolla/venv/bin/python",
             extra_mounts=(

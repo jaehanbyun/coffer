@@ -12,7 +12,8 @@ from typing import Any
 
 from python_target import Target, TargetError, load_target, probe_target
 
-SCHEMA = "coffer.ui-python-overlay-runtime/v1"
+SCHEMA = "coffer.ui-python-overlay-runtime/v2"
+PROBE_MODES = frozenset({"baseline", "candidate"})
 PACKAGE_NAME = re.compile(r"[-_.]+")
 
 
@@ -85,13 +86,18 @@ def pip_check() -> dict[str, Any]:
     return {"clean": clean, "message": process.stdout.strip() if clean else ""}
 
 
-def collect(target: Target) -> dict[str, Any]:
+def collect(target: Target, *, probe_mode: str) -> dict[str, Any]:
+    if probe_mode not in PROBE_MODES:
+        raise RuntimeCollectionError("target probe mode is invalid")
     target_input_paths = (
         f"/tmp/{target.wheel_filename}",
         "/tmp/python_target.py",
         "/tmp/python_targets.json",
     )
-    probe_result = probe_target(target)
+    probe_result = probe_target(
+        target,
+        enforce_security=probe_mode == "candidate",
+    )
     check = pip_check()
     if check["clean"] is not True:
         raise RuntimeCollectionError("target Python compatibility check failed")
@@ -111,6 +117,7 @@ def collect(target: Target) -> dict[str, Any]:
             "version": metadata.version(target.display_name),
             "files": target_files(target),
             "probe": target.probe,
+            "probe_mode": probe_mode,
             "probe_result": probe_result,
         },
         "pip_check": check,
@@ -127,10 +134,15 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--target", required=True)
+    parser.add_argument(
+        "--probe-mode",
+        choices=sorted(PROBE_MODES),
+        required=True,
+    )
     arguments = parser.parse_args()
     try:
         target = load_target(arguments.manifest, arguments.target)
-        result = collect(target)
+        result = collect(target, probe_mode=arguments.probe_mode)
         expected_absent = [
             f"/tmp/{target.wheel_filename}",
             "/tmp/python_target.py",

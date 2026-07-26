@@ -36,7 +36,7 @@
   disabled-by-default immutable Horizon/Skyline image contracts and exact
   fallback lifecycle complete locally with 108 role checks; four desktop/narrow
   UI fixture screenshots visually inspected; current UI remediation suite
-  passes 72 focused checks, full Python regression passes 1,527 tests, and the
+  passes 77 focused checks, full Python regression passes 1,532 tests, and the
   prior Horizon/Skyline/108-check Kolla repository
   gates remain complete
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`
@@ -275,6 +275,31 @@ Containerfile or constraints policy changed. Exact images, generated contexts,
 wheel copies, archives, and scanner caches are absent, and the harness-started
 Podman machine is stopped. JSON, Bash, strict ShellCheck, Ruff, compilation,
 76 focused UI image checks, and all 1,531 repository tests pass.
+
+The ninth independent native ARM64 derivative changes only `lxml` 6.0.2 to
+6.1.1 using the exact official CPython 3.12 manylinux ARM64 wheel. Both
+surfaces preserve the accepted cleanup OS inventory and every non-target
+Python distribution version multiset. `pip check`, native `lxml.etree`,
+XML/XPath behavior, official source hashes, package-local extension
+boundaries, Coffer UI runtime hashes, lineage, and build-input absence pass.
+
+Runtime evidence now distinguishes `probe_mode=baseline|candidate`. The
+vulnerable 6.0.2 control must pass the shared compatibility path without being
+called secure; only the 6.1.1 candidate must additionally prove that the
+default `ETCompatXMLParser` and `iterparse` paths reject an external entity.
+The first complete trial stopped when this distinction was absent; the
+schema-v2 correction and repeat passed without waiving the baseline finding.
+
+Both Trivy and Scout remove exactly `CVE-2026-41066`. Horizon changes from
+Trivy 31 to 30 and Scout 34 to 33 High; Skyline changes from Trivy 16 to 15
+and Scout 19 to 18 High. Both scanners introduce zero Critical/High finding,
+and Trivy finds zero secrets. The owner-only result SHA-256 is
+`22a9792e1b68b26bf6f3d264702215dd16550497cbaa7985531e668e105b5365`.
+The result remains isolated with `production_candidate=false`; no production
+Containerfile or constraints policy changed. Exact images, generated contexts,
+wheel copies, archives, and scanner caches are absent, and the harness-started
+Podman machine is stopped. JSON, Bash, strict ShellCheck, Ruff, compilation,
+77 focused UI image checks, and all 1,532 repository tests pass.
 
 Plan 0019 is externally blocked after converting every locally independent
 Stage 6 operation into a release-gated, checkpointed pilot harness. The latest
@@ -3138,9 +3163,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Inspect the official `lxml` 6.1.0 release metadata and the accepted scanner
-evidence, then bind its exact CPython 3.12 ARM64 wheel as the ninth independent
-compatibility derivative.
+Add the official Pillow 12.3.0 CPython 3.12 ARM64 wheel as a Horizon-only
+target in `poc/ui-images/python_targets.json`, bind the 12 accepted High
+finding identities, add an offline native PNG round-trip probe, and run the
+tenth independent compatibility derivative.
 Do not alter production UI Containerfiles, combine upgrades, waive a finding,
 handle a Docker credential, or create a live cloud.
 

@@ -6,6 +6,7 @@ import json
 import re
 from dataclasses import dataclass
 from importlib.machinery import EXTENSION_SUFFIXES
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,7 @@ LABEL = re.compile(r"^coffer-ui-python-[a-z0-9.-]+-v1$")
 PROBES = {
     "click-cli",
     "django-template",
+    "lxml-xxe",
     "mako-render",
     "msgpack-binary",
     "module-import",
@@ -100,6 +102,7 @@ class Target:
         if self.probe in {
             "click-cli",
             "django-template",
+            "lxml-xxe",
             "mako-render",
             "msgpack-binary",
             "pyjwt-hs256",
@@ -272,7 +275,7 @@ def load_target(path: Path, key: str) -> Target:
         raise TargetError("target key is unsupported") from error
 
 
-def probe_target(target: Target) -> str:
+def probe_target(target: Target, *, enforce_security: bool = True) -> str:
     module = importlib.import_module(target.module_name)
     if target.probe == "click-cli":
         runner_type = importlib.import_module("click.testing").CliRunner
@@ -312,6 +315,39 @@ def probe_target(target: Target) -> str:
         if decoded != payload:
             raise TargetError("ujson round trip failed")
         result = decoded["scope"]
+    elif target.probe == "lxml-xxe":
+        etree = importlib.import_module("lxml.etree")
+        module_path = str(getattr(etree, "__file__", ""))
+        if not any(module_path.endswith(suffix) for suffix in EXTENSION_SUFFIXES):
+            raise TargetError("lxml native extension is not active")
+        root = etree.fromstring(
+            b'<registry><repository name="coffer"/></registry>'
+        )
+        result = root.xpath("string(repository/@name)")
+        if enforce_security:
+            external_entity = (
+                b"<!DOCTYPE root ["
+                b'<!ENTITY ext SYSTEM "file:///etc/os-release">'
+                b"]><root>&ext;</root>"
+            )
+            parsers = (
+                lambda: etree.fromstring(
+                    external_entity,
+                    etree.ETCompatXMLParser(),
+                ),
+                lambda: list(
+                    etree.iterparse(
+                        BytesIO(external_entity),
+                        events=("end",),
+                    )
+                ),
+            )
+            for parse in parsers:
+                try:
+                    parse()
+                except etree.XMLSyntaxError:
+                    continue
+                raise TargetError("lxml external entity default is unsafe")
     elif target.probe == "django-template":
         settings = importlib.import_module("django.conf").settings
         if settings.configured:

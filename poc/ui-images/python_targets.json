@@ -91,6 +91,37 @@
       "wheel_sha256": "dc6705cacdf3fb0a2aba7629fa33c90fd93e30035db0c157325826be177e4816",
       "wheel_url": "https://files.pythonhosted.org/packages/33/a0/550eec327e5f5c7b732531c489f5307efec41f047b0d703bd4ca1e5ad2db/httplib2-0.32.0-py3-none-any.whl"
     },
+    "lxml": {
+      "display_name": "lxml",
+      "finding_ids_by_scanner": {
+        "scout": [
+          "CVE-2026-41066"
+        ],
+        "trivy": [
+          "CVE-2026-41066"
+        ]
+      },
+      "from_version": "6.0.2",
+      "normalized_name": "lxml",
+      "package_prefix": "lxml/",
+      "probe": "lxml-xxe",
+      "requires_dist": [
+        "BeautifulSoup4; extra == \"htmlsoup\"",
+        "cssselect>=0.7; extra == \"cssselect\"",
+        "html5lib; extra == \"html5\"",
+        "lxml_html_clean; extra == \"html-clean\""
+      ],
+      "surfaces": [
+        "horizon",
+        "skyline"
+      ],
+      "to_version": "6.1.1",
+      "trial_label": "coffer-ui-python-lxml-6.1.1-v1",
+      "wheel_architecture": "arm64",
+      "wheel_filename": "lxml-6.1.1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.whl",
+      "wheel_sha256": "c921ba5c51e4e9f63b8b00267d06566e1f63407408a0496da2d1d0bfc819c7fc",
+      "wheel_url": "https://files.pythonhosted.org/packages/42/95/bb63f0fd62e554fe078e1fb3c8fe9083c14ddc7ad7fa178d10e57e071ac7/lxml-6.1.1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.whl"
+    },
     "mako": {
       "display_name": "Mako",
       "finding_ids_by_scanner": {

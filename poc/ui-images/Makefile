@@ -2,7 +2,7 @@ REPO_ROOT := $(abspath $(CURDIR)/../..)
 
 .PHONY: probe-parents qualify trial-os-cleanup trial-python-click \
 	trial-python-django trial-python-httplib2 trial-python-overlay \
-	trial-python-msgpack trial-python-pyjwt trial-python-ujson \
+	trial-python-lxml trial-python-msgpack trial-python-pyjwt trial-python-ujson \
 	trial-python-urllib3 verify
 
 verify:
@@ -28,6 +28,9 @@ trial-python-django:
 
 trial-python-httplib2:
 	./trial_python_overlay.sh httplib2
+
+trial-python-lxml:
+	./trial_python_overlay.sh lxml
 
 trial-python-msgpack:
 	./trial_python_overlay.sh msgpack

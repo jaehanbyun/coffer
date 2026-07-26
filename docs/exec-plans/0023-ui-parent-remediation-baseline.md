@@ -94,6 +94,8 @@ absolute gate.
 | Accept msgpack 1.2.1 only as the seventh independent compatibility derivative | The official ARM64 wheel, native extension streaming probe, exact runtime delta, and exact two-scanner GHSA removal passed on both surfaces | Building from sdist; combining upgrades; changing production images while High findings remain | 2026-07-27 |
 | Permit a selected numeric release newer than a scanner's first fixed release | Scanners report ujson 5.12.0/5.12.1 as fix floors while the official 5.13.0 wheel is selected; numeric floor comparison preserves fail-closed ordering without requiring string equality | Downgrading to the first fixed wheel; accepting arbitrary nonnumeric ordering; removing the baseline eligibility gate | 2026-07-27 |
 | Accept ujson 5.13.0 only as the eighth independent compatibility derivative | The official native ARM64 wheel, binary JSON round trip, exact runtime delta, and exact removal of three High findings plus one Medium finding passed on both surfaces | Building from sdist; stopping at an older fixed release; combining upgrades; changing production images while High findings remain | 2026-07-27 |
+| Separate baseline compatibility from candidate security behavior in runtime evidence | A vulnerable control must prove that the same UI/runtime path works without being mislabeled secure, while the remediated candidate must additionally pass the security regression; explicit probe modes preserve both facts | Requiring the fixed behavior from the vulnerable control; skipping candidate security behavior; treating baseline mode as a waiver | 2026-07-27 |
+| Accept lxml 6.1.1 only as the ninth independent compatibility derivative | The official native ARM64 wheel, native XML/XPath path, two default external-entity rejection paths, exact runtime delta, and exact two-scanner CVE removal passed on both surfaces; 6.1.1 also contains the upstream follow-up hardening after 6.1.0 | Stopping at 6.1.0; building from sdist; combining upgrades; changing production images while High findings remain | 2026-07-27 |
 
 ## Tasks
 
@@ -118,6 +120,7 @@ absolute gate.
       evidence, and classifier contracts.
 - [x] Run the independent msgpack 1.1.2 to 1.2.1 ARM64 experiment.
 - [x] Run the independent ujson 5.11.0 to 5.13.0 ARM64 experiment.
+- [x] Run the independent lxml 6.0.2 to 6.1.1 ARM64 experiment.
 - [ ] Rescan viable derivatives, update the durable handoff, and publish each
       verified atomic milestone.
 
@@ -602,6 +605,52 @@ absolute gate.
   only its native ARM64 wheel and one accepted finding before running it as a
   ninth independent derivative.
 
+### 2026-07-27 — lxml 6.1.1 ARM64 derivative accepted
+
+- Completed: Bound the official non-yanked CPython 3.12 manylinux ARM64 wheel
+  at SHA-256
+  `c921ba5c51e4e9f63b8b00267d06566e1f63407408a0496da2d1d0bfc819c7fc`.
+  Version 6.1.1 was selected over the first scanner fix floor 6.1.0 because
+  the official upstream changelog records the follow-up `xlink:href` hardening
+  and patched Linux-wheel libxslt in 6.1.1.
+- Fail-closed correction: The first complete trial correctly stopped while
+  collecting the vulnerable 6.0.2 control because the new security assertion
+  had been applied to both image kinds. Runtime evidence is now schema v2 and
+  records an explicit `baseline` or `candidate` probe mode. Baseline proves
+  compatibility only; candidate additionally requires both
+  `ETCompatXMLParser` and `iterparse` defaults to reject the external entity.
+  Invalid or mismatched modes fail closed.
+- Compatibility: Both native ARM64 derivatives preserve the accepted cleanup
+  OS inventory and every non-target Python distribution version multiset.
+  lxml alone changes from 6.0.2 to 6.1.1. `pip check`, native `lxml.etree`,
+  XML/XPath behavior, candidate external-entity rejection, official source
+  hashes, package-local extension boundaries, Coffer UI runtime hashes, image
+  lineage, and build-input absence pass.
+- Scan result: Both Trivy and Scout remove exactly `CVE-2026-41066`. Horizon
+  changes from Trivy 31 to 30 and Scout 34 to 33 High; Skyline changes from
+  Trivy 16 to 15 and Scout 19 to 18 High. Neither scanner introduces a
+  Critical/High finding, and Trivy finds zero secrets.
+- Decision: `python_overlay_trial_accepted=true`, status `blocked`, and
+  `production_candidate=false`. The accepted result is specific to the
+  independent ARM64 `lxml==6.1.1` derivative; baseline mode does not qualify
+  lxml 6.0.2 as secure, and no production Containerfile or constraints policy
+  changed.
+- Evidence: Owner-only ignored result SHA-256
+  `22a9792e1b68b26bf6f3d264702215dd16550497cbaa7985531e668e105b5365`;
+  manifest `31a161fdd6cc898b1519c64a558685fe6df1e62052be6214badc8f07cae78848`,
+  images `29c410bc670029c77908853e075b97524d96ccc3e1bd4224ea776ddff8e2b8be`,
+  OS inventories
+  `8e7fe70bc16543c09475f69c7c66557e97d991cac7b716a8491092e05d6677af`,
+  and runtimes
+  `7716b88e8a10e80715bfe7c84f89323060e49fbf43c71b1fb1c15ce422a95f97`.
+- Cleanup: Exact trial images, generated contexts, wheel copies, archives,
+  and scanner caches are absent. The harness-started Podman machine is
+  stopped. Non-secret evidence remains owner-only under ignored
+  `work/ui-python-overlay-trial-lxml/evidence/`.
+- Next exact action: Bind the official Pillow 12.3.0 Horizon-only native ARM64
+  wheel and its accepted findings, add an offline native PNG round-trip probe,
+  and run it as the tenth independent derivative.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -634,6 +683,8 @@ absolute gate.
 | msgpack milestone gates | JSON, Bash, strict ShellCheck, Ruff, compilation, UI image suite, full pytest, architecture and residue checks | passed; 72 focused and 1,527 total tests with no generated build residue |
 | ujson compatibility experiment | native ARM64 official wheel, exact OS/Python/UI runtime, native Unicode JSON round trip, and two-scanner trial | passed for ujson only; production blocked at Horizon Trivy/Scout 28/31 High and Skyline 13/16 High |
 | ujson milestone gates | JSON, Bash, strict ShellCheck, Ruff, compilation, UI image suite, full pytest, version-floor and residue checks | passed; 76 focused and 1,531 total tests with no generated build residue |
+| lxml compatibility experiment | native ARM64 official wheel, exact OS/Python/UI runtime, native XML/XPath behavior, candidate default XXE rejection, and two-scanner trial | passed for lxml only; production blocked at Horizon Trivy/Scout 30/33 High and Skyline 15/18 High |
+| lxml milestone gates | JSON, Bash, strict ShellCheck, Ruff, compilation, UI image suite, full pytest, probe-mode and residue checks | passed; 77 focused and 1,532 total tests with no generated build residue |
 | Baseline milestone gates | full pytest, Ruff E/F/I, compilation, staged secret/diff | passed; 1,483 tests and no staged leak |
 | Final repository gates | dashboard packages, Kolla role, docs/links, secret, diff | pending with remediation experiment |
 
@@ -679,6 +730,11 @@ absolute gate.
   derivative. Its binary JSON probe and version-floor contract do not
   authorize a cumulative constraints override, an AMD64 wheel, or a
   production Containerfile change.
+- lxml 6.1.1 is accepted only as a separate native ARM64 two-surface
+  derivative. Baseline probe mode records compatibility of the vulnerable
+  control and is not a security qualification. The candidate's offline
+  external-entity assertions do not replace a cumulative image, AMD64,
+  live-dashboard, or production Containerfile test.
 - The derivative proves static Kolla metadata, package integrity, installed UI
   runtime files, input cleanup, parent availability, and scan behavior. A
   production adoption still needs the Python compatibility matrix and later
@@ -695,17 +751,19 @@ absolute gate.
   Horizon-only Django derivative, scanner-specific finding identities, and the
   independent Click derivative, canonical GHSA contract, architecture-bound
   wheel contract, independent native ARM64 msgpack derivative, numeric
-  fixed-release floor contract, and independent native ARM64 ujson derivative
-  are complete locally with no waiver. The trials passed package, runtime,
+  fixed-release floor contract, independent native ARM64 ujson derivative,
+  explicit baseline/candidate probe-mode contract, and independent native
+  ARM64 lxml derivative are complete locally with no waiver. The trials passed
+  package, runtime,
   lineage, and two-scanner delta gates but correctly remain blocked by
   nonzero Critical/High findings. Raw/report evidence is non-secret and
   remains owner-only under ignored `work/`.
-- Exact next action: Inspect official `lxml` 6.1.0 release metadata and the
-  accepted one-finding scanner evidence, then bind its exact native ARM64
-  wheel as the ninth independent derivative.
-- First file or command: Query `https://pypi.org/pypi/lxml/json` and compare
-  its CPython 3.12 ARM64 wheels with the lxml finding identities in the
-  accepted Horizon and Skyline scanner evidence; do not modify production UI
+- Exact next action: Add the official Pillow 12.3.0 Horizon-only target and
+  native PNG round-trip probe, then run it as the tenth independent ARM64
+  derivative.
+- First file or command: Add Pillow's exact official CPython 3.12 ARM64 wheel,
+  12 accepted High finding identities, and Horizon surface to
+  `poc/ui-images/python_targets.json`; do not modify production UI
   Containerfiles.
 - Questions requiring user input: None. No credential, external publication,
   live deployment, or waiver is required for the next local milestone.
