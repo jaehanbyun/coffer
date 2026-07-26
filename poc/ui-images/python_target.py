@@ -18,7 +18,7 @@ WHEEL = re.compile(r"^[A-Za-z0-9._+-]+-py3-none-any\.whl$")
 URL = re.compile(r"^https://files\.pythonhosted\.org/packages/[A-Za-z0-9/_.+-]+$")
 PREFIX = re.compile(r"^[a-z][a-z0-9_]*/$")
 LABEL = re.compile(r"^coffer-ui-python-[a-z0-9.-]+-v1$")
-PROBES = {"mako-render", "module-import"}
+PROBES = {"mako-render", "module-import", "urllib3-pool"}
 
 
 class TargetError(RuntimeError):
@@ -44,6 +44,14 @@ class Target:
     @property
     def result_name(self) -> str:
         return f"{self.display_name}=={self.to_version}"
+
+    @property
+    def expected_probe_result(self) -> str:
+        if self.probe == "mako-render":
+            return "coffer"
+        if self.probe == "urllib3-pool":
+            return "https://registry.example"
+        return self.key
 
 
 def _string(document: dict[str, Any], key: str) -> str:
@@ -146,9 +154,14 @@ def probe_target(target: Target) -> str:
     if target.probe == "mako-render":
         template = importlib.import_module("mako.template").Template
         result = template("${value}").render(value="coffer")
+    elif target.probe == "urllib3-pool":
+        manager = module.PoolManager()
+        pool = manager.connection_from_url("https://registry.example")
+        result = f"{pool.scheme}://{pool.host}"
+        manager.clear()
     else:
         result = module.__name__
-    if result != ("coffer" if target.probe == "mako-render" else target.key):
+    if result != target.expected_probe_result:
         raise TargetError("target compatibility probe failed")
     return result
 

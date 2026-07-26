@@ -83,6 +83,7 @@ absolute gate.
 | Accept Mako 1.3.12 only as the first narrow Python compatibility derivative | The exact official wheel, dependency/runtime/source hashes, OS/Python delta, and both scanners passed on Horizon and Skyline | Broad private constraints fork; combining unrelated upgrades; promoting while High findings remain | 2026-07-26 |
 | Use one strict checked-in target manifest for all single-package overlay trials | One validated data contract preserves exact wheel identity and fail-closed delta checks without copying target-specific code | Free-form shell inputs; one script per package; runtime code from the manifest | 2026-07-27 |
 | Accept httplib2 0.32.0 only as the second independent compatibility derivative | Both surfaces preserved OS and non-target Python state while both scanners removed exactly CVE-2026-59939 | Combining it with Mako or other upgrades; changing production images before the matrix is complete | 2026-07-27 |
+| Accept urllib3 2.7.0 only as the third independent compatibility derivative | The official non-yanked wheel, no-network HTTPS pool probe, exact runtime delta, and both scanners passed on both surfaces | Treating an HTTP stack import alone as compatibility; combining accepted derivatives; immediate production adoption | 2026-07-27 |
 
 ## Tasks
 
@@ -93,6 +94,7 @@ absolute gate.
 - [x] Generalize the single-package target contract without weakening its
       wheel, runtime, lineage, or scanner gates.
 - [x] Run the independent httplib2 0.31.2 to 0.32.0 experiment.
+- [x] Run the independent urllib3 2.6.3 to 2.7.0 experiment.
 - [ ] Rescan viable derivatives, update the durable handoff, and publish each
       verified atomic milestone.
 
@@ -302,6 +304,41 @@ absolute gate.
   its PyPI wheel metadata and exact `CVE-2026-44431`/`CVE-2026-44432`
   expectations, then run the same independent ARM64 two-scanner matrix.
 
+### 2026-07-27 — urllib3 2.7.0 derivative accepted
+
+- Completed: Bound the official non-yanked PyPI wheel, SHA-256, Python 3.10+
+  metadata, optional dependency markers, and exact expected CVEs. Added a
+  bounded `urllib3-pool` probe that constructs and clears an HTTPS pool without
+  opening a network connection.
+- Compatibility: Both native ARM64 surfaces preserve the accepted cleanup OS
+  inventory and all non-target Python distribution version multisets.
+  `urllib3` alone changes from 2.6.3 to 2.7.0. `pip check`, HTTPS pool
+  construction, official source hashes, package-local bytecode boundaries,
+  Coffer UI runtime hashes, image lineage, and build-input absence pass.
+- Scan result: Horizon Trivy High changed 31 to 29 and Scout 34 to 32;
+  Skyline Trivy High changed 16 to 14 and Scout 19 to 17. Both scanners
+  removed exactly `CVE-2026-44431` and `CVE-2026-44432`, introduced zero
+  Critical/High finding, and Trivy found zero secrets.
+- Decision: `python_overlay_trial_accepted=true`, status `blocked`, and
+  `production_candidate=false`. The accepted result is specific to
+  `urllib3==2.7.0`; it is not cumulative with Mako or httplib2 and changes no
+  production Containerfile or constraints policy.
+- Evidence: Owner-only ignored result SHA-256
+  `c8c4d6c441c9ce7c6b03d567c84a398bff16a80ff50a6cc40f8f00480bd0311e`;
+  manifest `1dbb12e3ca36c760e272e25c09750635bc2bf8a5711825fe2d47f8c653ab48eb`,
+  images `7f3a5bae36e6ec234d9920e50baa491bfd1eb90a6a1b7259a36b9d97bd52c22f`,
+  OS inventories
+  `8e7fe70bc16543c09475f69c7c66557e97d991cac7b716a8491092e05d6677af`,
+  and runtimes
+  `e789429c0bc60bf921856f7783e7d3422dd58ff21779caa8615f5bfa45879172`.
+- Cleanup: Exact trial images, generated contexts, wheel copies, archives, and
+  scanner caches are absent. The harness-started Podman machine is stopped.
+  Non-secret evidence remains owner-only under ignored
+  `work/ui-python-overlay-trial-urllib3/evidence/`.
+- Next exact action: Bind only the official pure-Python PyJWT 2.13.0 wheel and
+  exact `CVE-2026-32597`/`CVE-2026-48526` expectations, add an offline
+  encode/decode probe, and run that target alone.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -319,6 +356,8 @@ absolute gate.
 | Mako milestone gates | Bash syntax, strict ShellCheck, Ruff E/F/I, compilation, UI image suite, full pytest, lock and diff checks | passed; 52 focused and 1,502 total tests |
 | Generic target and httplib2 experiment | native ARM64 exact wheel, OS/Python/UI runtime and two-scanner trial | passed for httplib2 only; production blocked at Horizon Trivy/Scout 30/33 High and Skyline 15/18 High |
 | httplib2 milestone gates | Bash syntax, strict ShellCheck, Ruff, compilation, UI image suite, full pytest, lock, secret, and diff checks | passed; 48 focused and 1,503 total tests with no staged leak |
+| urllib3 compatibility experiment | native ARM64 official wheel, OS/Python/UI runtime, HTTPS pool, and two-scanner trial | passed for urllib3 only; production blocked at Horizon Trivy/Scout 29/32 High and Skyline 14/17 High |
+| urllib3 milestone gates | JSON, Bash, strict ShellCheck, Ruff, compilation, UI image suite, full pytest, lock, secret, and diff checks | passed; 49 focused and 1,504 total tests with no staged leak |
 | Baseline milestone gates | full pytest, Ruff E/F/I, compilation, staged secret/diff | passed; 1,483 tests and no staged leak |
 | Final repository gates | dashboard packages, Kolla role, docs/links, secret, diff | pending with remediation experiment |
 
@@ -339,6 +378,9 @@ absolute gate.
 - httplib2 0.32.0 is accepted only as a separate compatibility derivative.
   It is not cumulative with Mako in the current evidence and does not authorize
   production adoption or another target.
+- urllib3 2.7.0 is accepted only as a separate compatibility derivative.
+  Its stronger pool probe is not live HTTP traffic, and the result does not
+  authorize a cumulative image or constraints override.
 - The derivative proves static Kolla metadata, package integrity, installed UI
   runtime files, input cleanup, parent availability, and scan behavior. A
   production adoption still needs the Python compatibility matrix and later
@@ -350,15 +392,15 @@ absolute gate.
 - Current state: Plan 0023 is active; plans 0019 and 0022 remain externally
   blocked. The inherited ARM64 classifier, deterministic baseline, stock
   dependency probe, post-Coffer OS cleanup trial, and narrow Mako compatibility
-  derivative, generic target contract, and independent httplib2 compatibility
-  derivative are complete locally with no waiver. The trials passed package,
-  runtime, lineage, and two-scanner delta gates but correctly remain blocked
-  by nonzero Critical/High findings. Raw/report evidence is non-secret and
-  remains owner-only under ignored `work/`.
-- Exact next action: Bind the official pure-Python `urllib3` 2.7.0 wheel and
-  its two expected CVEs in the target manifest, then run it alone.
-- First file or command: Inspect the official PyPI `urllib3` 2.7.0 JSON, add
-  one strict entry to `poc/ui-images/python_targets.json`, and add its bounded
-  Make target; do not modify production UI Containerfiles.
+  derivative, generic target contract, and independent httplib2/urllib3
+  compatibility derivatives are complete locally with no waiver. The trials
+  passed package, runtime, lineage, and two-scanner delta gates but correctly
+  remain blocked by nonzero Critical/High findings. Raw/report evidence is
+  non-secret and remains owner-only under ignored `work/`.
+- Exact next action: Bind the official pure-Python PyJWT 2.13.0 wheel and its
+  two expected CVEs in the target manifest, then run it alone.
+- First file or command: Inspect the official PyPI PyJWT 2.13.0 JSON, add one
+  strict entry and offline encode/decode probe, and add its bounded Make
+  target; do not modify production UI Containerfiles.
 - Questions requiring user input: None. No credential, external publication,
   live deployment, or waiver is required for the next local milestone.

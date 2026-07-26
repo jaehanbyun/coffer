@@ -36,7 +36,7 @@
   disabled-by-default immutable Horizon/Skyline image contracts and exact
   fallback lifecycle complete locally with 108 role checks; four desktop/narrow
   UI fixture screenshots visually inspected; current full Python regression
-  passes 1,503 tests and the prior Horizon/Skyline/108-check Kolla repository
+  passes 1,504 tests and the prior Horizon/Skyline/108-check Kolla repository
   gates remain complete
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
@@ -134,6 +134,23 @@ secrets. The owner-only result SHA-256 is
 and no production Containerfile or private constraints policy changed. Exact
 images, generated contexts, wheel copies, archives, and scanner caches are
 absent, and the harness-started Podman machine is stopped.
+
+The third independent native ARM64 derivative changes only `urllib3` 2.6.3
+to 2.7.0 using the official non-yanked PyPI wheel. Both surfaces retain the
+accepted cleanup OS inventory and all non-target Python distribution version
+multisets. `pip check`, no-network HTTPS pool construction, official source
+hashes, package-local bytecode boundaries, Coffer UI runtime hashes, lineage,
+and build-input absence pass.
+
+Horizon High findings changed from Trivy 31 to 29 and Scout 34 to 32; Skyline
+changed from Trivy 16 to 14 and Scout 19 to 17. Both scanners removed exactly
+`CVE-2026-44431` and `CVE-2026-44432`, introduced zero Critical/High finding,
+and Trivy found zero secrets. The owner-only result SHA-256 is
+`c8c4d6c441c9ce7c6b03d567c84a398bff16a80ff50a6cc40f8f00480bd0311e`.
+The result remains isolated and non-cumulative with
+`production_candidate=false`; no production Containerfile or constraints
+policy changed. Exact images, generated contexts, wheel copies, archives, and
+scanner caches are absent, and the harness-started Podman machine is stopped.
 
 Plan 0019 is externally blocked after converting every locally independent
 Stage 6 operation into a release-gated, checkpointed pilot harness. The latest
@@ -2997,13 +3014,13 @@ release contains it yet.
 
 ## Exact Next Action
 
-Run the final repository gates for the generic target and independent
-`httplib2` derivative, stage only that atomic package, then commit and push it
-under the verified `jaehanbyun` account. After publication, bind the official
-pure-Python `urllib3` 2.7.0 wheel and exact
-`CVE-2026-44431`/`CVE-2026-44432` expectations, then run that target alone.
-Do not alter production UI Containerfiles, combine upgrades, waive a finding,
-handle a Docker credential, or create a live cloud.
+Run the final repository gates for the independent `urllib3` derivative, stage
+only that atomic package, then commit and push it under the verified
+`jaehanbyun` account. After publication, bind the official pure-Python PyJWT
+2.13.0 wheel and exact `CVE-2026-32597`/`CVE-2026-48526` expectations, add an
+offline encode/decode probe, and run that target alone. Do not alter production
+UI Containerfiles, combine upgrades, waive a finding, handle a Docker
+credential, or create a live cloud.
 
 ## After This Work Package
 

@@ -190,9 +190,7 @@ def python_runtime(
             "version": version,
             "files": target_files,
             "probe": target.probe,
-            "probe_result": (
-                "coffer" if target.probe == "mako-render" else target.key
-            ),
+            "probe_result": target.expected_probe_result,
         },
         "pip_check": {
             "clean": True,
@@ -493,7 +491,7 @@ def build(evidence: Path, artifacts: dict[str, Any]) -> dict[str, object]:
     )
 
 
-@pytest.mark.parametrize("target_key", ["mako", "httplib2"])
+@pytest.mark.parametrize("target_key", ["mako", "httplib2", "urllib3"])
 def test_valid_overlay_is_accepted_but_remains_blocked(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -663,13 +661,17 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
     assert "TARGET_WHEEL_FILENAME" in containerfile
 
     targets = TARGET_MODULE.load_targets(TARGET_MANIFEST)
-    assert set(targets) == {"mako", "httplib2"}
+    assert set(targets) == {"mako", "httplib2", "urllib3"}
     assert targets["mako"].finding_ids == (
         "CVE-2026-41205",
         "CVE-2026-44307",
     )
     assert targets["httplib2"].wheel_sha256 == (
         "dc6705cacdf3fb0a2aba7629fa33c90fd93e30035db0c157325826be177e4816"
+    )
+    assert targets["urllib3"].finding_ids == (
+        "CVE-2026-44431",
+        "CVE-2026-44432",
     )
 
     runner = (

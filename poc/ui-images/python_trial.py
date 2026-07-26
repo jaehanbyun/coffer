@@ -498,14 +498,12 @@ def validate_python_runtimes(
             expected_version = (
                 target.from_version if kind == "before" else target.to_version
             )
-            expected_probe_result = (
-                "coffer" if target.probe == "mako-render" else target.key
-            )
             if (
                 target_runtime.get("name") != target.normalized_name
                 or target_runtime.get("version") != expected_version
                 or target_runtime.get("probe") != target.probe
-                or target_runtime.get("probe_result") != expected_probe_result
+                or target_runtime.get("probe_result")
+                != target.expected_probe_result
                 or runtime.get("absent") != expected_absent
             ):
                 raise EvidenceError(f"{surface} {kind} target runtime is invalid")

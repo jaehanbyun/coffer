@@ -159,6 +159,7 @@ derivative:
 ```console
 make -C poc/ui-images trial-python-overlay
 make -C poc/ui-images trial-python-httplib2
+make -C poc/ui-images trial-python-urllib3
 ```
 
 The checked-in `python_targets.json` manifest is the only target-selection
@@ -207,5 +208,20 @@ derivative. It remains `blocked` with `production_candidate=false`, changes no
 production Containerfile, and grants no broad constraints override. Owner-only
 evidence is retained under ignored
 `work/ui-python-overlay-trial-httplib2/evidence/`; generated images, contexts,
+wheel copies, archives, scanner caches, and the harness-started Podman machine
+are absent after exit.
+
+The 2026-07-27 native ARM64 trial independently accepted the `urllib3` 2.6.3
+to 2.7.0 derivative using the official non-yanked PyPI wheel. The compatibility
+probe constructs and clears an HTTPS connection pool without performing a
+network request. Horizon High findings changed from Trivy 31 to 29 and Scout
+34 to 32; Skyline changed from Trivy 16 to 14 and Scout 19 to 17. Both
+scanners removed exactly `CVE-2026-44431` and `CVE-2026-44432`, introduced no
+Critical/High finding, and Trivy found no secret.
+
+The result remains an isolated, non-cumulative compatibility derivative with
+`production_candidate=false`. It changes no production Containerfile or
+constraints policy. Owner-only evidence is retained under ignored
+`work/ui-python-overlay-trial-urllib3/evidence/`; generated images, contexts,
 wheel copies, archives, scanner caches, and the harness-started Podman machine
 are absent after exit.
