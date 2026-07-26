@@ -163,6 +163,14 @@ exact request consumed by `phase_evidence.py`. Observation counts and artifact
 metadata remain in their owner-only source files; only bounded aggregates and
 their provenance hashes advance.
 
+`collector/local_artifacts.py` implements the first two dedicated source
+collectors without network access. It scans only explicit owner-only files
+against fixed credential patterns and supplied one-way fingerprints, and
+sums only the explicit error field from canonical nonsynthetic pilot
+profile/fault results sharing one plan. The v2 artifact binds the exact input
+file set while retaining no raw value or path. This does not produce or imply
+Galera, RGW, quota, or reconciliation evidence.
+
 `runtime_manifest.py` maps every schedule entry and operation to the current
 runtime capability baseline. It binds a canonical owner-only compiled plan,
 qualified readiness file, exact client pins, checked-in runner source hashes,

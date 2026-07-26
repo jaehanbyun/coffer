@@ -275,13 +275,15 @@ summary to `coffer.load-telemetry-auxiliary-source-summary/v2`, which adds:
 - the SHA-256 of the exact collector source contract; and
 - the raw SHA-256 of the canonical owner-only source artifact.
 
-Each `coffer.load-telemetry-source-artifact/v1` contains one exact phase,
+Each `coffer.load-telemetry-source-artifact/v2` contains one exact phase,
 surface, source class, target hash, window hash, collector-source hash,
-positive bounded observation count, fixed aggregate, and self-hash. It cannot
-contain a raw URL, log, identity, credential, repository, claim, object, or
-other unbounded field. The acquisition configuration separately pins every
-artifact path, raw file hash, collector hash, target path/hash, phase, window,
-and acquisition source.
+input-set hash, positive bounded observation count, fixed aggregate, and
+self-hash. It cannot contain a raw URL, log, identity, credential, repository,
+claim, object, or other unbounded field. The acquisition configuration
+separately pins every artifact path, raw file hash, collector hash, target
+path/hash, phase, window, and acquisition source. Version 2 replaced the
+unexercised v1 contract before pilot use because v1 did not retain a binding
+to the files from which a collector calculated its aggregate.
 
 ```text
 uv run python poc/load-soak/collector/source_summaries.py source-hash
@@ -301,3 +303,47 @@ This seam does not fabricate artifacts or infer one subsystem from another.
 Secret scan/workload, Galera attempts, RGW/KMS/multipart, quota ledger, and
 reconciliation claims still require their correctly scoped read-only
 collectors.
+
+## Local secret and workload artifacts
+
+`local_artifacts.py` creates only the two auxiliary artifacts whose inputs
+already exist locally:
+
+- the Prometheus `secret_leaks` aggregate scans an explicit owner-only file
+  allowlist for four fixed credential patterns and optional supplied one-way
+  fingerprints; and
+- the HAProxy `unexpected_errors` aggregate sums that exact field from
+  canonical `coffer.load-profile-result/v1` and
+  `coffer.load-fault-result/v1` files.
+
+A supplied fingerprint contains only length, SHA-256, and a rolling prefilter.
+The rolling value finds candidate byte windows, but SHA-256 must also match
+before a hit is counted. The helper reads the exact bytes of one owner-only
+file without echoing them:
+
+```text
+uv run python poc/load-soak/collector/local_artifacts.py \
+  fingerprint /absolute/owner-only/value.bin
+```
+
+Compile one surface with:
+
+```text
+uv run python poc/load-soak/collector/local_artifacts.py source-hash
+uv run python poc/load-soak/collector/local_artifacts.py \
+  compile /absolute/owner-only/local-artifact-config.json \
+  /absolute/owner-only/source-artifact.json
+```
+
+All source files are regular, single-link, owner/mode-0600 files from an
+explicit canonical absolute path. The collector caps individual and total
+bytes, binds every raw file hash into `input_set_sha256`, and writes an atomic
+mode-0600 artifact under an owner/mode-0700 directory. Output retains only
+hashes, counts, phase, surface, source class, target, and window.
+
+Workload inputs must be nonsynthetic `pilot` results, use one plan hash, match
+the fixed operation/fault topology, and be canonical. This boundary does not
+claim that a local workload result is a native HAProxy metric; the surface
+name is the existing downstream slot for a workload-error aggregate. It has
+no network, SQL, exporter, subprocess, or remote adapter and never creates
+Galera, RGW, quota, or reconciliation facts.

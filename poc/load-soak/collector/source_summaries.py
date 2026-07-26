@@ -35,7 +35,7 @@ load_contract = phase_evidence.load_contract
 observability_contract = phase_evidence.observability_contract
 
 CONFIG_SCHEMA = "coffer.load-telemetry-source-summaries-config/v1"
-ARTIFACT_SCHEMA = "coffer.load-telemetry-source-artifact/v1"
+ARTIFACT_SCHEMA = "coffer.load-telemetry-source-artifact/v2"
 RESULT_SCHEMA = "coffer.load-telemetry-source-summaries-result/v1"
 SOURCE_RESULT_SCHEMA = "coffer.load-telemetry-source-summaries-source-result/v1"
 SOURCE_FILES = (
@@ -115,7 +115,11 @@ def _absolute_path(value: object, category: str) -> Path:
     ):
         raise SourceSummaryError(f"{category} is invalid")
     path = Path(value)
-    if not path.is_absolute() or str(path) != value:
+    if (
+        not path.is_absolute()
+        or str(path) != value
+        or os.path.normpath(value) != value
+    ):
         raise SourceSummaryError(f"{category} is not canonical")
     return path
 
@@ -146,6 +150,7 @@ def _artifact(
             "aggregate",
             "artifact_sha256",
             "collector_source_sha256",
+            "input_set_sha256",
             "observations",
             "phase",
             "schema",
@@ -171,6 +176,10 @@ def _artifact(
         or not 1 <= artifact["observations"] <= MAX_OBSERVATIONS
     ):
         raise SourceSummaryError(f"{surface} source artifact binding changed")
+    input_set_sha256 = _sha256(
+        artifact["input_set_sha256"],
+        f"{surface} input set hash",
+    )
     aggregate = phase_evidence._normalize_payload(
         surface,
         artifact["aggregate"],
@@ -179,6 +188,7 @@ def _artifact(
     unsigned = {
         "aggregate": aggregate,
         "collector_source_sha256": collector_source_sha256,
+        "input_set_sha256": input_set_sha256,
         "observations": artifact["observations"],
         "phase": phase,
         "schema": ARTIFACT_SCHEMA,

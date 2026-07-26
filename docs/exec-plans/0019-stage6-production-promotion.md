@@ -2116,7 +2116,7 @@ operator-local release.
   source SHA and canonical source-artifact file SHA; the summary hash binds
   both along with phase/window/surface/class and the bounded aggregate.
 - Dedicated artifact contract: Added
-  `coffer.load-telemetry-source-artifact/v1` with exact target, phase, window,
+  `coffer.load-telemetry-source-artifact/v2` with exact target, phase, window,
   source class, collector source, positive bounded observation count,
   aggregate, and self-hash. Extra/raw fields are impossible, and each
   descriptor independently pins the artifact path, file hash, and collector
@@ -2144,6 +2144,40 @@ operator-local release.
   HAProxy/workload-error artifact from exact profile/fault result files. Bind
   every input hash and phase/window/target, retain only counts, and do not
   synthesize Galera, RGW, quota, or reconciliation artifacts.
+
+### 2026-07-26 — Local secret/workload artifact collectors completed
+
+- Provenance correction: Promoted the unused source-artifact contract to v2
+  before pilot collection. Every artifact now binds a canonical
+  `input_set_sha256`; the existing source-summary v2 file hash carries that
+  binding into the compiler chain without retaining raw paths or values.
+- Secret scan: Added a bounded owner-only file collector for four fixed
+  credential patterns and supplied one-way descriptors. A rolling 64-bit
+  value is only a candidate prefilter; an exact SHA-256 match is required
+  before a supplied fingerprint is counted. The fingerprint helper never
+  emits its input bytes.
+- Workload errors: Added exact validators for canonical nonsynthetic
+  `coffer.load-profile-result/v1` and `coffer.load-fault-result/v1` files.
+  Inputs must match the fixed load topology and one plan hash. Nonzero error
+  values remain nonzero; the independent phase verifier decides promotion.
+- Safety and honesty: All paths are canonical absolute paths. Input files are
+  bounded regular single-link owner/mode-0600 files, output is atomic
+  mode-0600 under an owner/mode-0700 directory, aliases and drift fail closed,
+  and only hashes/counts survive. The collector has no network, SQL, exporter,
+  subprocess, credential delivery, or remote adapter and does not synthesize
+  Galera, RGW, quota, or reconciliation artifacts.
+- Evidence: Fifty-one local collector tests pass; the local/acquisition/
+  compiler/server focused matrix passes 188, the broad load matrix passes
+  479, and full regression and collection both report 1104. No real secret,
+  workload result, source artifact, SQL/RGW/log/exporter endpoint, container,
+  VM, or remote state was read or changed.
+- Next exact action: Create
+  `docs/research/stage6-control-evidence-sources.md` by tracing each required
+  quota and reconciliation auxiliary field to its exact current SQL,
+  application metric, or missing source. Fix a read-only snapshot boundary
+  only for directly supported fields before implementing
+  `poc/load-soak/collector/control_artifacts.py`; do not fill missing fields
+  from unrelated counters.
 
 ## Verification
 
@@ -2285,6 +2319,10 @@ operator-local release.
 | Acquisition/compiler/server focused pipeline | source summaries, phase evidence, and evidence server tests | passed; 136 |
 | Broad load matrix after source-summary acquisition | `uv run pytest -q tests/test_load_*.py` | passed; 427 |
 | Full regression after source-summary acquisition | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1052 |
+| Local secret/workload artifact collectors | `uv run pytest -q tests/test_load_local_artifacts.py` | passed; 51 |
+| Local/acquisition/compiler/server focused pipeline | local artifacts, source summaries, phase evidence, and evidence server tests | passed; 188 |
+| Broad load matrix after local artifacts | `uv run pytest -q tests/test_load_*.py` | passed; 479 |
+| Full regression after local artifacts | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1104 |
 
 ## Failures, Blockers, and Risks
 
@@ -2324,13 +2362,13 @@ operator-local release.
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
-- Exact next action: Add
-  `poc/load-soak/collector/local_artifacts.py` for only semantically valid
-  local inputs. Compile the Prometheus secret-scan artifact from a bounded
-  owner-only file allowlist and supplied secret fingerprints, and the
-  HAProxy/workload-error artifact from exact profile/fault results. Bind all
-  input hashes plus phase/window/target, retain only counts, and do not
-  synthesize Galera, RGW, quota, or reconciliation artifacts.
+- Exact next action: Create
+  `docs/research/stage6-control-evidence-sources.md` and trace every quota and
+  reconciliation auxiliary field to an exact SQL/application metric source
+  or mark it missing. Define one read-only snapshot contract only for directly
+  supported fields before implementing
+  `poc/load-soak/collector/control_artifacts.py`; do not infer absent facts
+  from unrelated counters.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

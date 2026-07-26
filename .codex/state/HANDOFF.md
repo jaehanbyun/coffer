@@ -10,9 +10,9 @@
   complete; owner-only telemetry collection boundary, native
   Prometheus/exporter parser seam, versioned native target, and exact-schema
   collector dispatch complete; no-network disposable-pilot target renderer
-  and phase-bound auxiliary evidence compiler plus private TLS evidence server
-  and source-summary acquisition seam complete; local secret/workload artifact
-  collectors next
+  and phase-bound auxiliary evidence compiler plus private TLS evidence server,
+  source-summary acquisition, and local secret/workload artifact collectors
+  complete; quota/reconciliation source mapping next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -648,6 +648,17 @@ release contains it yet.
   window/source/file/self-hash drift, invalid observations, and payload drift
   fail closed. No source artifact was collected and no SQL, RGW, log,
   credential, endpoint, container, VM, or remote state changed.
+- Promoted the unused source-artifact contract to v2 before pilot use so every
+  aggregate binds its exact input-file set. Added owner-only local collectors
+  for fixed/supplied-fingerprint credential scanning and exact nonsynthetic
+  profile/fault workload-error aggregation. They retain only hashes and
+  counts, require one plan hash, and cannot emit Galera, RGW, quota, or
+  reconciliation facts.
+- Fifty-one local collector tests and the 188-test local/acquisition/compiler/
+  server matrix pass; the broad load matrix passes 479, and full regression
+  and collection both report 1104. No real secret, workload result, source
+  artifact, SQL/RGW/log/exporter endpoint, container, VM, or remote state was
+  read or changed.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2455,12 +2466,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/load-soak/collector/local_artifacts.py` for only semantically valid
-local inputs. Compile the Prometheus secret-scan artifact from a bounded
-owner-only file allowlist and supplied secret fingerprints, and the
-HAProxy/workload-error artifact from exact profile/fault results. Bind every
-input hash plus phase/window/target, retain only counts, and do not synthesize
-Galera, RGW, quota, or reconciliation artifacts.
+Create `docs/research/stage6-control-evidence-sources.md` and trace each quota
+and reconciliation auxiliary field to its exact current SQL/application
+metric source or mark it missing. Define a read-only snapshot contract only
+for directly supported fields before implementing
+`poc/load-soak/collector/control_artifacts.py`; do not infer absent facts from
+unrelated counters.
 
 ## After This Work Package
 

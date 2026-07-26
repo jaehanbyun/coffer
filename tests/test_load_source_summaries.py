@@ -153,6 +153,7 @@ def source_artifact(
     artifact = {
         "aggregate": aggregate,
         "collector_source_sha256": COLLECTOR_HASHES[surface],
+        "input_set_sha256": f"sha256:{int(surface == 'prometheus') + 8:064x}",
         "observations": 10,
         "phase": phase,
         "schema": ACQUISITION.ARTIFACT_SCHEMA,
@@ -229,6 +230,7 @@ def test_acquisition_compiles_artifacts_into_v2_summaries(
         )
         assert "observations" not in summary
         assert "artifact_sha256" not in summary
+        assert "input_set_sha256" not in summary
         unsigned = {
             key: value
             for key, value in summary.items()
@@ -358,6 +360,7 @@ def test_acquisition_preserves_bounded_failure_aggregates() -> None:
         "descriptor-file-hash",
         "artifact-schema",
         "artifact-extra",
+        "artifact-input-set-hash",
         "artifact-phase",
         "artifact-window",
         "artifact-surface",
@@ -403,6 +406,8 @@ def test_acquisition_refuses_config_descriptor_and_artifact_drift(
             artifact["schema"] = "unknown"
         elif mutation == "artifact-extra":
             artifact["project_id"] = "forbidden"
+        elif mutation == "artifact-input-set-hash":
+            artifact["input_set_sha256"] = "sha256:bad"
         elif mutation == "artifact-phase":
             artifact["phase"] = "during"
         elif mutation == "artifact-window":
