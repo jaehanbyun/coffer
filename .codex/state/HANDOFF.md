@@ -2633,6 +2633,21 @@ release contains it yet.
   load/observability matrix passes 855 tests and the full regression passes
   1400. No Kolla, service restart, credential, endpoint, S3, KMS, Barbican,
   container, VM, or remote state changed.
+- Added the bounded concrete command implementation of the external fault
+  controller. Exactly six apply/recover/observe commands bind owner-only
+  hashed mode-0500/0700 executables and short argv; no shell command string is
+  accepted.
+- Children run in a new process group with closed stdin, minimal non-secret
+  environment, bounded output/deadline, and group termination on timeout or
+  overflow. Nonzero exit or any stderr has one fixed failure; raw output is
+  never retained. Only canonical self-hashed exact-field observations are
+  accepted.
+- Twenty-two controller tests include qualified fault-adapter and full
+  53-action composition, all command/config/output failure boundaries, and
+  timeout termination. The load/observability matrix passes 877 tests and the
+  full regression passes 1422. Only local owner-only helpers ran; no Kolla,
+  service restart, credential, endpoint, S3, KMS, Barbican, container, VM, or
+  remote state changed.
 
 ## Blockers and Risks
 
@@ -2667,11 +2682,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Implement and locally prove the bounded concrete fault command controller for
-wrong-key/KMS-outage apply/recover/observe. It must use fixed owner-only
-executable descriptors, no shell expansion, a minimal environment,
-timeout/process-group termination, canonical self-hashed observations, and no
-secret-bearing output. Remote invocation remains release-gated.
+Add one owner-only live invocation request and CLI that loads the qualified
+schedule, rendered deployment inputs, bounded command controller, and
+composite adapter. Prove blocked readiness fails before controller, boto3, or
+credential-environment access and qualified fixtures complete. Keep the CLI
+uninvoked against remote infrastructure until stable releases qualify.
 
 ## After This Work Package
 

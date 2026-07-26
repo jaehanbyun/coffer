@@ -2674,6 +2674,40 @@ operator-local release.
   observations, and no secret-bearing output. Remote invocation remains
   release-gated.
 
+### 2026-07-26 — Bounded concrete fault command controller completed locally
+
+- Executable boundary: One owner-only config names exactly the six
+  apply/recover/observe commands. Each binds an absolute current-owner
+  single-link regular executable, exact payload hash, mode 0500/0700, and
+  short fixed argv. It never accepts a shell command string.
+- Process boundary: The controller starts a new process group with closed
+  stdin and a minimal non-secret environment containing only
+  fault/state/evidence hash/operation plus locale and fixed PATH. Shell
+  metacharacters and secret-bearing argument forms are refused.
+- Failure boundary: Stdout/stderr are drained with a 32-KiB cap and bounded
+  deadline. Timeout or overflow terminates the process group. Nonzero exit or
+  any stderr fails with a fixed secret-safe category; raw child output is not
+  retained.
+- Observation contract: Success requires one canonical self-hashed dataclass
+  observation bound to exact fault/state/evidence and ordered timestamps.
+  Only read-only observe may return the separate canonical absent schema.
+  Structurally identical exact-field dataclasses cross the dynamically loaded
+  controller/adapter seam; mappings or extra/missing fields remain refused.
+- Evidence: Twenty-two controller tests cover both faults, all operations,
+  qualified fault-adapter and full 53-action composition, executable/config/
+  argv drift, malformed/tampered/oversized output, stderr, nonzero exit,
+  timeout termination, request drift, and the source-only CLI. The
+  load/observability matrix passes 877 tests and the full Python regression
+  passes 1422. Commands use local owner-only test helpers only; no Kolla,
+  service restart, credential, endpoint, S3, KMS, Barbican, container, VM, or
+  remote state changed.
+- Next exact action: Add one owner-only live invocation request and CLI that
+  loads the qualified schedule, rendered deployment inputs, bounded command
+  controller, and composite adapter. Prove blocked readiness fails before
+  controller/boto3/environment access and qualified fixtures complete. Keep
+  the CLI uninvoked against remote infrastructure until stable releases
+  qualify.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2870,6 +2904,10 @@ operator-local release.
 | Renderer through complete pilot adapter | `uv run pytest -q tests/test_load_pilot_inputs.py tests/test_load_pilot_actions.py` | passed; 27 |
 | Post-input-renderer load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 855 |
 | Post-input-renderer full Python regression | `uv run pytest -q` | passed; 1400 |
+| Bounded fault command controller | `uv run pytest -q tests/test_load_pilot_fault_controller.py` | passed; 22 |
+| Command controller plus external-fault adapter | `uv run pytest -q tests/test_load_pilot_fault_controller.py tests/test_load_pilot_fault_actions.py` | passed; 42 |
+| Post-command-controller load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 877 |
+| Post-command-controller full Python regression | `uv run pytest -q` | passed; 1422 |
 | Control SQL/migration/reconciliation focused matrix | quota, reconciliation, migration, bootstrap, maintenance, and runner tests | passed; 183 |
 | Full regression after control SQL evidence | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1126 |
 
@@ -2911,12 +2949,12 @@ operator-local release.
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
-- Exact next action: Implement and locally prove the bounded concrete fault
-  command controller for wrong-key/KMS-outage apply/recover/observe. It must
-  use fixed owner-only executable descriptors, no shell expansion, a minimal
-  environment, timeout/process-group termination, canonical self-hashed
-  observations, and no secret-bearing output. Remote invocation remains
-  release-gated.
+- Exact next action: Add one owner-only live invocation request and CLI that
+  loads the qualified schedule, rendered deployment inputs, bounded command
+  controller, and composite adapter. Prove blocked readiness fails before
+  controller/boto3/environment access and qualified fixtures complete. Keep
+  the CLI uninvoked against remote infrastructure until stable releases
+  qualify.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

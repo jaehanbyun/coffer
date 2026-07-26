@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, is_dataclass
 import hashlib
 import importlib.util
 import json
@@ -169,7 +169,18 @@ def _observation(
     fault: str,
     state: str,
 ) -> FaultObservation:
-    if not isinstance(value, FaultObservation):
+    expected_fields = {
+        "completed_at_seconds",
+        "evidence_sha256",
+        "fault",
+        "started_at_seconds",
+        "state",
+    }
+    if (
+        not is_dataclass(value)
+        or isinstance(value, type)
+        or {field.name for field in fields(value)} != expected_fields
+    ):
         raise PilotFaultActionError("fault-controller observation changed")
     started = rgw_live_adapter._number(
         value.started_at_seconds,

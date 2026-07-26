@@ -672,6 +672,33 @@ window/evidence/state tamper, missing phase, readiness refusal, retention, and
 the source-only CLI. Tests use a fake controller; no Kolla, RGW, Barbican, KMS,
 service restart, credential, VM, or remote state changed.
 
+`pilot_fault_controller.py` is the concrete bounded command implementation of
+that seam:
+
+```text
+uv run python \
+  poc/load-soak/collector/pilot_fault_controller.py source-hash
+```
+
+Its owner-only configuration names exactly six apply/recover/observe commands.
+Every command binds an absolute current-owner executable, payload hash,
+single-link regular file, and mode 0500/0700 plus a short fixed argv. Shell
+metacharacters and password/secret/token/credential argument forms are
+refused. The process receives only a minimal environment containing the
+fault, desired state, evidence hash, operation, locale, and fixed PATH; stdin
+is closed and no shell is involved.
+
+Stdout/stderr are read with a fixed byte cap and deadline from a new process
+group. Timeout or excess output kills that group. Nonzero exit or any stderr
+fails with a fixed category. Success requires one canonical self-hashed
+observation bound to the requested fault/state/evidence; only observe may
+return the separate canonical absent schema. Raw child output is never
+retained. Twenty-two tests cover both faults, apply/recover/observe, the
+qualified fault adapter and complete 53-action composition, minimal
+environment, executable/config/argv drift, malformed/tampered/oversized
+output, stderr, nonzero exit, timeout termination, request drift, and the
+source-only CLI.
+
 `pilot_phase_actions.py` materializes the final three actions in every phase
 and exposes only a source-hash command:
 

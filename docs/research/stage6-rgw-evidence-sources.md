@@ -242,9 +242,8 @@ state is used.
 
 ## Exact Next Action
 
-Implement and locally prove the bounded concrete fault command controller
-required by the completed 53-action adapter. Use fixed owner-only executable
-descriptors, no shell expansion, a minimal environment, bounded process-group
-termination, and canonical self-hashed observations. Keep remote invocation
-disabled while the selected released Distribution/Ceph inputs remain
-unqualified.
+Add one owner-only live invocation request and CLI that loads the qualified
+schedule, rendered deployment inputs, bounded command controller, and
+composite adapter. Prove blocked readiness fails before controller, boto3, or
+credential-environment access and qualified fixtures complete. Keep the CLI
+uninvoked remotely while selected stable releases remain unqualified.
