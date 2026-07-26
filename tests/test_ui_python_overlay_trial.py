@@ -507,7 +507,7 @@ def build(evidence: Path, artifacts: dict[str, Any]) -> dict[str, object]:
 
 @pytest.mark.parametrize(
     "target_key",
-    ["django", "mako", "httplib2", "pyjwt", "urllib3"],
+    ["click", "django", "mako", "httplib2", "pyjwt", "urllib3"],
 )
 def test_valid_overlay_is_accepted_but_remains_blocked(
     tmp_path: Path,
@@ -743,6 +743,7 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
 
     targets = TARGET_MODULE.load_targets(TARGET_MANIFEST)
     assert set(targets) == {
+        "click",
         "django",
         "mako",
         "httplib2",
@@ -750,6 +751,16 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
         "urllib3",
     }
     assert targets["django"].surfaces == ("horizon",)
+    assert targets["click"].scanner_finding_ids == {
+        "trivy": [],
+        "scout": ["CVE-2026-7246"],
+    }
+    assert targets["click"].requires_dist == (
+        'colorama; platform_system == "Windows"',
+    )
+    assert targets["click"].wheel_sha256 == (
+        "a2bf429bb3033c89fa4936ffb35d5cb471e3719e1f3c8a7c3fff0b8314305613"
+    )
     assert targets["django"].finding_ids == (
         "CVE-2026-25673",
         "CVE-2026-33034",

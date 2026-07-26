@@ -19,6 +19,7 @@ URL = re.compile(r"^https://files\.pythonhosted\.org/packages/[A-Za-z0-9/_.+-]+$
 PREFIX = re.compile(r"^[a-z][a-z0-9_]*/$")
 LABEL = re.compile(r"^coffer-ui-python-[a-z0-9.-]+-v1$")
 PROBES = {
+    "click-cli",
     "django-template",
     "mako-render",
     "module-import",
@@ -85,7 +86,12 @@ class Target:
 
     @property
     def expected_probe_result(self) -> str:
-        if self.probe in {"django-template", "mako-render", "pyjwt-hs256"}:
+        if self.probe in {
+            "click-cli",
+            "django-template",
+            "mako-render",
+            "pyjwt-hs256",
+        }:
             return "coffer"
         if self.probe == "urllib3-pool":
             return "https://registry.example"
@@ -217,7 +223,19 @@ def load_target(path: Path, key: str) -> Target:
 
 def probe_target(target: Target) -> str:
     module = importlib.import_module(target.module_name)
-    if target.probe == "django-template":
+    if target.probe == "click-cli":
+        runner_type = importlib.import_module("click.testing").CliRunner
+
+        @module.command()
+        @module.option("--value", required=True)
+        def command(value: str) -> None:
+            module.echo(value)
+
+        invocation = runner_type().invoke(command, ["--value", "coffer"])
+        if invocation.exit_code != 0 or invocation.exception is not None:
+            raise TargetError("Click CLI invocation failed")
+        result = invocation.output.strip()
+    elif target.probe == "django-template":
         settings = importlib.import_module("django.conf").settings
         if settings.configured:
             raise TargetError("Django settings are already configured")

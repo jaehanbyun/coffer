@@ -1,7 +1,8 @@
 REPO_ROOT := $(abspath $(CURDIR)/../..)
 
-.PHONY: probe-parents qualify trial-os-cleanup trial-python-django trial-python-httplib2 \
-	trial-python-overlay trial-python-pyjwt trial-python-urllib3 verify
+.PHONY: probe-parents qualify trial-os-cleanup trial-python-click \
+	trial-python-django trial-python-httplib2 trial-python-overlay \
+	trial-python-pyjwt trial-python-urllib3 verify
 
 verify:
 	cd "$(REPO_ROOT)" && uv run pytest -q tests/test_ui_image_qualification.py \
@@ -17,6 +18,9 @@ trial-os-cleanup:
 
 trial-python-overlay:
 	./trial_python_overlay.sh mako
+
+trial-python-click:
+	./trial_python_overlay.sh click
 
 trial-python-django:
 	./trial_python_overlay.sh django

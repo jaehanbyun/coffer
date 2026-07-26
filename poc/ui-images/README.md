@@ -158,6 +158,7 @@ derivative:
 
 ```console
 make -C poc/ui-images trial-python-overlay
+make -C poc/ui-images trial-python-click
 make -C poc/ui-images trial-python-django
 make -C poc/ui-images trial-python-httplib2
 make -C poc/ui-images trial-python-urllib3
@@ -271,3 +272,21 @@ constraints policy. Owner-only evidence is retained under ignored
 `work/ui-python-overlay-trial-django/evidence/`; generated images, contexts,
 wheel copies, archives, scanner caches, and the harness-started Podman machine
 are absent after exit.
+
+The 2026-07-27 native ARM64 trial independently accepted the two-surface
+`click` 8.3.1 to 8.3.3 derivative using the official non-yanked PyPI wheel.
+The offline compatibility probe invokes a real Click command through
+`CliRunner`. Both surfaces preserve the accepted cleanup OS inventory and
+every non-target Python distribution version multiset; `pip check`, official
+source hashes, package-local bytecode boundaries, Coffer UI runtime hashes,
+lineage, and build-input absence pass.
+
+Trivy did not report the Click finding and remained unchanged at Horizon 31
+High and Skyline 16 High. Docker Scout alone removed exactly
+`CVE-2026-7246`, changing Horizon from 34 to 33 High and Skyline from 19 to 18
+High. Neither scanner introduced a Critical/High finding, and Trivy found no
+secret. The result remains isolated with `production_candidate=false` and
+changes no production Containerfile or constraints policy. Owner-only evidence
+is retained under ignored `work/ui-python-overlay-trial-click/evidence/`;
+generated images, contexts, wheel copies, archives, scanner caches, and the
+harness-started Podman machine are absent after exit.

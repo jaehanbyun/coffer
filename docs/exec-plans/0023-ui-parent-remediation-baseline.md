@@ -88,6 +88,7 @@ absolute gate.
 | Bind every target to its actual installed UI surfaces | Django exists in Horizon but not Skyline; an implicit two-surface trial would add an unrelated package and fabricate a Skyline remediation | Installing every target into both images; accepting missing baseline findings; free-form runtime surface inputs | 2026-07-27 |
 | Accept Django 4.2.30 only as the Horizon-scoped fifth compatibility derivative | The official non-yanked wheel, offline framework setup/template probe, exact runtime delta, and both scanners passed on its one installed surface | Installing Django in Skyline; treating an import alone as framework compatibility; changing the production image | 2026-07-27 |
 | Model expected findings per scanner while preserving their nonempty union | Click is reported by Scout but not Trivy; exact scanner-local sets preserve fail-closed delta checks without fabricating a Trivy finding | Requiring a fabricated common set; accepting arbitrary removals; dropping either scanner; waiving a finding | 2026-07-27 |
+| Accept Click 8.3.3 only as the sixth independent compatibility derivative | Official wheel identity, offline CLI invocation, exact runtime delta, unchanged Trivy set, and exact Scout-only CVE removal passed on both surfaces | Fabricating a Trivy finding; combining upgrades; changing production images while High findings remain | 2026-07-27 |
 
 ## Tasks
 
@@ -105,6 +106,7 @@ absolute gate.
 - [x] Run the Horizon-only Django 4.2.28 to 4.2.30 experiment.
 - [x] Make scanner-specific expected finding identities explicit without
       weakening exact delta, introduced-finding, secret, or absolute gates.
+- [x] Run the independent Click 8.3.1 to 8.3.3 experiment.
 - [ ] Rescan viable derivatives, update the durable handoff, and publish each
       verified atomic milestone.
 
@@ -460,6 +462,41 @@ absolute gate.
   Scout-only `CVE-2026-7246` expectation, add a bounded offline CLI invocation
   probe, and run that target alone on both native ARM64 UI surfaces.
 
+### 2026-07-27 — Click 8.3.3 derivative accepted
+
+- Completed: Bound the official non-yanked PyPI wheel, SHA-256, Python 3.10+
+  metadata, Windows-only optional dependency marker, both installed surfaces,
+  and Scout-only expected CVE. Added an offline `click-cli` probe that invokes
+  a real command through `CliRunner`.
+- Compatibility: Both native ARM64 derivatives preserve the accepted cleanup
+  OS inventory and every non-target Python distribution version multiset.
+  Click alone changes from 8.3.1 to 8.3.3. `pip check`, CLI invocation,
+  official source hashes, package-local bytecode boundaries, Coffer UI runtime
+  hashes, image lineage, and build-input absence pass.
+- Scan result: Trivy remains unchanged at Horizon 31 and Skyline 16 High.
+  Scout removes exactly `CVE-2026-7246`, changing Horizon 34 to 33 and Skyline
+  19 to 18 High. Both scanners introduce zero Critical/High finding, and Trivy
+  finds zero secrets.
+- Decision: `python_overlay_trial_accepted=true`, status `blocked`, and
+  `production_candidate=false`. The accepted result is specific to
+  `click==8.3.3`; it is not cumulative with another derivative and changes no
+  production Containerfile or constraints policy.
+- Evidence: Owner-only ignored result SHA-256
+  `d81fab9acf6234c9f7d87eb06ec150530565abf63bbe95e5a2c9473b78661dbe`;
+  manifest `0384d9663f58accfad57dca3c87fb66a66a67d64086f583707a12321b4a7aa07`,
+  images `fac06b79e4561486c5c63b835b01536f960af5c8997cf0846479db9d33f365a6`,
+  OS inventories
+  `8e7fe70bc16543c09475f69c7c66557e97d991cac7b716a8491092e05d6677af`,
+  and runtimes
+  `06962bc8d4a127d4da6fe5aeb0bf667251bf4d6c5ac6eae9277f29c3156c3d05`.
+- Cleanup: Exact trial images, generated contexts, wheel copies, archives, and
+  scanner caches are absent. The harness-started Podman machine is stopped.
+  Non-secret evidence remains owner-only under ignored
+  `work/ui-python-overlay-trial-click/evidence/`.
+- Next exact action: Extend the strict finding identifier grammar to accept
+  canonical `GHSA-xxxx-xxxx-xxxx` identities, preserve the same scanner-local
+  and remediation-union gates, then evaluate msgpack 1.2.1 independently.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -485,6 +522,8 @@ absolute gate.
 | Django compatibility experiment | native ARM64 Horizon official wheel, OS/Python/UI runtime, framework setup/template probe, and two-scanner trial | passed for Horizon Django only; production blocked at Trivy/Scout 28/31 High |
 | Django milestone gates | JSON, Bash, strict ShellCheck, Ruff, compilation, UI image suite, full pytest, lock, secret, and diff checks | passed; 52 focused and 1,507 total tests with no staged leak |
 | Scanner-specific finding contract | strict v2 target/evidence schemas, equal and empty scanner-local sets, malformed contract and unexpected-delta fixtures | passed; 58 focused and 1,513 total tests |
+| Click compatibility experiment | native ARM64 official wheel, exact OS/Python/UI runtime, offline CLI invocation, and scanner-specific two-scanner trial | passed for Click only; production blocked at Horizon Trivy/Scout 31/33 High and Skyline 16/18 High |
+| Click milestone gates | JSON, Bash, strict ShellCheck, Ruff, compilation, UI image suite, full pytest, lock, secret, and diff checks | passed; 59 focused and 1,514 total tests |
 | Baseline milestone gates | full pytest, Ruff E/F/I, compilation, staged secret/diff | passed; 1,483 tests and no staged leak |
 | Final repository gates | dashboard packages, Kolla role, docs/links, secret, diff | pending with remediation experiment |
 
@@ -520,6 +559,9 @@ absolute gate.
 - Django 4.2.30 is accepted only as a Horizon-scoped derivative. The framework
   smoke probe does not replace live Horizon/Kolla startup, reconfigure,
   upgrade, rollback, or browser acceptance after Stage 6 release gates close.
+- Click 8.3.3 is accepted only as a separate two-surface derivative. A
+  scanner-local empty expected set records absent Trivy coverage; it does not
+  waive the Scout CVE or weaken either scanner's remaining absolute gate.
 - The derivative proves static Kolla metadata, package integrity, installed UI
   runtime files, input cleanup, parent availability, and scan behavior. A
   production adoption still needs the Python compatibility matrix and later
@@ -533,15 +575,16 @@ absolute gate.
   dependency probe, post-Coffer OS cleanup trial, and narrow Mako compatibility
   derivative, generic target contract, and independent httplib2/urllib3
   and PyJWT compatibility derivatives, exact target-surface selection, the
-  Horizon-only Django derivative, and scanner-specific finding identities are
-  complete locally with no waiver. The trials passed package, runtime,
-  lineage, and two-scanner delta gates but correctly remain blocked by
-  nonzero Critical/High findings. Raw/report evidence is non-secret and
-  remains owner-only under ignored `work/`.
-- Exact next action: Evaluate Click 8.3.3 as a pure-Python two-surface
-  Scout-only derivative.
-- First file or command: Fetch and bind only the official Click 8.3.3 PyPI
-  JSON/wheel metadata in `poc/ui-images/python_targets.json`, then add an
-  offline CLI invocation probe; do not modify production UI Containerfiles.
+  Horizon-only Django derivative, scanner-specific finding identities, and the
+  independent Click derivative are complete locally with no waiver. The
+  trials passed package, runtime, lineage, and two-scanner delta gates but
+  correctly remain blocked by nonzero Critical/High findings. Raw/report
+  evidence is non-secret and remains owner-only under ignored `work/`.
+- Exact next action: Admit canonical GHSA identifiers without weakening the
+  strict finding contract, then evaluate msgpack 1.2.1 independently.
+- First file or command: Extend `FINDING` in
+  `poc/ui-images/python_target.py` to accept only canonical CVE or GHSA
+  identities and add rejection fixtures before adding a msgpack target; do not
+  modify production UI Containerfiles.
 - Questions requiring user input: None. No credential, external publication,
   live deployment, or waiver is required for the next local milestone.
