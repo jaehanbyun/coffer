@@ -152,3 +152,34 @@ close. It does not approve a private OpenStack constraints fork, a CVE waiver,
 an image publication, or a production deployment. Exit `3` remains the
 expected successful result while the cleaned images have nonzero
 Critical/High findings.
+
+Test one constraint-bound Python fix at a time on top of the accepted cleanup
+derivative:
+
+```console
+make -C poc/ui-images trial-python-overlay
+```
+
+The first fixed trial installs only the official Mako 1.3.12 wheel with its
+exact SHA-256, `--no-index`, `--no-deps`, and `--force-reinstall`. It requires
+the OS package inventory to remain byte-for-byte equivalent to the accepted
+cleanup result, preserves every installed Python distribution version
+including duplicate development/install metadata, and permits no Python
+package delta except Mako 1.3.10 to 1.3.12. `pip check`, a real Mako render,
+installed wheel source hashes, Horizon/Skyline Coffer runtime hashes, image
+lineage, input removal, and the two-scanner/secret gates are all mandatory.
+
+The 2026-07-26 native ARM64 trial accepted that narrow compatibility
+derivative. Horizon High findings changed from Trivy 31 to 29 and Scout 34 to
+32; Skyline changed from Trivy 16 to 14 and Scout 19 to 17. Both scanners
+removed exactly `CVE-2026-41205` and `CVE-2026-44307`, introduced no
+Critical/High finding, and Trivy found no secret.
+
+The result remains `blocked` with `production_candidate=false`. It does not
+modify the production UI Containerfiles, adopt a private global-constraints
+override, approve another Python upgrade, or close the native AMD64,
+Distribution, Ceph, signing, publication, or live deployment gates.
+Owner-only evidence is retained under the ignored
+`work/ui-python-overlay-trial-mako/evidence/` path; generated images, contexts,
+wheel copies, archives, scanner caches, and a harness-started Podman machine
+are removed on exit.

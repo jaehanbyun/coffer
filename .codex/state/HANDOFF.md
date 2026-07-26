@@ -36,7 +36,7 @@
   disabled-by-default immutable Horizon/Skyline image contracts and exact
   fallback lifecycle complete locally with 108 role checks; four desktop/narrow
   UI fixture screenshots visually inspected; current full Python regression
-  passes 1,496 tests and the prior Horizon/Skyline/108-check Kolla repository
+  passes 1,502 tests and the prior Horizon/Skyline/108-check Kolla repository
   gates remain complete
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
@@ -97,6 +97,24 @@ absent; the retained Podman machine is stopped. The exact next action is the
 smallest fixture-first Python constraints compatibility derivative with
 dependency resolution, UI build/runtime, rollback-parent, exact delta, and the
 same two-scanner absolute gate.
+
+That first Python derivative is now complete for only Mako 1.3.12. Both native
+ARM64 surfaces retain the exact accepted OS cleanup inventory, and installed
+Python distribution version multisets change only from Mako 1.3.10 to 1.3.12.
+`pip check`, Mako rendering, exact wheel source hashes, package-local generated
+bytecode boundaries, Coffer UI runtime hashes, image lineage, and build-input
+absence pass.
+
+Horizon High findings changed from Trivy 31 to 29 and Scout 34 to 32; Skyline
+changed from Trivy 16 to 14 and Scout 19 to 17. Both scanners removed exactly
+`CVE-2026-41205` and `CVE-2026-44307`, introduced zero Critical/High finding,
+and Trivy found zero secrets. The owner-only result SHA-256 is
+`ca4e5aab6fdd37105aa9107f441a29734d7e9f29ef011c338e151418eda3338a`.
+`python_overlay_trial_accepted=true`, but status remains `blocked` and
+`production_candidate=false`; no private constraints override or production
+Containerfile change is accepted. Exact images, contexts, wheel copies,
+archives, and scanner caches are absent, and the retained Podman machine is
+stopped.
 
 Plan 0019 is externally blocked after converting every locally independent
 Stage 6 operation into a release-gated, checkpointed pilot harness. The latest
@@ -2960,12 +2978,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Run the final repository gates for the post-Coffer OS cleanup trial, stage only
-that atomic package, then commit and push it under the verified `jaehanbyun`
-account. After publication, implement the smallest fixture-first Python
-constraints compatibility derivative. Do not alter production UI
-Containerfiles, waive a finding, handle a Docker credential, or create a live
-cloud.
+Run the final repository gates for the Mako compatibility derivative, stage
+only that atomic package, then commit and push it under the verified
+`jaehanbyun` account. After publication, generalize the one-package manifest
+and test only the independent pure-Python `httplib2` 0.31.2 to 0.32.0
+candidate. Do not alter production UI Containerfiles, combine upgrades, waive
+a finding, handle a Docker credential, or create a live cloud.
 
 ## After This Work Package
 

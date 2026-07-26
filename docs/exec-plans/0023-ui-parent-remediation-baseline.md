@@ -80,13 +80,14 @@ absolute gate.
 | Treat fixed-version data as an experiment candidate, not an accepted upgrade | OpenStack global constraints encode cross-project compatibility and cannot be privately reversed without tests | Blind latest-version upgrade; broad constraints fork | 2026-07-26 |
 | Refuse build-only or reachability claims without direct evidence | Package names and scanner classes do not prove runtime irrelevance | Automatic `linux-libc-dev` removal; undocumented VEX | 2026-07-26 |
 | Accept the exact 18-package purge only as a reusable experimental mechanism | Native ARM64 package, runtime, lineage, rollback-parent, and two-scanner evidence passed with no introduced Critical/High finding | Editing production Containerfiles immediately; treating a lower count as production qualification | 2026-07-26 |
+| Accept Mako 1.3.12 only as the first narrow Python compatibility derivative | The exact official wheel, dependency/runtime/source hashes, OS/Python delta, and both scanners passed on Horizon and Skyline | Broad private constraints fork; combining unrelated upgrades; promoting while High findings remain | 2026-07-26 |
 
 ## Tasks
 
 - [x] Implement and fixture-test the inherited-finding/constraints classifier.
 - [x] Generate and independently reproduce the ARM64 remediation baseline.
 - [x] Run the bounded post-Coffer OS cleanup experiment.
-- [ ] Run the smallest Python constraint compatibility experiment.
+- [x] Run the smallest Python constraint compatibility experiment.
 - [ ] Rescan viable derivatives, update the durable handoff, and publish each
       verified atomic milestone.
 
@@ -210,6 +211,50 @@ absolute gate.
   resolution, `pip check`, Horizon/Skyline build/runtime tests, exact package
   delta, rollback-parent preservation, and the same two-scanner absolute gate.
 
+### 2026-07-26 — Mako 1.3.12 compatibility derivative accepted
+
+- Completed: Added a fixed official-wheel derivative, exact OS/Python/UI
+  runtime collectors, provenance manifest, fail-closed classifier, bounded
+  native runner, and six focused fixtures. The overlay uses `--no-index`,
+  `--no-deps`, and `--force-reinstall`; production UI Containerfiles remain
+  unchanged.
+- Compatibility: Both native ARM64 surfaces retain the exact accepted
+  post-cleanup OS inventory. Installed Python distribution version
+  multisets are unchanged except Mako 1.3.10 to 1.3.12. `pip check`, a Mako
+  render, target source hashes, generated-bytecode boundaries, Coffer UI
+  runtime hashes, image metadata, and input absence pass.
+- Scan result: Horizon Trivy High changed 31 to 29 and Scout 34 to 32;
+  Skyline Trivy High changed 16 to 14 and Scout 19 to 17. Both scanners
+  removed exactly `CVE-2026-41205` and `CVE-2026-44307`, introduced zero
+  Critical/High finding, and Trivy found zero secrets.
+- Decision: `python_overlay_trial_accepted=true`, status `blocked`, and
+  `production_candidate=false`. No waiver, production Containerfile change,
+  or private constraints override was accepted. Other nonzero Python High
+  findings, the unfixed `oslo.messaging` group, native AMD64 evidence, and
+  Stage 6 release gates remain independent blockers.
+- Evidence: Owner-only ignored result SHA-256
+  `ca4e5aab6fdd37105aa9107f441a29734d7e9f29ef011c338e151418eda3338a`;
+  manifest `7dbf87db361684ae397251ad64c63035629c021d520e7b91b0cc9199af67352e`,
+  images `47366b2a9366cf779d31fb55698717a2c9d6a9d01a9d90594482e6810cea272c`,
+  OS inventories
+  `8e7fe70bc16543c09475f69c7c66557e97d991cac7b716a8491092e05d6677af`,
+  and runtimes
+  `ade4ceea2e9aa29246bb8fa2be8ad409db475f47232094f337a7c1fc62e76b3e`.
+- Diagnosed failures: The first collector emitted only a generic error. The
+  corrected retry identified Kolla's expected duplicate development/install
+  metadata, which is now preserved as a sorted version multiset. The final
+  classifier initially rejected generated `__pycache__` records; it now
+  requires every official wheel source hash exactly and permits only matching
+  package-local `.pyc` extras. Failed owner-only directories were moved to the
+  user's Trash; no invalid raw result entered Git.
+- Cleanup: Exact trial images, contexts, wheel copies, archives, and scanner
+  caches are absent. The retained Podman machine is stopped. Non-secret
+  evidence remains owner-only under ignored
+  `work/ui-python-overlay-trial-mako/evidence/`.
+- Next exact action: Generalize the one-package overlay manifest without
+  changing its fail-closed contracts, then test the independent pure-Python
+  `httplib2` 0.31.2 to 0.32.0 candidate alone.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -223,7 +268,8 @@ absolute gate.
 | Package-probe milestone gates | 35 focused tests, ShellCheck, Ruff E/F/I, compilation, full pytest | passed; 1,490 tests |
 | OS cleanup compatibility experiment | native ARM64 image/package/runtime/two-scanner trial | passed as a reusable mechanism; production blocked at Horizon Trivy/Scout 31/34 High and Skyline 16/19 High |
 | OS cleanup milestone gates | strict ShellCheck, Ruff E/F/I, compilation, 41 focused tests, full pytest | passed; 1,496 tests |
-| Python constraints compatibility experiment | bounded image/package/UI tests | pending |
+| Python constraints compatibility experiment | native ARM64 exact Mako wheel, OS/Python/UI runtime and two-scanner trial | passed for Mako only; production blocked at Horizon Trivy/Scout 29/32 High and Skyline 14/17 High |
+| Mako milestone gates | Bash syntax, strict ShellCheck, Ruff E/F/I, compilation, UI image suite, full pytest, lock and diff checks | passed; 52 focused and 1,502 total tests |
 | Baseline milestone gates | full pytest, Ruff E/F/I, compilation, staged secret/diff | passed; 1,483 tests and no staged leak |
 | Final repository gates | dashboard packages, Kolla role, docs/links, secret, diff | pending with remediation experiment |
 
@@ -238,6 +284,9 @@ absolute gate.
 - The exact 18-package OS purge is accepted only as an experimental mechanism.
   It is not yet in production Containerfiles and cannot promote an image while
   either scanner retains Critical/High findings.
+- Mako 1.3.12 is accepted only as one compatibility derivative. It does not
+  authorize another package upgrade or a private OpenStack constraints fork,
+  and the remaining absolute High counts keep promotion blocked.
 - The derivative proves static Kolla metadata, package integrity, installed UI
   runtime files, input cleanup, parent availability, and scan behavior. A
   production adoption still needs the Python compatibility matrix and later
@@ -248,15 +297,17 @@ absolute gate.
 
 - Current state: Plan 0023 is active; plans 0019 and 0022 remain externally
   blocked. The inherited ARM64 classifier, deterministic baseline, stock
-  dependency probe, and post-Coffer OS cleanup trial are complete locally with
-  no waiver. The exact cleanup mechanism passed package/runtime/lineage and
-  two-scanner delta gates but correctly remains blocked by nonzero Python
-  Critical/High findings. Raw/report evidence is non-secret and remains
-  owner-only under ignored `work/`.
-- Exact next action: Implement the smallest fixture-first Python constraint
-  compatibility derivative and preserve the same absolute scanner gate.
-- First file or command: Add the constraint-overlay manifest/classifier under
-  `poc/ui-images/`, beginning with independently upgradable pure-Python
-  candidates; do not modify production UI Containerfiles yet.
+  dependency probe, post-Coffer OS cleanup trial, and narrow Mako compatibility
+  derivative are complete locally with no waiver. Both trial mechanisms passed
+  package/runtime/lineage and two-scanner delta gates but correctly remain
+  blocked by nonzero Critical/High findings. Raw/report evidence is non-secret
+  and remains owner-only under ignored `work/`.
+- Exact next action: Generalize the fixed one-package overlay input while
+  preserving exact wheel identity and delta checks, then test only
+  `httplib2` 0.31.2 to 0.32.0.
+- First file or command: Refactor the fixed target constants in
+  `poc/ui-images/collect_python_runtime.py`,
+  `poc/ui-images/python_trial.py`, and `trial_python_overlay.sh` into one
+  checked-in target manifest; do not modify production UI Containerfiles.
 - Questions requiring user input: None. No credential, external publication,
   live deployment, or waiver is required for the next local milestone.
