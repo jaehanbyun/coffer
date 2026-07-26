@@ -265,3 +265,39 @@ timeout before handshake, successful handshakes enter a bounded request
 semaphore, and shutdown closes the listener and worker threads. This is still
 a disposable-pilot evidence adapter: it does not collect any source summary,
 authenticate a public client, or expose a production endpoint.
+
+## Source-summary acquisition
+
+`source_summaries.py` converts six canonical dedicated collector artifacts
+into the exact phase-evidence compiler request. It strengthens the source
+summary to `coffer.load-telemetry-auxiliary-source-summary/v2`, which adds:
+
+- the SHA-256 of the exact collector source contract; and
+- the raw SHA-256 of the canonical owner-only source artifact.
+
+Each `coffer.load-telemetry-source-artifact/v1` contains one exact phase,
+surface, source class, target hash, window hash, collector-source hash,
+positive bounded observation count, fixed aggregate, and self-hash. It cannot
+contain a raw URL, log, identity, credential, repository, claim, object, or
+other unbounded field. The acquisition configuration separately pins every
+artifact path, raw file hash, collector hash, target path/hash, phase, window,
+and acquisition source.
+
+```text
+uv run python poc/load-soak/collector/source_summaries.py source-hash
+uv run python poc/load-soak/collector/source_summaries.py \
+  compile work/load-soak/source-summaries-before.json \
+  work/load-soak/before-summary-request.json
+```
+
+The output is not a new intermediate dialect: it is the exact canonical
+`coffer.load-telemetry-phase-evidence-request/v1` accepted by
+`phase_evidence.py`, and acquisition validates it through a full in-memory
+bundle compilation before writing. Raw artifact hashes survive indirectly in
+each v2 summary hash; observation counts and artifact self-hashes stay in the
+owner-only inputs. Output is atomic, mode 0600, idempotent, and secret-safe.
+
+This seam does not fabricate artifacts or infer one subsystem from another.
+Secret scan/workload, Galera attempts, RGW/KMS/multipart, quota ledger, and
+reconciliation claims still require their correctly scoped read-only
+collectors.

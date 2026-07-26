@@ -11,7 +11,8 @@
   Prometheus/exporter parser seam, versioned native target, and exact-schema
   collector dispatch complete; no-network disposable-pilot target renderer
   and phase-bound auxiliary evidence compiler plus private TLS evidence server
-  complete; source-summary acquisition seam next
+  and source-summary acquisition seam complete; local secret/workload artifact
+  collectors next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -636,6 +637,17 @@ release contains it yet.
   regression and collection both report 1008. No summary was collected and no
   SQL, RGW, log, credential, remote endpoint, container, VM, or remote state
   changed.
+- Promoted the source summary to v2 before pilot use so every aggregate binds
+  the exact dedicated collector source and raw canonical artifact file hashes.
+  Added a source-artifact schema with target/phase/window/source/observation
+  provenance and a source-summary acquisition seam that validates all six
+  artifacts and emits the exact phase compiler request.
+- Forty-four acquisition tests and the 136-test acquisition/compiler/server
+  matrix pass; the broad load matrix passes 427, and full regression and
+  collection both report 1052. Unsafe/aliased files, raw fields, phase/target/
+  window/source/file/self-hash drift, invalid observations, and payload drift
+  fail closed. No source artifact was collected and no SQL, RGW, log,
+  credential, endpoint, container, VM, or remote state changed.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2443,12 +2455,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/load-soak/collector/source_summaries.py` as the acquisition seam.
-Convert exact owner-only secret-scan, load/fault, quota-ledger,
-reconciliation-claim, and RGW/KMS/multipart aggregate artifacts into the six
-phase summary schemas, bind every raw artifact hash while retaining only
-bounded fields, and prove schema/phase/window/target drift refusal with
-fixtures before connecting read-only pilot collectors.
+Add `poc/load-soak/collector/local_artifacts.py` for only semantically valid
+local inputs. Compile the Prometheus secret-scan artifact from a bounded
+owner-only file allowlist and supplied secret fingerprints, and the
+HAProxy/workload-error artifact from exact profile/fault results. Bind every
+input hash plus phase/window/target, retain only counts, and do not synthesize
+Galera, RGW, quota, or reconciliation artifacts.
 
 ## After This Work Package
 

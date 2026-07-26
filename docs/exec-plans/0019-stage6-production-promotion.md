@@ -2109,6 +2109,42 @@ operator-local release.
   fields, and prove schema/phase/window/target drift refusal with fixtures
   before connecting read-only pilot collectors.
 
+### 2026-07-26 — Source-summary acquisition seam completed locally
+
+- Provenance correction: Promoted the auxiliary source-summary contract to
+  v2 before pilot use. Every summary now requires both the exact collector
+  source SHA and canonical source-artifact file SHA; the summary hash binds
+  both along with phase/window/surface/class and the bounded aggregate.
+- Dedicated artifact contract: Added
+  `coffer.load-telemetry-source-artifact/v1` with exact target, phase, window,
+  source class, collector source, positive bounded observation count,
+  aggregate, and self-hash. Extra/raw fields are impossible, and each
+  descriptor independently pins the artifact path, file hash, and collector
+  source.
+- End-to-end compilation: One owner-only configuration plus the exact target
+  and six owner-only artifacts now emits the canonical
+  `coffer.load-telemetry-phase-evidence-request/v1`. The acquisition seam
+  validates every artifact, reuses strict payload normalization, builds v2
+  summaries, and completes an in-memory phase bundle compilation before its
+  atomic mode-0600 output is accepted.
+- Honesty boundary: Failure aggregates remain unchanged for the verifier.
+  Artifact observation counts and self-hashes do not become product claims,
+  while raw artifact and collector provenance remain hash-bound. The seam does
+  not infer Galera, RGW, quota, or reconciliation facts from generic workload
+  output and has no SQL, RGW, log, network, or subprocess collector.
+- Evidence: Forty-four acquisition/config/artifact/file tests pass; the
+  acquisition/compiler/server focused matrix passes 136 tests. The broad load
+  matrix passes 427, and full regression and collection both report 1052. No
+  source artifact was collected and no SQL, RGW, log, credential, endpoint,
+  container, VM, or remote state changed.
+- Next exact action: Add
+  `poc/load-soak/collector/local_artifacts.py` for only the semantically valid
+  local sources: compile the Prometheus secret-scan artifact from a bounded
+  owner-only file allowlist and supplied secret fingerprints, and compile the
+  HAProxy/workload-error artifact from exact profile/fault result files. Bind
+  every input hash and phase/window/target, retain only counts, and do not
+  synthesize Galera, RGW, quota, or reconciliation artifacts.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2245,6 +2281,10 @@ operator-local release.
 | Evidence server plus compiler/native pipeline | server, phase compiler, renderer, target, parser, and collector tests | passed; 163 |
 | Broad load matrix after evidence server | `uv run pytest -q tests/test_load_*.py` | passed; 383 |
 | Full regression after evidence server | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1008 |
+| Source-summary acquisition seam | `uv run pytest -q tests/test_load_source_summaries.py` | passed; 44 |
+| Acquisition/compiler/server focused pipeline | source summaries, phase evidence, and evidence server tests | passed; 136 |
+| Broad load matrix after source-summary acquisition | `uv run pytest -q tests/test_load_*.py` | passed; 427 |
+| Full regression after source-summary acquisition | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1052 |
 
 ## Failures, Blockers, and Risks
 
@@ -2285,12 +2325,12 @@ operator-local release.
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
 - Exact next action: Add
-  `poc/load-soak/collector/source_summaries.py` as the acquisition seam.
-  Convert exact owner-only secret-scan, load/fault, quota-ledger,
-  reconciliation-claim, and RGW/KMS/multipart aggregate artifacts into the six
-  phase summary schemas, bind every raw artifact hash while retaining only
-  bounded fields, and prove schema/phase/window/target drift refusal with
-  fixtures before connecting read-only pilot collectors.
+  `poc/load-soak/collector/local_artifacts.py` for only semantically valid
+  local inputs. Compile the Prometheus secret-scan artifact from a bounded
+  owner-only file allowlist and supplied secret fingerprints, and the
+  HAProxy/workload-error artifact from exact profile/fault results. Bind all
+  input hashes plus phase/window/target, retain only counts, and do not
+  synthesize Galera, RGW, quota, or reconciliation artifacts.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

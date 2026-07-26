@@ -43,6 +43,8 @@ OBSERVABILITY_TOPOLOGY = COMPILER.observability_contract.load_topology(
 CONTROLLERS = ["controller1", "controller2", "controller3"]
 STORAGE = ["storage1", "storage2", "storage3"]
 WINDOW_SHA256 = f"sha256:{'7' * 64}"
+COLLECTOR_SOURCE_SHA256 = f"sha256:{'8' * 64}"
+SOURCE_ARTIFACT_SHA256 = f"sha256:{'9' * 64}"
 
 
 def canonical(value: object) -> bytes:
@@ -148,9 +150,11 @@ def summary_document(
     window_sha256: str = WINDOW_SHA256,
 ) -> dict:
     summary = {
+        "collector_source_sha256": COLLECTOR_SOURCE_SHA256,
         "payload": payload,
         "phase": phase,
         "schema": COMPILER.SUMMARY_SCHEMA,
+        "source_artifact_sha256": SOURCE_ARTIFACT_SHA256,
         "source_class": COMPILER.SOURCE_CLASSES[surface],
         "surface": surface,
         "window_sha256": window_sha256,

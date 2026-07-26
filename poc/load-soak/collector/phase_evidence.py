@@ -48,7 +48,7 @@ observability_contract = _module(
 )
 
 REQUEST_SCHEMA = "coffer.load-telemetry-phase-evidence-request/v1"
-SUMMARY_SCHEMA = "coffer.load-telemetry-auxiliary-source-summary/v1"
+SUMMARY_SCHEMA = "coffer.load-telemetry-auxiliary-source-summary/v2"
 BUNDLE_SCHEMA = "coffer.load-telemetry-native-evidence-bundle/v1"
 RESULT_SCHEMA = "coffer.load-telemetry-phase-evidence-result/v1"
 SOURCE_RESULT_SCHEMA = "coffer.load-telemetry-phase-evidence-source-result/v1"
@@ -349,9 +349,11 @@ def _summary(
     summary = _exact(
         value,
         {
+            "collector_source_sha256",
             "payload",
             "phase",
             "schema",
+            "source_artifact_sha256",
             "source_class",
             "summary_sha256",
             "surface",
@@ -367,15 +369,25 @@ def _summary(
         or summary["window_sha256"] != window_sha256
     ):
         raise PhaseEvidenceError(f"{surface} source summary binding changed")
+    collector_source_sha256 = _sha256(
+        summary["collector_source_sha256"],
+        f"{surface} collector source hash",
+    )
+    source_artifact_sha256 = _sha256(
+        summary["source_artifact_sha256"],
+        f"{surface} source artifact hash",
+    )
     payload = _normalize_payload(
         surface,
         summary["payload"],
         load_topology=load_topology,
     )
     unsigned = {
+        "collector_source_sha256": collector_source_sha256,
         "payload": payload,
         "phase": phase,
         "schema": SUMMARY_SCHEMA,
+        "source_artifact_sha256": source_artifact_sha256,
         "source_class": SOURCE_CLASSES[surface],
         "surface": surface,
         "window_sha256": window_sha256,

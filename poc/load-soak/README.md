@@ -156,6 +156,13 @@ contract, private IPv4 listener, TLS name/certificate/key, bounded concurrency
 and request timeout, and only the six target-declared evidence routes. It
 serves no discovery, index, redirect, health, raw input, or cross-phase path.
 
+`collector/source_summaries.py` removes hand-authored summary requests. It
+validates six dedicated collector artifacts, binds each canonical artifact
+file and collector source hash into the v2 summary, and atomically emits the
+exact request consumed by `phase_evidence.py`. Observation counts and artifact
+metadata remain in their owner-only source files; only bounded aggregates and
+their provenance hashes advance.
+
 `runtime_manifest.py` maps every schedule entry and operation to the current
 runtime capability baseline. It binds a canonical owner-only compiled plan,
 qualified readiness file, exact client pins, checked-in runner source hashes,
