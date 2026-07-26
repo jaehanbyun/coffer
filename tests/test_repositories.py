@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from urllib.parse import urlsplit
 
 from falcon import testing
@@ -244,3 +245,49 @@ def test_quota_requires_a_valid_project_scoped_reader(
             headers=_headers(token),
         )
         assert result.status_code == status
+
+
+def test_control_api_preserves_only_bounded_request_ids(
+    client: testing.TestClient,
+) -> None:
+    preserved = client.simulate_get(
+        "/v1/repositories",
+        headers={
+            **_headers("project-a-reader"),
+            "X-Openstack-Request-Id": "req-ui-123",
+        },
+    )
+    generated = client.simulate_get(
+        "/v1/repositories",
+        headers={
+            **_headers("project-a-reader"),
+            "X-Openstack-Request-Id": "not a request id",
+        },
+    )
+    resource_error = client.simulate_get(
+        "/v1/quota",
+        headers=_headers("project-b-member"),
+    )
+
+    assert preserved.headers["x-openstack-request-id"] == "req-ui-123"
+    assert re.fullmatch(
+        r"req-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-"
+        r"[89ab][0-9a-f]{3}-[0-9a-f]{12}",
+        generated.headers["x-openstack-request-id"],
+    )
+    assert resource_error.status_code == 404
+    assert resource_error.headers["x-openstack-request-id"].startswith("req-")
+
+
+def test_keystone_owned_outer_authentication_error_is_unchanged(
+    client: testing.TestClient,
+) -> None:
+    result = client.simulate_get(
+        "/v1/repositories",
+        headers={"X-Openstack-Request-Id": "req-ui-unauthenticated"},
+    )
+
+    assert result.status_code == 401
+    assert result.headers["www-authenticate"] == (
+        'Keystone uri="https://keystone.invalid/v3"'
+    )

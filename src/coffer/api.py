@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import uuid
 from typing import Any
 
 import falcon
@@ -20,6 +21,20 @@ REPOSITORY_NAME = re.compile(
 )
 DEFAULT_REPOSITORY_LIMIT = 100
 MAX_REPOSITORY_LIMIT = 1000
+REQUEST_ID = re.compile(r"^req-[A-Za-z0-9](?:[A-Za-z0-9-]{0,63})$")
+
+
+class RequestIdMiddleware:
+    def process_request(
+        self,
+        req: falcon.Request,
+        resp: falcon.Response,
+    ) -> None:
+        request_id = req.get_header("X-Openstack-Request-Id")
+        if request_id is None or REQUEST_ID.fullmatch(request_id) is None:
+            request_id = f"req-{uuid.uuid4()}"
+        req.context.request_id = request_id
+        resp.set_header("X-Openstack-Request-Id", request_id)
 
 
 def _authorize(

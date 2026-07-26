@@ -10,6 +10,7 @@ from oslo_config import cfg
 
 from coffer.api import (
     QuotaResource,
+    RequestIdMiddleware,
     RepositoryCollectionResource,
     RepositoryResource,
 )
@@ -83,7 +84,9 @@ def build_application(
     store = store or RepositoryStore(conf.database.connection)
     enforcer = enforcer or create_enforcer(conf)
 
-    middleware = [HTTPMetricsMiddleware(metrics)] if metrics else None
+    middleware: list[Any] = [RequestIdMiddleware()]
+    if metrics is not None:
+        middleware.append(HTTPMetricsMiddleware(metrics))
     application = falcon.App(middleware=middleware)
     collection = RepositoryCollectionResource(store, enforcer)
     repository = RepositoryResource(store, enforcer)

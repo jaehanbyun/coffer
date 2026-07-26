@@ -197,6 +197,25 @@ catalog, Keystone, API, and browser evidence.
   fallback without changing Keystone-owned outer 401 responses, then write
   `api-ref/openapi.json`.
 
+### 2026-07-26 — Control request correlation completed
+
+- Completed: Added a Falcon request-ID middleware ahead of public control
+  resources. It preserves only bounded `req-` identifiers and otherwise emits
+  a UUID-backed value on success and Falcon resource errors.
+- Boundary: Keystone authentication still wraps Falcon. Missing/invalid token
+  401 challenges remain middleware-owned and are not reclassified or claimed
+  as Coffer request-correlation evidence.
+- Evidence: Repository, token, maintenance, observability, and API runner
+  focused tests pass 64 cases, including valid preservation, invalid fallback,
+  quota 404 correlation, and unchanged Keystone challenge. Compilation and
+  diff checks pass.
+- Changed files: `src/coffer/api.py`, `src/coffer/wsgi.py`,
+  `tests/test_repositories.py`, this plan, and `.codex/state/HANDOFF.md`.
+- Next exact action: Create `api-ref/openapi.json` and
+  `tests/test_openapi_contract.py`. Bind the four version-relative UI
+  operations, exact schemas/policies/security/status/request-ID contracts, and
+  the implemented Falcon route set.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -212,6 +231,7 @@ catalog, Keystone, API, and browser evidence.
 | Read-only project quota API and observability | API, quota, token, maintenance, observability, contract, and runner focused tests | passed; 127 |
 | Kolla role after quota SLO expansion | `make -C poc/kolla-ansible-role verify` | passed; 96 |
 | Full regression after project quota API | `uv run pytest -q` | passed; 1442 |
+| Control request correlation | Repository, token, maintenance, observability, and runner focused tests | passed; 64 |
 
 ## Failures, Blockers, and Risks
 
@@ -231,10 +251,10 @@ catalog, Keystone, API, and browser evidence.
 - Current state: Plan 0019 is externally blocked, its local pilot harness is
   complete but uninvoked, and no six-VM pilot exists. Plan 0020 is active for
   API/Horizon/Skyline work that can be locally proven independently.
-- Exact next action: Add a bounded control request-ID middleware in
-  `src/coffer/api.py`, prove preservation/generation and secret-safe error
-  behavior, then write `api-ref/openapi.json`.
-- First file or command: `sed -n '1,220p' src/coffer/api.py`.
+- Exact next action: Create `api-ref/openapi.json` and
+  `tests/test_openapi_contract.py` for the four version-relative UI operations
+  and exact route/policy/schema/error/request-ID drift checks.
+- First file or command: `mkdir -p api-ref` followed by an `apply_patch` add.
 - Questions requiring user input: None. The user authorized autonomous
   milestone commits and pushes through Horizon and Skyline; accepted security,
   release, and deployment gates remain fail closed.
