@@ -64,8 +64,25 @@ remains constraint-bound without a fixed version. No CVE waiver, scanner
 replacement, private global constraints fork, package removal, Docker
 credential, image publication, or live cloud mutation has been accepted.
 
-The exact next action is to implement a bounded stock-parent package dependency
-and removal-safety probe before changing any image or constraint.
+That stock-parent probe is now complete. Exact native ARM64 Horizon and Skyline
+parents produced byte-identical mode-0640 package evidence at SHA-256
+`75dfaac579e19bece668f480cbffc1212b08e1496dc8533d489d31b7256d783a`;
+the summary SHA-256 is
+`e0b95fe54f4d083fc5507847b0e7ed31fa61ec99e3af138446fe62039f21e0bc`.
+`linux-libc-dev` is an automatic package with 1,015 paths, including 1,007
+headers and no shared-object or executable paths, but automatic `libc6-dev`
+depends on it. Its exact apt purge simulation removes 18 development packages,
+including `build-essential`, C++ toolchains, Python headers, and XML/XSLT/zlib
+development packages. The package DB is clean and `safe_to_apply` remains
+false.
+
+The final probe removed all five exact images and generated contexts and
+restored the retained Podman machine to stopped. Two failed owner-only probe
+directories were moved to the user's Trash after diagnosing the normal Ubuntu
+`os-release` symlink and apt `Purg` record variants; they are recoverable and
+were not committed. The exact next action is a separate disposable post-Coffer
+18-package cleanup derivative with package/runtime/rollback and two-scanner
+verification. The production UI Containerfiles remain unchanged.
 
 Plan 0019 is externally blocked after converting every locally independent
 Stage 6 operation into a release-gated, checkpointed pilot harness. The latest

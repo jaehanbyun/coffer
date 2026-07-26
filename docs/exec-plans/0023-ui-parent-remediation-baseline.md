@@ -134,6 +134,45 @@ absolute gate.
   Horizon and Skyline parent filesystem before modifying an image or
   constraints.
 
+### 2026-07-26 — Stock-parent OS dependency boundary completed
+
+- Completed: Added a fixed-target package probe and bounded Kolla stock-parent
+  runner. It builds exact ARM64 Horizon/Skyline parents from the accepted
+  Ubuntu digest and Kolla revision, then executes only read-only/no-network/
+  no-capability/no-new-privileges `dpkg`, `apt-mark`, and `apt-get -s`
+  inspection. Exact probe images and build contexts are removed and a
+  previously stopped Podman machine is restored to stopped.
+- Evidence: Horizon and Skyline probe payloads are byte-identical at SHA-256
+  `75dfaac579e19bece668f480cbffc1212b08e1496dc8533d489d31b7256d783a`.
+  The owner-only summary is mode 0640 at SHA-256
+  `e0b95fe54f4d083fc5507847b0e7ed31fa61ec99e3af138446fe62039f21e0bc`.
+- Package boundary: `linux-libc-dev` 6.8.0-136.136 is automatic, not manual.
+  It owns 1,015 paths: 1,007 headers, zero shared-object paths, and zero
+  executable paths. Its installed direct reverse dependency is automatic
+  `libc6-dev` 2.39-0ubuntu8.7.
+- Purge boundary: The exact simulation removes 18 packages, including
+  `linux-libc-dev`, `libc6-dev`, `build-essential`, the C++ toolchain, Python
+  development headers, and XML/XSLT/zlib development packages. Both package
+  database checks pass, but the report keeps `safe_to_apply=false`; inventory
+  and simulation do not prove runtime, rebuild, upgrade, or rollback safety.
+- Diagnosed failures: The first probe rejected Ubuntu's normal
+  `/etc/os-release` link to `/usr/lib/os-release`; the fixed-path system link is
+  now accepted. The second probe parsed apt `Remv` but not purge-mode `Purg`;
+  both exact action records are now accepted. A lightweight disposable Ubuntu
+  digest fixture reproduced and verified each correction before the final
+  stock-parent run. Failed owner-only probe directories were moved to the
+  user's Trash and can be recovered; no raw invalid result entered Git.
+- Cleanup: Final probe images and generated contexts are absent; the retained
+  Podman machine is stopped. Owner-only non-secret evidence remains under
+  ignored `work/ui-parent-remediation-probe/evidence/`.
+- Changed files: Package probe, bounded runner, seven focused fixtures, Make
+  target, README, this plan, and the handoff.
+- Next exact action: Build a disposable post-Coffer derivative that applies
+  only the exact 18-package apt purge transaction, then require clean package
+  DB, Horizon/Skyline import and runtime checks, image metadata preservation,
+  rollback parent availability, and two-scanner comparison before accepting or
+  rejecting the cleanup.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -143,6 +182,8 @@ absolute gate.
 | Kolla constraints binding | archived `openstack-base` source plus official requirements revision | inspected; exact vulnerable versions match |
 | Classifier fixtures | focused pytest | passed; 28 UI classifier/qualification/collector tests |
 | Accepted evidence classification | deterministic repeat and SHA-256 comparison | passed; exit 3, mode 0640, stable SHA-256 `9ecde6e...` |
+| Stock-parent package probe | bounded native ARM64 build and read-only inspection | passed; identical surfaces, exact cleanup, summary `e0b95fe...` |
+| Package-probe milestone gates | 35 focused tests, ShellCheck, Ruff E/F/I, compilation, full pytest | passed; 1,490 tests |
 | Compatibility/remediation experiment | bounded image/package/UI tests | pending |
 | Baseline milestone gates | full pytest, Ruff E/F/I, compilation, staged secret/diff | passed; 1,483 tests and no staged leak |
 | Final repository gates | dashboard packages, Kolla role, docs/links, secret, diff | pending with remediation experiment |
@@ -155,6 +196,9 @@ absolute gate.
 - OpenStack upper constraints may intentionally exclude scanner-advertised
   fixed releases. A private override could introduce API/runtime incompatibility
   and remains unaccepted until the exact test matrix passes.
+- The OS purge simulation removes 18 development packages rather than only
+  `linux-libc-dev`. It is not accepted until a post-Coffer derivative proves
+  package integrity, dashboard runtime, rebuild, fallback, and scan behavior.
 - A lower scanner count after deleting build packages is insufficient unless
   Kolla startup, package ownership, Horizon/Skyline runtime, and upgrade/
   rollback behavior also remain correct.
@@ -163,12 +207,14 @@ absolute gate.
 
 - Current state: Plan 0023 is active; plans 0019 and 0022 remain externally
   blocked. The inherited ARM64 classifier and deterministic baseline are
-  complete locally with no waiver; exact raw/report evidence is non-secret and
-  remains owner-only under ignored `work/`.
-- Exact next action: Implement a bounded stock-parent package dependency and
-  removal-safety probe before any image mutation.
-- First file or command: Inspect Kolla `openstack-base` package ownership and
-  the accepted parent archive/runtime evidence, then add a fixture-first probe
-  under `poc/ui-images/`.
+  complete locally with no waiver. The stock-parent dependency probe is also
+  complete and proves an exact 18-package purge set, but explicitly does not
+  accept it. Raw/report evidence is non-secret and remains owner-only under
+  ignored `work/`.
+- Exact next action: Implement the bounded post-Coffer OS cleanup derivative,
+  runtime/rollback verifier, and two-scanner comparison.
+- First file or command: Add an experimental Containerfile and a
+  cleanup-specific disposable runner under `poc/ui-images/`; do not modify the
+  production UI Containerfiles yet.
 - Questions requiring user input: None. No credential, external publication,
   live deployment, or waiver is required for the next local milestone.

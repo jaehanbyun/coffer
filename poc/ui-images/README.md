@@ -100,3 +100,17 @@ python3 poc/ui-images/remediation.py \
 Exit `3` is the expected valid-but-blocked result while inherited findings
 remain. Invalid, incomplete, or divergent evidence exits `2`; a clean report
 alone exits `0` but does not bypass the separate native AMD64 or Stage 6 gates.
+
+Before removing an OS package, collect the stock-parent dependency boundary:
+
+```console
+make -C poc/ui-images probe-parents
+```
+
+The bounded runner builds only fixed-name disposable Kolla parents, executes
+`package_probe.py` with no network, a read-only filesystem, no capabilities,
+and no-new-privileges, then deletes the exact images and generated build
+contexts. It records package marks, direct reverse dependencies, package-file
+classes, clean package-database checks, and an `apt-get -s` purge plan. The
+read-only result always sets `safe_to_apply` to false; a separate derivative
+build/runtime/scan experiment is required before any cleanup can be accepted.
