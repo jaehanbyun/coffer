@@ -88,6 +88,8 @@ catalog, Keystone, API, and browser evidence.
 | Resolve `oci-registry` from the scoped Keystone catalog and keep tokens in each UI's supported request layer | This matches OpenStack service discovery and avoids deployment-specific URLs or browser credential persistence | Hard-coded endpoint; local settings URL as primary discovery; direct browser token storage | 2026-07-26 |
 | Package Horizon independently from Coffer's API runtime | Horizon explicitly supports out-of-tree plugins and deployers can enable or remove the dashboard independently | Patching Horizon core; embedding Django/Horizon dependencies in `coffer-api` | 2026-07-26 |
 | Determine Skyline integration form from current upstream source before choosing overlay or maintained fork | Skyline documentation shows first-party modules but no confirmed external loader; the packaging boundary is an architectural fact, not a naming choice | Pretending Horizon's plugin model exists in Skyline; creating an unverified standalone bundle | 2026-07-26 |
+| Maintain an exact-revision Skyline source overlay and custom immutable Console image | Skyline has no external loader; Kolla builds its Console from a branch source archive, while the catalog/profile and token request seams are first-party source contracts | Runtime asset mutation; unrelated second SPA; unconstrained full fork | 2026-07-26 |
+| Map `oci-registry` to `coffer` in Skyline and append `v1` in the Console client | Skyline exposes mapped same-origin paths and its Nginx generator deliberately removes terminal service API versions from catalog URLs | Hard-coded Coffer URL; raw catalog URL in the browser; duplicate `/v1/v1` | 2026-07-26 |
 
 ## Tasks
 
@@ -98,8 +100,10 @@ catalog, Keystone, API, and browser evidence.
       by the frozen contract, with authorization and isolation tests.
 - [x] Build and test the independently packaged Horizon dashboard against the
       frozen contract and a pinned supported Horizon baseline.
-- [ ] Inspect and pin current Skyline Console extension seams; record the
-      overlay/fork decision and build/test the equivalent Console surface.
+- [x] Inspect and pin current Skyline Console extension seams; record the
+      overlay/fork decision.
+- [ ] Build/test the equivalent Console surface from the accepted exact-source
+      overlay.
 - [ ] Add disabled-by-default Kolla companion-role UI artifact/configuration
       contracts and lifecycle validation.
 - [ ] Run focused and full verification, render and inspect both UIs with
@@ -318,6 +322,31 @@ catalog, Keystone, API, and browser evidence.
   its package manager, service-catalog client, request/token boundary, stores,
   routes, menus, locales, tests, and build before selecting a maintained
   source overlay or another supported extension seam.
+
+### 2026-07-26 — Skyline 2026.1 integration baseline accepted
+
+- Source pins: Inspected official Skyline Console `stable/2026.1` at
+  `c9000cb1be332a213009793598f17a80ce59671e`, Skyline API Server at
+  `1902699cbf1b01f4d8d4c65a43a21b06a3a5e077`, Kolla at
+  `686c6d13dc1c31092b22c6c481e16a7329e935ea`, and Kolla-Ansible at
+  `cec5b77ddc0af37e9b9a8df92f7458ae014fb5dc`.
+- Decision: Skyline has no external plugin loader. Maintain a small
+  exact-revision source overlay and build it into a custom immutable Console
+  image; do not patch runtime assets or claim an independent plugin package.
+- Discovery: Skyline API Server maps `oci-registry` to same-origin alias
+  `coffer`. Its Nginx generator removes the terminal `/v1` from the catalog
+  endpoint, so the Console client appends `v1` through the existing endpoint
+  version map.
+- Security: The client subclasses Skyline's existing request boundary, which
+  owns current scoped-token forwarding, expiry, request ID, and 401 behavior.
+  Coffer code does not read token storage or a configured endpoint. Catalog
+  presence gates the menu and Coffer API policy remains authoritative.
+- Changed files: `docs/research/skyline-integration-baseline.md`, this plan,
+  and `.codex/state/HANDOFF.md`.
+- Next exact action: Create `ui/skyline/baseline.json`, an exact-revision
+  overlay verifier, and the Coffer client/store source with focused Jest tests.
+  Apply them to a disposable clean Console copy before editing routes, menu,
+  pages, or locales.
 
 ## Verification
 

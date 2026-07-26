@@ -25,7 +25,8 @@
   contract, bounded repository pagination, and project quota read complete;
   REST/OpenAPI UI contract, Kolla 2026.1 Horizon 25.7.3 baseline, and
   server-side Horizon adapter and independently packaged Project Registry
-  dashboard complete locally; Skyline source baseline next
+  dashboard complete locally; exact-revision Skyline source-overlay baseline
+  accepted; Skyline client/store overlay next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Externally blocked execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -44,6 +45,16 @@ Horizon dashboard and a pinned-source Skyline Console integration. Local UI
 tests and rendered fixtures remain separate from deployed catalog/Keystone/
 browser evidence until the production promotion gate permits a disposable
 cloud.
+
+Skyline Console `stable/2026.1` is pinned at
+`c9000cb1be332a213009793598f17a80ce59671e` with API Server
+`1902699cbf1b01f4d8d4c65a43a21b06a3a5e077`. Source inspection confirms there
+is no external plugin loader. The accepted boundary is a small exact-revision
+source overlay built into an immutable custom Console image. Skyline maps
+catalog service type `oci-registry` to same-origin alias `coffer`; its Nginx
+generator strips the catalog endpoint's terminal `/v1`, and the Console
+client restores it through the existing endpoint-version map. The existing
+Skyline request layer remains the sole browser token/request-ID boundary.
 
 The approved teardown removed every exact Stage 5 identity, credential,
 bucket, object namespace, guest, volume, and network. Repeated status reports
