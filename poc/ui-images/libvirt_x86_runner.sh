@@ -14,7 +14,7 @@ readonly VCPUS="8"
 readonly ROOT_CAPACITY="120G"
 readonly CLOUD_BASE="https://cloud-images.ubuntu.com/releases/noble/release"
 readonly CLOUD_IMAGE="ubuntu-24.04-server-cloudimg-amd64.img"
-readonly CLOUD_IMAGE_SHA256="ffe6203da54deeb6db5d2a98a83f9ec8e55f149d3f7ba622e1abe5fa966ee3d6"
+readonly CLOUD_IMAGE_SHA256="d1940f7d69d343355e183dff1e08a59852d32e7309baa7a4bad8365b11b005ac"
 readonly UBUNTU_KEYRING="/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg"
 
 work_dir=""

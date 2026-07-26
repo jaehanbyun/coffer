@@ -198,6 +198,19 @@ def test_harness_separates_trivy_db_acquisition_from_offline_scan() -> None:
     assert "--offline-scan" in content
 
 
+def test_harness_preflights_scout_cves_and_bounds_scanner_cache() -> None:
+    content = (ROOT / "poc" / "ui-images" / "qualify.sh").read_text()
+
+    scout_phase = content.index('phase="Docker Scout CVE capability"')
+    build_phase = content.index('phase="stock Kolla parent build"')
+    assert scout_phase < build_phase
+    assert "DOCKER_SCOUT_CACHE_DIR" in content
+    assert '"${SCOUT_CACHE:?}"' in content
+    assert '"fs://${HARNESS}/qualification.py"' in content
+    assert '"sbom://${scout_probe_sbom}"' in content
+    assert 'rm -f -- "${scout_probe_sbom}" "${scout_probe_sarif}"' in content
+
+
 def test_harness_has_bounded_native_linux_podman_and_wheel_inputs() -> None:
     content = (ROOT / "poc" / "ui-images" / "qualify.sh").read_text()
 
@@ -223,7 +236,7 @@ def test_libvirt_runner_is_exact_signed_and_disposable() -> None:
     assert 'readonly ROOT_CAPACITY="120G"' in content
     assert (
         'readonly CLOUD_IMAGE_SHA256="'
-        "ffe6203da54deeb6db5d2a98a83f9ec8e55f149d3f7ba622e1abe5fa966ee3d6"
+        "d1940f7d69d343355e183dff1e08a59852d32e7309baa7a4bad8365b11b005ac"
         '"' in content
     )
     assert "gpgv --keyring" in content

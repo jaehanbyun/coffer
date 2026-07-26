@@ -1,7 +1,10 @@
 # Coffer Handoff
 
 - Updated: 2026-07-26
-- Status: plan 0019 blocked externally; plans 0020 and 0021 completed locally;
+- Status: plans 0019 and 0022 blocked externally; plans 0020 and 0021 completed locally;
+  native x86_64 UI parents and derivatives built and passed provenance/runtime
+  collection, but standalone Docker Scout CVE evidence requires an unauthorized
+  Docker login; the disposable VM, volumes, key, and runtime residue are absent;
   native ARM64 UI image qualification completed with an honest production
   block from inherited stock-parent findings; local production observability, disposable
   filesystem GC/restore, load model/lifecycle, and canonical evidence verifier
@@ -32,11 +35,13 @@
   production bundle, and versioned wheel complete locally with 31 tests;
   disabled-by-default immutable Horizon/Skyline image contracts and exact
   fallback lifecycle complete locally with 108 role checks; four desktop/narrow
-  UI fixture screenshots visually inspected; final 1,475-test/Horizon/Skyline/
+  UI fixture screenshots visually inspected; final 1,478-test/Horizon/Skyline/
   108-check Kolla regression and repository gates complete
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
-- Externally blocked execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
+- Externally blocked execution plans:
+  `docs/exec-plans/0019-stage6-production-promotion.md` and
+  `docs/exec-plans/0022-native-x86-ui-image-qualification.md`
 - Active execution plan:
   `docs/exec-plans/0022-native-x86-ui-image-qualification.md`
 
@@ -72,6 +77,27 @@ Scout 0 Critical/60 High. Exact local UI images, archives, and scanner cache
 were removed; owner-only non-secret ignored evidence remains under `work/`.
 Native x86_64, parent remediation, signing/publication, and live cloud
 acceptance remain separate fail-closed gates.
+
+Plan 0022 proved the native Linux AMD64 image and runtime path in a fixed
+disposable VM on the shared `bb00` libvirt host without running the workload on
+that host. Exact Coffer/Kolla/Horizon/Skyline sources, Ubuntu AMD64 digest,
+wheel hashes, and tool pins were verified. Stock Horizon and Skyline parents
+and both Coffer derivatives built; manifest, immutable image/layer, runtime
+package/file, build-input absence, and the first 641-package Horizon SPDX
+inventory were collected. Trivy's vulnerability and Java databases also
+downloaded after the disposable guest received its missing rootless-network
+helper.
+
+The transaction is terminally `blocked` before canonical cross-architecture
+classification because standalone Docker Scout 1.21.0 requires Docker login
+for `cves`, including local archive and SPDX inputs; `DOCKER_SCOUT_OFFLINE`
+does not remove that requirement. No Docker Desktop credential, account,
+device login, token, or fabricated empty report was used. The harness now
+probes Scout CVE capability before building and contains its cache under the
+disposable work root. The fixed VM, root/seed volumes, guest work/cache, local
+ephemeral SSH key, and known-host state are absent. Before/after hashes match
+all 18 unrelated domains, three unrelated Coffer pool volumes, the default
+network XML, 18 Docker container IDs, and all host Docker image IDs.
 
 Skyline Console `stable/2026.1` is pinned at
 `c9000cb1be332a213009793598f17a80ce59671e` with API Server
@@ -2820,6 +2846,31 @@ release contains it yet.
   tests/production bundle/wheel verifier, all 108 Kolla role checks, and all
   1,475 Python tests. Podman is stopped; no exact UI image, scan archive, or
   scanner-cache residue remains.
+- Plan 0022 selected a fixed non-autostart 8-vCPU/24-GiB/120-GiB libvirt guest
+  after rejecting direct execution on the shared host. The Ubuntu cloud image
+  was accepted only after its current official GPG-signed manifest matched
+  AMD64 SHA-256
+  `d1940f7d69d343355e183dff1e08a59852d32e7309baa7a4bad8365b11b005ac`.
+- The native AMD64 transaction built both stock dashboard parents and Coffer
+  derivatives and collected exact manifest/image/runtime evidence. A first
+  attempt found missing `slirp4netns`; the corrected repeat passed both Trivy
+  DB downloads and generated the 641-package Horizon-parent Scout SPDX before
+  Docker Scout CVE authentication stopped the two-scanner contract.
+- No Docker credential was handled. The harness now checks Scout CVE access
+  before an image build, forces Scout cache under the bounded work path, and
+  retains fail-closed behavior. Twenty-three focused qualification/collector
+  tests plus Bash syntax and ShellCheck pass.
+- Both failure paths removed their bounded Podman images, containers,
+  archives, and Trivy cache. The VM/domain/volumes, shared-host temp state, and
+  local SSH material were removed after owner-only partial non-secret evidence
+  was recovered to ignored `work/`; all unrelated host inventory hashes equal
+  preflight.
+- Plan 0022 final local gates pass: all 1,478 Python tests, Horizon's exact
+  baseline plus 36 tests and compilation, the 108-check Kolla role, Skyline
+  source/bundle/wheel verification, Python compilation, focused changed-file
+  Ruff E/F/I, warning-or-higher ShellCheck across tracked shell files, strict
+  ShellCheck for both changed runners, Gitleaks, diff checks, 107 balanced
+  Markdown files, and 58 resolved local links/images.
 
 ## Blockers and Risks
 
@@ -2839,6 +2890,10 @@ release contains it yet.
 - Native OCI 1.1 Referrers remain an empirical gate. SSE-KMS and logical-versus-physical quota behavior now have bounded PoC evidence; destructive reclamation remains a separately approved maintenance test.
 - Ceph Tentacle 20.2.2 cannot finalize an encrypted zero-byte Distribution blob through ordinary `CopyObject`. The positive-size multipart-copy workaround is verified, but production SSE-KMS promotion requires a released Ceph fix/backport or a separately proven release/backend that closes the zero-byte path.
 - The pinned Distribution v3.1.1 Linux ARM64 image has 8 Critical and 9 High Docker Scout findings. Production use is blocked pending an upstream-patched supported image or complete reachability/VEX resolution.
+- Native x86_64 UI canonical classification is independently blocked because
+  standalone Docker Scout requires Docker login for CVE data. No credential is
+  authorized for plan 0022; Trivy-only evidence cannot be presented as the
+  accepted two-scanner result.
 - Distribution v3.1.1 has one core supported-profile conformance failure: a malformed digest-like manifest reference returns 500. Native Referrers and optional automatic cross-mount are not supported.
 - The active Codex workspace still enters through a compatibility symlink. Reopen it from `/Users/byeonjaehan/projects/personal/coffer`, then remove the legacy symlink; the Git root already resolves to the canonical Coffer path.
 - The Mac lab closes real Keystone HTTP/TLS, duplicate-name isolation, reader/member/admin/service mapping, domain/system isolation, finite credential lifecycle, real control middleware, incoming service-token enforcement, bounded cache, and outage behavior. Shared production SQL/memcache and multi-worker consistency remain deployment gates.
@@ -2854,17 +2909,21 @@ release contains it yet.
 
 ## Exact Next Action
 
-Commit and push the native Linux/libvirt adapter milestone. Then generate one
-ephemeral owner-only SSH key and invoke only the fixed
-`coffer-ui-x86-qualification-1` create action. Do not run the qualification
-workload on the shared host or alter its existing Docker/VM/network identities.
+Inspect and stage exactly the five plan 0022 files, run the staged secret check,
+then commit and push the honest blocked native-AMD64 result and Scout
+preflight/cache correction. Do not retry Scout, restore the destroyed VM, or
+handle a Docker credential. After publication, activate the next Stage 6
+package that is independent of the Docker Scout credential boundary.
 
 ## After This Work Package
 
 The REST/OpenAPI, Horizon, Skyline, disabled-by-default Kolla UI lifecycle,
 rendered fixture, and full repository verification scope is complete locally.
 Plan 0021 closes the native ARM64 local UI image build/scan gap with an honest
-blocked result. Stage 6's qualified pilot still requires released dependency
-gates, parent-image remediation, native x86_64, signing/publication through an
-approved operator pipeline, and live catalog, Keystone, Kolla, and browser
-acceptance. Official OpenStack/Kolla governance work remains later.
+blocked result. Plan 0022 proves native x86_64 build/runtime compatibility but
+cannot produce the accepted canonical two-scanner result without separately
+authorized Docker Scout authentication. Stage 6's qualified pilot still
+requires released dependency gates, parent-image remediation, a canonical
+native x86_64 result, signing/publication through an approved operator
+pipeline, and live catalog, Keystone, Kolla, and browser acceptance. Official
+OpenStack/Kolla governance work remains later.

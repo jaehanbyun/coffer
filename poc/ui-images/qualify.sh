@@ -11,6 +11,7 @@ SCOUT_EVIDENCE="work/ui-image-qualification/evidence"
 WHEELS="${WORK}/wheels"
 CONTEXTS="${WORK}/contexts"
 TRIVY_CACHE="${WORK}/trivy-cache"
+SCOUT_CACHE="${WORK}/scout-cache"
 KOLLA_SOURCE="${ROOT}/work/kolla-2026.1-production"
 KOLLA_BUILD="${KOLLA_SOURCE}/.venv/bin/kolla-build"
 HORIZON_SOURCE="${ROOT}/work/horizon-25.7.3"
@@ -63,6 +64,7 @@ remove_scan_archives() {
 
 remove_scanner_cache() {
     rm -rf -- "${TRIVY_CACHE:?}"
+    rm -rf -- "${SCOUT_CACHE:?}"
 }
 
 stop_native_podman_service() {
@@ -124,8 +126,13 @@ if [[ -e "${WORK}" ]]; then
     echo "refusing existing UI qualification work directory" >&2
     exit 1
 fi
-mkdir -p "${EVIDENCE}" "${WHEELS}" "${CONTEXTS}" "${TRIVY_CACHE}"
-chmod 700 "${WORK}" "${EVIDENCE}" "${WHEELS}" "${CONTEXTS}" "${TRIVY_CACHE}"
+mkdir -p \
+    "${EVIDENCE}" "${WHEELS}" "${CONTEXTS}" \
+    "${TRIVY_CACHE}" "${SCOUT_CACHE}"
+chmod 700 \
+    "${WORK}" "${EVIDENCE}" "${WHEELS}" "${CONTEXTS}" \
+    "${TRIVY_CACHE}" "${SCOUT_CACHE}"
+export DOCKER_SCOUT_CACHE_DIR="${SCOUT_CACHE}"
 
 phase="Podman API service"
 if [[ "${runtime_os}" == "Darwin" ]]; then
@@ -168,6 +175,24 @@ if ! "${KOLLA_SOURCE}/.venv/bin/python" -c 'import podman' >/dev/null 2>&1; then
     uv pip install --python "${KOLLA_SOURCE}/.venv/bin/python" \
         "podman==${PODMAN_PY_VERSION}"
 fi
+docker_scout_version="$(
+    docker scout version | awk '/^version:/ {print $2; exit}'
+)"
+test -n "${docker_scout_version}"
+
+phase="Docker Scout CVE capability"
+scout_probe_sbom="${WORK}/scout-capability.spdx.json"
+scout_probe_sarif="${WORK}/scout-capability.sarif.json"
+docker scout sbom --format spdx --output "${scout_probe_sbom}" \
+    "fs://${HARNESS}/qualification.py"
+docker scout cves --format sarif --output "${scout_probe_sarif}" \
+    "sbom://${scout_probe_sbom}"
+jq -e '
+    .version == "2.1.0"
+    and (.runs | type == "array")
+    and (.runs | length == 1)
+' "${scout_probe_sarif}" >/dev/null
+rm -f -- "${scout_probe_sbom}" "${scout_probe_sarif}"
 
 runtime_arch="$(podman info --format '{{.Host.Arch}}')"
 case "${runtime_arch}" in
@@ -286,14 +311,10 @@ podman run --rm \
 podman run --rm \
     --volume "${TRIVY_CACHE}:/root/.cache/trivy:rw" \
     "${TRIVY_IMAGE}" image --download-java-db-only
-docker_scout_version="$(
-    docker scout version | awk '/^version:/ {print $2; exit}'
-)"
 trivy_version="$(
     podman run --rm --network none "${TRIVY_IMAGE}" --version \
         | awk '/^Version:/ {print $2; exit}'
 )"
-test -n "${docker_scout_version}"
 test -n "${trivy_version}"
 
 phase="image and runtime evidence"
