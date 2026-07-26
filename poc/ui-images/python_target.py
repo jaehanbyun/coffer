@@ -24,7 +24,7 @@ WHEEL = re.compile(
     r"cp[0-9]{2,3}-(?:cp[0-9]{2,3}|abi3)-[A-Za-z0-9._]+)\.whl$"
 )
 URL = re.compile(r"^https://files\.pythonhosted\.org/packages/[A-Za-z0-9/_.+-]+$")
-PREFIX = re.compile(r"^[a-z][a-z0-9_]*[/.]$")
+PREFIX = re.compile(r"^[A-Za-z][A-Za-z0-9_]*[/.]$")
 LABEL = re.compile(r"^coffer-ui-python-[a-z0-9.-]+-v1$")
 PROBES = {
     "click-cli",
@@ -33,6 +33,7 @@ PROBES = {
     "mako-render",
     "msgpack-binary",
     "module-import",
+    "pillow-png",
     "pyjwt-hs256",
     "ujson-binary",
     "urllib3-pool",
@@ -105,6 +106,7 @@ class Target:
             "lxml-xxe",
             "mako-render",
             "msgpack-binary",
+            "pillow-png",
             "pyjwt-hs256",
             "ujson-binary",
         }:
@@ -348,6 +350,30 @@ def probe_target(target: Target, *, enforce_security: bool = True) -> str:
                 except etree.XMLSyntaxError:
                     continue
                 raise TargetError("lxml external entity default is unsafe")
+    elif target.probe == "pillow-png":
+        image_module = importlib.import_module("PIL.Image")
+        native_module = importlib.import_module("PIL._imaging")
+        module_path = str(getattr(native_module, "__file__", ""))
+        if not any(module_path.endswith(suffix) for suffix in EXTENSION_SUFFIXES):
+            raise TargetError("Pillow native extension is not active")
+        payload = image_module.new("RGB", (2, 2), (12, 34, 56))
+        payload.putpixel((1, 1), (78, 90, 123))
+        encoded = BytesIO()
+        payload.save(encoded, format="PNG")
+        if not encoded.getvalue().startswith(b"\x89PNG\r\n\x1a\n"):
+            raise TargetError("Pillow PNG encoding failed")
+        encoded.seek(0)
+        with image_module.open(encoded) as decoded:
+            decoded.load()
+            if (
+                decoded.format != "PNG"
+                or decoded.mode != "RGB"
+                or decoded.size != (2, 2)
+                or decoded.getpixel((0, 0)) != (12, 34, 56)
+                or decoded.getpixel((1, 1)) != (78, 90, 123)
+            ):
+                raise TargetError("Pillow PNG round trip failed")
+        result = "coffer"
     elif target.probe == "django-template":
         settings = importlib.import_module("django.conf").settings
         if settings.configured:

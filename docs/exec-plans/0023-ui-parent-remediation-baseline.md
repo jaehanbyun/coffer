@@ -96,6 +96,8 @@ absolute gate.
 | Accept ujson 5.13.0 only as the eighth independent compatibility derivative | The official native ARM64 wheel, binary JSON round trip, exact runtime delta, and exact removal of three High findings plus one Medium finding passed on both surfaces | Building from sdist; stopping at an older fixed release; combining upgrades; changing production images while High findings remain | 2026-07-27 |
 | Separate baseline compatibility from candidate security behavior in runtime evidence | A vulnerable control must prove that the same UI/runtime path works without being mislabeled secure, while the remediated candidate must additionally pass the security regression; explicit probe modes preserve both facts | Requiring the fixed behavior from the vulnerable control; skipping candidate security behavior; treating baseline mode as a waiver | 2026-07-27 |
 | Accept lxml 6.1.1 only as the ninth independent compatibility derivative | The official native ARM64 wheel, native XML/XPath path, two default external-entity rejection paths, exact runtime delta, and exact two-scanner CVE removal passed on both surfaces; 6.1.1 also contains the upstream follow-up hardening after 6.1.0 | Stopping at 6.1.0; building from sdist; combining upgrades; changing production images while High findings remain | 2026-07-27 |
+| Permit a case-sensitive Python package prefix without weakening its shape | Pillow installs under the real `PIL/` package directory; a strict Python-identifier prefix remains necessary while lowercase-only validation would reject the official wheel | Renaming wheel contents; accepting arbitrary paths; adding an unrelated module-name override | 2026-07-27 |
+| Accept Pillow 12.3.0 only as the Horizon-scoped tenth independent compatibility derivative | The official native ARM64 wheel, native PNG round trip, exact runtime delta, exact removal of 12 High and six Medium findings under both scanners, and cleanup passed on its installed surface | Stopping at 12.2.0 with ten High findings unfixed; installing Pillow in Skyline; building from sdist; changing production images while High findings remain | 2026-07-27 |
 
 ## Tasks
 
@@ -121,6 +123,7 @@ absolute gate.
 - [x] Run the independent msgpack 1.1.2 to 1.2.1 ARM64 experiment.
 - [x] Run the independent ujson 5.11.0 to 5.13.0 ARM64 experiment.
 - [x] Run the independent lxml 6.0.2 to 6.1.1 ARM64 experiment.
+- [x] Run the Horizon-only Pillow 12.1.1 to 12.3.0 ARM64 experiment.
 - [ ] Rescan viable derivatives, update the durable handoff, and publish each
       verified atomic milestone.
 
@@ -651,6 +654,55 @@ absolute gate.
   wheel and its accepted findings, add an offline native PNG round-trip probe,
   and run it as the tenth independent derivative.
 
+### 2026-07-27 — Pillow 12.3.0 ARM64 derivative accepted
+
+- Completed: Bound the official non-yanked CPython 3.12 manylinux ARM64 wheel
+  at SHA-256
+  `d9c7f76c0673154f044e9d78c8655fb4213f6ca31a836df48b40fe5d187717b9`.
+  The 12.3.0 security release is required because 12.2.0 fixes only two of the
+  accepted 12 High findings. The remaining ten first report 12.3.0 as fixed.
+- Compatibility: The Horizon derivative preserves the accepted cleanup OS
+  inventory and every non-target Python distribution version multiset. Pillow
+  alone changes from 12.1.1 to 12.3.0. `pip check`, native `PIL._imaging`,
+  in-memory PNG encode/decode and exact pixel behavior, official source
+  hashes, package-local native extension boundaries, Coffer UI runtime hashes,
+  image lineage, and build-input absence pass. The strict target grammar now
+  admits a case-sensitive Python-identifier prefix so the official `PIL/`
+  package can be represented without permitting an arbitrary path.
+- Scan result: Both Trivy and Scout remove exactly `CVE-2026-40192`,
+  `CVE-2026-42311`, `CVE-2026-54058`, `CVE-2026-54059`,
+  `CVE-2026-54060`, `CVE-2026-55379`, `CVE-2026-55380`,
+  `CVE-2026-59197`, `CVE-2026-59199`, `CVE-2026-59200`,
+  `CVE-2026-59204`, and `CVE-2026-59205`. Horizon changes from Trivy
+  31 to 19 and Scout 34 to 22 High. Each scanner also removes six Medium
+  findings. Neither scanner introduces a Critical/High finding, and Trivy
+  finds zero secrets.
+- Scope: Skyline does not contain Pillow and has no target overlay, runtime,
+  or scanner evidence. `python_overlay_trial_accepted=true`, status `blocked`,
+  and `production_candidate=false`. The result is not cumulative and changes
+  no production Containerfile or constraints policy.
+- Transient failure: The first build stopped fail closed before parent
+  completion when `tarballs.opendev.org` DNS resolution failed on all four
+  Kolla source-fetch attempts. The harness removed its exact images, contexts,
+  wheel copies, scanner caches, and stopped Podman. After host DNS returned
+  HTTP 200, the empty bounded work directory was removed and the complete
+  transaction was rerun successfully.
+- Evidence: Owner-only ignored result SHA-256
+  `0529bb908ff020ba2ef0e676607880847fcabe34209beaeab9751785cf9a836a`;
+  manifest `48c07cf43ed8fb7c5b2a00422dde761e809a0d96b83071f08581d76cdaf3eac9`,
+  images `d51a0552dcf92afdd4ae9bd0bb447ddd04f40b2bf137f37d596f713d55284dc1`,
+  OS inventories
+  `1c37ea201d13a9e2fc5c4b4d606268f3d4239c20017e8fbc0b507e44e243b4cb`,
+  and runtimes
+  `ee6a680fdd49a7d021e86617d41996823d08a8ce0da27a4930b60cd6e555bd1c`.
+- Cleanup: Exact trial images, generated contexts, wheel copies, archives,
+  and scanner caches are absent. The harness-started Podman machine is
+  stopped. Non-secret evidence remains owner-only under ignored
+  `work/ui-python-overlay-trial-pillow/evidence/`.
+- Next exact action: Inspect the official cryptography 46.0.5 and pyOpenSSL
+  26.0.0 dependency metadata against the installed 43.0.3/24.2.1 pair and
+  decide whether the two remaining candidates require one coupled derivative.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -685,6 +737,8 @@ absolute gate.
 | ujson milestone gates | JSON, Bash, strict ShellCheck, Ruff, compilation, UI image suite, full pytest, version-floor and residue checks | passed; 76 focused and 1,531 total tests with no generated build residue |
 | lxml compatibility experiment | native ARM64 official wheel, exact OS/Python/UI runtime, native XML/XPath behavior, candidate default XXE rejection, and two-scanner trial | passed for lxml only; production blocked at Horizon Trivy/Scout 30/33 High and Skyline 15/18 High |
 | lxml milestone gates | JSON, Bash, strict ShellCheck, Ruff, compilation, UI image suite, full pytest, probe-mode and residue checks | passed; 77 focused and 1,532 total tests with no generated build residue |
+| Pillow compatibility experiment | Horizon-only native ARM64 official wheel, exact OS/Python/UI runtime, native PNG round trip, and two-scanner trial | passed for Pillow only; production blocked at Horizon Trivy/Scout 19/22 High |
+| Pillow milestone gates | JSON, Bash, strict ShellCheck, Ruff, compilation, UI image suite, full pytest, case-sensitive-prefix and residue checks | passed; 78 focused and 1,533 total tests with no generated build residue |
 | Baseline milestone gates | full pytest, Ruff E/F/I, compilation, staged secret/diff | passed; 1,483 tests and no staged leak |
 | Final repository gates | dashboard packages, Kolla role, docs/links, secret, diff | pending with remediation experiment |
 
@@ -735,6 +789,10 @@ absolute gate.
   control and is not a security qualification. The candidate's offline
   external-entity assertions do not replace a cumulative image, AMD64,
   live-dashboard, or production Containerfile test.
+- Pillow 12.3.0 is accepted only as a separate native ARM64 Horizon
+  derivative. Its native PNG probe does not exercise every vulnerable codec,
+  authorize a cumulative constraints override, add Pillow to Skyline, qualify
+  an AMD64 wheel, or permit a production Containerfile change.
 - The derivative proves static Kolla metadata, package integrity, installed UI
   runtime files, input cleanup, parent availability, and scan behavior. A
   production adoption still needs the Python compatibility matrix and later
@@ -753,17 +811,17 @@ absolute gate.
   wheel contract, independent native ARM64 msgpack derivative, numeric
   fixed-release floor contract, independent native ARM64 ujson derivative,
   explicit baseline/candidate probe-mode contract, and independent native
-  ARM64 lxml derivative are complete locally with no waiver. The trials passed
-  package, runtime,
+  ARM64 lxml derivative, strict case-sensitive package-prefix contract, and
+  Horizon-only native ARM64 Pillow derivative are complete locally with no
+  waiver. The trials passed package, runtime,
   lineage, and two-scanner delta gates but correctly remain blocked by
   nonzero Critical/High findings. Raw/report evidence is non-secret and
   remains owner-only under ignored `work/`.
-- Exact next action: Add the official Pillow 12.3.0 Horizon-only target and
-  native PNG round-trip probe, then run it as the tenth independent ARM64
-  derivative.
-- First file or command: Add Pillow's exact official CPython 3.12 ARM64 wheel,
-  12 accepted High finding identities, and Horizon surface to
-  `poc/ui-images/python_targets.json`; do not modify production UI
-  Containerfiles.
+- Exact next action: Determine whether the remaining cryptography and
+  pyOpenSSL findings require one coupled compatibility derivative.
+- First file or command: Query the official cryptography 46.0.5 and pyOpenSSL
+  26.0.0 PyPI metadata, then compare their `Requires-Dist` bounds with
+  cryptography 43.0.3 and pyOpenSSL 24.2.1 in the accepted Horizon/Skyline
+  runtimes; do not modify production UI Containerfiles.
 - Questions requiring user input: None. No credential, external publication,
   live deployment, or waiver is required for the next local milestone.

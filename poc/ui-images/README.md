@@ -163,6 +163,7 @@ make -C poc/ui-images trial-python-django
 make -C poc/ui-images trial-python-httplib2
 make -C poc/ui-images trial-python-lxml
 make -C poc/ui-images trial-python-msgpack
+make -C poc/ui-images trial-python-pillow
 make -C poc/ui-images trial-python-urllib3
 make -C poc/ui-images trial-python-pyjwt
 make -C poc/ui-images trial-python-ujson
@@ -375,3 +376,24 @@ constraints policy. Owner-only evidence is retained under ignored
 `work/ui-python-overlay-trial-lxml/evidence/`; generated images, contexts,
 wheel copies, archives, scanner caches, and the harness-started Podman machine
 are absent after exit.
+
+The 2026-07-27 native ARM64 trial independently accepted the Horizon-only
+`Pillow` 12.1.1 to 12.3.0 derivative using the exact official CPython 3.12
+manylinux ARM64 wheel. The offline compatibility probe requires the native
+`PIL._imaging` extension and performs an in-memory RGB PNG encode, signature
+check, decode, load, and exact pixel round trip. Horizon preserves the accepted
+cleanup OS inventory and every non-target Python distribution version
+multiset; `pip check`, official source hashes, package-local native extension
+boundaries, Coffer UI runtime hashes, lineage, and build-input absence pass.
+
+Both scanners removed exactly the declared 12 High findings. Horizon changed
+from Trivy 31 to 19 High and Scout 34 to 22 High. Each scanner also removed
+six Medium findings. Neither scanner introduced a Critical/High finding, and
+Trivy found no secret. Skyline does not contain Pillow and therefore has no
+overlay or scan evidence in this trial.
+
+The result remains isolated with `production_candidate=false` and changes no
+production Containerfile or constraints policy. Owner-only evidence is
+retained under ignored `work/ui-python-overlay-trial-pillow/evidence/`;
+generated images, contexts, wheel copies, archives, scanner caches, and the
+harness-started Podman machine are absent after exit.

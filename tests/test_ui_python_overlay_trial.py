@@ -518,6 +518,7 @@ def build(evidence: Path, artifacts: dict[str, Any]) -> dict[str, object]:
         "httplib2",
         "lxml",
         "msgpack",
+        "pillow",
         "pyjwt",
         "ujson",
         "urllib3",
@@ -840,6 +841,7 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
         "mako",
         "httplib2",
         "lxml",
+        "pillow",
         "pyjwt",
         "msgpack",
         "urllib3",
@@ -868,6 +870,15 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
     assert targets["lxml"].finding_ids == ("CVE-2026-41066",)
     assert targets["lxml"].wheel_sha256 == (
         "c921ba5c51e4e9f63b8b00267d06566e1f63407408a0496da2d1d0bfc819c7fc"
+    )
+    assert targets["pillow"].display_name == "Pillow"
+    assert targets["pillow"].package_prefix == "PIL/"
+    assert targets["pillow"].module_name == "PIL"
+    assert targets["pillow"].surfaces == ("horizon",)
+    assert targets["pillow"].wheel_architecture == "arm64"
+    assert len(targets["pillow"].finding_ids) == 12
+    assert targets["pillow"].wheel_sha256 == (
+        "d9c7f76c0673154f044e9d78c8655fb4213f6ca31a836df48b40fe5d187717b9"
     )
     assert targets["ujson"].package_prefix == "ujson."
     assert targets["ujson"].module_name == "ujson"
@@ -908,7 +919,7 @@ def test_target_manifest_containerfile_and_runner_are_bounded() -> None:
     assert all(
         target.surfaces == ("horizon", "skyline")
         for key, target in targets.items()
-        if key != "django"
+        if key not in {"django", "pillow"}
     )
 
     runner = (

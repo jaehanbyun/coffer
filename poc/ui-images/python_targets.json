@@ -178,6 +178,79 @@
       "wheel_sha256": "60926b75d00c8e816ef98f3034f484a8bc64242d66839cef4cf7e503142316a0",
       "wheel_url": "https://files.pythonhosted.org/packages/26/aa/753ad8b007b464e1d8aa0c8e650b9c5f4f725e658fc5ac8a7635c55b7f6e/msgpack-1.2.1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl"
     },
+    "pillow": {
+      "display_name": "Pillow",
+      "finding_ids_by_scanner": {
+        "scout": [
+          "CVE-2026-40192",
+          "CVE-2026-42311",
+          "CVE-2026-54058",
+          "CVE-2026-54059",
+          "CVE-2026-54060",
+          "CVE-2026-55379",
+          "CVE-2026-55380",
+          "CVE-2026-59197",
+          "CVE-2026-59199",
+          "CVE-2026-59200",
+          "CVE-2026-59204",
+          "CVE-2026-59205"
+        ],
+        "trivy": [
+          "CVE-2026-40192",
+          "CVE-2026-42311",
+          "CVE-2026-54058",
+          "CVE-2026-54059",
+          "CVE-2026-54060",
+          "CVE-2026-55379",
+          "CVE-2026-55380",
+          "CVE-2026-59197",
+          "CVE-2026-59199",
+          "CVE-2026-59200",
+          "CVE-2026-59204",
+          "CVE-2026-59205"
+        ]
+      },
+      "from_version": "12.1.1",
+      "normalized_name": "pillow",
+      "package_prefix": "PIL/",
+      "probe": "pillow-png",
+      "requires_dist": [
+        "arro3-compute; extra == \"test-arrow\"",
+        "arro3-core; extra == \"test-arrow\"",
+        "coverage>=7.4.2; extra == \"tests\"",
+        "defusedxml; extra == \"tests\"",
+        "defusedxml; extra == \"xmp\"",
+        "furo; extra == \"docs\"",
+        "markdown2; extra == \"tests\"",
+        "nanoarrow; extra == \"test-arrow\"",
+        "olefile; extra == \"docs\"",
+        "olefile; extra == \"fpx\"",
+        "olefile; extra == \"mic\"",
+        "olefile; extra == \"tests\"",
+        "packaging; extra == \"tests\"",
+        "pyarrow; extra == \"test-arrow\"",
+        "pytest-cov; extra == \"tests\"",
+        "pytest-timeout; extra == \"tests\"",
+        "pytest-xdist; extra == \"tests\"",
+        "pytest; extra == \"tests\"",
+        "setuptools; extra == \"tests\"",
+        "sphinx-autobuild; extra == \"docs\"",
+        "sphinx-copybutton; extra == \"docs\"",
+        "sphinx-inline-tabs; extra == \"docs\"",
+        "sphinx>=8.2; extra == \"docs\"",
+        "sphinxext-opengraph; extra == \"docs\"",
+        "trove-classifiers>=2024.10.12; extra == \"tests\""
+      ],
+      "surfaces": [
+        "horizon"
+      ],
+      "to_version": "12.3.0",
+      "trial_label": "coffer-ui-python-pillow-12.3.0-v1",
+      "wheel_architecture": "arm64",
+      "wheel_filename": "pillow-12.3.0-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+      "wheel_sha256": "d9c7f76c0673154f044e9d78c8655fb4213f6ca31a836df48b40fe5d187717b9",
+      "wheel_url": "https://files.pythonhosted.org/packages/25/27/ac8f99618ffd3dde21db0f4d4b1d2ab00c0880595bfd17df103f7f39fd0c/pillow-12.3.0-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl"
+    },
     "pyjwt": {
       "display_name": "PyJWT",
       "finding_ids_by_scanner": {

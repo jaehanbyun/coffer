@@ -36,7 +36,7 @@
   disabled-by-default immutable Horizon/Skyline image contracts and exact
   fallback lifecycle complete locally with 108 role checks; four desktop/narrow
   UI fixture screenshots visually inspected; current UI remediation suite
-  passes 77 focused checks, full Python regression passes 1,532 tests, and the
+  passes 78 focused checks, full Python regression passes 1,533 tests, and the
   prior Horizon/Skyline/108-check Kolla repository
   gates remain complete
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`
@@ -300,6 +300,35 @@ Containerfile or constraints policy changed. Exact images, generated contexts,
 wheel copies, archives, and scanner caches are absent, and the harness-started
 Podman machine is stopped. JSON, Bash, strict ShellCheck, Ruff, compilation,
 77 focused UI image checks, and all 1,532 repository tests pass.
+
+The tenth independent native ARM64 derivative changes only Horizon `Pillow`
+12.1.1 to 12.3.0 using the exact official CPython 3.12 manylinux ARM64 wheel.
+The strict package-prefix grammar now admits the official case-sensitive
+Python identifier `PIL/` without accepting arbitrary paths. The Horizon
+cleanup OS inventory and every non-target Python distribution version
+multiset remain exact. `pip check`, native `PIL._imaging`, in-memory PNG
+encode/decode and exact pixel behavior, official source hashes, package-local
+native extension boundaries, Coffer Horizon runtime hashes, lineage, and
+build-input absence pass.
+
+Both Trivy and Scout remove exactly the accepted 12 High Pillow findings.
+Horizon changes from Trivy 31 to 19 and Scout 34 to 22 High; each scanner also
+removes six Medium findings. Both scanners introduce zero Critical/High
+finding, and Trivy finds zero secrets. Skyline contains no Pillow and has no
+overlay or scan evidence. The owner-only result SHA-256 is
+`0529bb908ff020ba2ef0e676607880847fcabe34209beaeab9751785cf9a836a`.
+The result remains isolated with `production_candidate=false`; no production
+Containerfile or constraints policy changed. Exact images, generated contexts,
+wheel copies, archives, and scanner caches are absent, and the harness-started
+Podman machine is stopped. JSON, Bash, strict ShellCheck, Ruff, compilation,
+78 focused UI image checks, and all 1,533 repository tests pass.
+
+The first Pillow build attempt stopped before parent completion because
+`tarballs.opendev.org` DNS resolution failed on all four Kolla retries.
+The harness cleaned its exact generated state. After the same URL returned
+HTTP 200, the empty bounded work directory was removed and the complete
+transaction passed. This was an external transient, not accepted trial
+evidence.
 
 Plan 0019 is externally blocked after converting every locally independent
 Stage 6 operation into a release-gated, checkpointed pilot harness. The latest
@@ -3163,10 +3192,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add the official Pillow 12.3.0 CPython 3.12 ARM64 wheel as a Horizon-only
-target in `poc/ui-images/python_targets.json`, bind the 12 accepted High
-finding identities, add an offline native PNG round-trip probe, and run the
-tenth independent compatibility derivative.
+Query the official cryptography 46.0.5 and pyOpenSSL 26.0.0 PyPI metadata,
+then compare their dependency bounds with the installed 43.0.3/24.2.1 pair
+to decide whether the two remaining eligible findings require one coupled
+compatibility derivative.
 Do not alter production UI Containerfiles, combine upgrades, waive a finding,
 handle a Docker credential, or create a live cloud.
 
