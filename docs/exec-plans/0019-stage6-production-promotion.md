@@ -2581,6 +2581,36 @@ operator-local release.
   under one non-synthetic checkpoint adapter. Actual invocation remains
   release-gated.
 
+### 2026-07-26 — Phase action materializers completed locally
+
+- Input boundary: `pilot_phase_actions.py` defines the owner-only
+  `collector-inputs.json` contract that a later Kolla renderer must supply.
+  It contains descriptors and source/schedule/target/window bindings, never
+  credentials. All files are re-read and hash/mode/link checked at action
+  time.
+- Dynamic binding: RGW probe and multipart descriptors must name the exact
+  preceding scheduled outputs. The RGW artifact configuration must equal the
+  projection of the qualified live config and exact native target; a
+  substitute fixture or live-client config is refused.
+- Atomic transaction: The render action creates the existing
+  phase-preparation request at its exact scheduled path. The prepare action
+  invokes the existing six-surface atomic preparer and accepts only
+  `phase-evidence/result.json`. The completion action revalidates that result
+  and the separate zero-residue cleanup verification before publishing its
+  self-hashed result.
+- Recovery: Existing outputs are never overwritten. Reconciliation validates
+  the canonical retained request, complete atomic directory, or completion
+  document without repeating preparation.
+- Evidence: Twelve phase-action and 158 combined phase/fault/RGW/cleanup/
+  executor/schedule/live-adapter tests pass. The load/observability matrix
+  passes 828 tests and the full Python regression passes 1373. No Kolla,
+  service restart, boto3, credential, endpoint, S3, KMS, Barbican, container,
+  VM, or remote state changed.
+- Next exact action: Compose RGW, external-fault, and phase adapters behind
+  one checkpoint adapter accepted by the executor, then prove all 53 actions,
+  resume, and completion with injected clients/controller and owner-only
+  collector inputs. Actual invocation remains release-gated.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2765,6 +2795,10 @@ operator-local release.
 | Fault and RGW action stack | fault actions, RGW actions, cleanup, executor, schedule, and live-adapter focused tests | passed; 129 |
 | Post-fault-actions load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 816 |
 | Post-fault-actions full Python regression | `uv run pytest -q` | passed; 1361 |
+| Phase action materializers | `uv run pytest -q tests/test_load_pilot_phase_actions.py` | passed; 12 |
+| Phase, fault, and RGW action stack | phase actions, fault actions, RGW actions, phase preparation, cleanup, executor, schedule, and live-adapter focused tests | passed; 158 |
+| Post-phase-actions load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 828 |
+| Post-phase-actions full Python regression | `uv run pytest -q` | passed; 1373 |
 | Control SQL/migration/reconciliation focused matrix | quota, reconciliation, migration, bootstrap, maintenance, and runner tests | passed; 183 |
 | Full regression after control SQL evidence | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1126 |
 
@@ -2806,10 +2840,10 @@ operator-local release.
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
-- Exact next action: Implement collector-input, phase-preparation, and
-  phase-completion materializers, then compose the RGW and fault adapters
-  under one non-synthetic checkpoint adapter. Actual invocation remains
-  release-gated.
+- Exact next action: Compose RGW, external-fault, and phase adapters behind
+  one checkpoint adapter accepted by the executor, then prove all 53 actions,
+  resume, and completion with injected clients/controller and owner-only
+  collector inputs. Actual invocation remains release-gated.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

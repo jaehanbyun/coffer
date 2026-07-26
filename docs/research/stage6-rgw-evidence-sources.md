@@ -242,7 +242,8 @@ state is used.
 
 ## Exact Next Action
 
-Add collector-input, phase-preparation, and phase-completion materializers,
-then compose them with the RGW and external-fault adapters under one
-non-synthetic checkpoint adapter. Keep actual invocation disabled while the
+Compose the completed RGW, external-fault, and phase action materializers
+behind one non-synthetic checkpoint adapter accepted by the executor. Prove
+all 53 checkpoints and interruption recovery with injected clients and
+owner-only collector inputs. Keep actual invocation disabled while the
 selected released Distribution/Ceph inputs remain unqualified.

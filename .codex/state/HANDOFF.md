@@ -2588,6 +2588,19 @@ release contains it yet.
   endpoint, S3, KMS, Barbican, container, VM, or remote state changed. A real
   fault-controller implementation and full adapter composition do not exist
   yet.
+- Added all three phase action materializers. The owner-only collector input
+  contract binds static collectors, an exact projection of the qualified RGW
+  live config, the scheduled probe/multipart outputs, native target,
+  schedule, phase/window, and source hashes without retaining credentials.
+- The existing six-surface phase preparer publishes atomically at the exact
+  scheduled path. Phase completion independently revalidates its result and
+  the exact-prefix zero-residue verification. Existing outputs are never
+  overwritten and reconciliation performs no rebuild.
+- Twelve phase-action and 158 combined focused tests pass. The
+  load/observability matrix passes 828 tests and the full Python regression
+  passes 1373. No Kolla, service restart, credential, endpoint, S3, KMS,
+  Barbican, container, VM, or remote state changed. The full 53-action
+  checkpoint adapter and real fault controller still do not exist.
 
 ## Blockers and Risks
 
@@ -2622,9 +2635,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Implement collector-input, phase-preparation, and phase-completion
-materializers, then compose the RGW and fault adapters under one
-non-synthetic checkpoint adapter. Actual invocation remains release-gated.
+Compose RGW, external-fault, and phase adapters behind one non-synthetic
+checkpoint adapter accepted by the executor, then prove all 53 actions,
+resume, and completion with injected clients/controller and owner-only
+collector inputs. Actual invocation remains release-gated.
 
 ## After This Work Package
 

@@ -643,9 +643,7 @@ adapter and shares its verified-HTTPS S3 client with cleanup. Tests inject
 fake clients and never read credential environment variables. Fifteen action
 tests plus the expanded 29 cleanup tests cover all supported materializers,
 during step indices, reconciliation, tamper, retention, readiness refusal, and
-the source-only CLI. Fault apply/recover, collector-input rendering, atomic
-phase preparation, and phase completion remain deliberately unsupported, so
-this partial adapter cannot run the full pilot.
+the source-only CLI. This partial adapter cannot run the full pilot by itself.
 
 `pilot_fault_actions.py` defines the non-synthetic external controller seam for
 the four `during` actions. It also exposes only a source-hash command:
@@ -671,6 +669,34 @@ apply-before-output interruption, unobserved retry, observation drift,
 window/evidence/state tamper, missing phase, readiness refusal, retention, and
 the source-only CLI. Tests use a fake controller; no Kolla, RGW, Barbican, KMS,
 service restart, credential, VM, or remote state changed.
+
+`pilot_phase_actions.py` materializes the final three actions in every phase
+and exposes only a source-hash command:
+
+```text
+uv run python poc/load-soak/collector/pilot_phase_actions.py source-hash
+```
+
+The externally rendered `collector-inputs.json` is an owner-only deployment
+input contract until the Kolla renderer owns it. It contains no credential.
+The materializer binds its exact source, the phase-preparer source, qualified
+schedule, phase, window, and native target. Static Prometheus, HAProxy,
+control, and Galera descriptors may be supplied by the pilot collector. The
+RGW artifact configuration must be byte-for-byte equivalent to the qualified
+live schedule, while the probe and multipart descriptors must name the exact
+files produced beneath that phase runtime.
+
+`render-phase-preparation-request` validates every descriptor and emits the
+existing preparation request at its scheduled path.
+`prepare-phase-atomically` invokes the existing all-or-nothing six-surface
+preparer and accepts only its scheduled `phase-evidence/result.json`.
+`complete-phase` independently revalidates that result plus the exact-prefix
+zero-residue verification before emitting a small self-hashed completion
+document. Existing output is never overwritten; reconciliation revalidates
+without rebuilding it. Twelve tests cover all three phases, repeat
+reconciliation, static/dynamic/target/source drift, unsafe input mode,
+cleanup tamper, output preservation, unsupported actions, and the source-only
+CLI. Tests use only local fixtures and fake RGW clients.
 
 ## Six-surface phase preparation
 
