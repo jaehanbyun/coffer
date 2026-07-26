@@ -66,6 +66,12 @@ HEALTHY_OPERATION_ORDER = (
     "copy_positive",
     "list_multipart",
 )
+DURING_FAULT_SEQUENCE = (
+    ("put_zero", "expected_wrong_key"),
+    ("put_zero", "success"),
+    ("put_positive", "expected_kms_outage"),
+    ("put_positive", "success"),
+)
 KMS_ERROR_CODES = frozenset(
     {
         "AccessDenied",
@@ -319,10 +325,13 @@ def _config(value: object) -> dict[str, Any]:
         (operation, "success") for operation in HEALTHY_OPERATION_ORDER
     ]:
         raise RgwLiveAdapterError("RGW healthy probe order changed")
-    if any(
-        item["result"] not in FAULT_RESULTS
-        for item in steps[len(HEALTHY_OPERATION_ORDER) :]
-    ):
+    suffix = steps[len(HEALTHY_OPERATION_ORDER) :]
+    if raw["phase"] == "during":
+        if [
+            (item["operation"], item["result"]) for item in suffix
+        ] != list(DURING_FAULT_SEQUENCE):
+            raise RgwLiveAdapterError("RGW fault/recovery sequence changed")
+    elif suffix:
         raise RgwLiveAdapterError("RGW extra probe step changed")
     observed_counts = {
         operation: sum(
@@ -342,9 +351,8 @@ def _config(value: object) -> dict[str, Any]:
         result: sum(item["result"] == result for item in steps)
         for result in rgw_artifacts.FAULT_CLASSES
     }
-    if (
-        raw["phase"] == "during"
-        and any(fault_counts[result] < 1 for result in FAULT_RESULTS)
+    if raw["phase"] == "during" and any(
+        fault_counts[result] != 1 for result in FAULT_RESULTS
     ):
         raise RgwLiveAdapterError("RGW fault probe coverage changed")
     if raw["phase"] != "during" and any(fault_counts.values()):

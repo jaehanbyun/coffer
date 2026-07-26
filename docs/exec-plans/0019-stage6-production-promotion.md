@@ -2440,6 +2440,39 @@ operator-local release.
   multipart capture, exact probe-prefix cleanup, and atomic phase preparation,
   while refusing unqualified released dependencies.
 
+### 2026-07-26 — Qualified disposable-pilot schedule completed locally
+
+- Release gate: `pilot_schedule.py` accepts only exact owner-only
+  `coffer.upstream-readiness/v1` evidence whose overall, Distribution, and
+  Ceph states are all `candidate-qualified`. Exact release versions,
+  revisions, and readiness payload hash must equal the compiled load-plan
+  bindings.
+- Current live classification: Official metadata still reports signed
+  Distribution v3.1.1 and Ceph Tentacle v20.2.2. Both and the overall result
+  are `blocked`; no schedule, VM recreation, credential use, or remote
+  mutation was permitted.
+- Rendered boundary: For future qualified releases, one canonical owner-only
+  request atomically emits before/during/after RGW live configurations, a
+  53-action schedule, and a self-hashed result without creating the runtime
+  directory.
+- Fault and recovery: `during` requires healthy SSE-KMS coverage, then exact
+  wrong-key failure/recovery success and KMS-outage failure/recovery success.
+  The live adapter contract now rejects missing, reordered, duplicated, or
+  cross-phase fault/recovery steps.
+- Cleanup and phase evidence: Every phase performs a complete multipart
+  capture, cleans only its exact probe prefix, requires zero remaining objects
+  and multipart uploads, renders final collector inputs, and calls the
+  existing atomic phase-preparation transaction.
+- Secret and execution boundary: The schedule retains only the three fixed
+  credential environment variable names, never their values or the KMS key
+  ID. Sixteen schedule tests plus the 32 live-adapter tests pass with no
+  network, boto3 runtime, S3, KMS, Barbican, OpenStack, container, VM, or
+  remote operation.
+- Next exact action: Implement the checkpointed schedule executor first with
+  fixture adapters, then bind the owner-only helper runtime, fault controls,
+  exact cleanup verifier, and phase-preparation request materializer behind
+  the unchanged qualified-release gate.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2604,6 +2637,9 @@ operator-local release.
 | Verified-HTTPS live RGW adapter contract | `uv run pytest -q tests/test_load_rgw_live_adapter.py` | passed; 32 |
 | Post-live-adapter load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 719 |
 | Post-live-adapter full Python regression | `uv run pytest -q` | passed; 1264 |
+| Qualified disposable-pilot schedule and RGW fault/recovery contract | `uv run pytest -q tests/test_load_pilot_schedule.py tests/test_load_rgw_live_adapter.py` | passed; 48 |
+| Post-schedule load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 735 |
+| Post-schedule full Python regression | `uv run pytest -q` | passed; 1280 |
 | Control SQL/migration/reconciliation focused matrix | quota, reconciliation, migration, bootstrap, maintenance, and runner tests | passed; 183 |
 | Full regression after control SQL evidence | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1126 |
 
@@ -2645,10 +2681,10 @@ operator-local release.
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
-- Exact next action: Add the disposable-pilot schedule/input renderer that
-  binds healthy steps, external wrong-key/outage evidence, recovery,
-  multipart capture, exact probe-prefix cleanup, and atomic phase preparation,
-  while refusing unqualified released dependencies.
+- Exact next action: Implement the checkpointed schedule executor first with
+  fixture adapters, then bind the owner-only helper runtime, fault controls,
+  exact cleanup verifier, and phase-preparation request materializer behind
+  the unchanged qualified-release gate.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

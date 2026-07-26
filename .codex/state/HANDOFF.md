@@ -18,7 +18,8 @@
   collection complete; Galera transaction artifact collection complete; RGW
   evidence source mapping and no-network artifact collection complete;
   six-surface phase preparation and verified-HTTPS live RGW evidence adapter
-  contract complete; disposable-pilot schedule/input renderer next
+  plus qualified disposable-pilot schedule contracts complete; checkpointed
+  schedule executor next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -2527,6 +2528,20 @@ release contains it yet.
   719 tests and the full Python regression passes 1264. This is fake-client
   local evidence: no credential, boto3 runtime, endpoint, RGW, KMS, Barbican,
   container, VM, or remote state was used.
+- Added the qualified disposable-pilot schedule renderer. It binds canonical
+  released readiness to the exact load-plan versions, revisions, and evidence
+  hash; emits three live RGW configs and 53 ordered actions atomically; and
+  refuses any state below `candidate-qualified`.
+- The exact `during` sequence now proves wrong-key failure, key recovery,
+  KMS-outage failure, and KMS recovery. Every phase performs complete
+  multipart capture, exact-prefix cleanup with zero object/upload residue,
+  collector-input rendering, and atomic phase preparation. Sixteen schedule
+  plus 32 adapter tests pass locally. The expanded load/observability matrix
+  passes 735 tests and the full Python regression passes 1280.
+- A fresh official metadata read still classifies signed Distribution v3.1.1
+  and Ceph Tentacle v20.2.2 as `blocked`. The renderer created no runtime
+  directory and used no credential, endpoint, S3, KMS, Barbican, OpenStack,
+  container, VM, or remote state.
 
 ## Blockers and Risks
 
@@ -2561,10 +2576,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add the disposable-pilot schedule/input renderer that binds healthy steps,
-external wrong-key/outage evidence, recovery, multipart capture, exact
-probe-prefix cleanup, and atomic phase preparation, while refusing
-unqualified released dependencies.
+Implement the checkpointed schedule executor first with fixture adapters, then
+bind the owner-only helper runtime, fault controls, exact cleanup verifier, and
+phase-preparation request materializer behind the unchanged qualified-release
+gate.
 
 ## After This Work Package
 

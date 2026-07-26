@@ -79,9 +79,19 @@ def step_plan(phase: str) -> list[dict[str, str]]:
                     "result": "expected_wrong_key",
                 },
                 {
+                    "fault_evidence_sha256": ADAPTER.NO_FAULT_SHA256,
+                    "operation": "put_zero",
+                    "result": "success",
+                },
+                {
                     "fault_evidence_sha256": f"sha256:{'b' * 64}",
                     "operation": "put_positive",
                     "result": "expected_kms_outage",
+                },
+                {
+                    "fault_evidence_sha256": ADAPTER.NO_FAULT_SHA256,
+                    "operation": "put_positive",
+                    "result": "success",
                 },
             ]
         )
@@ -262,6 +272,7 @@ def test_expected_faults_are_observed_not_hidden(tmp_path: Path) -> None:
     assert probe["result_counts"]["expected_wrong_key"] == 1
     assert probe["result_counts"]["expected_kms_outage"] == 1
     assert probe["result_counts"]["unexpected_kms_error"] == 0
+    assert probe["result_counts"]["success"] == 9
 
 
 def test_unexpected_results_remain_nonzero(tmp_path: Path) -> None:
@@ -352,8 +363,16 @@ def test_fault_plan_is_during_only_and_evidence_bound(
         ADAPTER._config(changed)
 
     changed = config(ca_path, phase="during")
-    changed["steps"][-1]["fault_evidence_sha256"] = (
+    changed["steps"][-2]["fault_evidence_sha256"] = (
         ADAPTER.NO_FAULT_SHA256
+    )
+    with pytest.raises(ADAPTER.RgwLiveAdapterError):
+        ADAPTER._config(changed)
+
+    changed = config(ca_path, phase="during")
+    changed["steps"][-1], changed["steps"][-2] = (
+        changed["steps"][-2],
+        changed["steps"][-1],
     )
     with pytest.raises(ADAPTER.RgwLiveAdapterError):
         ADAPTER._config(changed)

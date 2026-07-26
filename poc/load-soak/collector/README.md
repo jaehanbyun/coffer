@@ -494,8 +494,9 @@ owner-only configuration requires:
 - a fixed probe prefix and dependency-safe healthy order:
   zero/positive put, head/get, zero/positive copy, then multipart listing;
 - one expected operation count for every step; and
-- only in `during`, extra wrong-key and KMS-outage steps with non-empty
-  external fault-evidence hashes.
+- only in `during`, an exact wrong-key failure/recovery-success followed by
+  KMS-outage failure/recovery-success sequence, with each fault bound to a
+  non-empty external evidence hash.
 
 Credentials and the selected Barbican key ID never enter that configuration.
 The live boto3 factory reads only
@@ -531,6 +532,41 @@ The adapter core and low-level boto3 behavior are fake-client tested. A fresh
 disposable pilot must still pin the boto3 runtime, deliver the three
 environment values owner-only, coordinate wrong-key/outage/recovery, clean
 the exact probe prefix, and prove zero credential/object/multipart residue.
+
+## Qualified disposable-pilot schedule
+
+`pilot_schedule.py` turns exact qualified upstream evidence, the load-plan
+envelope, native target, RGW TLS/settings, three non-overlapping windows, and
+two external fault-evidence hashes into one atomic owner-only schedule
+directory:
+
+```text
+uv run python poc/load-soak/collector/pilot_schedule.py source-hash
+uv run python poc/load-soak/collector/pilot_schedule.py \
+  render /absolute/owner-only/pilot-schedule-request.json
+```
+
+Rendering is refused unless both released components and the overall
+`coffer.upstream-readiness/v1` result are `candidate-qualified`. The load
+plan's exact Distribution/Ceph versions, revisions, and readiness payload hash
+must match that result. The current signed Distribution v3.1.1 and Ceph
+Tentacle v20.2.2 inputs therefore cannot produce a schedule.
+
+For an eligible release pair, the renderer emits three validated live RGW
+configs and 53 ordered actions. Each phase begins with the seven-step healthy
+SSE-KMS path. `during` then applies wrong-key, observes its fixed failure,
+restores the key and proves success, applies the KMS outage, observes its fixed
+failure, restores KMS and proves success. Every phase compiles the probe,
+captures the complete multipart listing, cleans only its exact probe prefix,
+requires zero objects and multipart uploads, renders the final collector
+inputs, and invokes atomic phase preparation.
+
+The schedule names only the three fixed runtime environment variables; it
+contains no credential or KMS key value. Rendering creates no runtime
+directory and performs no network, S3, KMS, Barbican, OpenStack, container,
+VM, or remote operation. The next runtime executor must implement each action
+with owner-only state, checkpoint/recovery semantics, exact cleanup, and the
+same release gate.
 
 ## Six-surface phase preparation
 
