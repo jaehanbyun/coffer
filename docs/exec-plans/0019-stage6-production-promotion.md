@@ -2179,6 +2179,37 @@ operator-local release.
   `poc/load-soak/collector/control_artifacts.py`; do not fill missing fields
   from unrelated counters.
 
+### 2026-07-26 — Control evidence source mapping completed
+
+- Field audit: Mapped every quota and reconciliation auxiliary field to the
+  exact current SQL table/method, private Prometheus metric, derivation, or
+  missing runtime source in
+  `docs/research/stage6-control-evidence-sources.md`.
+- Direct facts: Quota charge/headroom and stale claims can come from one SQL
+  snapshot. Reconciliation worker health and per-replica freshness can come
+  from exact native-target Prometheus series. Quota internal errors already
+  have one bounded result counter.
+- Closed gaps: A non-mutating quota/claim invariant snapshot and observed
+  transaction-attempt instrumentation do not exist. The configured retry
+  ceiling, schema constraints, desired replica count, freshest worker, and
+  rejected stale writes are explicitly rejected as substitutes.
+- Accepted boundary: The future one-shot collector receives the load project
+  identity only as owner-only runtime input, retains no identity, combines a
+  single SQL snapshot with exact reset-aware per-replica Prometheus captures,
+  and emits two separately hashed v2 artifacts. No new public endpoint is
+  introduced.
+- Evidence: Current quota tables/retry code, reconciliation claim/snapshot
+  code, process-local metric definitions, runner refresh behavior, load
+  topology, and phase verifier were inspected together. The document and diff
+  checks pass. No database, metric endpoint, identity, credential, container,
+  VM, or remote state was read or changed.
+- Next exact action: In `src/coffer/quota.py`, add an immutable,
+  identity-free `QuotaControlEvidenceSnapshot` and a single non-mutating
+  `QuotaStore.control_evidence_snapshot()` reader transaction. Begin with
+  exact stored-versus-recomputed quota charge, pending delta, stale claim, and
+  active claim consistency checks; add focused tests in
+  `tests/test_quota_control_evidence.py`.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2323,6 +2354,7 @@ operator-local release.
 | Local/acquisition/compiler/server focused pipeline | local artifacts, source summaries, phase evidence, and evidence server tests | passed; 188 |
 | Broad load matrix after local artifacts | `uv run pytest -q tests/test_load_*.py` | passed; 479 |
 | Full regression after local artifacts | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1104 |
+| Quota/reconciliation source mapping | focused source/schema/metric/runner/verifier inspection; `git diff --check` | passed; unsupported substitutions recorded as missing |
 
 ## Failures, Blockers, and Risks
 
@@ -2363,12 +2395,11 @@ operator-local release.
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
 - Exact next action: Create
-  `docs/research/stage6-control-evidence-sources.md` and trace every quota and
-  reconciliation auxiliary field to an exact SQL/application metric source
-  or mark it missing. Define one read-only snapshot contract only for directly
-  supported fields before implementing
-  `poc/load-soak/collector/control_artifacts.py`; do not infer absent facts
-  from unrelated counters.
+  an immutable, identity-free `QuotaControlEvidenceSnapshot` and
+  `QuotaStore.control_evidence_snapshot()` in `src/coffer/quota.py`. The method
+  must use one non-mutating reader transaction to compare stored and
+  recomputed quota charge/pending deltas and validate current claim
+  consistency. Add focused tests in `tests/test_quota_control_evidence.py`.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

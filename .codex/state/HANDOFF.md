@@ -12,7 +12,8 @@
   collector dispatch complete; no-network disposable-pilot target renderer
   and phase-bound auxiliary evidence compiler plus private TLS evidence server,
   source-summary acquisition, and local secret/workload artifact collectors
-  complete; quota/reconciliation source mapping next
+  complete; quota/reconciliation source mapping complete; read-only control
+  SQL evidence snapshot next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -659,6 +660,16 @@ release contains it yet.
   and collection both report 1104. No real secret, workload result, source
   artifact, SQL/RGW/log/exporter endpoint, container, VM, or remote state was
   read or changed.
+- Added `docs/research/stage6-control-evidence-sources.md`. Every quota and
+  reconciliation auxiliary field now maps to exact SQL/metric evidence or an
+  explicit gap. The configured retry ceiling, schema constraints, desired
+  replica count, freshest worker, and rejected stale writes cannot substitute
+  for runtime facts.
+- The accepted next boundary is one identity-free, non-mutating SQL snapshot
+  for stored-versus-recomputed quota charge, pending deltas, stale claims, and
+  active-claim consistency. Observed quota transaction attempts still require
+  separate instrumentation before a control artifact collector can be
+  truthful. No database or endpoint was contacted.
 - Accepted ADR 0016 for the local architecture after adding the versioned
   observability topology and pure contract. Exact direct targets, one-worker
   and VIP refusal, verified TLS, bounded labels/results, public operational
@@ -2466,12 +2477,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Create `docs/research/stage6-control-evidence-sources.md` and trace each quota
-and reconciliation auxiliary field to its exact current SQL/application
-metric source or mark it missing. Define a read-only snapshot contract only
-for directly supported fields before implementing
-`poc/load-soak/collector/control_artifacts.py`; do not infer absent facts from
-unrelated counters.
+In `src/coffer/quota.py`, add immutable identity-free
+`QuotaControlEvidenceSnapshot` and one non-mutating
+`QuotaStore.control_evidence_snapshot()` reader transaction. It must compare
+stored and recomputed quota charge/pending deltas and validate current claim
+consistency. Add focused tests in `tests/test_quota_control_evidence.py`.
 
 ## After This Work Package
 
