@@ -265,6 +265,33 @@ catalog, Keystone, API, and browser evidence.
   token-session, TLS, timeout, endpoint joining, response validation, and
   secret-safe failures before adding panel views.
 
+### 2026-07-26 — Horizon server-side API adapter completed
+
+- Package: Added locked `coffer-horizon` packaging with the Kolla/OpenStack
+  2026.1 test matrix: Horizon 25.7.3, Django 4.2.28,
+  keystoneauth1 5.13.1, and pytest 9.0.2. The verifier additionally requires
+  the exact clean Horizon source revision and imports it from that checkout.
+- Adapter: Resolves `oci-registry` through Horizon's selected catalog,
+  requires a safe versioned `/v1` HTTP(S) endpoint, uses a token-endpoint
+  server-side session, honors Horizon CA/no-verify settings, and applies
+  finite timeouts with zero automatic retries.
+- Validation: Repository/page/quota envelopes are exact-field, current-project,
+  UUID, timestamp, size, name, and continuation validated. Unsafe endpoint,
+  input, cross-project response, oversized page, malformed JSON, transport,
+  and HTTP failures collapse to bounded result classes.
+- Secret safety: The token is not placed in URL, document, manual header,
+  output, or error. Transport/JSON/HTTP exception context is discarded before
+  the bounded dashboard exception is raised.
+- Evidence: Exact baseline verification passes; 22 adapter tests pass;
+  compilation and wheel/sdist build pass. Generated artifacts remain ignored
+  under `work/`.
+- Changed files: `ui/horizon/` package, lock, verifier, adapter and tests; this
+  plan; `.codex/state/HANDOFF.md`.
+- Next exact action: Add the Registry panel group, Repositories panel,
+  local policy mirror, enabled settings, Django table/form/views/routes, and
+  templates, then test service-catalog hiding and list/quota/create/detail
+  flows against mocked adapter results.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -284,6 +311,8 @@ catalog, Keystone, API, and browser evidence.
 | OpenAPI/runtime drift contract | OpenAPI, API, policy, token, maintenance, observability, and runner focused tests | passed; 123 |
 | Full regression after REST/OpenAPI baseline | `uv run pytest -q` | passed; 1450 |
 | Horizon source/package baseline | Official Horizon 25.7.3, Designate Dashboard 21.0.0, and OpenStack 2026.1 constraints | passed; exact revisions and dependency versions pinned |
+| Horizon server-side adapter | `make -C ui/horizon verify-adapter` | passed; exact baseline and 22 tests |
+| Horizon adapter package build | `uv build --project ui/horizon` | passed; wheel and sdist generated under ignored work |
 
 ## Failures, Blockers, and Risks
 
@@ -308,10 +337,11 @@ catalog, Keystone, API, and browser evidence.
 - Current state: Plan 0019 is externally blocked, its local pilot harness is
   complete but uninvoked, and no six-VM pilot exists. Plan 0020 is active for
   API/Horizon/Skyline work that can be locally proven independently.
-- Exact next action: Add `ui/horizon/pyproject.toml` and
-  `ui/horizon/cofferdashboard/api/coffer.py` with isolated adapter contract
-  tests before adding the panel.
-- First file or command: Create the package skeleton with `apply_patch`.
+- Exact next action: Add the Registry panel group, Repositories panel, local
+  policy mirror, enabled settings, table/form/views/routes, and templates with
+  mocked Horizon flow tests.
+- First file or command: Add
+  `ui/horizon/cofferdashboard/enabled/_1910_project_registry_panel_group.py`.
 - Questions requiring user input: None. The user authorized autonomous
   milestone commits and pushes through Horizon and Skyline; accepted security,
   release, and deployment gates remain fail closed.
