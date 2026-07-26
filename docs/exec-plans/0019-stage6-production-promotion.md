@@ -1,6 +1,6 @@
 ---
 title: "Stage 6 production promotion"
-status: active
+status: blocked-external
 updated: 2026-07-26
 owner: primary-agent
 ---
@@ -2740,6 +2740,34 @@ operator-local release.
   required by Horizon and Skyline, without representing either UI as deployed
   Stage 6 evidence.
 
+### 2026-07-26 — Production promotion checkpointed as externally blocked
+
+- Live release result: `make -C poc/production-images check-upstream` again
+  classified the pair as `blocked`. Distribution v3.1.1 remains the latest
+  signed stable release at verified revision
+  `9a8d98b679740cd514aa7e7d84d23d442a5ef54c`. Ceph Tentacle v20.2.2 remains
+  the latest stable release at
+  `0fcffee29411e3a38036764817b6e1afc59741cc`; the encrypted-copy fix is merged
+  to `tentacle` but absent from that stable release.
+- Promotion disposition: The complete local 53-action pilot harness is
+  ready but uninvoked against remote infrastructure. Local contracts,
+  fixtures, and command boundaries are not production evidence and do not
+  satisfy the unchecked release, RGW/KMS, load, or fresh multinode criteria.
+  Plan 0019 is therefore `blocked-external`, not complete.
+- Infrastructure decision: Do not recreate the six-VM pilot while the exact
+  stable inputs fail the pre-deployment classifier. This preserves the
+  accepted release gate and avoids infrastructure cost that cannot yield an
+  acceptable production-candidate result.
+- Independent continuation: Open plan 0020 for the product API, Horizon, and
+  Skyline work requested by the user. Its local UI evidence is independent of
+  production promotion and must not be reported as a Stage 6 deployment.
+- Changed files: This plan, plan 0020, and `.codex/state/HANDOFF.md`.
+- Next exact action: When official stable metadata changes, rerun
+  `make -C poc/production-images check-upstream`. Only a
+  `candidate-qualified` exact-release pair may unblock
+  `poc/load-soak/pilot_run.py`; until then perform no remote Stage 6 pilot
+  action.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2984,12 +3012,10 @@ operator-local release.
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
-- Exact next action: Refresh the official upstream readiness classifier. If
-  the stable pair remains blocked, record the local Stage 6 pilot harness as
-  complete-but-not-promoted and do not create the six-VM pilot. Then open the
-  UI prerequisite work package by freezing the Coffer REST/OpenAPI contract
-  required by Horizon and Skyline, without representing either UI as deployed
-  Stage 6 evidence.
+- Exact next action: Wait for changed official stable release metadata, then
+  rerun `make -C poc/production-images check-upstream`. Do not invoke the live
+  pilot unless the exact pair reaches `candidate-qualified`. Independent
+  product/UI work continues under plan 0020.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

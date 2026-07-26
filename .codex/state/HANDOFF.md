@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-26
-- Status: plan 0019 active; local production observability, disposable
+- Status: plan 0019 blocked externally; plan 0020 active; local production observability, disposable
   filesystem GC/restore, load model/lifecycle, and canonical evidence verifier
   complete; raw OCI and five real-client execution boundaries complete;
   telemetry, deterministic plan, and fixture orchestrator complete; runtime
@@ -20,18 +20,27 @@
   six-surface phase preparation and verified-HTTPS live RGW evidence adapter
   plus qualified disposable-pilot schedule and checkpointed fixture executor
   plus exact-prefix cleanup, non-synthetic RGW, and external fault action
-  contracts complete; phase materializers next
+  contracts, phase materializers, deployment inputs, bounded fault controller,
+  and release-gated 53-action live invocation complete locally; REST/OpenAPI
+  contract inventory next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
-- Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
+- Externally blocked execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
+- Active execution plan: `docs/exec-plans/0020-ui-api-horizon-skyline.md`
 
 ## Current Objective
 
-Plan 0019 is active. Stage 6 is converting the completed Stage 5 HA pilot into
-a fail-closed production-candidate operator baseline. The first workstream
-qualifies only signed stable Distribution and Ceph/RGW inputs; maintenance
-identity, data protection/cutover, observability, controlled GC, and load may
-progress independently before they converge in a fresh Kolla multinode pilot.
+Plan 0019 is externally blocked after converting every locally independent
+Stage 6 operation into a release-gated, checkpointed pilot harness. The latest
+stable Distribution and Ceph/RGW inputs still fail before deployment, so no
+fresh Kolla multinode pilot is being created and Stage 6 is not promoted.
+
+Plan 0020 is active. It freezes the public project REST/OpenAPI surface needed
+by both OpenStack web interfaces, then builds an independently packaged
+Horizon dashboard and a pinned-source Skyline Console integration. Local UI
+tests and rendered fixtures remain separate from deployed catalog/Keystone/
+browser evidence until the production promotion gate permits a disposable
+cloud.
 
 The approved teardown removed every exact Stage 5 identity, credential,
 bucket, object namespace, guest, volume, and network. Repeated status reports
@@ -2697,14 +2706,14 @@ release contains it yet.
 
 ## Exact Next Action
 
-Refresh the official upstream readiness classifier. If the stable pair remains
-blocked, record the local Stage 6 pilot harness as complete-but-not-promoted
-and do not create the six-VM pilot. Then open the UI prerequisite work package
-by freezing the Coffer REST/OpenAPI contract required by Horizon and Skyline,
-without representing either UI as deployed Stage 6 evidence.
+Create `docs/research/ui-api-contract.md` by mapping the exact Falcon routes,
+oslo.policy rules, repository/quota stores, middleware error behavior, request
+IDs, and existing tests. Freeze the smallest project-scoped contract for
+repository create/list/detail and quota summary before adding an endpoint.
 
 ## After This Work Package
 
-Stage 6 converges only after released dependency, identity, data-protection,
-observability, GC, and load gates pass. Official Kolla upstream/governance
-work remains a later stage.
+After the REST/OpenAPI baseline, implement Horizon first, then Skyline Console,
+then disabled-by-default Kolla UI lifecycle contracts. Stage 6 resumes only
+after released dependency gates pass. Official OpenStack/Kolla governance
+work remains later.
