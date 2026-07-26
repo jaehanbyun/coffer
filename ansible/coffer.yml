@@ -84,6 +84,185 @@
       tags:
         - coffer
 
+- name: Reconcile the optional Coffer Horizon image
+  hosts: horizon
+  gather_facts: false
+  serial: '{{ kolla_serial | default("0") }}'
+  tasks:
+    - name: Resolve and validate the Horizon image transition
+      ansible.builtin.include_role:
+        name: coffer
+        tasks_from: ui-prepare
+      vars:
+        coffer_ui_surface: "horizon"
+        coffer_ui_enabled: "{{ coffer_enable_horizon_dashboard }}"
+        coffer_ui_parent_enabled: "{{ enable_horizon }}"
+        coffer_ui_contract_file: "{{ coffer_horizon_image_contract_file }}"
+        coffer_ui_custom_image: "{{ coffer_horizon_image_full }}"
+        coffer_ui_fallback_image: "{{ coffer_horizon_fallback_image_full }}"
+        coffer_ui_upstream_project: "openstack/horizon"
+        coffer_ui_upstream_revision: "{{ coffer_horizon_upstream_revision }}"
+        coffer_ui_artifact_name: "coffer-horizon"
+        coffer_ui_artifact_version: "{{ coffer_horizon_package_version }}"
+        coffer_ui_container_name: "horizon"
+        coffer_ui_write_marker: >-
+          {{ kolla_action in ['deploy', 'reconfigure', 'upgrade'] }}
+        coffer_ui_require_existing_container: >-
+          {{ kolla_action in ['precheck', 'deploy', 'reconfigure', 'upgrade'] }}
+      when:
+        - enable_coffer | bool
+        - >-
+          kolla_action in
+          ['precheck', 'deploy', 'reconfigure', 'upgrade', 'pull']
+
+    - name: Load the pinned Kolla Horizon defaults without changing config
+      ansible.builtin.include_role:
+        name: horizon
+        tasks_from: config_validate
+        public: true
+      when:
+        - enable_coffer | bool
+        - kolla_action in ['deploy', 'reconfigure', 'upgrade', 'pull']
+        - coffer_ui_active | bool
+
+    - name: Select only the Horizon service for image reconciliation
+      ansible.builtin.set_fact:
+        coffer_ui_services:
+          coffer-horizon-dashboard: >-
+            {{
+              horizon_services.horizon |
+              combine({'image': coffer_ui_desired_image}, recursive=True)
+            }}
+      when:
+        - enable_coffer | bool
+        - kolla_action in ['deploy', 'reconfigure', 'upgrade', 'pull']
+        - coffer_ui_active | bool
+
+    - name: Pull the selected Horizon image
+      ansible.builtin.include_role:
+        name: service-images-pull
+      vars:
+        kolla_role_name: "coffer_ui"
+      when:
+        - enable_coffer | bool
+        - kolla_action == 'pull'
+        - coffer_ui_active | bool
+
+    - name: Reconcile Horizon with the selected immutable image
+      ansible.builtin.include_role:
+        name: service-check-containers
+      vars:
+        kolla_role_name: "coffer_ui"
+      when:
+        - enable_coffer | bool
+        - kolla_action in ['deploy', 'reconfigure', 'upgrade']
+        - coffer_ui_active | bool
+
+    - name: Complete the Horizon image transition
+      ansible.builtin.meta: flush_handlers
+
+    - name: Finalize a successful Horizon fallback
+      ansible.builtin.include_role:
+        name: coffer
+        tasks_from: ui-finalize
+      when:
+        - enable_coffer | bool
+        - kolla_action in ['deploy', 'reconfigure', 'upgrade']
+        - coffer_ui_active | bool
+  tags:
+    - coffer
+    - horizon
+
+- name: Reconcile the optional Coffer Skyline Console image
+  hosts: skyline-console
+  gather_facts: false
+  serial: '{{ kolla_serial | default("0") }}'
+  tasks:
+    - name: Resolve and validate the Skyline Console image transition
+      ansible.builtin.include_role:
+        name: coffer
+        tasks_from: ui-prepare
+      vars:
+        coffer_ui_surface: "skyline"
+        coffer_ui_enabled: "{{ coffer_enable_skyline_console }}"
+        coffer_ui_parent_enabled: "{{ enable_skyline }}"
+        coffer_ui_contract_file: "{{ coffer_skyline_image_contract_file }}"
+        coffer_ui_custom_image: "{{ coffer_skyline_console_image_full }}"
+        coffer_ui_fallback_image: >-
+          {{ coffer_skyline_console_fallback_image_full }}
+        coffer_ui_upstream_project: "openstack/skyline-console"
+        coffer_ui_upstream_revision: "{{ coffer_skyline_upstream_revision }}"
+        coffer_ui_artifact_name: "skyline-console"
+        coffer_ui_artifact_version: "{{ coffer_skyline_package_version }}"
+        coffer_ui_container_name: "skyline_console"
+        coffer_ui_write_marker: >-
+          {{ kolla_action in ['deploy', 'reconfigure', 'upgrade'] }}
+        coffer_ui_require_existing_container: >-
+          {{ kolla_action in ['precheck', 'deploy', 'reconfigure', 'upgrade'] }}
+      when:
+        - enable_coffer | bool
+        - >-
+          kolla_action in
+          ['precheck', 'deploy', 'reconfigure', 'upgrade', 'pull']
+
+    - name: Load the pinned Kolla Skyline defaults without changing config
+      ansible.builtin.include_role:
+        name: skyline
+        tasks_from: config_validate
+        public: true
+      when:
+        - enable_coffer | bool
+        - kolla_action in ['deploy', 'reconfigure', 'upgrade', 'pull']
+        - coffer_ui_active | bool
+
+    - name: Select only the Skyline Console service for image reconciliation
+      ansible.builtin.set_fact:
+        coffer_ui_services:
+          coffer-skyline-console: >-
+            {{
+              skyline_services['skyline-console'] |
+              combine({'image': coffer_ui_desired_image}, recursive=True)
+            }}
+      when:
+        - enable_coffer | bool
+        - kolla_action in ['deploy', 'reconfigure', 'upgrade', 'pull']
+        - coffer_ui_active | bool
+
+    - name: Pull the selected Skyline Console image
+      ansible.builtin.include_role:
+        name: service-images-pull
+      vars:
+        kolla_role_name: "coffer_ui"
+      when:
+        - enable_coffer | bool
+        - kolla_action == 'pull'
+        - coffer_ui_active | bool
+
+    - name: Reconcile Skyline Console with the selected immutable image
+      ansible.builtin.include_role:
+        name: service-check-containers
+      vars:
+        kolla_role_name: "coffer_ui"
+      when:
+        - enable_coffer | bool
+        - kolla_action in ['deploy', 'reconfigure', 'upgrade']
+        - coffer_ui_active | bool
+
+    - name: Complete the Skyline Console image transition
+      ansible.builtin.meta: flush_handlers
+
+    - name: Finalize a successful Skyline Console fallback
+      ansible.builtin.include_role:
+        name: coffer
+        tasks_from: ui-finalize
+      when:
+        - enable_coffer | bool
+        - kolla_action in ['deploy', 'reconfigure', 'upgrade']
+        - coffer_ui_active | bool
+  tags:
+    - coffer
+    - skyline
+
 - name: Reconfigure Fluentd for Coffer file logs
   hosts: fluentd
   gather_facts: false

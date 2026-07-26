@@ -35,7 +35,7 @@ catalog, Keystone, API, and browser evidence.
       carries the current scoped token through Skyline's supported client
       boundary, and passes lint/unit/build checks against a pinned upstream
       source baseline.
-- [ ] Kolla companion-role contracts can opt in to the Horizon and Skyline
+- [x] Kolla companion-role contracts can opt in to the Horizon and Skyline
       artifacts and configuration without changing either dashboard by
       default; enable, reconfigure, disable, and residue checks are
       deterministic and secret-safe.
@@ -104,7 +104,7 @@ catalog, Keystone, API, and browser evidence.
       overlay/fork decision.
 - [x] Build/test the equivalent Console surface from the accepted exact-source
       overlay.
-- [ ] Add disabled-by-default Kolla companion-role UI artifact/configuration
+- [x] Add disabled-by-default Kolla companion-role UI artifact/configuration
       contracts and lifecycle validation.
 - [ ] Run focused and full verification, render and inspect both UIs with
       fixture data, document the live-deployment boundary, and close the
@@ -406,6 +406,42 @@ catalog, Keystone, API, and browser evidence.
   immutable-image contracts before adding any enable/reconfigure/disable
   task.
 
+### 2026-07-26 — Kolla UI image lifecycle completed locally
+
+- Build boundary: Added custom Horizon and Skyline Console Containerfiles.
+  Horizon installs the independent plugin wheel and only its two enabled
+  files, policy setting, and policy document. Skyline installs the verified
+  source-overlay wheel over the pinned Console base. Both require an exact
+  base digest and contain fixed artifact/upstream labels.
+- Contract: The deterministic contract writer validates real wheel metadata
+  and binds artifact SHA-256, package version, upstream revision, custom image
+  digest, and stock fallback digest. Different-output replacement, image tags,
+  equal images, wrong wheels, links, and malformed contracts fail closed.
+- Kolla lifecycle: Both opt-ins default false. The companion role requires an
+  existing parent dashboard, writes a public recovery marker before enable,
+  filters the pinned Kolla service map to only `horizon` or
+  `skyline_console`, and removes the marker only after fallback reconciliation
+  succeeds. It never reconciles `skyline_apiserver`.
+- Recovery: Enabled and disabled reconfigure are idempotent. Disable restores
+  exact recorded fallback digests, removes the empty Coffer marker directory,
+  and leaves both stock dashboard containers running. Coffer `stop` does not
+  stop either dashboard.
+- Evidence: Five image-contract/installer tests pass. Real current Horizon and
+  Skyline wheel inputs produce valid mode-0640 contracts. The isolated pinned
+  Kolla-Ansible lifecycle passes 108 checks including default nonmutation,
+  negative prechecks, exact custom swaps, repeated enable/disable, fallback,
+  pull selection, secret-safe state, and zero marker residue.
+- Boundary: No custom UI image was built, scanned, signed, pushed, pulled from
+  an external registry, or deployed. This is a local image source, contract,
+  and Ansible fixture result.
+- Changed files: `ui/images/`, `ansible/`, the Kolla role harness,
+  `tests/test_ui_image_contract.py`, UI READMEs,
+  `docs/research/kolla-ui-integration.md`, this plan, and the handoff.
+- Next exact action: Add deterministic fixture pages for the completed Horizon
+  and Skyline surfaces under `docs/fixtures/ui/`, render both in the in-app
+  browser at desktop and narrow viewports, and retain visually inspected
+  screenshots explicitly labelled as fixture evidence.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -432,6 +468,9 @@ catalog, Keystone, API, and browser evidence.
 | Horizon deployable wheel contents | Built wheel archive inspection | passed; enabled, policy, modules, and templates present |
 | Skyline exact overlay and production package | `make -C ui/skyline verify` | passed; exact source, locales, targeted lint, 31 tests, Webpack bundle, wheel |
 | Skyline generated artifact contract | `ui/skyline/verify_build.py` over materialized source and wheel | passed; current Coffer bundle and index present |
+| UI image contract and Horizon installer | `uv run pytest -q tests/test_ui_image_contract.py` | passed; 5 |
+| Real wheel contract generation | `ui/images/write_contract.py` over current Horizon and Skyline wheels | passed; exact mode-0640 contracts |
+| Kolla UI lifecycle | `make -C poc/kolla-ansible-role verify` | passed; 108 checks |
 
 ## Failures, Blockers, and Risks
 
@@ -456,12 +495,11 @@ catalog, Keystone, API, and browser evidence.
 - Current state: Plan 0019 is externally blocked, its local pilot harness is
   complete but uninvoked, and no six-VM pilot exists. Plan 0020 is active for
   API/Horizon/Skyline work that can be locally proven independently.
-- Exact next action: Add disabled-by-default Horizon wheel and Skyline
-  immutable-image inputs to `ansible/roles/coffer/defaults/main.yml`, then
-  reject incomplete or mutable opt-in configurations in the role verifier.
-- First file or command: Inspect and extend
-  `ansible/roles/coffer/defaults/main.yml` together with
-  `poc/kolla-ansible-role/verify.py`.
+- Exact next action: Create the deterministic local UI fixture shell and
+  Horizon/Skyline repository views under `docs/fixtures/ui/`, then render and
+  visually inspect both at desktop and narrow viewports.
+- First file or command: Create `docs/fixtures/ui/index.html` and its bounded
+  fixture stylesheet without importing a production runtime or credential.
 - Questions requiring user input: None. The user authorized autonomous
   milestone commits and pushes through Horizon and Skyline; accepted security,
   release, and deployment gates remain fail closed.

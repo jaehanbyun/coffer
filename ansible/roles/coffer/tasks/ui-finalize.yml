@@ -1,0 +1,25 @@
+---
+- name: Remove the restored Coffer UI recovery marker
+  ansible.builtin.file:
+    path: "{{ coffer_ui_marker_path }}"
+    state: absent
+  become: true
+  when: coffer_ui_restoring | bool
+
+- name: Inspect remaining Coffer UI recovery markers
+  ansible.builtin.find:
+    paths: "{{ coffer_ui_marker_directory }}"
+    recurse: false
+    hidden: true
+    file_type: any
+  register: coffer_ui_remaining_markers
+  when: coffer_ui_restoring | bool
+
+- name: Remove the empty Coffer UI marker directory
+  ansible.builtin.file:
+    path: "{{ coffer_ui_marker_directory }}"
+    state: absent
+  become: true
+  when:
+    - coffer_ui_restoring | bool
+    - coffer_ui_remaining_markers.matched == 0

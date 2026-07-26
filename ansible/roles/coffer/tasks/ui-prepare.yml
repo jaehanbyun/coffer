@@ -1,0 +1,212 @@
+---
+# Required variables:
+# coffer_ui_surface, coffer_ui_enabled, coffer_ui_parent_enabled,
+# coffer_ui_contract_file, coffer_ui_custom_image, coffer_ui_fallback_image,
+# coffer_ui_upstream_project, coffer_ui_upstream_revision,
+# coffer_ui_artifact_name, coffer_ui_artifact_version.
+
+- name: Set the Coffer UI recovery marker path
+  ansible.builtin.set_fact:
+    coffer_ui_marker_path: >-
+      {{ coffer_ui_marker_directory }}/{{ coffer_ui_surface }}.json
+
+- name: Inspect the Coffer UI recovery marker
+  ansible.builtin.stat:
+    path: "{{ coffer_ui_marker_path }}"
+  register: coffer_ui_marker_stat
+
+- name: Inspect the enabled Coffer UI image contract
+  ansible.builtin.stat:
+    path: "{{ coffer_ui_contract_file }}"
+  delegate_to: localhost
+  register: coffer_ui_contract_stat
+  when: coffer_ui_enabled | bool
+
+- name: Require an owner-readable regular UI image contract
+  ansible.builtin.assert:
+    that:
+      - coffer_ui_parent_enabled | bool
+      - coffer_ui_contract_stat.stat.exists
+      - coffer_ui_contract_stat.stat.isreg
+      - not coffer_ui_contract_stat.stat.islnk
+      - coffer_ui_contract_stat.stat.size > 0
+      - >-
+        coffer_ui_contract_stat.stat.mode in
+        ['0640', '0644', '0600']
+    fail_msg: >-
+      An enabled Coffer UI requires its parent Kolla dashboard and one
+      non-link, nonempty, owner-controlled image contract.
+  when: coffer_ui_enabled | bool
+
+- name: Read the enabled Coffer UI image contract
+  ansible.builtin.slurp:
+    src: "{{ coffer_ui_contract_file }}"
+  delegate_to: localhost
+  register: coffer_ui_contract_slurp
+  when: coffer_ui_enabled | bool
+
+- name: Read the retained Coffer UI recovery marker
+  ansible.builtin.slurp:
+    src: "{{ coffer_ui_marker_path }}"
+  register: coffer_ui_marker_slurp
+  when:
+    - not coffer_ui_enabled | bool
+    - coffer_ui_marker_stat.stat.exists
+
+- name: Select the active Coffer UI contract
+  ansible.builtin.set_fact:
+    coffer_ui_contract: >-
+      {{
+        (
+          coffer_ui_contract_slurp.content
+          if coffer_ui_enabled | bool
+          else coffer_ui_marker_slurp.content
+        ) |
+        b64decode |
+        from_json
+      }}
+  when:
+    - >-
+      coffer_ui_enabled | bool or
+      coffer_ui_marker_stat.stat.exists
+
+- name: Validate the exact Coffer UI image contract
+  ansible.builtin.assert:
+    that:
+      - coffer_ui_contract is mapping
+      - >-
+        coffer_ui_contract.keys() | list | sort ==
+        ['artifact', 'base_image', 'container_contract', 'image',
+         'schema_version', 'surface', 'upstream']
+      - coffer_ui_contract.schema_version == 1
+      - coffer_ui_contract.surface == coffer_ui_surface
+      - coffer_ui_contract.container_contract == 'coffer-ui-image-v1'
+      - coffer_ui_contract.upstream is mapping
+      - >-
+        coffer_ui_contract.upstream.keys() | list | sort ==
+        ['project', 'revision']
+      - >-
+        coffer_ui_contract.upstream.project ==
+        coffer_ui_upstream_project
+      - >-
+        coffer_ui_contract.upstream.revision ==
+        coffer_ui_upstream_revision
+      - coffer_ui_contract.artifact is mapping
+      - >-
+        coffer_ui_contract.artifact.keys() | list | sort ==
+        ['name', 'sha256', 'version']
+      - >-
+        coffer_ui_contract.artifact.name ==
+        coffer_ui_artifact_name
+      - >-
+        coffer_ui_contract.artifact.version ==
+        coffer_ui_artifact_version
+      - >-
+        coffer_ui_contract.artifact.sha256 is
+        match('^[0-9a-f]{64}$')
+      - >-
+        coffer_ui_contract.image is
+        match('^[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[0-9a-f]{64}$')
+      - >-
+        coffer_ui_contract.base_image is
+        match('^[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[0-9a-f]{64}$')
+      - coffer_ui_contract.image != coffer_ui_contract.base_image
+    fail_msg: >-
+      The Coffer UI image contract is malformed, mutable, or does not match
+      the pinned surface artifact and upstream revision.
+  when:
+    - >-
+      coffer_ui_enabled | bool or
+      coffer_ui_marker_stat.stat.exists
+
+- name: Require enabled image variables to match the public contract
+  ansible.builtin.assert:
+    that:
+      - coffer_ui_custom_image == coffer_ui_contract.image
+      - coffer_ui_fallback_image == coffer_ui_contract.base_image
+    fail_msg: >-
+      Enabled Coffer UI image variables must exactly match their image
+      contract.
+  when: coffer_ui_enabled | bool
+
+- name: Select the desired Coffer UI image
+  ansible.builtin.set_fact:
+    coffer_ui_active: >-
+      {{
+        coffer_ui_enabled | bool or
+        coffer_ui_marker_stat.stat.exists
+      }}
+    coffer_ui_desired_image: >-
+      {{
+        coffer_ui_contract.image
+        if coffer_ui_enabled | bool
+        else coffer_ui_contract.base_image
+      }}
+    coffer_ui_restoring: >-
+      {{
+        not coffer_ui_enabled | bool and
+        coffer_ui_marker_stat.stat.exists
+      }}
+  when:
+    - >-
+      coffer_ui_enabled | bool or
+      coffer_ui_marker_stat.stat.exists
+
+- name: Mark an inactive Coffer UI surface
+  ansible.builtin.set_fact:
+    coffer_ui_active: false
+    coffer_ui_desired_image: ""
+    coffer_ui_restoring: false
+  when:
+    - not coffer_ui_enabled | bool
+    - not coffer_ui_marker_stat.stat.exists
+
+- name: Inspect the existing parent dashboard container
+  become: true
+  kolla_container_facts:
+    action: get_containers
+    container_engine: "{{ kolla_container_engine }}"
+    name:
+      - "{{ coffer_ui_container_name }}"
+  check_mode: false
+  register: coffer_ui_container_facts
+  when:
+    - coffer_ui_active | bool
+    - coffer_ui_require_existing_container | default(false) | bool
+
+- name: Refuse to bootstrap a parent dashboard from the Coffer role
+  ansible.builtin.assert:
+    that:
+      - >-
+        coffer_ui_container_facts.containers[coffer_ui_container_name]
+        is defined
+    fail_msg: >-
+      The Coffer companion role only swaps an existing parent dashboard
+      container; deploy Horizon or Skyline through Kolla-Ansible first.
+  when:
+    - coffer_ui_active | bool
+    - coffer_ui_require_existing_container | default(false) | bool
+
+- name: Ensure the Coffer UI marker directory exists before enable
+  ansible.builtin.file:
+    path: "{{ coffer_ui_marker_directory }}"
+    state: directory
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0750"
+  become: true
+  when:
+    - coffer_ui_enabled | bool
+    - coffer_ui_write_marker | default(false) | bool
+
+- name: Persist the exact Coffer UI recovery contract before enable
+  ansible.builtin.copy:
+    content: "{{ coffer_ui_contract | to_nice_json }}\n"
+    dest: "{{ coffer_ui_marker_path }}"
+    owner: "{{ config_owner_user }}"
+    group: "{{ config_owner_group }}"
+    mode: "0640"
+  become: true
+  when:
+    - coffer_ui_enabled | bool
+    - coffer_ui_write_marker | default(false) | bool

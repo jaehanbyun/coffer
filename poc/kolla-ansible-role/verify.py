@@ -1,20 +1,24 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 import json
 import os
-from pathlib import Path
 import re
 import shutil
 import socketserver
 import subprocess
 import threading
+from contextlib import contextmanager
+from pathlib import Path
 from typing import Iterator
 
 import yaml
-
-from prepare_fixture import prepare
-
+from prepare_fixture import (
+    HORIZON_BASE_IMAGE,
+    HORIZON_CUSTOM_IMAGE,
+    SKYLINE_BASE_IMAGE,
+    SKYLINE_CUSTOM_IMAGE,
+    prepare,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 HARNESS = Path(__file__).resolve().parent
@@ -309,8 +313,21 @@ def verify_disabled_and_negative_prechecks() -> None:
     run_action("deploy", "-e", "enable_coffer=false")
     disabled_state = state()
     check(
-        disabled_state == {"containers": {}, "operations": []},
-        "enable_coffer=false is a deployment no-op",
+        disabled_state
+        == {
+            "containers": {
+                "horizon": {
+                    "image": HORIZON_BASE_IMAGE,
+                    "state": "running",
+                },
+                "skyline_console": {
+                    "image": SKYLINE_BASE_IMAGE,
+                    "state": "running",
+                },
+            },
+            "operations": [],
+        },
+        "enable_coffer=false preserves existing dashboards as a deployment no-op",
     )
 
     secret = (
@@ -432,6 +449,61 @@ def verify_disabled_and_negative_prechecks() -> None:
                 / "backend-cert.pem"
             ).read_bytes()
         ),
+    )
+    assert_failure_case(
+        "missing Horizon image contract",
+        lambda: (
+            WORK
+            / "source-config"
+            / "coffer"
+            / "ui"
+            / "horizon-image.json"
+        ).unlink(),
+    )
+    assert_failure_case(
+        "mutable Horizon image",
+        lambda: None,
+        "-e",
+        "coffer_horizon_image_full=registry.example/coffer-horizon:latest",
+    )
+    assert_failure_case(
+        "disabled parent Horizon service",
+        lambda: None,
+        "-e",
+        "enable_horizon=false",
+    )
+
+    def tamper_skyline_revision() -> None:
+        path = (
+            WORK
+            / "source-config"
+            / "coffer"
+            / "ui"
+            / "skyline-image.json"
+        )
+        document = json.loads(path.read_text(encoding="utf-8"))
+        document["upstream"]["revision"] = "0" * 40
+        path.write_text(
+            json.dumps(document, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    assert_failure_case(
+        "mismatched Skyline revision",
+        tamper_skyline_revision,
+    )
+
+    def remove_horizon_container() -> None:
+        document = state()
+        document["containers"].pop("horizon")
+        (WORK / "state.json").write_text(
+            json.dumps(document, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    assert_failure_case(
+        "absent parent Horizon container",
+        remove_horizon_container,
     )
 
     prepare()
@@ -1024,11 +1096,69 @@ def verify_successful_lifecycle() -> None:
     run_action("precheck")
     run_action("deploy")
     verify_rendered_contract(secret_values)
+    deployed_containers = state()["containers"]
+    check(
+        deployed_containers["horizon"]["image"] == HORIZON_CUSTOM_IMAGE
+        and deployed_containers["skyline_console"]["image"]
+        == SKYLINE_CUSTOM_IMAGE,
+        "deploy swaps only Horizon and Skyline Console to immutable Coffer images",
+    )
+    ui_markers = WORK / "target-config" / "coffer-ui"
+    check(
+        {
+            path.name
+            for path in ui_markers.iterdir()
+            if path.is_file()
+        }
+        == {"horizon.json", "skyline.json"}
+        and all(
+            path.stat().st_mode & 0o777 == 0o640
+            for path in ui_markers.iterdir()
+            if path.is_file()
+        ),
+        "enabled UI surfaces retain only public mode-0640 recovery contracts",
+    )
 
     reconfigure = run_action("reconfigure")
     check(
         re.search(r"changed=0\b", reconfigure.stdout) is not None,
         "reconfigure is idempotent",
+    )
+    run_action(
+        "reconfigure",
+        "-e",
+        "coffer_enable_horizon_dashboard=false",
+        "-e",
+        "coffer_enable_skyline_console=false",
+    )
+    restored_dashboards = state()["containers"]
+    check(
+        restored_dashboards["horizon"]["image"] == HORIZON_BASE_IMAGE
+        and restored_dashboards["skyline_console"]["image"]
+        == SKYLINE_BASE_IMAGE
+        and not ui_markers.exists(),
+        "disabling UI integration restores exact fallback images with zero markers",
+    )
+    disabled_ui_reconfigure = run_action(
+        "reconfigure",
+        "-e",
+        "coffer_enable_horizon_dashboard=false",
+        "-e",
+        "coffer_enable_skyline_console=false",
+    )
+    check(
+        re.search(r"changed=0\b", disabled_ui_reconfigure.stdout) is not None,
+        "disabled UI reconfigure is idempotent and leaves dashboards untouched",
+    )
+    run_action("reconfigure")
+    restored_custom_dashboards = state()["containers"]
+    check(
+        restored_custom_dashboards["horizon"]["image"]
+        == HORIZON_CUSTOM_IMAGE
+        and restored_custom_dashboards["skyline_console"]["image"]
+        == SKYLINE_CUSTOM_IMAGE
+        and ui_markers.is_dir(),
+        "re-enabling UI integration restores both exact custom images",
     )
     run_action("reconfigure", "-e", "coffer_enable_metrics=false")
     disabled_state = state()["containers"]
@@ -1095,6 +1225,16 @@ def verify_successful_lifecycle() -> None:
     check(True, "config_validate executes for running processes")
 
     run_action("pull")
+    pulled_images = {
+        event.get("image")
+        for event in events()
+        if event.get("action") == "pull_image"
+    }
+    check(
+        HORIZON_CUSTOM_IMAGE in pulled_images
+        and SKYLINE_CUSTOM_IMAGE in pulled_images,
+        "pull selects both immutable Coffer UI images",
+    )
     second_pull = run_action("pull")
     check(
         re.search(r"changed=0\b", second_pull.stdout) is not None,
@@ -1102,6 +1242,13 @@ def verify_successful_lifecycle() -> None:
     )
     run_action("upgrade")
     run_action("check")
+    run_action(
+        "reconfigure",
+        "-e",
+        "coffer_enable_horizon_dashboard=false",
+        "-e",
+        "coffer_enable_skyline_console=false",
+    )
     run_action("stop")
     stopped = state()["containers"]
     check(
@@ -1112,6 +1259,12 @@ def verify_successful_lifecycle() -> None:
             "coffer_registry_metrics",
         }.intersection(stopped),
         "stop removes only Coffer-owned process containers",
+    )
+    check(
+        stopped["horizon"]["image"] == HORIZON_BASE_IMAGE
+        and stopped["skyline_console"]["image"] == SKYLINE_BASE_IMAGE
+        and not ui_markers.exists(),
+        "final UI disable leaves stock dashboards running with zero Coffer residue",
     )
     second_stop = run_action("stop")
     check(

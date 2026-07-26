@@ -61,7 +61,13 @@ def main() -> None:
     changed = False
 
     if action == "compare_container":
-        changed = name not in containers
+        changed = (
+            name not in containers
+            or (
+                image is not None
+                and containers[name].get("image") != image
+            )
+        )
     elif action in {"recreate_or_restart_container", "restart_container"}:
         containers[name] = {"image": image, "state": "running"}
         changed = True

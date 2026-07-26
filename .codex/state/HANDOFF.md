@@ -28,7 +28,9 @@
   dashboard complete locally; exact-revision Skyline source-overlay baseline
   accepted; equivalent Skyline Registry pages/routes/menu/quota surface,
   production bundle, and versioned wheel complete locally with 31 tests;
-  disabled Kolla UI lifecycle contracts next
+  disabled-by-default immutable Horizon/Skyline image contracts and exact
+  fallback lifecycle complete locally with 108 role checks; rendered fixture
+  evidence next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Externally blocked execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -68,6 +70,21 @@ errors reach the UI. Thirty-one focused Jest cases, targeted upstream ESLint,
 locale generation, Webpack production build, direct versioned wheel build,
 and source/bundle/wheel verification pass on Node 16.16.0/Yarn 1.22.22. This
 is local source and package evidence, not a deployed Skyline result.
+
+The Coffer companion role now has disabled-by-default Horizon and Skyline
+Console opt-ins. Each accepts only a public image contract binding the exact
+wheel, upstream revision, custom image digest, and stock fallback digest. The
+role requires an existing parent dashboard, writes a recovery marker before
+the custom-image swap, filters the pinned Kolla service definition to one
+container, and removes the marker only after fallback succeeds. It never
+changes `skyline_apiserver` or stops either dashboard with Coffer.
+
+Five image contract/installer tests and the 108-check isolated Kolla lifecycle
+pass. The lifecycle proves default nonmutation, fixed negative prechecks,
+custom image selection, enabled/disabled idempotency, exact fallback restore,
+and zero marker residue. Current Horizon and Skyline wheels generate valid
+mode-0640 contracts. No custom image has been built, scanned, signed, pushed,
+pulled from a real registry, or deployed.
 
 The approved teardown removed every exact Stage 5 identity, credential,
 bucket, object namespace, guest, volume, and network. Repeated status reports
@@ -2719,6 +2736,17 @@ release contains it yet.
   inspection. This is local pinned-source/package evidence; no Skyline image,
   Kolla configuration, live catalog, Keystone browser session, cloud, or
   remote state changed.
+- Added the immutable Kolla UI image boundary. Two custom-image Containerfiles
+  and a deterministic manifest writer bind each real wheel to the accepted
+  upstream revision plus exact custom/fallback digests. Five focused tests
+  pass, including the exact four-file Horizon runtime registration and
+  exclusive idempotent mode-0640 manifest output.
+- The companion playbook now reconciles only an existing `horizon` or
+  `skyline_console` container. Recovery markers precede enable and survive
+  interrupted fallback; successful disable restores the exact base digests
+  and removes all markers. The pinned isolated harness passes 108 checks and
+  leaves stock dashboards running with zero Coffer UI residue. No real image,
+  dashboard container, registry, cloud, or remote state changed.
 
 ## Blockers and Risks
 
@@ -2753,11 +2781,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Extend `ansible/roles/coffer/defaults/main.yml` and
-`poc/kolla-ansible-role/verify.py` with disabled-by-default Horizon wheel and
-Skyline immutable-image contracts. Prove default nonmutation and exact
-artifact validation before adding enable, reconfigure, disable, or residue
-tasks.
+Create `docs/fixtures/ui/index.html` and the bounded fixture assets for the
+completed Horizon and Skyline repository/quota surfaces. Render and visually
+inspect both at desktop and narrow viewports, retain screenshots labelled as
+fixture-only evidence, then run the full plan 0020 regression and close its
+handoff without claiming a deployed cloud.
 
 ## After This Work Package
 

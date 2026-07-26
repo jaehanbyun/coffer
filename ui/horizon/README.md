@@ -34,8 +34,9 @@ Django 4.2.28, keystoneauth1 5.13.1, pytest 9.0.2, and pytest-django 4.12.0.
 
 ## Horizon installation contract
 
-Install the wheel into the Horizon Python environment, then copy or link these
-files into the corresponding Horizon configuration directories:
+The custom image installs the wheel into Horizon's Python environment, then
+copies these exact runtime registration files into the corresponding image
+directories:
 
 ```text
 cofferdashboard/enabled/_1910_project_registry_panel_group.py
@@ -49,12 +50,13 @@ cofferdashboard/conf/coffer_policy.yaml
     -> openstack_dashboard/conf/
 ```
 
-Run Horizon's `collectstatic` and `compress` steps and restart the web
-application. The panel remains invisible when the current scoped service
+Kolla's existing Horizon startup regenerates static/compressed assets when its
+settings change. The panel remains invisible when the current scoped service
 catalog does not contain an `oci-registry` endpoint. The endpoint must be an
 HTTP(S) URL ending in `/v1`; the current scoped token is used only by the
 server-side keystoneauth session.
 
-The Kolla companion role owns the opt-in file placement, reconfigure, disable,
-and residue lifecycle. Installing this wheel alone does not prove a deployed
-cloud integration.
+`ui/images/horizon.Containerfile` and `ui/images/install_horizon.py` define the
+image boundary. The Kolla companion role owns the opt-in immutable-image swap,
+reconfigure, fallback, and recovery-marker lifecycle. Installing this wheel
+alone does not prove a deployed cloud integration.

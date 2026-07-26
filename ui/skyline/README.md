@@ -24,3 +24,9 @@ Nova hypervisor/instance files at the pinned clean revision. `verify` runs the
 upstream linter over every Coffer-owned file and every central file changed by
 the overlay, plus the focused tests and production build. It does not hide or
 reclassify the unrelated upstream baseline failures as Coffer results.
+
+`ui/images/skyline-console.Containerfile` installs the verified wheel over an
+exact digest-pinned Kolla Skyline Console base. The companion role selects that
+custom image only when explicitly enabled, records the exact stock fallback,
+and restores it before removing its recovery marker. It never modifies
+`skyline_apiserver` or running static files in place.

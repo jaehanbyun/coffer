@@ -11,6 +11,8 @@ coffer_deployment_profile: "production"
 coffer_enable_reconcile: false
 coffer_enable_maintenance_identity: false
 coffer_enable_metrics: false
+coffer_enable_horizon_dashboard: false
+coffer_enable_skyline_console: false
 coffer_manage_observability_overrides: true
 coffer_prometheus_rules_filename: "coffer.rules"
 coffer_grafana_dashboard_filename: "coffer-operator.json"
@@ -80,6 +82,29 @@ coffer_image: "{{ docker_image_url }}coffer"
 coffer_image_full: "{{ coffer_image }}:{{ coffer_tag }}"
 coffer_registry_image: "{{ docker_image_url }}coffer-registry"
 coffer_registry_image_full: "{{ coffer_registry_image }}:{{ coffer_tag }}"
+
+####################
+# Optional web interfaces
+####################
+# Custom UI images must be built from and restored to exact digest references.
+# The public image contracts bind those references to the locally verified
+# wheel and upstream revision. No UI container changes when both opt-ins are
+# false and no Coffer-owned recovery marker exists.
+coffer_horizon_image_contract_file: >-
+  {{ node_custom_config }}/coffer/ui/horizon-image.json
+coffer_skyline_image_contract_file: >-
+  {{ node_custom_config }}/coffer/ui/skyline-image.json
+coffer_horizon_image_full: ""
+coffer_horizon_fallback_image_full: ""
+coffer_skyline_console_image_full: ""
+coffer_skyline_console_fallback_image_full: ""
+coffer_ui_marker_directory: "{{ node_config_directory }}/coffer-ui"
+coffer_horizon_upstream_revision: >-
+  0a4439556517cf67be0aa949b6551a14e409af75
+coffer_skyline_upstream_revision: >-
+  c9000cb1be332a213009793598f17a80ce59671e
+coffer_horizon_package_version: "0.1.0"
+coffer_skyline_package_version: "8.0.0+coffer.1"
 
 ####################
 # TLS

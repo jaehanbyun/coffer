@@ -19,8 +19,13 @@ The harness covers:
 - private mTLS maintenance frontend certificate mapping, exact route, and
   ordinary-frontend header stripping;
 - idempotent reconfigure, pull, and stop;
+- disabled-by-default Horizon and Skyline Console image integration;
+- exact wheel/upstream/custom/fallback digest contract validation;
+- existing-dashboard-only image swaps, idempotent reconfigure, exact fallback
+  restore, and zero recovery-marker residue;
 - negative missing/unsafe secret, plaintext RGW, disabled backend TLS, occupied
-  port, and direct-registry-bypass prechecks;
+  port, direct-registry-bypass, mutable UI image, wrong UI revision, disabled
+  parent dashboard, and absent parent container prechecks;
 - exact removal of generated keys, certificates, state, and rendered configs.
 
 ## Prerequisites
@@ -46,6 +51,12 @@ ansible/kolla-ansible-coffer deploy -i /path/to/inventory
 The wrapper accepts only `prechecks`, `deploy`, `reconfigure`, `pull`,
 `upgrade`, `stop`, `validate-config`, `check`, and `genconfig`. Destructive
 or unrelated Kolla commands are deliberately not forwarded.
+
+The UI image lifecycle is opt-in. It consumes the public contracts described
+in `docs/research/kolla-ui-integration.md`, changes only an existing `horizon`
+or `skyline_console` container, and restores the recorded immutable fallback
+image on disable. The harness uses exact fake digests and does not build, pull,
+or execute either UI image.
 
 The script creates only `poc/kolla-ansible-role/work`, uses loopback ports
 `61313` and `18787` for bounded readiness/collision checks, and removes the

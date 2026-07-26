@@ -1,27 +1,42 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
 import grp
 import ipaddress
 import json
 import os
-from pathlib import Path
 import pwd
 import secrets
 import shutil
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
+import yaml
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
-import yaml
 
 from coffer.tokens import public_jwk
-
 
 ROOT = Path(__file__).resolve().parents[2]
 HARNESS = Path(__file__).resolve().parent
 WORK = HARNESS / "work"
+HORIZON_BASE_IMAGE = (
+    "registry.bootstrap.example.test/openstack.kolla/horizon"
+    "@sha256:" + "1" * 64
+)
+HORIZON_CUSTOM_IMAGE = (
+    "registry.bootstrap.example.test/openstack.kolla/coffer-horizon"
+    "@sha256:" + "2" * 64
+)
+SKYLINE_BASE_IMAGE = (
+    "registry.bootstrap.example.test/openstack.kolla/skyline-console"
+    "@sha256:" + "3" * 64
+)
+SKYLINE_CUSTOM_IMAGE = (
+    "registry.bootstrap.example.test/openstack.kolla/coffer-skyline-console"
+    "@sha256:" + "4" * 64
+)
 
 
 def write_bytes(path: Path, content: bytes, mode: int) -> None:
@@ -183,6 +198,7 @@ def prepare() -> None:
         public_directory / "maintenance" / "coffer-stage3-contract"
     )
     certificate_directory = source_config / "certificates"
+    ui_contract_directory = source_config / "coffer" / "ui"
 
     for directory in (
         WORK / "bin",
@@ -194,6 +210,7 @@ def prepare() -> None:
         maintenance_secret_directory,
         maintenance_public_directory,
         certificate_directory / "ca",
+        ui_contract_directory,
     ):
         directory.mkdir(parents=True, exist_ok=True)
     maintenance_secret_directory.chmod(0o700)
@@ -274,6 +291,46 @@ def prepare() -> None:
         maintenance_client_key_pem,
         0o600,
     )
+    ui_contracts = {
+        "horizon-image.json": {
+            "artifact": {
+                "name": "coffer-horizon",
+                "sha256": "a" * 64,
+                "version": "0.1.0",
+            },
+            "base_image": HORIZON_BASE_IMAGE,
+            "container_contract": "coffer-ui-image-v1",
+            "image": HORIZON_CUSTOM_IMAGE,
+            "schema_version": 1,
+            "surface": "horizon",
+            "upstream": {
+                "project": "openstack/horizon",
+                "revision": "0a4439556517cf67be0aa949b6551a14e409af75",
+            },
+        },
+        "skyline-image.json": {
+            "artifact": {
+                "name": "skyline-console",
+                "sha256": "b" * 64,
+                "version": "8.0.0+coffer.1",
+            },
+            "base_image": SKYLINE_BASE_IMAGE,
+            "container_contract": "coffer-ui-image-v1",
+            "image": SKYLINE_CUSTOM_IMAGE,
+            "schema_version": 1,
+            "surface": "skyline",
+            "upstream": {
+                "project": "openstack/skyline-console",
+                "revision": "c9000cb1be332a213009793598f17a80ce59671e",
+            },
+        },
+    }
+    for name, document in ui_contracts.items():
+        write_text(
+            ui_contract_directory / name,
+            json.dumps(document, indent=2, sort_keys=True) + "\n",
+            0o640,
+        )
 
     user = pwd.getpwuid(os.getuid())
     runtime_vars = {
@@ -291,8 +348,12 @@ def prepare() -> None:
             certificate_directory / "backend-key.pem"
         ),
         "coffer_config_controller_become": False,
+        "coffer_horizon_fallback_image_full": HORIZON_BASE_IMAGE,
+        "coffer_horizon_image_full": HORIZON_CUSTOM_IMAGE,
         "coffer_rgw_cacert": str(source_config / "coffer/certs/rgw-ca.crt"),
         "coffer_secret_owner_uid": os.getuid(),
+        "coffer_skyline_console_fallback_image_full": SKYLINE_BASE_IMAGE,
+        "coffer_skyline_console_image_full": SKYLINE_CUSTOM_IMAGE,
         "coffer_token_key_id": key_id,
         "config_owner_group": grp.getgrgid(user.pw_gid).gr_name,
         "config_owner_user": user.pw_name,
@@ -314,7 +375,23 @@ def prepare() -> None:
     )
     write_text(
         WORK / "state.json",
-        json.dumps({"containers": {}, "operations": []}, indent=2) + "\n",
+        json.dumps(
+            {
+                "containers": {
+                    "horizon": {
+                        "image": HORIZON_BASE_IMAGE,
+                        "state": "running",
+                    },
+                    "skyline_console": {
+                        "image": SKYLINE_BASE_IMAGE,
+                        "state": "running",
+                    },
+                },
+                "operations": [],
+            },
+            indent=2,
+        )
+        + "\n",
         0o600,
     )
     write_text(WORK / "events.jsonl", "", 0o600)

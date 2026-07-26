@@ -24,6 +24,12 @@ all:
     coffer-reconcile:
       hosts:
         coffer-stage3-contract:
+    horizon:
+      hosts:
+        coffer-stage3-contract:
+    skyline-console:
+      hosts:
+        coffer-stage3-contract:
     loadbalancer:
       hosts:
         coffer-stage3-contract:

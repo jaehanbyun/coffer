@@ -9,6 +9,8 @@ enable_fluentd: false
 enable_prometheus: true
 enable_prometheus_alertmanager: true
 enable_grafana: true
+enable_horizon: true
+enable_skyline: true
 
 kolla_base_distro: ubuntu
 kolla_base_distro_version: noble
@@ -47,6 +49,8 @@ coffer_maintenance_workloads:
 coffer_enable_metrics: true
 coffer_manage_observability_overrides: true
 coffer_config_controller_become: false
+coffer_enable_horizon_dashboard: true
+coffer_enable_skyline_console: true
 
 docker_registry: registry.bootstrap.example.test
 docker_namespace: openstack.kolla
