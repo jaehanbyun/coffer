@@ -150,6 +150,28 @@ catalog, Keystone, API, and browser evidence.
   `RepositoryPage`/`RepositoryStore.list_page` contract and focused store/API
   tests before adding quota or OpenAPI files.
 
+### 2026-07-26 — Project-scoped repository pagination completed
+
+- Completed: Added immutable `RepositoryPage` and bounded keyset listing to
+  the repository authority. The collection API defaults to 100 rows, permits
+  1 through 1,000, orders by `(name, id)`, and returns `next_marker` only when
+  another row exists.
+- Isolation: A marker must resolve inside the authenticated project. Unknown,
+  malformed, empty, or another project's marker returns the same 400 class
+  without revealing cross-project existence.
+- Compatibility: Existing unpaged store consumers remain unchanged. The
+  existing `repositories` response array is preserved and only
+  `next_marker` is added.
+- Evidence: Repository, token, control-dispatch, and observability focused
+  tests pass 70 cases; the full Python regression passes 1438 tests; Python
+  compilation and diff checks pass.
+- Changed files: `src/coffer/db.py`, `src/coffer/api.py`,
+  `tests/test_repositories.py`, this plan, and `.codex/state/HANDOFF.md`.
+- Next exact action: Add `QuotaResource` in `src/coffer/api.py`, register
+  `quota:get` in `src/coffer/policy.py`, construct `QuotaStore` in
+  `src/coffer/wsgi.py`, and prove project-scoped quota read behavior before
+  adding the OpenAPI document.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -160,6 +182,8 @@ catalog, Keystone, API, and browser evidence.
 | Skyline extension shape | Official current Skyline Console development/source documentation | partial; first-party seams identified, packaging boundary pending source pin |
 | Plan/HANDOFF structure | Markdown and exact-next-action inspection | passed |
 | Project UI API contract inventory | Exact API/policy/store/middleware/test and Kolla endpoint inspection | passed; implementation boundary fixed |
+| Repository keyset pagination | `uv run pytest -q tests/test_repositories.py tests/test_tokens.py tests/test_token_api.py tests/test_observability.py` | passed; 70 |
+| Full regression after repository pagination | `uv run pytest -q` | passed; 1438 |
 
 ## Failures, Blockers, and Risks
 
@@ -179,10 +203,10 @@ catalog, Keystone, API, and browser evidence.
 - Current state: Plan 0019 is externally blocked, its local pilot harness is
   complete but uninvoked, and no six-VM pilot exists. Plan 0020 is active for
   API/Horizon/Skyline work that can be locally proven independently.
-- Exact next action: Add bounded `RepositoryPage` and
-  `RepositoryStore.list_page` behavior in `src/coffer/db.py`, then prove
-  project-visible keyset pagination in focused store/API tests.
-- First file or command: `sed -n '1,180p' src/coffer/db.py`.
+- Exact next action: Add `QuotaResource` in `src/coffer/api.py`, register
+  `quota:get` in `src/coffer/policy.py`, construct `QuotaStore` in
+  `src/coffer/wsgi.py`, and add focused current-project read tests.
+- First file or command: `sed -n '1,190p' src/coffer/api.py`.
 - Questions requiring user input: None. The user authorized autonomous
   milestone commits and pushes through Horizon and Skyline; accepted security,
   release, and deployment gates remain fail closed.

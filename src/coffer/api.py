@@ -6,13 +6,19 @@ from typing import Any
 import falcon
 from oslo_policy import policy
 
-from coffer.db import RepositoryAlreadyExists, RepositoryStore
+from coffer.db import (
+    InvalidRepositoryMarker,
+    RepositoryAlreadyExists,
+    RepositoryStore,
+)
 from coffer.identity import Identity
 
 
 REPOSITORY_NAME = re.compile(
     r"^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$"
 )
+DEFAULT_REPOSITORY_LIMIT = 100
+MAX_REPOSITORY_LIMIT = 1000
 
 
 def _authorize(
@@ -70,11 +76,32 @@ class RepositoryCollectionResource:
         identity = Identity.from_environ(req.env)
         target = {"project_id": identity.project_id}
         _authorize(self._enforcer, "repository:list", identity, target)
+        limit = req.get_param_as_int(
+            "limit",
+            required=False,
+            min_value=1,
+            max_value=MAX_REPOSITORY_LIMIT,
+        )
+        marker = req.get_param("marker", required=False)
+        try:
+            page = self._store.list_page(
+                identity.project_id,
+                limit=limit or DEFAULT_REPOSITORY_LIMIT,
+                marker=marker,
+            )
+        except InvalidRepositoryMarker as exc:
+            raise falcon.HTTPBadRequest(
+                title="Invalid repository marker",
+                description=(
+                    "The marker must identify a repository in the current project."
+                ),
+            ) from exc
         resp.media = {
             "repositories": [
                 repository.to_dict()
-                for repository in self._store.list(identity.project_id)
-            ]
+                for repository in page.repositories
+            ],
+            "next_marker": page.next_marker,
         }
 
 

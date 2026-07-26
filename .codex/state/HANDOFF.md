@@ -2706,9 +2706,9 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add bounded `RepositoryPage` and `RepositoryStore.list_page` behavior in
-`src/coffer/db.py`, then prove project-visible `(name, id)` keyset pagination
-in focused store/API tests before adding quota or OpenAPI files.
+Add `QuotaResource` in `src/coffer/api.py`, register `quota:get` in
+`src/coffer/policy.py`, construct `QuotaStore` in `src/coffer/wsgi.py`, and
+prove read-only current-project quota behavior before adding OpenAPI.
 
 ## After This Work Package
 

@@ -8,10 +8,12 @@ from oslo_context import context as oslo_context
 from oslo_db import exception as db_exception
 from oslo_db.sqlalchemy import enginefacade
 from sqlalchemy import (
+    and_,
     Boolean,
     Column,
     DateTime,
     MetaData,
+    or_,
     String,
     Table,
     UniqueConstraint,
@@ -37,6 +39,10 @@ repositories = Table(
 
 
 class RepositoryAlreadyExists(Exception):
+    pass
+
+
+class InvalidRepositoryMarker(Exception):
     pass
 
 
@@ -74,6 +80,12 @@ class Repository:
             "immutable_tags": self.immutable_tags,
             "created_at": created_at.isoformat().replace("+00:00", "Z"),
         }
+
+
+@dataclass(frozen=True, slots=True)
+class RepositoryPage:
+    repositories: tuple[Repository, ...]
+    next_marker: str | None
 
 
 class RepositoryStore:
@@ -128,6 +140,69 @@ class RepositoryStore:
         )
         with self._transaction.reader.connection.using(self._context()) as conn:
             return [Repository.from_row(row) for row in conn.execute(statement)]
+
+    def list_page(
+        self,
+        project_id: str,
+        *,
+        limit: int,
+        marker: str | None = None,
+    ) -> RepositoryPage:
+        if (
+            isinstance(limit, bool)
+            or not isinstance(limit, int)
+            or not 1 <= limit <= 1000
+        ):
+            raise ValueError("repository page limit must be between 1 and 1000")
+        if marker is not None and (
+            not isinstance(marker, str)
+            or not marker
+            or len(marker) > 36
+        ):
+            raise InvalidRepositoryMarker()
+
+        with self._transaction.reader.connection.using(self._context()) as conn:
+            marker_name = None
+            if marker is not None:
+                marker_row = conn.execute(
+                    select(repositories.c.name, repositories.c.id).where(
+                        repositories.c.project_id == project_id,
+                        repositories.c.id == marker,
+                    )
+                ).first()
+                if marker_row is None:
+                    raise InvalidRepositoryMarker()
+                marker_name = marker_row._mapping["name"]
+
+            statement = select(repositories).where(
+                repositories.c.project_id == project_id
+            )
+            if marker is not None:
+                statement = statement.where(
+                    or_(
+                        repositories.c.name > marker_name,
+                        and_(
+                            repositories.c.name == marker_name,
+                            repositories.c.id > marker,
+                        ),
+                    )
+                )
+            rows = tuple(
+                conn.execute(
+                    statement.order_by(
+                        repositories.c.name,
+                        repositories.c.id,
+                    ).limit(limit + 1)
+                )
+            )
+
+        page_rows = rows[:limit]
+        values = tuple(Repository.from_row(row) for row in page_rows)
+        next_marker = values[-1].id if len(rows) > limit else None
+        return RepositoryPage(
+            repositories=values,
+            next_marker=next_marker,
+        )
 
     def get(self, project_id: str, repository_id: str) -> Repository | None:
         statement = select(repositories).where(

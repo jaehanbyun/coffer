@@ -41,6 +41,69 @@ def test_member_creates_and_reader_lists_project_repository(
     )
     assert listed.status_code == 200
     assert listed.json["repositories"] == [repository]
+    assert listed.json["next_marker"] is None
+
+
+def test_repository_listing_uses_project_scoped_keyset_pagination(
+    client: testing.TestClient,
+) -> None:
+    created = {
+        name: _create(client, "project-a-member", name).json["repository"]
+        for name in ("charlie", "alpha", "bravo")
+    }
+    other_project = _create(
+        client,
+        "project-b-member",
+        "between",
+    ).json["repository"]
+
+    first = client.simulate_get(
+        "/v1/repositories",
+        headers=_headers("project-a-reader"),
+        params={"limit": "2"},
+    )
+    assert first.status_code == 200
+    assert first.json == {
+        "repositories": [created["alpha"], created["bravo"]],
+        "next_marker": created["bravo"]["id"],
+    }
+
+    second = client.simulate_get(
+        "/v1/repositories",
+        headers=_headers("project-a-reader"),
+        params={"limit": "2", "marker": first.json["next_marker"]},
+    )
+    assert second.status_code == 200
+    assert second.json == {
+        "repositories": [created["charlie"]],
+        "next_marker": None,
+    }
+    assert all(
+        repository["id"] != other_project["id"]
+        for result in (first, second)
+        for repository in result.json["repositories"]
+    )
+
+
+def test_repository_listing_rejects_invalid_or_cross_project_page_inputs(
+    client: testing.TestClient,
+) -> None:
+    other = _create(client, "project-b-member", "other").json["repository"]
+
+    for params in (
+        {"limit": "0"},
+        {"limit": "1001"},
+        {"limit": "not-an-integer"},
+        {"marker": ""},
+        {"marker": "not-a-repository-id"},
+        {"marker": other["id"]},
+    ):
+        result = client.simulate_get(
+            "/v1/repositories",
+            headers=_headers("project-a-reader"),
+            params=params,
+        )
+        assert result.status_code == 400
 
 
 def test_reader_cannot_create(client: testing.TestClient) -> None:
