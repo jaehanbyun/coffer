@@ -23,7 +23,7 @@
   contracts, phase materializers, deployment inputs, bounded fault controller,
   and release-gated 53-action live invocation complete locally; UI API
   contract, bounded repository pagination, and project quota read complete;
-  control request-ID complete; OpenAPI drift contract next
+  REST/OpenAPI UI contract complete; Horizon source baseline next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Externally blocked execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -2707,9 +2707,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Create `api-ref/openapi.json` and `tests/test_openapi_contract.py` for the
-four version-relative UI operations and exact route, policy, schema, status,
-security, and request-ID drift checks.
+Pin the current supported Horizon source/release and create
+`docs/research/horizon-integration-baseline.md` from the official plugin
+contract and a maintained out-of-tree service dashboard before adding
+`ui/horizon/`.
 
 ## After This Work Package
 

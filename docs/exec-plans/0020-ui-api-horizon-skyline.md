@@ -18,11 +18,11 @@ catalog, Keystone, API, and browser evidence.
 
 ## Done Criteria
 
-- [ ] A versioned OpenAPI contract describes every public Coffer control
+- [x] A versioned OpenAPI contract describes every public Coffer control
       endpoint, response, error, authentication, policy, and service-catalog
       assumption consumed by a UI, and automated tests reject drift from the
       Falcon routes and oslo.policy declarations.
-- [ ] The project API supports repository create/list/detail and a read-only
+- [x] The project API supports repository create/list/detail and a read-only
       project quota summary with stable JSON, request IDs, bounded list
       behavior, deterministic error classes, and project isolation.
 - [ ] An independently installable Horizon plugin discovers the
@@ -91,10 +91,10 @@ catalog, Keystone, API, and browser evidence.
 
 ## Tasks
 
-- [ ] Inventory the exact public routes, policies, stores, response shapes,
+- [x] Inventory the exact public routes, policies, stores, response shapes,
       errors, metrics, and request-ID behavior; record and implement the stable
       REST/OpenAPI baseline.
-- [ ] Add project quota summary and bounded repository listing where required
+- [x] Add project quota summary and bounded repository listing where required
       by the frozen contract, with authorization and isolation tests.
 - [ ] Build and test the independently packaged Horizon dashboard against the
       frozen contract and a pinned supported Horizon baseline.
@@ -216,6 +216,31 @@ catalog, Keystone, API, and browser evidence.
   operations, exact schemas/policies/security/status/request-ID contracts, and
   the implemented Falcon route set.
 
+### 2026-07-26 — REST/OpenAPI baseline completed
+
+- Completed: Added the source-controlled OpenAPI 3.1 JSON contract for four
+  version-relative operations and a drift suite binding it to Falcon resource
+  callbacks, registered oslo.policy operations, runtime representations,
+  limits, status classes, Keystone security, and request correlation.
+- Runtime hardening: Repository names now fail at the declared 255-character
+  API boundary instead of reaching the database. Known repository/quota
+  database failures return one fixed secret-safe 503 with request correlation.
+- Scope: The document intentionally excludes OCI token/data-plane,
+  maintenance, health, readiness, metrics, SQL, RGW, and private backend
+  surfaces. Keystone-owned pre-Falcon 401 responses document only the
+  challenge and do not falsely promise a Coffer request ID.
+- Evidence: OpenAPI/API/policy/token/maintenance/observability focused tests
+  pass 123 cases; JSON parsing, Python compilation, and diff checks pass. The
+  full Python regression passes 1450 tests.
+- Changed files: `api-ref/openapi.json`,
+  `tests/test_openapi_contract.py`, API validation/failure mapping, tests,
+  this plan, and `.codex/state/HANDOFF.md`.
+- Next exact action: Pin the current supported Horizon source/release and
+  create `docs/research/horizon-integration-baseline.md` by inspecting a
+  maintained out-of-tree service dashboard such as Designate. Fix package,
+  catalog discovery, token forwarding, panel, table/form, and test seams
+  before creating `ui/horizon/`.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -232,6 +257,8 @@ catalog, Keystone, API, and browser evidence.
 | Kolla role after quota SLO expansion | `make -C poc/kolla-ansible-role verify` | passed; 96 |
 | Full regression after project quota API | `uv run pytest -q` | passed; 1442 |
 | Control request correlation | Repository, token, maintenance, observability, and runner focused tests | passed; 64 |
+| OpenAPI/runtime drift contract | OpenAPI, API, policy, token, maintenance, observability, and runner focused tests | passed; 123 |
+| Full regression after REST/OpenAPI baseline | `uv run pytest -q` | passed; 1450 |
 
 ## Failures, Blockers, and Risks
 
@@ -251,10 +278,11 @@ catalog, Keystone, API, and browser evidence.
 - Current state: Plan 0019 is externally blocked, its local pilot harness is
   complete but uninvoked, and no six-VM pilot exists. Plan 0020 is active for
   API/Horizon/Skyline work that can be locally proven independently.
-- Exact next action: Create `api-ref/openapi.json` and
-  `tests/test_openapi_contract.py` for the four version-relative UI operations
-  and exact route/policy/schema/error/request-ID drift checks.
-- First file or command: `mkdir -p api-ref` followed by an `apply_patch` add.
+- Exact next action: Pin the current supported Horizon source/release and
+  create `docs/research/horizon-integration-baseline.md` from the official
+  plugin contract and a maintained out-of-tree service dashboard.
+- First file or command: Fetch the current official Horizon and
+  Designate-dashboard refs into `work/` without modifying either upstream.
 - Questions requiring user input: None. The user authorized autonomous
   milestone commits and pushes through Horizon and Skyline; accepted security,
   release, and deployment gates remain fail closed.

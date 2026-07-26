@@ -5,7 +5,9 @@ import uuid
 from typing import Any
 
 import falcon
+from oslo_db import exception as db_exception
 from oslo_policy import policy
+from sqlalchemy.exc import SQLAlchemyError
 
 from coffer.db import (
     InvalidRepositoryMarker,
@@ -21,6 +23,7 @@ REPOSITORY_NAME = re.compile(
 )
 DEFAULT_REPOSITORY_LIMIT = 100
 MAX_REPOSITORY_LIMIT = 1000
+MAX_REPOSITORY_NAME_LENGTH = 255
 REQUEST_ID = re.compile(r"^req-[A-Za-z0-9](?:[A-Za-z0-9-]{0,63})$")
 
 
@@ -47,6 +50,15 @@ def _authorize(
         raise falcon.HTTPForbidden()
 
 
+def _control_dependency_unavailable(
+    _error: db_exception.DBError | SQLAlchemyError,
+) -> falcon.HTTPServiceUnavailable:
+    return falcon.HTTPServiceUnavailable(
+        title="Control service unavailable",
+        description="A required control dependency is unavailable.",
+    )
+
+
 class RepositoryCollectionResource:
     def __init__(self, store: RepositoryStore, enforcer: policy.Enforcer) -> None:
         self._store = store
@@ -61,7 +73,11 @@ class RepositoryCollectionResource:
         if not isinstance(document, dict):
             raise falcon.HTTPBadRequest(title="JSON object required")
         name = document.get("name")
-        if not isinstance(name, str) or not REPOSITORY_NAME.fullmatch(name):
+        if (
+            not isinstance(name, str)
+            or len(name) > MAX_REPOSITORY_NAME_LENGTH
+            or not REPOSITORY_NAME.fullmatch(name)
+        ):
             raise falcon.HTTPBadRequest(
                 title="Invalid repository name",
                 description=(
@@ -83,6 +99,8 @@ class RepositoryCollectionResource:
                 title="Repository already exists",
                 description=f"Repository {exc.args[0]!r} already exists in this project.",
             ) from exc
+        except (db_exception.DBError, SQLAlchemyError) as exc:
+            raise _control_dependency_unavailable(exc) from exc
 
         resp.status = falcon.HTTP_201
         resp.location = f"/v1/repositories/{repository.id}"
@@ -112,6 +130,8 @@ class RepositoryCollectionResource:
                     "The marker must identify a repository in the current project."
                 ),
             ) from exc
+        except (db_exception.DBError, SQLAlchemyError) as exc:
+            raise _control_dependency_unavailable(exc) from exc
         resp.media = {
             "repositories": [
                 repository.to_dict()
@@ -138,7 +158,10 @@ class RepositoryResource:
             "repository_id": repository_id,
         }
         _authorize(self._enforcer, "repository:get", identity, target)
-        repository = self._store.get(identity.project_id, repository_id)
+        try:
+            repository = self._store.get(identity.project_id, repository_id)
+        except (db_exception.DBError, SQLAlchemyError) as exc:
+            raise _control_dependency_unavailable(exc) from exc
         if repository is None:
             raise falcon.HTTPNotFound()
         resp.media = {"repository": repository.to_dict()}
@@ -162,4 +185,6 @@ class QuotaResource:
                     "No registry quota is configured for the current project."
                 ),
             ) from exc
+        except (db_exception.DBError, SQLAlchemyError) as exc:
+            raise _control_dependency_unavailable(exc) from exc
         resp.media = {"quota": usage.to_dict()}

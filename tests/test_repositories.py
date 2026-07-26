@@ -196,8 +196,10 @@ def test_spoofed_identity_headers_are_replaced(client: testing.TestClient) -> No
 
 def test_repository_name_is_validated(client: testing.TestClient) -> None:
     result = _create(client, "project-a-member", "INVALID NAME")
+    too_long = _create(client, "project-a-member", "a" * 256)
 
     assert result.status_code == 400
+    assert too_long.status_code == 400
 
 
 def test_reader_gets_only_the_current_project_quota(
