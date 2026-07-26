@@ -595,6 +595,31 @@ materialize the owner-only helper runtime and action outputs while preserving
 this state protocol; it still cannot execute against the blocked stable
 release pair.
 
+`rgw_cleanup.py` closes the exact-prefix deletion contract used by the
+scheduled cleanup/verification pair:
+
+```text
+uv run python poc/load-soak/collector/rgw_cleanup.py source-hash
+uv run python poc/load-soak/collector/rgw_cleanup.py \
+  cleanup RGW-LIVE-CONFIG.json RGW-CLEANUP-RESULT.json
+```
+
+The runtime client completely paginates the configured prefix across current
+objects, object versions, delete markers, and multipart uploads. Any returned
+key outside `probe_prefix/`, malformed or repeated identity/page/cursor,
+incomplete pagination, or bound overflow fails before removal. It aborts the
+exact uploads, deletes versioned/delete-marker identities and remaining
+unversioned keys in bounded batches, then repeats all three listings. A result
+is emitted only when all four remaining counts are zero inside the phase
+window.
+
+The result retains only before/after counts, page-set and
+source/target/window/config hashes. Endpoint, bucket, prefix, key, version,
+upload, credential, KMS, and error identities remain in memory only.
+Twenty-two fake and low-level client tests cover pagination, prefix escape,
+cursor failure, exact abort/delete calls, partial deletion, residual state,
+owner-only composition, and fixed CLI failures. No S3 call was made.
+
 ## Six-surface phase preparation
 
 `phase_preparation.py` turns the separately validated collectors into one

@@ -2501,6 +2501,32 @@ operator-local release.
   request materialization. Keep actual invocation disabled behind the current
   released-dependency gate.
 
+### 2026-07-26 — Exact-prefix RGW cleanup adapter completed locally
+
+- Inventory boundary: `rgw_cleanup.py` completely paginates current objects,
+  object versions, delete markers, and multipart uploads beneath only the
+  configured phase probe prefix. Returned identities outside that prefix,
+  malformed/repeated identities, cursor drift, page repetition, incomplete
+  pagination, and page bounds fail closed.
+- Deletion boundary: Exact multipart uploads are aborted first. Versioned
+  objects and delete markers retain their exact version identity; only current
+  keys not represented in that set are deleted unversioned. Delete batches
+  are bounded to 1000 and any partial error fails.
+- Zero-residue proof: All three listings run again after removal. The
+  owner-only result is emitted inside the phase window only when current
+  objects, versions, delete markers, and multipart uploads are all zero.
+- Retention: The final result contains only counts plus page-set and
+  source/target/window/config hashes. Endpoint, bucket, prefix, key, version,
+  upload, credential, KMS, and raw error identities do not survive.
+- Evidence: Twenty-two fake/low-level client tests and 87 combined
+  cleanup/executor/schedule/live-adapter tests pass. No boto3 dependency,
+  credential, endpoint, S3, KMS, Barbican, container, VM, or remote state was
+  used.
+- Next exact action: Compose the owner-only RGW runtime action adapter from
+  live probe, multipart, and exact-prefix cleanup modules behind the
+  checkpoint executor. External fault controls and phase-input materializers
+  remain subsequent adapters, and actual invocation remains release-gated.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2672,6 +2698,10 @@ operator-local release.
 | Executor, schedule, and live-adapter contract | `uv run pytest -q tests/test_load_pilot_executor.py tests/test_load_pilot_schedule.py tests/test_load_rgw_live_adapter.py` | passed; 65 |
 | Post-executor load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 752 |
 | Post-executor full Python regression | `uv run pytest -q` | passed; 1297 |
+| Exact-prefix RGW cleanup adapter | `uv run pytest -q tests/test_load_rgw_cleanup.py` | passed; 22 |
+| Cleanup, executor, schedule, and live-adapter contracts | `uv run pytest -q tests/test_load_rgw_cleanup.py tests/test_load_pilot_executor.py tests/test_load_pilot_schedule.py tests/test_load_rgw_live_adapter.py` | passed; 87 |
+| Post-cleanup load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 774 |
+| Post-cleanup full Python regression | `uv run pytest -q` | passed; 1319 |
 | Control SQL/migration/reconciliation focused matrix | quota, reconciliation, migration, bootstrap, maintenance, and runner tests | passed; 183 |
 | Full regression after control SQL evidence | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1126 |
 
@@ -2713,11 +2743,10 @@ operator-local release.
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
-- Exact next action: Implement non-synthetic action adapters for the
-  owner-only RGW helper runtime, external fault/recovery controls,
-  exact-prefix cleanup, collector-input rendering, and phase-preparation
-  request materialization. Keep actual invocation disabled behind the current
-  released-dependency gate.
+- Exact next action: Compose the owner-only RGW runtime action adapter from
+  live probe, multipart, and exact-prefix cleanup modules behind the
+  checkpoint executor. External fault controls and phase-input materializers
+  remain subsequent adapters, and actual invocation remains release-gated.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates
