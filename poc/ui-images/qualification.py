@@ -36,7 +36,7 @@ SURFACES = {
             "cofferdashboard/conf/coffer_policy.yaml",
         ),
         "absent": (
-            "/tmp/coffer-horizon.whl",
+            "/tmp/coffer_horizon-0.1.0-py3-none-any.whl",
             "/tmp/install-coffer-horizon.py",
         ),
     },
@@ -45,7 +45,9 @@ SURFACES = {
         "artifact_version": "8.0.0+coffer.1",
         "revision": SKYLINE_REVISION,
         "required_member_prefix": "skyline_console/static/coffer.bundle.",
-        "absent": ("/tmp/skyline-console.whl",),
+        "absent": (
+            "/tmp/skyline_console-8.0.0+coffer.1-py3-none-any.whl",
+        ),
     },
 }
 
@@ -305,7 +307,8 @@ def trivy_report(path: Path) -> FindingReport:
     secrets = 0
     for result in results:
         item = _object(result, f"{path.name} result")
-        target = str(item.get("Target", ""))
+        finding_class = str(item.get("Class", ""))
+        finding_type = str(item.get("Type", ""))
         for finding in item.get("Vulnerabilities") or []:
             vulnerability = _object(finding, f"{path.name} vulnerability")
             severity = str(vulnerability.get("Severity", "UNKNOWN")).lower()
@@ -317,7 +320,8 @@ def trivy_report(path: Path) -> FindingReport:
                         str(vulnerability.get("PkgName", "")),
                         str(vulnerability.get("InstalledVersion", "")),
                         str(vulnerability.get("FixedVersion", "")),
-                        target,
+                        finding_class,
+                        finding_type,
                     )
                 )
         secrets += len(item.get("Secrets") or [])

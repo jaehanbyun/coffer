@@ -40,10 +40,37 @@ blocked.
 The verifier is fixture-testable without a container engine:
 
 ```console
-uv run pytest -q tests/test_ui_image_qualification.py
+make -C poc/ui-images verify
 ```
 
-The engine transaction is added only after the pure evidence contract passes.
-It may retain non-secret ignored evidence under `work/ui-image-qualification/`
-but must remove exact containers, images, and temporary mounts on every exit.
-It does not sign, publish, push, deploy, or create a credential.
+Run the bounded native transaction only from a clean work path with an already
+running Podman machine:
+
+```console
+make -C poc/ui-images qualify
+```
+
+The harness serializes the stock and custom builds. Scanner databases are
+acquired with the pinned Trivy image before each scan, while the actual Trivy
+image scans run with no network, read-only database mounts, and an ephemeral
+writable cache. Docker Scout consumes one Podman-produced archive at a time.
+The exit contract is:
+
+- `0`: every absolute and delta gate qualified;
+- `3`: complete valid evidence, correctly blocked by one or more production
+  gates;
+- any other value: invalid or incomplete transaction.
+
+The 2026-07-26 native ARM64 transaction completed with status `blocked`.
+Horizon parent/custom had 641/642 SPDX packages and Skyline parent/custom had
+569/570. Both scanners reported zero introduced and zero missing Coffer
+Critical/High findings, and Trivy reported zero secrets. Production remained
+blocked by inherited stock-parent findings: Horizon had Trivy 1 Critical/83
+High and Scout 0 Critical/75 High; Skyline had Trivy 1 Critical/68 High and
+Scout 0 Critical/60 High.
+
+Non-secret evidence is retained under the ignored owner-only
+`work/ui-image-qualification/evidence/` path. The harness removes its exact
+containers, images, scan archives, scanner cache, and temporary mounts on
+every exit. It does not sign, publish, push, deploy, or create a credential.
+Native x86_64 remains a separate qualification gate.

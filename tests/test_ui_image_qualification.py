@@ -65,6 +65,7 @@ def write_trivy(
     findings: list[dict[str, str]] | None = None,
     *,
     secrets: int = 0,
+    target: str = "fixture",
 ) -> None:
     path.write_text(
         json.dumps(
@@ -73,7 +74,9 @@ def write_trivy(
                 "CreatedAt": "fixture",
                 "Results": [
                     {
-                        "Target": "fixture",
+                        "Target": target,
+                        "Class": "os-pkgs",
+                        "Type": "ubuntu",
                         "Vulnerabilities": findings or [],
                         "Secrets": [{"RuleID": "fixture"}] * secrets,
                     }
@@ -267,6 +270,29 @@ def test_inherited_parent_finding_remains_a_blocker(
         "horizon-parent has 1 Critical/0 High" in item for item in result["blockers"]
     )
     assert result["surfaces"]["horizon"]["delta"][scanner] == {
+        "introduced_critical_high": 0,
+        "missing_parent_critical_high": 0,
+    }
+
+
+def test_trivy_archive_name_is_not_part_of_finding_identity(
+    tmp_path: Path,
+) -> None:
+    root, wheels = evidence(tmp_path)
+    write_trivy(
+        root / "horizon-parent.trivy.json",
+        [finding("CVE-parent")],
+        target="/evidence/horizon-parent.tar (ubuntu 24.04)",
+    )
+    write_trivy(
+        root / "horizon-custom.trivy.json",
+        [finding("CVE-parent")],
+        target="/evidence/horizon-custom.tar (ubuntu 24.04)",
+    )
+
+    result = qualify(root, wheels)
+
+    assert result["surfaces"]["horizon"]["delta"]["trivy"] == {
         "introduced_critical_high": 0,
         "missing_parent_critical_high": 0,
     }

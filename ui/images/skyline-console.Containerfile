@@ -9,13 +9,11 @@ LABEL org.opencontainers.image.source="https://github.com/jaehanbyun/coffer"
 LABEL io.coffer.ui.contract="coffer-ui-image-v1"
 LABEL io.coffer.ui.surface="skyline"
 
-COPY skyline_console-8.0.0+coffer.1-py3-none-any.whl /tmp/skyline-console.whl
+COPY skyline_console-8.0.0+coffer.1-py3-none-any.whl /tmp/skyline_console-8.0.0+coffer.1-py3-none-any.whl
 
 RUN /var/lib/kolla/venv/bin/pip install \
         --no-cache-dir \
         --no-deps \
         --force-reinstall \
-        /tmp/skyline-console.whl \
-    && rm -f /tmp/skyline-console.whl
-
-USER root
+        /tmp/skyline_console-8.0.0+coffer.1-py3-none-any.whl \
+    && rm -f /tmp/skyline_console-8.0.0+coffer.1-py3-none-any.whl

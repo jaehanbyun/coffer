@@ -1,7 +1,9 @@
 # Coffer Handoff
 
 - Updated: 2026-07-26
-- Status: plan 0019 blocked externally; plan 0020 completed locally; plan 0021 active for native UI image qualification; local production observability, disposable
+- Status: plan 0019 blocked externally; plans 0020 and 0021 completed locally;
+  native ARM64 UI image qualification completed with an honest production
+  block from inherited stock-parent findings; local production observability, disposable
   filesystem GC/restore, load model/lifecycle, and canonical evidence verifier
   complete; raw OCI and five real-client execution boundaries complete;
   telemetry, deterministic plan, and fixture orchestrator complete; runtime
@@ -30,12 +32,13 @@
   production bundle, and versioned wheel complete locally with 31 tests;
   disabled-by-default immutable Horizon/Skyline image contracts and exact
   fallback lifecycle complete locally with 108 role checks; four desktop/narrow
-  UI fixture screenshots visually inspected; final 1,455-test/Horizon/Skyline/
+  UI fixture screenshots visually inspected; final 1,475-test/Horizon/Skyline/
   108-check Kolla regression and repository gates complete
-- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Externally blocked execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
-- Active execution plan: `docs/exec-plans/0021-ui-image-production-qualification.md`
+- Active execution plan: none; the exact next action is a native x86_64 UI
+  qualification work package and read-only isolated-runner preflight.
 
 ## Current Objective
 
@@ -52,20 +55,23 @@ packages, role fixtures, and screenshots remain separate from deployed
 catalog/Keystone/browser evidence until the production promotion gate permits
 a disposable cloud.
 
-Plan 0021 is active for the actual immutable Horizon and Skyline Console image
-supply-chain boundary. It builds stock parents from the accepted Kolla 2026.1
-source rather than Quay test images, layers the exact Coffer wheels, compares
-parent/custom SBOM and security evidence, and cleans exact local artifacts.
-The first executable target is native ARM64; signing, publication, x86_64, and
-live cloud acceptance remain separate fail-closed gates.
+Plan 0021 is complete for the actual native ARM64 immutable Horizon and Skyline
+Console image supply-chain boundary. Stock parents were built from the accepted
+Kolla 2026.1 source and pinned Ubuntu ARM64 digest rather than Quay test images;
+the exact Coffer wheels were layered and inspected; SPDX, Docker Scout, Trivy
+vulnerability/secret, and cleanup evidence was collected. No image, SBOM,
+signature, credential, or deployment was published.
 
-The plan 0021 pure verifier is complete. It binds the exact source revisions
-and actual wheel hashes to four immutable image inspections, runtime file
-hashes, SPDX, Trivy, Docker Scout SARIF, inherited findings, and the custom
-delta. Eight focused tests prove source/wheel/runtime/layer tamper, secret,
-parent finding, introduced finding, missing-parent-finding, and evidence
-overwrite failures. The full repository passes 1,463 tests. Podman has not
-been started for this work package yet.
+The canonical result is valid and `blocked`, not qualified. Horizon
+parent/custom contain 641/642 SPDX packages and Skyline parent/custom contain
+569/570. Both scanners report zero introduced and zero missing Coffer
+Critical/High findings; Trivy reports zero secrets. The inherited absolute
+gate remains nonzero: Horizon parent/custom each have Trivy 1 Critical/83 High
+and Scout 0 Critical/75 High; Skyline each have Trivy 1 Critical/68 High and
+Scout 0 Critical/60 High. Exact local UI images, archives, and scanner cache
+were removed; owner-only non-secret ignored evidence remains under `work/`.
+Native x86_64, parent remediation, signing/publication, and live cloud
+acceptance remain separate fail-closed gates.
 
 Skyline Console `stable/2026.1` is pinned at
 `c9000cb1be332a213009793598f17a80ce59671e` with API Server
@@ -100,8 +106,9 @@ Five image contract/installer tests and the 108-check isolated Kolla lifecycle
 pass. The lifecycle proves default nonmutation, fixed negative prechecks,
 custom image selection, enabled/disabled idempotency, exact fallback restore,
 and zero marker residue. Current Horizon and Skyline wheels generate valid
-mode-0640 contracts. No custom image has been built, scanned, signed, pushed,
-pulled from a real registry, or deployed.
+mode-0640 contracts. Native ARM64 custom images have now been built and
+scanned locally, then deleted; they have not been signed, pushed, pulled from a
+real registry, or deployed.
 
 The dependency-free Horizon and Skyline fixtures now retain the same three
 repositories and quota data plus an explicit not-deployed banner. Browser
@@ -2788,8 +2795,31 @@ release contains it yet.
   residue, and diff checks pass.
 - The live upstream classifier still returns `blocked`: Distribution v3.1.1
   has no newer stable release and Ceph Tentacle v20.2.2 does not contain the
-  merged encrypted-copy fix. No custom UI image, six-VM pilot, catalog,
-  Keystone browser session, or remote service was created.
+  merged encrypted-copy fix. No six-VM pilot, catalog, Keystone browser
+  session, or remote service was created.
+- Completed plan 0021's native ARM64 UI image transaction from pinned Kolla,
+  Horizon, Skyline, Ubuntu, wheel, Docker Scout, and Trivy inputs. The
+  serialized harness built four immutable images, verified exact runtime files
+  and inherited Kolla metadata, generated SPDX/SARIF/vulnerability/secret
+  evidence, classified it fail closed, and removed its exact images, scan
+  archives, and scanner cache.
+- The first complete transaction correctly rejected an explicit `USER root`
+  that changed Horizon's inherited image configuration. Removing that
+  declaration preserved both dashboard parents' runtime metadata. Trivy's
+  archive filename also proved unsuitable as finding identity; class/type and
+  package/version now provide stable parent/custom comparison and a regression
+  test covers distinct archive names.
+- The final native ARM64 result is `blocked`: zero Coffer-introduced or missing
+  Critical/High findings under Docker Scout and Trivy, zero secrets, but
+  inherited Horizon Trivy 1 Critical/83 High and Scout 0 Critical/75 High plus
+  Skyline Trivy 1 Critical/68 High and Scout 0 Critical/60 High. This is local
+  image evidence, not production promotion, a signed/published image, or a
+  deployed dashboard.
+- Final regression passes compile and Ruff E/F/I, 20 UI image qualification
+  tests, the exact Horizon baseline plus 36 tests, the Skyline source/lint/31
+  tests/production bundle/wheel verifier, all 108 Kolla role checks, and all
+  1,475 Python tests. Podman is stopped; no exact UI image, scan archive, or
+  scanner-cache residue remains.
 
 ## Blockers and Risks
 
@@ -2824,16 +2854,17 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/ui-images/qualify.sh` and pinned build inputs. Materialize the current
-Horizon/Skyline wheels, build stock parent images from Kolla commit
-`686c6d1`, and collect the exact evidence accepted by the completed verifier.
+Create the native x86_64 UI image qualification work package. Begin with a
+read-only preflight of the approved isolated runner boundary, then execute the
+same pinned parent/custom/runtime/SBOM/security/cleanup contract without
+publishing or deploying images.
 
 ## After This Work Package
 
 The REST/OpenAPI, Horizon, Skyline, disabled-by-default Kolla UI lifecycle,
 rendered fixture, and full repository verification scope is complete locally.
-Plan 0021 now closes the actual local UI image build/scan gap. Stage 6's
-qualified pilot still requires released dependency gates, native x86_64,
-signing/publication through an approved operator pipeline, and live catalog,
-Keystone, Kolla, and browser acceptance. Official OpenStack/Kolla governance
-work remains later.
+Plan 0021 closes the native ARM64 local UI image build/scan gap with an honest
+blocked result. Stage 6's qualified pilot still requires released dependency
+gates, parent-image remediation, native x86_64, signing/publication through an
+approved operator pipeline, and live catalog, Keystone, Kolla, and browser
+acceptance. Official OpenStack/Kolla governance work remains later.

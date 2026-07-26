@@ -9,14 +9,14 @@ LABEL org.opencontainers.image.source="https://github.com/jaehanbyun/coffer"
 LABEL io.coffer.ui.contract="coffer-ui-image-v1"
 LABEL io.coffer.ui.surface="horizon"
 
-COPY coffer_horizon-0.1.0-py3-none-any.whl /tmp/coffer-horizon.whl
+COPY coffer_horizon-0.1.0-py3-none-any.whl /tmp/coffer_horizon-0.1.0-py3-none-any.whl
 COPY install_horizon.py /tmp/install-coffer-horizon.py
 
 RUN /var/lib/kolla/venv/bin/pip install \
         --no-cache-dir \
         --no-deps \
-        /tmp/coffer-horizon.whl \
+        /tmp/coffer_horizon-0.1.0-py3-none-any.whl \
     && /var/lib/kolla/venv/bin/python /tmp/install-coffer-horizon.py \
-    && rm -f /tmp/coffer-horizon.whl /tmp/install-coffer-horizon.py
-
-USER root
+    && rm -f \
+        /tmp/coffer_horizon-0.1.0-py3-none-any.whl \
+        /tmp/install-coffer-horizon.py
