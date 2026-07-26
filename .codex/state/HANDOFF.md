@@ -19,8 +19,8 @@
   evidence source mapping and no-network artifact collection complete;
   six-surface phase preparation and verified-HTTPS live RGW evidence adapter
   plus qualified disposable-pilot schedule and checkpointed fixture executor
-  plus exact-prefix cleanup and non-synthetic RGW action materializers
-  complete; fault and phase materializers next
+  plus exact-prefix cleanup, non-synthetic RGW, and external fault action
+  contracts complete; phase materializers next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Active execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -2578,6 +2578,16 @@ release contains it yet.
 - Fault apply/recover, collector-input rendering, atomic phase preparation,
   and phase completion are still explicitly unsupported. No execution CLI or
   full non-synthetic pilot adapter exists yet.
+- Added the external wrong-key/KMS-outage controller seam. Apply/recover
+  observations must bind exact fault/state/evidence/times; recovery revalidates
+  the retained apply evidence. Read-only controller observation resolves
+  apply-before-output interruptions without repeating an external mutation.
+- Twenty fault-action and 129 combined focused tests pass with a fake
+  controller. The load/observability matrix passes 816 tests and the full
+  Python regression passes 1361. No Kolla, service restart, credential,
+  endpoint, S3, KMS, Barbican, container, VM, or remote state changed. A real
+  fault-controller implementation and full adapter composition do not exist
+  yet.
 
 ## Blockers and Risks
 
@@ -2612,9 +2622,9 @@ release contains it yet.
 
 ## Exact Next Action
 
-Implement external fault apply/recover and collector-input/phase-preparation
-materializers, then compose one complete non-synthetic checkpoint adapter
-behind the unchanged release gate.
+Implement collector-input, phase-preparation, and phase-completion
+materializers, then compose the RGW and fault adapters under one
+non-synthetic checkpoint adapter. Actual invocation remains release-gated.
 
 ## After This Work Package
 

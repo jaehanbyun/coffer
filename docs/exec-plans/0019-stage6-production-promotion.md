@@ -2555,6 +2555,32 @@ operator-local release.
   collector-input/phase-preparation materializers, then compose one complete
   non-synthetic checkpoint adapter behind the unchanged release gate.
 
+### 2026-07-26 — External fault action contract completed locally
+
+- Controller seam: `pilot_fault_actions.py` accepts only the four exact
+  qualified-schedule actions for wrong-key and KMS-outage apply/recover. Typed
+  controller observations bind fault, state, external evidence hash, and
+  timestamps inside the `during` window.
+- Recovery: A recovery action first revalidates the matching apply result and
+  preserves its external evidence binding. The schedule's no-fault recovery
+  marker cannot be substituted for the applied fault identity.
+- Ambiguous interruption: If external apply/recover completed before the
+  owner-only result write, adapter reconciliation calls read-only controller
+  observation. Matching state reconstructs the output without a duplicate
+  mutation; absent state requests a safe retry.
+- Retention and safety: Outputs retain only controller/source,
+  fault/state/evidence, target/window/schedule, time, and self hashes.
+  Existing or tampered output, observation drift, missing phase, blocked
+  readiness, or an unsupported action fails before mutation.
+- Evidence: Twenty fault-action and 129 combined
+  fault/RGW/cleanup/executor/schedule/live-adapter tests pass with a fake
+  controller. No Kolla, service restart, boto3, credential, endpoint, S3, KMS,
+  Barbican, container, VM, or remote state was used.
+- Next exact action: Implement collector-input, phase-preparation, and
+  phase-completion materializers, then compose the RGW and fault adapters
+  under one non-synthetic checkpoint adapter. Actual invocation remains
+  release-gated.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2735,6 +2761,10 @@ operator-local release.
 | RGW actions through schedule/checkpoint contracts | RGW actions, cleanup, executor, schedule, and live-adapter focused tests | passed; 109 |
 | Post-RGW-actions load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 796 |
 | Post-RGW-actions full Python regression | `uv run pytest -q` | passed; 1341 |
+| External fault action contract | `uv run pytest -q tests/test_load_pilot_fault_actions.py` | passed; 20 |
+| Fault and RGW action stack | fault actions, RGW actions, cleanup, executor, schedule, and live-adapter focused tests | passed; 129 |
+| Post-fault-actions load/observability matrix | `uv run pytest -q tests/test_load_*.py tests/test_observability*.py tests/test_quota_control_evidence.py tests/test_quota_transaction_observability.py` | passed; 816 |
+| Post-fault-actions full Python regression | `uv run pytest -q` | passed; 1361 |
 | Control SQL/migration/reconciliation focused matrix | quota, reconciliation, migration, bootstrap, maintenance, and runner tests | passed; 183 |
 | Full regression after control SQL evidence | `uv run pytest -q`; `uv run pytest --collect-only -q` | passed; 1126 |
 
@@ -2776,9 +2806,10 @@ operator-local release.
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
-- Exact next action: Implement external fault apply/recover and
-  collector-input/phase-preparation materializers, then compose one complete
-  non-synthetic checkpoint adapter behind the unchanged release gate.
+- Exact next action: Implement collector-input, phase-preparation, and
+  phase-completion materializers, then compose the RGW and fault adapters
+  under one non-synthetic checkpoint adapter. Actual invocation remains
+  release-gated.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

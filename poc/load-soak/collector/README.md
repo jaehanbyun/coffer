@@ -647,6 +647,31 @@ the source-only CLI. Fault apply/recover, collector-input rendering, atomic
 phase preparation, and phase completion remain deliberately unsupported, so
 this partial adapter cannot run the full pilot.
 
+`pilot_fault_actions.py` defines the non-synthetic external controller seam for
+the four `during` actions. It also exposes only a source-hash command:
+
+```text
+uv run python poc/load-soak/collector/pilot_fault_actions.py source-hash
+```
+
+Apply and recover are accepted only from the exact qualified schedule and
+phase window. The controller must return a typed observation bound to the
+fault, desired state, external evidence hash, and timestamps. Recovery first
+revalidates the matching retained apply result and carries its external
+evidence hash forward; the schedule's ordinary no-fault marker cannot replace
+it. Output retains only controller/source, fault/state, target/window/schedule,
+time, and evidence hashes.
+
+If an external change completed but the process stopped before writing its
+result, reconciliation calls the controller's read-only `observe` method.
+Matching external state reconstructs the exact output without reapplying the
+fault; absent state requests a safe retry. Existing or tampered outputs are
+never overwritten. Twenty tests cover both faults, ordered recovery,
+apply-before-output interruption, unobserved retry, observation drift,
+window/evidence/state tamper, missing phase, readiness refusal, retention, and
+the source-only CLI. Tests use a fake controller; no Kolla, RGW, Barbican, KMS,
+service restart, credential, VM, or remote state changed.
+
 ## Six-surface phase preparation
 
 `phase_preparation.py` turns the separately validated collectors into one
