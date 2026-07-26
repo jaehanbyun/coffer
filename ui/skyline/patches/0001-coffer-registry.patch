@@ -1,0 +1,13 @@
+diff --git a/src/client/client/constants.js b/src/client/client/constants.js
+index a7cb59f..aefcf81 100644
+--- a/src/client/client/constants.js
++++ b/src/client/client/constants.js
+@@ -37,3 +37,4 @@ export const endpointVersionMap = {
+   designate: 'v2',
+   masakari: 'v1',
++  coffer: 'v1',
+ };
+@@ -76,2 +77,3 @@ export const magnumBase = () => getOpenstackEndpoint('magnum');
+ export const designateBase = () => getOpenstackEndpoint('designate');
+ export const masakariBase = () => getOpenstackEndpoint('masakari');
++export const cofferBase = () => getOpenstackEndpoint('coffer');

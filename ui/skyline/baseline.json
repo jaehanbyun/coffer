@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "skyline_console": {
+    "branch": "stable/2026.1",
+    "revision": "c9000cb1be332a213009793598f17a80ce59671e",
+    "describe": "8.0.0-14-gc9000cb1",
+    "package_json_sha256": "5c87dbbfd205422952a98a9978520f28697db160911ad0eb06e7f688315ed100",
+    "yarn_lock_sha256": "735ee34180d46f06bf73ac94fe6be2df3ef12ad31db2af62a98946a2429869eb",
+    "node": "16.16.0",
+    "yarn": "1.22.22"
+  },
+  "skyline_apiserver": {
+    "branch": "stable/2026.1",
+    "revision": "1902699cbf1b01f4d8d4c65a43a21b06a3a5e077"
+  },
+  "kolla": {
+    "branch": "stable/2026.1",
+    "revision": "686c6d13dc1c31092b22c6c481e16a7329e935ea"
+  },
+  "kolla_ansible": {
+    "branch": "stable/2026.1",
+    "revision": "cec5b77ddc0af37e9b9a8df92f7458ae014fb5dc"
+  }
+}

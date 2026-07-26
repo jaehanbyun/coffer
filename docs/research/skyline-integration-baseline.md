@@ -181,13 +181,12 @@ The list combines:
 - the current quota usage/limit card;
 - repository name linked to detail;
 - immutable-tags state;
-- size in bytes;
-- created and updated timestamps;
+- created timestamp;
 - a Create Repository modal;
 - forward pagination only.
 
-The detail view shows ID, name, immutable-tags state, size, project ID, and
-timestamps. No destructive action is present.
+The detail view shows ID, name, immutable-tags state, project ID, and created
+timestamp. No destructive action is present.
 
 Console-side policy visibility is advisory. Skyline API Server's supported
 policy manager has a fixed set of known OpenStack services and has no Coffer

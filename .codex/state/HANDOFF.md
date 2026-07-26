@@ -26,7 +26,8 @@
   REST/OpenAPI UI contract, Kolla 2026.1 Horizon 25.7.3 baseline, and
   server-side Horizon adapter and independently packaged Project Registry
   dashboard complete locally; exact-revision Skyline source-overlay baseline
-  accepted; Skyline client/store overlay next
+  accepted; exact-source Skyline client/store overlay complete with 21 tests;
+  Skyline pages/routes/menu/locales next
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Externally blocked execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -55,6 +56,14 @@ catalog service type `oci-registry` to same-origin alias `coffer`; its Nginx
 generator strips the catalog endpoint's terminal `/v1`, and the Console
 client restores it through the existing endpoint-version map. The existing
 Skyline request layer remains the sole browser token/request-ID boundary.
+
+`ui/skyline/` now materializes a disposable Console tree only from that exact
+clean revision and matching package/lock digests. Its client exposes
+repository list/show/create and quota read only. Store pagination trusts only
+the API `next_marker`; create sends the unwrapped public request; repository
+name validation matches OpenAPI. Twenty-one focused Jest cases and upstream
+ESLint/Prettier checks pass on Node 16.16.0/Yarn 1.22.22. This is local source
+and fixture evidence, not a deployed Skyline result.
 
 The approved teardown removed every exact Stage 5 identity, credential,
 bucket, object namespace, guest, volume, and network. Repeated status reports

@@ -348,6 +348,33 @@ catalog, Keystone, API, and browser evidence.
   Apply them to a disposable clean Console copy before editing routes, menu,
   pages, or locales.
 
+### 2026-07-26 — Skyline client and store overlay completed
+
+- Overlay: Added the exact Console/API Server/Kolla/Kolla-Ansible revision and
+  package-lock manifest, a clean-source verifier, safe disposable-tree
+  materializer, exact no-fuzz central patch, and Coffer-owned source overlay.
+- Client: `cofferBase()` resolves the mapped same-origin `coffer` endpoint and
+  restores `/v1`. The client exposes repository list/show/create and quota
+  read only; no delete/update or direct credential/endpoint operation exists.
+- Stores: Forward pagination uses only the server `next_marker`, synthesizes a
+  bounded next-page total for Skyline's paginator, sends the unwrapped public
+  create body, avoids project overrides, and retains only the quota envelope.
+- Validation: Repository names use the OpenAPI 255-character grammar. The
+  request itself remains in Skyline's existing token, expiry, request-ID, and
+  401 interceptor.
+- Evidence: Exact-source verification and overlay application pass. Twenty-one
+  client/store/validation Jest cases pass under Node 16.16.0/Yarn 1.22.22;
+  focused upstream ESLint/Prettier checks pass. The first failed materializer
+  used `git apply` under the ignored parent worktree and silently skipped the
+  patch; it was replaced with exact `patch --dry-run --fuzz=0` plus apply and
+  reverified.
+- Changed files: `ui/skyline/`, corrected Skyline research surface, this plan,
+  and `.codex/state/HANDOFF.md`.
+- Next exact action: Add Registry routes, endpoint-gated menu, repository
+  list/create/detail pages, quota card, and localization keys to the exact
+  overlay. Extend the central patch and run focused UI tests before the full
+  localization/lint/production build.
+
 ## Verification
 
 | Check | Command or method | Result |
