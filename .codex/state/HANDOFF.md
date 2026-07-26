@@ -37,8 +37,8 @@
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Externally blocked execution plan: `docs/exec-plans/0019-stage6-production-promotion.md`
-- Active execution plan: none; the exact next action is a native x86_64 UI
-  qualification work package and read-only isolated-runner preflight.
+- Active execution plan:
+  `docs/exec-plans/0022-native-x86-ui-image-qualification.md`
 
 ## Current Objective
 
@@ -2854,10 +2854,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Create the native x86_64 UI image qualification work package. Begin with a
-read-only preflight of the approved isolated runner boundary, then execute the
-same pinned parent/custom/runtime/SBOM/security/cleanup contract without
-publishing or deploying images.
+Commit and push the native Linux/libvirt adapter milestone. Then generate one
+ephemeral owner-only SSH key and invoke only the fixed
+`coffer-ui-x86-qualification-1` create action. Do not run the qualification
+workload on the shared host or alter its existing Docker/VM/network identities.
 
 ## After This Work Package
 

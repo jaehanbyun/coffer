@@ -196,3 +196,40 @@ def test_harness_separates_trivy_db_acquisition_from_offline_scan() -> None:
     assert "--skip-db-update" in content
     assert "--skip-java-db-update" in content
     assert "--offline-scan" in content
+
+
+def test_harness_has_bounded_native_linux_podman_and_wheel_inputs() -> None:
+    content = (ROOT / "poc" / "ui-images" / "qualify.sh").read_text()
+
+    assert 'runtime_os="$(uname -s)"' in content
+    assert 'podman system service --time=0 "unix://${podman_socket}"' in content
+    assert 'podman_socket="${WORK}/podman-api.sock"' in content
+    assert "stop_native_podman_service" in content
+    assert "COFFER_UI_WHEEL_INPUT_DIR" in content
+    assert "UI wheel input directory must contain exactly two wheels" in content
+    assert "UI wheel input is missing or linked" in content
+
+
+def test_libvirt_runner_is_exact_signed_and_disposable() -> None:
+    content = (
+        ROOT / "poc" / "ui-images" / "libvirt_x86_runner.sh"
+    ).read_text()
+
+    assert 'readonly NAME="coffer-ui-x86-qualification-1"' in content
+    assert 'readonly POOL="coffer-rgw"' in content
+    assert 'readonly NETWORK="default"' in content
+    assert 'readonly MEMORY_MIB="24576"' in content
+    assert 'readonly VCPUS="8"' in content
+    assert 'readonly ROOT_CAPACITY="120G"' in content
+    assert (
+        'readonly CLOUD_IMAGE_SHA256="'
+        "ffe6203da54deeb6db5d2a98a83f9ec8e55f149d3f7ba622e1abe5fa966ee3d6"
+        '"' in content
+    )
+    assert "gpgv --keyring" in content
+    assert "sha256sum --check --status" in content
+    assert 'virsh -c "${URI}" vol-delete --pool "${POOL}" "${volume}"' in content
+    assert "--noautoconsole" in content
+    assert "--autostart" not in content
+    assert "--remove-all-storage" not in content
+    assert "sudo " not in content

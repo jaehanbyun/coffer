@@ -23,6 +23,8 @@ SKYLINE_PARENT="localhost/coffer-ui-skyline-console:${TAG}"
 SKYLINE_CUSTOM="localhost/coffer-ui-skyline-custom:${TAG}"
 TRIVY_IMAGE=""
 phase="initialization"
+podman_service_pid=""
+podman_socket=""
 
 # shellcheck source=poc/production-images/pins.env
 source "${ROOT}/poc/production-images/pins.env"
@@ -63,6 +65,14 @@ remove_scanner_cache() {
     rm -rf -- "${TRIVY_CACHE:?}"
 }
 
+stop_native_podman_service() {
+    if [[ -n "${podman_service_pid}" ]]; then
+        kill "${podman_service_pid}" >/dev/null 2>&1 || true
+        wait "${podman_service_pid}" >/dev/null 2>&1 || true
+        podman_service_pid=""
+    fi
+}
+
 cleanup() {
     local exit_code=$?
     remove_scan_archives
@@ -70,6 +80,7 @@ cleanup() {
     if podman info >/dev/null 2>&1; then
         remove_exact_images
     fi
+    stop_native_podman_service
     exit "${exit_code}"
 }
 
@@ -87,10 +98,21 @@ for command_name in docker git jq podman python3 uv; do
     require_command "${command_name}"
 done
 docker scout version >/dev/null
-if [[ "$(podman machine inspect --format '{{.State}}')" != "running" ]]; then
-    echo "the retained Podman machine must already be running" >&2
-    exit 1
-fi
+runtime_os="$(uname -s)"
+case "${runtime_os}" in
+    Darwin)
+        if [[ "$(podman machine inspect --format '{{.State}}')" != "running" ]]; then
+            echo "the retained Podman machine must already be running" >&2
+            exit 1
+        fi
+        ;;
+    Linux)
+        ;;
+    *)
+        echo "unsupported UI qualification host: ${runtime_os}" >&2
+        exit 1
+        ;;
+esac
 podman info >/dev/null
 for image in "${CUSTOM_IMAGES[@]}" "${KOLLA_IMAGES[@]}"; do
     if podman image exists "${image}"; then
@@ -104,6 +126,32 @@ if [[ -e "${WORK}" ]]; then
 fi
 mkdir -p "${EVIDENCE}" "${WHEELS}" "${CONTEXTS}" "${TRIVY_CACHE}"
 chmod 700 "${WORK}" "${EVIDENCE}" "${WHEELS}" "${CONTEXTS}" "${TRIVY_CACHE}"
+
+phase="Podman API service"
+if [[ "${runtime_os}" == "Darwin" ]]; then
+    podman_socket="$(podman machine inspect \
+        --format '{{.ConnectionInfo.PodmanSocket.Path}}')"
+    test -S "${podman_socket}"
+else
+    podman_socket="${WORK}/podman-api.sock"
+    podman system service --time=0 "unix://${podman_socket}" \
+        >"${WORK}/podman-service.log" 2>&1 &
+    podman_service_pid=$!
+    for _attempt in {1..100}; do
+        if [[ -S "${podman_socket}" ]]; then
+            break
+        fi
+        if ! kill -0 "${podman_service_pid}" >/dev/null 2>&1; then
+            echo "native Podman service exited before readiness" >&2
+            exit 1
+        fi
+        sleep 0.1
+    done
+    if [[ ! -S "${podman_socket}" ]]; then
+        echo "native Podman service did not become ready" >&2
+        exit 1
+    fi
+fi
 
 phase="source and tool verification"
 test "$(git -C "${KOLLA_SOURCE}" rev-parse HEAD)" = "${KOLLA_COMMIT}"
@@ -144,16 +192,41 @@ case "${runtime_arch}" in
 esac
 
 phase="wheel materialization"
-uv build --wheel --out-dir "${WHEELS}" "${ROOT}/ui/horizon"
 horizon_wheel="${WHEELS}/coffer_horizon-0.1.0-py3-none-any.whl"
-skyline_source_wheel="$(
-    find "${ROOT}/work/skyline-console-coffer-wheel" -maxdepth 1 -type f \
-        -name 'skyline_console-8.0.0+coffer.1-py3-none-any.whl' -print
-)"
+skyline_wheel="${WHEELS}/skyline_console-8.0.0+coffer.1-py3-none-any.whl"
+if [[ -n "${COFFER_UI_WHEEL_INPUT_DIR:-}" ]]; then
+    input_wheels="${COFFER_UI_WHEEL_INPUT_DIR}"
+    if [[ "${input_wheels}" != /* || ! -d "${input_wheels}" \
+        || -L "${input_wheels}" ]]; then
+        echo "UI wheel input directory is invalid" >&2
+        exit 1
+    fi
+    if [[ "$(find "${input_wheels}" -maxdepth 1 -type f -name '*.whl' | wc -l)" \
+        -ne 2 ]]; then
+        echo "UI wheel input directory must contain exactly two wheels" >&2
+        exit 1
+    fi
+    for input_wheel in \
+        "${input_wheels}/$(basename "${horizon_wheel}")" \
+        "${input_wheels}/$(basename "${skyline_wheel}")"; do
+        if [[ ! -f "${input_wheel}" || -L "${input_wheel}" ]]; then
+            echo "UI wheel input is missing or linked" >&2
+            exit 1
+        fi
+    done
+    cp "${input_wheels}/$(basename "${horizon_wheel}")" "${horizon_wheel}"
+    cp "${input_wheels}/$(basename "${skyline_wheel}")" "${skyline_wheel}"
+else
+    uv build --wheel --out-dir "${WHEELS}" "${ROOT}/ui/horizon"
+    skyline_source_wheel="$(
+        find "${ROOT}/work/skyline-console-coffer-wheel" -maxdepth 1 -type f \
+            -name 'skyline_console-8.0.0+coffer.1-py3-none-any.whl' -print
+    )"
+    test -f "${skyline_source_wheel}"
+    cp "${skyline_source_wheel}" "${skyline_wheel}"
+fi
 test -f "${horizon_wheel}"
-test -f "${skyline_source_wheel}"
-cp "${skyline_source_wheel}" "${WHEELS}/"
-skyline_wheel="${WHEELS}/$(basename "${skyline_source_wheel}")"
+test -f "${skyline_wheel}"
 "${HORIZON_PYTHON}" "${ROOT}/ui/horizon/verify.py" \
     --horizon-source "${HORIZON_SOURCE}"
 python3 "${ROOT}/ui/skyline/verify_build.py" \
@@ -161,9 +234,6 @@ python3 "${ROOT}/ui/skyline/verify_build.py" \
     --wheel-dir "${ROOT}/work/skyline-console-coffer-wheel"
 
 phase="stock Kolla parent build"
-podman_socket="$(podman machine inspect \
-    --format '{{.ConnectionInfo.PodmanSocket.Path}}')"
-test -S "${podman_socket}"
 "${KOLLA_BUILD}" \
     --engine podman \
     --podman_base_url "unix://${podman_socket}" \
