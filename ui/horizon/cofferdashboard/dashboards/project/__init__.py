@@ -1,0 +1,1 @@
+"""Coffer project dashboard extensions."""

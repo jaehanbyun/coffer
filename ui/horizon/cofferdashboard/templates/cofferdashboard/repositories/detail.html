@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% load i18n parse_date %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block page_header %}
+  {% include "horizon/common/_detail_header.html" %}
+{% endblock %}
+
+{% block main %}
+  <div class="detail">
+    <dl class="dl-horizontal">
+      <dt>{% trans "Name" %}</dt>
+      <dd>{{ repository.name }}</dd>
+      <dt>{% trans "Repository ID" %}</dt>
+      <dd>{{ repository.id }}</dd>
+      <dt>{% trans "Project ID" %}</dt>
+      <dd>{{ repository.project_id }}</dd>
+      <dt>{% trans "Immutable Tags" %}</dt>
+      <dd>{{ repository.immutable_tags|yesno:_("Yes,No") }}</dd>
+      <dt>{% trans "Created" %}</dt>
+      <dd>{{ repository.created_at|parse_isotime }}</dd>
+    </dl>
+  </div>
+{% endblock %}

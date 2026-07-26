@@ -1,0 +1,1 @@
+"""Coffer Registry panel group."""

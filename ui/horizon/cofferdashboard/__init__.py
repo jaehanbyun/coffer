@@ -1,6 +1,5 @@
 from importlib import metadata
 
-
 try:
     __version__ = metadata.version("coffer-horizon")
 except metadata.PackageNotFoundError:

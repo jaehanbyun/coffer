@@ -7,6 +7,54 @@ The current Kolla 2026.1 compatibility baseline is Horizon 25.7.3. The plugin di
 the versioned `oci-registry` endpoint from the current scoped Keystone catalog
 and keeps the token in Horizon's server-side request boundary.
 
-This package is under active plan 0020. Adapter tests may be run before the
-panel is enabled; installation and Kolla lifecycle instructions are added with
-the complete dashboard milestone.
+The plugin adds **Project → Registry → Repositories**. It supports the bounded
+MVP control surface only:
+
+- repository list with forward pagination;
+- repository creation and immutable-tag selection;
+- repository detail;
+- current-project quota usage.
+
+It intentionally has no delete, manifest, tag, signer, scanner, storage,
+maintenance, or administrator quota surface.
+
+## Development verification
+
+The exact Horizon source checkout is required so that a passing test cannot
+silently move to another framework revision:
+
+```console
+make -C ui/horizon sync
+make -C ui/horizon verify
+uv build --project ui/horizon --out-dir work/horizon-dist
+```
+
+The verifier checks Horizon source revision `0a443955...`, Horizon 25.7.3,
+Django 4.2.28, keystoneauth1 5.13.1, pytest 9.0.2, and pytest-django 4.12.0.
+
+## Horizon installation contract
+
+Install the wheel into the Horizon Python environment, then copy or link these
+files into the corresponding Horizon configuration directories:
+
+```text
+cofferdashboard/enabled/_1910_project_registry_panel_group.py
+cofferdashboard/enabled/_1920_project_registry_repositories_panel.py
+    -> openstack_dashboard/local/enabled/
+
+cofferdashboard/local_settings.d/_1930_coffer_policy.py
+    -> openstack_dashboard/local/local_settings.d/
+
+cofferdashboard/conf/coffer_policy.yaml
+    -> openstack_dashboard/conf/
+```
+
+Run Horizon's `collectstatic` and `compress` steps and restart the web
+application. The panel remains invisible when the current scoped service
+catalog does not contain an `oci-registry` endpoint. The endpoint must be an
+HTTP(S) URL ending in `/v1`; the current scoped token is used only by the
+server-side keystoneauth session.
+
+The Kolla companion role owns the opt-in file placement, reconfigure, disable,
+and residue lifecycle. Installing this wheel alone does not prove a deployed
+cloud integration.

@@ -25,7 +25,7 @@ catalog, Keystone, API, and browser evidence.
 - [x] The project API supports repository create/list/detail and a read-only
       project quota summary with stable JSON, request IDs, bounded list
       behavior, deterministic error classes, and project isolation.
-- [ ] An independently installable Horizon plugin discovers the
+- [x] An independently installable Horizon plugin discovers the
       `oci-registry` endpoint from the scoped Keystone catalog, forwards the
       current token server-side, lists and creates repositories, shows quota
       usage, handles 401/403/404/409/503 safely, and passes focused Django/UI
@@ -96,7 +96,7 @@ catalog, Keystone, API, and browser evidence.
       REST/OpenAPI baseline.
 - [x] Add project quota summary and bounded repository listing where required
       by the frozen contract, with authorization and isolation tests.
-- [ ] Build and test the independently packaged Horizon dashboard against the
+- [x] Build and test the independently packaged Horizon dashboard against the
       frozen contract and a pinned supported Horizon baseline.
 - [ ] Inspect and pin current Skyline Console extension seams; record the
       overlay/fork decision and build/test the equivalent Console surface.
@@ -292,6 +292,33 @@ catalog, Keystone, API, and browser evidence.
   templates, then test service-catalog hiding and list/quota/create/detail
   flows against mocked adapter results.
 
+### 2026-07-26 — Horizon project dashboard completed locally
+
+- Surface: Added the Project dashboard Registry group and Repositories panel,
+  forward-paged table, quota usage card, create modal, and five-field detail
+  view. No destructive, data-plane, storage, signer, scanner, maintenance, or
+  administrator action is exposed.
+- Access and security: Panel visibility requires the current scoped catalog's
+  `openstack.services.oci-registry` permission. Repository policy is mirrored
+  locally while the API remains authoritative. The views never handle a token
+  or configured endpoint directly and display only fixed failures for
+  401/403/404/409/503 classes.
+- Packaging: The wheel includes both enabled files, local policy settings,
+  policy YAML, panel modules, and templates. Installation remains opt-in and
+  requires deployer-controlled file placement, Horizon static/compression
+  steps, and web restart.
+- Evidence: The exact 2026.1 baseline verifier passes; 36 adapter and Django
+  flow tests pass; Python compilation and E/F/I style checks pass; the wheel
+  contract includes every deployable artifact. These are local framework and
+  fixture results, not a deployed Horizon/cloud result.
+- Changed files: `ui/horizon/`, this plan, and
+  `.codex/state/HANDOFF.md`.
+- Next exact action: Pin the Skyline Console revision matching Kolla
+  `stable/2026.1` in `docs/research/skyline-integration-baseline.md`. Inspect
+  its package manager, service-catalog client, request/token boundary, stores,
+  routes, menus, locales, tests, and build before selecting a maintained
+  source overlay or another supported extension seam.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -313,6 +340,9 @@ catalog, Keystone, API, and browser evidence.
 | Horizon source/package baseline | Official Horizon 25.7.3, Designate Dashboard 21.0.0, and OpenStack 2026.1 constraints | passed; exact revisions and dependency versions pinned |
 | Horizon server-side adapter | `make -C ui/horizon verify-adapter` | passed; exact baseline and 22 tests |
 | Horizon adapter package build | `uv build --project ui/horizon` | passed; wheel and sdist generated under ignored work |
+| Horizon panel and adapter | `make -C ui/horizon verify` | passed; exact baseline, 36 tests, compilation |
+| Horizon source style | `ruff check --select E,F,I ui/horizon/cofferdashboard ui/horizon/verify.py` | passed |
+| Horizon deployable wheel contents | Built wheel archive inspection | passed; enabled, policy, modules, and templates present |
 
 ## Failures, Blockers, and Risks
 
@@ -337,11 +367,12 @@ catalog, Keystone, API, and browser evidence.
 - Current state: Plan 0019 is externally blocked, its local pilot harness is
   complete but uninvoked, and no six-VM pilot exists. Plan 0020 is active for
   API/Horizon/Skyline work that can be locally proven independently.
-- Exact next action: Add the Registry panel group, Repositories panel, local
-  policy mirror, enabled settings, table/form/views/routes, and templates with
-  mocked Horizon flow tests.
-- First file or command: Add
-  `ui/horizon/cofferdashboard/enabled/_1910_project_registry_panel_group.py`.
+- Exact next action: Pin the Skyline Console revision matching Kolla
+  `stable/2026.1` and record its supported integration boundary before
+  implementation.
+- First file or command: Create
+  `docs/research/skyline-integration-baseline.md` after inspecting the exact
+  Kolla image/source mapping and matching `skyline-console` revision.
 - Questions requiring user input: None. The user authorized autonomous
   milestone commits and pushes through Horizon and Skyline; accepted security,
   release, and deployment gates remain fail closed.

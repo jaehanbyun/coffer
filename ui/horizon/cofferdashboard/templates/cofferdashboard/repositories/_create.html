@@ -1,0 +1,7 @@
+{% extends "horizon/common/_modal_form.html" %}
+{% load i18n %}
+
+{% block modal-body-right %}
+  <p>{% trans "Create the project-owned repository before pushing an OCI image or artifact." %}</p>
+  <p>{% trans "Immutable tags prevent an existing tag from being moved to another manifest." %}</p>
+{% endblock %}

@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import argparse
 import importlib.metadata
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 import horizon
-
 
 HORIZON_REVISION = "0a4439556517cf67be0aa949b6551a14e409af75"
 EXPECTED_VERSIONS = {
@@ -14,6 +13,7 @@ EXPECTED_VERSIONS = {
     "horizon": "25.7.3",
     "keystoneauth1": "5.13.1",
     "pytest": "9.0.2",
+    "pytest-django": "4.12.0",
 }
 
 

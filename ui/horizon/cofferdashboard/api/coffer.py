@@ -1,20 +1,16 @@
 from __future__ import annotations
 
+import re
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
-import re
 from typing import Any
 from urllib.parse import urlsplit
-import uuid
 
 from django.conf import settings
-from keystoneauth1 import adapter
+from keystoneauth1 import adapter, session, token_endpoint
 from keystoneauth1 import exceptions as ksa_exceptions
-from keystoneauth1 import session
-from keystoneauth1 import token_endpoint
-
 from openstack_dashboard.api import base
-
 
 SERVICE_TYPE = "oci-registry"
 DEFAULT_PAGE_LIMIT = 100
@@ -38,9 +34,7 @@ RESULTS = frozenset(
 REPOSITORY_FIELDS = frozenset(
     {"id", "project_id", "name", "immutable_tags", "created_at"}
 )
-QUOTA_FIELDS = frozenset(
-    {"project_id", "limit_bytes", "used_bytes", "reserved_bytes"}
-)
+QUOTA_FIELDS = frozenset({"project_id", "limit_bytes", "used_bytes", "reserved_bytes"})
 
 
 class CofferAPIError(RuntimeError):
@@ -104,11 +98,7 @@ def _canonical_uuid(value: object) -> str:
 
 def _project_id(request: Any) -> str:
     project_id = getattr(request.user, "project_id", None)
-    if (
-        not isinstance(project_id, str)
-        or not project_id
-        or len(project_id) > 64
-    ):
+    if not isinstance(project_id, str) or not project_id or len(project_id) > 64:
         raise CofferAPIError("authentication_required")
     return project_id
 
@@ -294,9 +284,7 @@ def list_repositories(
     items = payload["repositories"]
     if not isinstance(items, list) or len(items) > limit:
         raise CofferAPIError("invalid_response")
-    repositories = tuple(
-        _repository(item, project_id=project_id) for item in items
-    )
+    repositories = tuple(_repository(item, project_id=project_id) for item in items)
     next_marker = payload["next_marker"]
     if next_marker is not None:
         _canonical_uuid(next_marker)

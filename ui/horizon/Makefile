@@ -2,7 +2,7 @@ REPO_ROOT := $(abspath $(CURDIR)/../..)
 HORIZON_SOURCE ?= $(REPO_ROOT)/work/horizon-25.7.3
 PYTHON := $(CURDIR)/.venv/bin/python
 
-.PHONY: sync verify-adapter
+.PHONY: sync verify verify-adapter verify-dashboard
 
 sync:
 	uv sync --project "$(CURDIR)" --extra test
@@ -12,4 +12,15 @@ verify-adapter:
 	"$(PYTHON)" "$(CURDIR)/verify.py" --horizon-source "$(HORIZON_SOURCE)"
 	"$(PYTHON)" -m pytest -q \
 		"$(CURDIR)/cofferdashboard/tests/test_api.py"
+	"$(PYTHON)" -m compileall -q "$(CURDIR)/cofferdashboard"
+
+verify-dashboard:
+	"$(PYTHON)" "$(CURDIR)/verify.py" --horizon-source "$(HORIZON_SOURCE)"
+	"$(PYTHON)" -m pytest -q \
+		"$(CURDIR)/cofferdashboard/tests/test_ui.py"
+	"$(PYTHON)" -m compileall -q "$(CURDIR)/cofferdashboard"
+
+verify:
+	"$(PYTHON)" "$(CURDIR)/verify.py" --horizon-source "$(HORIZON_SOURCE)"
+	"$(PYTHON)" -m pytest -q "$(CURDIR)/cofferdashboard/tests"
 	"$(PYTHON)" -m compileall -q "$(CURDIR)/cofferdashboard"

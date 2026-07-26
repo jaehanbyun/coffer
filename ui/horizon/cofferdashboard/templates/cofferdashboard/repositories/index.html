@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load i18n sizeformat %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block main %}
+  <div class="quota-dynamic">
+    <h3>{% trans "Registry Quota" %}</h3>
+    {% if quota_state == "available" %}
+      <div class="progress">
+        <div class="progress-bar" role="progressbar"
+             aria-valuenow="{{ quota.usage_percent|floatformat:0 }}"
+             aria-valuemin="0" aria-valuemax="100"
+             style="width: {{ quota.usage_percent|floatformat:0 }}%;">
+          <span class="sr-only">
+            {% blocktrans with percent=quota.usage_percent|floatformat:0 %}{{ percent }}% used{% endblocktrans %}
+          </span>
+        </div>
+      </div>
+      <p>
+        {% blocktrans with used=quota.used_bytes|filesizeformat reserved=quota.reserved_bytes|filesizeformat limit=quota.limit_bytes|filesizeformat %}
+          {{ used }} stored and {{ reserved }} reserved of {{ limit }}.
+        {% endblocktrans %}
+      </p>
+    {% elif quota_state == "not_configured" %}
+      <p>{% trans "No registry quota is configured for this project." %}</p>
+    {% else %}
+      <p>{% trans "Registry quota usage is unavailable." %}</p>
+    {% endif %}
+  </div>
+  {{ table.render }}
+{% endblock %}

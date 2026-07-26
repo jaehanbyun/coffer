@@ -8,7 +8,6 @@ from cofferdashboard.api.coffer import (
     list_repositories,
 )
 
-
 __all__ = [
     "CofferAPIError",
     "Quota",
