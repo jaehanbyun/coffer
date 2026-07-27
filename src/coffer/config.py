@@ -22,6 +22,12 @@ API_OPTS = [
     cfg.StrOpt("tls_certfile"),
     cfg.StrOpt("tls_keyfile"),
 ]
+ENDPOINT_GROUP = cfg.OptGroup("endpoint")
+ENDPOINT_OPTS = [
+    cfg.URIOpt("control_url"),
+    cfg.URIOpt("registry_url"),
+    cfg.URIOpt("token_url"),
+]
 EDGE_GROUP = cfg.OptGroup("edge")
 EDGE_OPTS = [
     cfg.StrOpt("bind_host", default="127.0.0.1"),
@@ -115,6 +121,9 @@ def new_config() -> cfg.ConfigOpts:
     api_group = deepcopy(API_GROUP)
     conf.register_group(api_group)
     conf.register_opts(deepcopy(API_OPTS), group=api_group)
+    endpoint_group = deepcopy(ENDPOINT_GROUP)
+    conf.register_group(endpoint_group)
+    conf.register_opts(deepcopy(ENDPOINT_OPTS), group=endpoint_group)
     edge_group = deepcopy(EDGE_GROUP)
     conf.register_group(edge_group)
     conf.register_opts(deepcopy(EDGE_OPTS), group=edge_group)

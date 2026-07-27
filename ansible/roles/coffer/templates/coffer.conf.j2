@@ -12,6 +12,11 @@ max_pool_size = {{ database_max_pool_size }}
 max_retries = -1
 
 {% if service_name == 'coffer-api' %}
+[endpoint]
+control_url = {{ coffer_public_endpoint }}
+registry_url = {{ coffer_external_origin }}/v2/
+token_url = {{ coffer_token_realm }}
+
 [api]
 bind_host = {{ api_interface_address }}
 bind_port = {{ coffer_api_port }}

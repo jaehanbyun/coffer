@@ -322,6 +322,15 @@ def test_product_builder_wires_enabled_maintenance_broker(
         "https://keystone.invalid/v3",
         group="keystone",
     )
+    conf.set_override(
+        "control_url", "https://registry.invalid/v1", group="endpoint"
+    )
+    conf.set_override(
+        "registry_url", "https://registry.invalid/v2/", group="endpoint"
+    )
+    conf.set_override(
+        "token_url", "https://registry.invalid/auth/token", group="endpoint"
+    )
     conf.set_override("enabled", True, group="maintenance")
     conf.set_override(
         "service_project_id",

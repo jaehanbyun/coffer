@@ -49,10 +49,27 @@
 - Externally blocked execution plans:
   `docs/exec-plans/0019-stage6-production-promotion.md` and
   `docs/exec-plans/0022-native-x86-ui-image-qualification.md`
-- Active execution plan: none; the retained preview is documented by completed
-  plan `docs/exec-plans/0027-live-horizon-skyline-preview.md`
+- Active execution plan:
+  `docs/exec-plans/0028-user-registry-endpoint.md`; the retained preview
+  baseline is documented by completed plan
+  `docs/exec-plans/0027-live-horizon-skyline-preview.md`
 
 ## Current Objective
+
+Plan 0028 is active. Its objective is to promote the retained preview's
+guest-internal Coffer route into one owner-accessible HTTPS origin covering
+`/v1`, `/auth/token`, and `/v2`, add explicit endpoint discovery and a
+packaged OpenStackClient command surface, and prove Docker, Podman, ORAS,
+project isolation, backend closure, restart, reconfigure, and bounded
+same-host HA without weakening any production gate. The exact next action is
+to freeze that origin from live `bb00` DNS/TLS, system-HAProxy, guest catalog,
+and registry-challenge evidence, then implement the discovery contract in
+`src/coffer/wsgi.py`. That discovery milestone is now complete: the API,
+policy, OpenAPI, Kolla config, and fail-closed same-origin validation pass 45
+focused tests for the selected
+`https://bb00.tail23b778.ts.net:18788` origin. The exact next action is to add
+the optional OpenStackClient extension under `src/cofferclient/`, verify its
+wheel entry points, and then reconfigure the retained preview.
 
 Plan 0027 is complete. Retained domain `coffer-ui-preview-1` runs on `bb00`
 at guest address `192.168.122.204`, internal VIP `192.168.122.205`, and

@@ -6,6 +6,13 @@ from oslo_policy import policy
 
 RULES = [
     policy.DocumentedRuleDefault(
+        name="endpoint:get",
+        check_str="role:reader or role:member or role:admin",
+        description="Discover the public registry service endpoints.",
+        operations=[{"path": "/v1", "method": "GET"}],
+        scope_types=["project"],
+    ),
+    policy.DocumentedRuleDefault(
         name="repository:create",
         check_str="role:member or role:admin",
         description="Create a repository in the scoped project.",

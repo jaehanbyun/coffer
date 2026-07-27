@@ -24,6 +24,40 @@ def _create(
     )
 
 
+def test_reader_discovers_the_exact_single_registry_origin(
+    client: testing.TestClient,
+) -> None:
+    result = client.simulate_get("/v1", headers=_headers("project-a-reader"))
+    slash = client.simulate_get("/v1/", headers=_headers("project-a-member"))
+
+    assert result.status_code == 200
+    assert slash.status_code == 200
+    assert result.json == slash.json == {
+        "version": {
+            "id": "v1",
+            "status": "CURRENT",
+            "service_type": "oci-registry",
+            "endpoints": {
+                "control": "https://registry.invalid/v1",
+                "registry": "https://registry.invalid/v2/",
+                "token": "https://registry.invalid/auth/token",
+            },
+        }
+    }
+
+
+def test_endpoint_discovery_requires_a_project_scoped_registry_role(
+    client: testing.TestClient,
+) -> None:
+    assert client.simulate_get("/v1").status_code == 401
+    assert (
+        client.simulate_get(
+            "/v1", headers=_headers("unscoped-reader")
+        ).status_code
+        == 403
+    )
+
+
 def test_member_creates_and_reader_lists_project_repository(
     client: testing.TestClient,
 ) -> None:

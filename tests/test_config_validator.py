@@ -15,6 +15,7 @@ from coffer.config_validator import (
     EXIT_CONFIG,
     EXIT_OK,
     _validate_database,
+    _validate_endpoint_set,
     _validate_https_url,
     main,
     validate_component,
@@ -55,6 +56,40 @@ def test_database_validation_rejects_incomplete_connections(
 def test_https_url_validation_rejects_unsafe_origins(value: str) -> None:
     with pytest.raises(ConfigValidationError):
         _validate_https_url(value, label="dependency")
+
+
+def test_public_endpoint_set_requires_one_https_origin_and_exact_paths() -> None:
+    conf = new_config()
+    conf(args=[])
+    conf.set_override(
+        "control_url", "https://registry.example:18788/v1", group="endpoint"
+    )
+    conf.set_override(
+        "registry_url", "https://registry.example:18788/v2/", group="endpoint"
+    )
+    conf.set_override(
+        "token_url",
+        "https://registry.example:18788/auth/token",
+        group="endpoint",
+    )
+
+    _validate_endpoint_set(conf)
+
+    conf.set_override(
+        "token_url",
+        "https://other.example:18788/auth/token",
+        group="endpoint",
+    )
+    with pytest.raises(ConfigValidationError, match="share one origin"):
+        _validate_endpoint_set(conf)
+
+    conf.set_override(
+        "token_url",
+        "https://registry.example:18788/token",
+        group="endpoint",
+    )
+    with pytest.raises(ConfigValidationError, match="endpoint paths"):
+        _validate_endpoint_set(conf)
 
 
 def test_cli_returns_fixed_secret_safe_failure(

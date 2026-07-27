@@ -70,6 +70,40 @@ def _validate_https_url(value: str, *, label: str) -> None:
         )
 
 
+def _validate_endpoint_set(conf: cfg.ConfigOpts) -> None:
+    values = {
+        "control": conf.endpoint.control_url,
+        "registry": conf.endpoint.registry_url,
+        "token": conf.endpoint.token_url,
+    }
+    for label, value in values.items():
+        if not value:
+            raise ConfigValidationError(f"{label} endpoint is required")
+        _validate_https_url(value, label=f"{label} endpoint")
+
+    parsed = {label: urlsplit(value) for label, value in values.items()}
+    origins = {
+        (value.scheme, value.hostname, value.port or 443)
+        for value in parsed.values()
+    }
+    if len(origins) != 1:
+        raise ConfigValidationError(
+            "control, registry, and token endpoints must share one origin"
+        )
+    expected_paths = {
+        "control": "/v1",
+        "registry": "/v2/",
+        "token": "/auth/token",
+    }
+    if any(
+        parsed[label].path != expected
+        for label, expected in expected_paths.items()
+    ):
+        raise ConfigValidationError(
+            "endpoint paths must be /v1, /v2/, and /auth/token"
+        )
+
+
 def _validate_server_tls(settings: WSGIServerSettings) -> None:
     if settings.tls_certfile is None or settings.tls_keyfile is None:
         raise ConfigValidationError("server TLS certificate and key are required")
@@ -95,6 +129,7 @@ def validate_component(conf: cfg.ConfigOpts, component: str) -> None:
             process_name="coffer-api",
         )
         _validate_server_tls(settings)
+        _validate_endpoint_set(conf)
         if not conf.token.enabled:
             raise ConfigValidationError("API token service must be enabled")
         if not conf.token.key_id:

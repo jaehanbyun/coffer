@@ -9,6 +9,8 @@ from keystonemiddleware import auth_token
 from oslo_config import cfg
 
 from coffer.api import (
+    EndpointResource,
+    PublicEndpoints,
     QuotaResource,
     RequestIdMiddleware,
     RepositoryCollectionResource,
@@ -80,6 +82,7 @@ def build_application(
     maintenance_trusted_proxy_addresses: frozenset[str] | None = None,
     maintenance_workload_ids: frozenset[str] | None = None,
     quota_store: QuotaStore | None = None,
+    public_endpoints: PublicEndpoints | None = None,
 ) -> Any:
     store = store or RepositoryStore(conf.database.connection)
     enforcer = enforcer or create_enforcer(conf)
@@ -88,6 +91,10 @@ def build_application(
     if metrics is not None:
         middleware.append(HTTPMetricsMiddleware(metrics))
     application = falcon.App(middleware=middleware)
+    if public_endpoints is not None:
+        endpoint = EndpointResource(public_endpoints, enforcer)
+        application.add_route("/v1", endpoint)
+        application.add_route("/v1/", endpoint)
     collection = RepositoryCollectionResource(store, enforcer)
     repository = RepositoryResource(store, enforcer)
     application.add_route("/v1/repositories", collection)
@@ -184,6 +191,11 @@ def build_product_application(conf: cfg.ConfigOpts) -> Any:
         maintenance_trusted_proxy_addresses=maintenance_trusted_proxy_addresses,
         maintenance_workload_ids=maintenance_workload_ids,
         quota_store=quotas,
+        public_endpoints=PublicEndpoints(
+            control=conf.endpoint.control_url,
+            registry=conf.endpoint.registry_url,
+            token=conf.endpoint.token_url,
+        ),
     )
 
 

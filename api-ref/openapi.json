@@ -17,6 +17,36 @@
     }
   ],
   "paths": {
+    "/": {
+      "get": {
+        "operationId": "getRegistryEndpoint",
+        "summary": "Discover the registry service endpoints",
+        "x-openstack-policy": "endpoint:get",
+        "responses": {
+          "200": {
+            "description": "Current control, registry, and token endpoints.",
+            "headers": {
+              "X-Openstack-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EndpointEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/KeystoneUnauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
     "/repositories": {
       "get": {
         "operationId": "listRepositories",
@@ -341,6 +371,71 @@
       }
     },
     "schemas": {
+      "EndpointEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version"
+        ],
+        "properties": {
+          "version": {
+            "$ref": "#/components/schemas/RegistryVersion"
+          }
+        }
+      },
+      "RegistryVersion": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status",
+          "service_type",
+          "endpoints"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "const": "v1"
+          },
+          "status": {
+            "type": "string",
+            "const": "CURRENT"
+          },
+          "service_type": {
+            "type": "string",
+            "const": "oci-registry"
+          },
+          "endpoints": {
+            "$ref": "#/components/schemas/RegistryEndpoints"
+          }
+        }
+      },
+      "RegistryEndpoints": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "control",
+          "registry",
+          "token"
+        ],
+        "properties": {
+          "control": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://[^/?#]+(?:\\:[0-9]+)?/v1$"
+          },
+          "registry": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://[^/?#]+(?:\\:[0-9]+)?/v2/$"
+          },
+          "token": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://[^/?#]+(?:\\:[0-9]+)?/auth/token$"
+          }
+        }
+      },
       "Repository": {
         "type": "object",
         "additionalProperties": false,

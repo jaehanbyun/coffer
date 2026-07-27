@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from dataclasses import dataclass
 from typing import Any
 
 import falcon
@@ -25,6 +26,27 @@ DEFAULT_REPOSITORY_LIMIT = 100
 MAX_REPOSITORY_LIMIT = 1000
 MAX_REPOSITORY_NAME_LENGTH = 255
 REQUEST_ID = re.compile(r"^req-[A-Za-z0-9](?:[A-Za-z0-9-]{0,63})$")
+
+
+@dataclass(frozen=True)
+class PublicEndpoints:
+    control: str
+    registry: str
+    token: str
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "version": {
+                "id": "v1",
+                "status": "CURRENT",
+                "service_type": "oci-registry",
+                "endpoints": {
+                    "control": self.control,
+                    "registry": self.registry,
+                    "token": self.token,
+                },
+            }
+        }
 
 
 class RequestIdMiddleware:
@@ -57,6 +79,22 @@ def _control_dependency_unavailable(
         title="Control service unavailable",
         description="A required control dependency is unavailable.",
     )
+
+
+class EndpointResource:
+    def __init__(
+        self,
+        endpoints: PublicEndpoints,
+        enforcer: policy.Enforcer,
+    ) -> None:
+        self._endpoints = endpoints
+        self._enforcer = enforcer
+
+    def on_get(self, req: falcon.Request, resp: falcon.Response) -> None:
+        identity = Identity.from_environ(req.env)
+        target = {"project_id": identity.project_id}
+        _authorize(self._enforcer, "endpoint:get", identity, target)
+        resp.media = self._endpoints.to_dict()
 
 
 class RepositoryCollectionResource:

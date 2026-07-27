@@ -10,6 +10,7 @@ from falcon import testing
 from sqlalchemy.exc import SQLAlchemyError
 
 from coffer.api import (
+    EndpointResource,
     MAX_REPOSITORY_LIMIT,
     MAX_REPOSITORY_NAME_LENGTH,
     REPOSITORY_NAME,
@@ -31,12 +32,14 @@ HTTP_METHODS = frozenset(
     {"delete", "get", "head", "options", "patch", "post", "put"}
 )
 EXPECTED_OPERATIONS = {
+    ("/v1", "GET"): "endpoint:get",
     ("/v1/repositories", "GET"): "repository:list",
     ("/v1/repositories", "POST"): "repository:create",
     ("/v1/repositories/{repository_id}", "GET"): "repository:get",
     ("/v1/quota", "GET"): "quota:get",
 }
 EXPECTED_RESPONSES = {
+    ("/", "get"): {"200", "401", "403"},
     ("/repositories", "get"): {"200", "400", "401", "403", "503"},
     ("/repositories", "post"): {"201", "400", "401", "403", "409", "503"},
     ("/repositories/{repository_id}", "get"): {
@@ -106,14 +109,17 @@ def test_openapi_is_version_relative_and_matches_control_policy_operations() -> 
     assert spec["security"] == [{"keystoneToken": []}]
 
     documented = {
-        (f"/v1{path}", method.upper()): operation["x-openstack-policy"]
+        (
+            "/v1" if path == "/" else f"/v1{path}",
+            method.upper(),
+        ): operation["x-openstack-policy"]
         for (path, method), operation in operations(spec).items()
     }
     registered = {
         (item["path"], item["method"]): rule.name
         for rule in RULES
         for item in rule.operations
-        if item["path"].startswith("/v1/")
+        if item["path"] == "/v1" or item["path"].startswith("/v1/")
     }
     assert documented == EXPECTED_OPERATIONS
     assert registered == EXPECTED_OPERATIONS
@@ -121,6 +127,11 @@ def test_openapi_is_version_relative_and_matches_control_policy_operations() -> 
 
 def test_openapi_methods_match_the_falcon_resource_callbacks() -> None:
     callbacks = {
+        "/v1": {
+            name.removeprefix("on_").upper()
+            for name in vars(EndpointResource)
+            if name.startswith("on_")
+        },
         "/v1/repositories": {
             name.removeprefix("on_").upper()
             for name in vars(RepositoryCollectionResource)
@@ -172,6 +183,17 @@ def test_openapi_repository_and_quota_schemas_match_runtime_values() -> None:
     assert isinstance(schemas, dict)
     assert isinstance(parameters, dict)
     assert isinstance(headers, dict)
+    assert schemas["RegistryVersion"]["properties"] == {
+        "id": {"type": "string", "const": "v1"},
+        "status": {"type": "string", "const": "CURRENT"},
+        "service_type": {"type": "string", "const": "oci-registry"},
+        "endpoints": {"$ref": "#/components/schemas/RegistryEndpoints"},
+    }
+    assert set(schemas["RegistryEndpoints"]["required"]) == {
+        "control",
+        "registry",
+        "token",
+    }
 
     repository = Repository(
         id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",

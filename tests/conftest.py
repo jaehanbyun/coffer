@@ -10,6 +10,7 @@ from keystoneauth1 import fixture as keystone_fixture
 from keystonemiddleware.fixture import AuthTokenFixture
 
 from coffer.config import new_config
+from coffer.api import PublicEndpoints
 from coffer.db import RepositoryStore
 from coffer.quota import QuotaStore
 from coffer.wsgi import build_application
@@ -101,6 +102,11 @@ def client(tmp_path: Any, auth_fixture: AuthTokenFixture) -> testing.TestClient:
             "token_cache_time": "-1",
         },
         quota_store=quotas,
+        public_endpoints=PublicEndpoints(
+            control="https://registry.invalid/v1",
+            registry="https://registry.invalid/v2/",
+            token="https://registry.invalid/auth/token",
+        ),
     )
 
     # Falcon's test client introspects a callable to distinguish WSGI from
