@@ -524,3 +524,24 @@ def test_matrix_scanner_result_rejects_missing_delta(tmp_path: Path) -> None:
         match="finding delta is invalid",
     ):
         CLASSIFIER_MODULE.scanner_result(tmp_path, surface, "trivy")
+
+
+def test_matrix_package_inventory_requires_matrix_schema() -> None:
+    document = {
+        "schema": "coffer.ui-python-matrix-runtime/v1",
+        "packages": {
+            "click": ["8.3.3"],
+            "cryptography": ["49.0.0"],
+        },
+    }
+
+    assert CLASSIFIER_MODULE._python_packages(document, "fixture") == {
+        "click": ["8.3.3"],
+        "cryptography": ["49.0.0"],
+    }
+    document["schema"] = "coffer.ui-python-overlay-runtime/v3"
+    with pytest.raises(
+        CLASSIFIER_MODULE.common.EvidenceError,
+        match="matrix Python runtime schema",
+    ):
+        CLASSIFIER_MODULE._python_packages(document, "fixture")

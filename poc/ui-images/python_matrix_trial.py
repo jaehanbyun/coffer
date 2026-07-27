@@ -220,6 +220,39 @@ def _target_wheel_map(
         raise common.EvidenceError("matrix wheel set is invalid") from error
 
 
+def _python_packages(
+    document: dict[str, Any],
+    label: str,
+) -> dict[str, list[str]]:
+    if document.get("schema") != "coffer.ui-python-matrix-runtime/v1":
+        raise common.EvidenceError(
+            f"{label} matrix Python runtime schema is unsupported"
+        )
+    packages = common._object(
+        document.get("packages"),
+        f"{label} matrix Python packages",
+    )
+    normalized: dict[str, list[str]] = {}
+    for name, versions in packages.items():
+        if (
+            not isinstance(name, str)
+            or not name
+            or not isinstance(versions, list)
+            or not versions
+            or any(not isinstance(version, str) or not version for version in versions)
+            or versions != sorted(versions)
+        ):
+            raise common.EvidenceError(
+                f"{label} matrix Python package inventory is invalid"
+            )
+        normalized[name] = versions
+    if not normalized:
+        raise common.EvidenceError(
+            f"{label} matrix Python package inventory is invalid"
+        )
+    return normalized
+
+
 def validate_python_runtimes(
     document: dict[str, Any],
     *,
@@ -346,11 +379,11 @@ def validate_python_runtimes(
                 raise common.EvidenceError(
                     f"{surface_name} matrix wheel files are invalid"
                 )
-        before = common._python_packages(
+        before = _python_packages(
             before_document,
             f"{surface_name} before",
         )
-        after = common._python_packages(
+        after = _python_packages(
             after_document,
             f"{surface_name} after",
         )

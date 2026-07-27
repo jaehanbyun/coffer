@@ -90,6 +90,25 @@ production Containerfile or weakening the absolute production gate.
 
 ## Progress Log
 
+### 2026-07-27 — First native trial stopped at matrix schema projection
+
+- Completed: The clean transaction built both exact cumulative derivatives,
+  passed all package installations, `pip check`, 20 target probes, provenance,
+  OS, Python, and UI collection, and four two-scanner acquisitions.
+- Failure: Final classification reused the isolated runtime package parser,
+  which correctly rejected the matrix runtime v1 schema before writing a
+  result. No cumulative evidence was accepted.
+- Correction: Added a matrix-schema package inventory parser and rejection
+  fixture. Debug-only classification of the retained partial evidence then
+  passed every contract and showed Horizon Trivy 31 to 1 and Scout 34 to 3
+  High, plus Skyline 16 to 1 and 19 to 3, with exact aggregate removals, zero
+  introduction, and zero Trivy secrets. That debug result was not accepted.
+- Cleanup: All bounded images, contexts, wheels, archives, scanner caches,
+  partial evidence, debug result, and the harness-started Podman machine are
+  absent. The focused UI image suite now passes 108 tests.
+- Next exact action: Commit the classifier correction, then rerun the entire
+  transaction from a clean boundary.
+
 ### 2026-07-27 — Cumulative execution boundary complete
 
 - Completed: Added a surface-specific no-network matrix Containerfile,
@@ -144,7 +163,7 @@ production Containerfile or weakening the absolute production gate.
 |---|---|---|
 | Accepted target inventory | target schema v4 loader | passed; Horizon 11 targets/12 components, Skyline 9/10 |
 | Matrix contract fixtures | focused pytest, Ruff, formatting, compilation, JSON | passed; 13 tests |
-| Cumulative execution boundary | static plus focused/full regression | passed; 107 focused, 1,562 total |
+| Cumulative execution boundary | static plus focused/full regression | passed; 108 focused, 1,562 total |
 | Cumulative native ARM64 transaction | bounded two-surface harness | pending |
 | Runtime and scanner delta | exact inventories and two scanners | pending |
 | Final repository gates | static, focused/full pytest, secret, residue, diff | pending |
@@ -163,12 +182,17 @@ production Containerfile or weakening the absolute production gate.
 - Production remains independently blocked by Distribution/Ceph release
   gates, canonical AMD64 Scout evidence, signed publication, and live
   Kolla/UI acceptance.
+- The first live transaction exposed one classifier schema projection error:
+  matrix runtime v1 must not be passed through the isolated runtime v3 parser.
+  It stopped before result creation; the corrected debug classification and
+  all partial evidence were removed and are not accepted evidence.
 
 ## Handoff
 
 - Current state: Plan 0025 is active; the cumulative implementation and local
   regression gates are complete.
-- Exact next action: Run the clean native ARM64 cumulative transaction.
+- Exact next action: Commit the classifier correction and run the clean native
+  ARM64 cumulative transaction.
 - First file or command:
   `make -C poc/ui-images trial-python-cumulative`.
 - Questions requiring user input: None. No credential, external publication,

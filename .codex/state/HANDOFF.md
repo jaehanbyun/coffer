@@ -70,6 +70,22 @@ Bash, strict ShellCheck, Ruff, compilation, JSON, 107 focused UI image tests,
 and all 1,562 repository tests pass. The exact next action is
 `make -C poc/ui-images trial-python-cumulative` from a clean boundary, followed
 by result and cleanup-residue inspection.
+The first live transaction built both cumulative images and passed all
+installs, `pip check`, 20 probes, runtime collection, and four two-scanner
+acquisitions, then stopped before result creation because the classifier
+passed matrix runtime v1 through the isolated runtime v3 package parser. All
+bounded images and generated non-evidence state are absent and Podman is
+stopped. The exact next action is to test the matrix-specific parser against
+the retained owner-only partial evidence, remove that failed evidence, and
+rerun the full transaction cleanly.
+The matrix-specific parser and rejection fixture now pass. A debug-only
+classification of the retained partial evidence closed every other contract:
+Horizon High became Trivy 31 to 1 and Scout 34 to 3; Skyline became 16 to 1
+and 19 to 3, with exact removals, zero introduced Critical/High, and zero
+Trivy secrets. That result was not accepted. All partial evidence and bounded
+state are absent, Podman is stopped, and 108 focused UI image tests pass. The
+exact next action is to commit this correction and rerun the full transaction
+from a clean boundary.
 
 Plan 0024 is complete after proving the only dependency-valid remediation for
 the cryptography and pyOpenSSL findings. Installed pyOpenSSL 24.2.1
@@ -3246,7 +3262,8 @@ release contains it yet.
 
 ## Exact Next Action
 
-Run `make -C poc/ui-images trial-python-cumulative` from a clean bounded work
+Commit the matrix parser correction, then run
+`make -C poc/ui-images trial-python-cumulative` from a clean bounded work
 directory. Accept evidence only if both surface builds, every target probe,
 exact package/file/OS/UI/lineage deltas, scanner-specific aggregate removals,
 zero introduced Critical/High, zero Trivy secrets, and residue cleanup pass.
