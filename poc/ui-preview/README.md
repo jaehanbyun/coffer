@@ -132,7 +132,20 @@ always restores the pair and removes the staging files on exit. The host-side
 runner verifies the TLS name and token challenge, Docker, pinned Podman and
 ORAS push/pull, project-B denial, and a failover push/pull. It retains only
 secret-free, owner-readable evidence at
-`/home/jh.byun/coffer-registry-acceptance.json`.
+`/home/jh.byun/coffer-registry-acceptance-v2.json`.
+
+After that v2 evidence exists, repeat the bounded process restart and
+persistence check from the Mac:
+
+```text
+./mac-registry-lifecycle-acceptance.sh
+```
+
+It pulls the accepted Docker digest before and after restarting the primary
+API/Edge/Distribution and same-host Edge/Distribution replica processes,
+checks the closed client-network ports and private paths, scans runtime logs
+for credential material, and removes every temporary identity and Docker
+configuration on exit.
 
 The externally terminated TLS path can be inspected separately:
 

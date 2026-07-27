@@ -7,7 +7,7 @@ guest="ubuntu@192.168.122.204"
 guest_jump="jh.byun@100.123.168.66"
 guest_staging="/home/ubuntu/coffer-registry-acceptance-identities.json"
 host_staging="/home/jh.byun/coffer-registry-acceptance-identities.json"
-host_evidence="/home/jh.byun/coffer-registry-acceptance.json"
+host_evidence="/home/jh.byun/coffer-registry-acceptance-v2.json"
 host_runner="/home/jh.byun/coffer-ui-preview-proxy/bb00-registry-acceptance.sh"
 registry_ca="${HOME}/Library/Application Support/Coffer/preview-tls/registry-ca.crt"
 local_identity="$(mktemp)"
@@ -98,6 +98,7 @@ ssh -o BatchMode=yes "${bb00}" \
     "test -s '${host_evidence}';
      test \"\$(stat -c '%U:%G:%a' '${host_evidence}')\" = \
        'jh.byun:jh.byun:600';
-     jq -er '.tls_verified and .project_b_denied and
+     jq -er '.tls_verified and .project_b_pull_denied and
+       .project_b_push_denied and
        .primary_pair_stopped' '${host_evidence}' >/dev/null"
 echo "mac_registry_acceptance=passed"

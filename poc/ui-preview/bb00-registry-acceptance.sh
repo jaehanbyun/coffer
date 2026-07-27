@@ -8,7 +8,7 @@ registry_host="${registry_fqdn}:${registry_port}"
 registry_url="https://${registry_host}"
 registry_ca="/home/jh.byun/coffer-registry-tls/registry-ca.crt"
 identity_staging="/home/jh.byun/coffer-registry-acceptance-identities.json"
-evidence_file="/home/jh.byun/coffer-registry-acceptance.json"
+evidence_file="/home/jh.byun/coffer-registry-acceptance-v2.json"
 repository_name="preview-proof"
 busybox_ref="docker.io/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028"
 podman_image="quay.io/podman/stable@sha256:663e0dbf407987b7db3f20d3588c283a8228db17b282d2029a482d4d47e36964"
@@ -150,7 +150,7 @@ docker_digest="$(
 )"
 test -n "${docker_digest}"
 
-denial_log="${temporary_root}/project-b-denial.log"
+denial_log="${temporary_root}/project-b-pull-denial.log"
 if docker --config "${docker_b}" pull "${docker_image}" \
     >"${denial_log}" 2>&1; then
     echo "project B unexpectedly pulled project A content" >&2
@@ -160,7 +160,17 @@ test ! -s "${denial_log}" ||
     ! grep -Fq "$(
         jq -er '.project_b.application_credential_secret' "${identity_file}"
     )" "${denial_log}"
-echo "docker_push_pull_and_isolation=verified"
+denial_log="${temporary_root}/project-b-push-denial.log"
+if docker --config "${docker_b}" push "${docker_image}" \
+    >"${denial_log}" 2>&1; then
+    echo "project B unexpectedly pushed project A content" >&2
+    exit 1
+fi
+test ! -s "${denial_log}" ||
+    ! grep -Fq "$(
+        jq -er '.project_b.application_credential_secret' "${identity_file}"
+    )" "${denial_log}"
+echo "docker_push_pull_and_read_write_isolation=verified"
 
 podman_ref="${registry_host}/${repository}:user-podman"
 jq -er '.project_a.application_credential_secret' "${identity_file}" |
@@ -296,13 +306,15 @@ jq -n \
     --arg podman_image "${podman_image}" \
     --arg oras_image "${oras_image}" \
     '{
-      schema: "coffer.user-endpoint-acceptance/v1",
+      schema: "coffer.user-endpoint-acceptance/v2",
       endpoint: $endpoint,
       tls_verified: true,
       project_a_id: $project_a_id,
       project_b_id: $project_b_id,
       repository: $repository,
       project_b_denied: true,
+      project_b_pull_denied: true,
+      project_b_push_denied: true,
       clients: {
         docker: {version: $docker_version, digest: $docker_digest},
         podman: {

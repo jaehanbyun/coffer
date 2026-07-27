@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-27
-- Status: plan 0027 completed with a retained live preview; plans 0019 and 0022 blocked externally; plans 0020, 0021, 0023, 0024, 0025, and 0026 completed locally;
+- Status: plans 0027 and 0028 completed with a retained live preview; plans 0019 and 0022 blocked externally; plans 0020, 0021, 0023, 0024, 0025, and 0026 completed locally;
   native x86_64 UI parents and derivatives built and passed provenance/runtime
   collection, but standalone Docker Scout CVE evidence requires an unauthorized
   Docker login; the disposable VM, volumes, key, and runtime residue are absent;
@@ -36,7 +36,7 @@
   disabled-by-default immutable Horizon/Skyline image contracts and exact
   fallback lifecycle complete locally with 108 role checks; four desktop/narrow
   UI fixture screenshots visually inspected; current UI remediation suite
-  passes 190 focused checks, full Python regression passes 1,649 tests, and the
+  passes 190 focused checks, full Python regression passes 1,666 tests, and the
   prior Horizon/Skyline/108-check Kolla repository gates remain complete;
   isolated Kolla 2026.1 Coffer, Horizon, and Skyline now run on `bb00`,
   both dashboards show the same live registry repository, restart and
@@ -44,35 +44,39 @@
   autostart-disabled and explicitly non-production; the existing system
   HAProxy exposes the two dashboard streams and one single-origin Coffer
   control/token/OCI route only on the `bb00` Tailscale address; real
-  Docker/Podman/ORAS, project denial, and same-host primary-pair outage
-  acceptance pass through that route
-- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`, `docs/exec-plans/0023-ui-parent-remediation-baseline.md`, `docs/exec-plans/0024-ui-crypto-pair-remediation.md`, `docs/exec-plans/0025-ui-cumulative-remediation-matrix.md`, `docs/exec-plans/0026-ui-residual-finding-closure.md`, `docs/exec-plans/0027-live-horizon-skyline-preview.md`
+  Docker/Podman/ORAS, project read/write denial, restart persistence,
+  OpenStackClient, Horizon/Skyline live adapters, and same-host primary-pair
+  outage acceptance pass through that route
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`, `docs/exec-plans/0023-ui-parent-remediation-baseline.md`, `docs/exec-plans/0024-ui-crypto-pair-remediation.md`, `docs/exec-plans/0025-ui-cumulative-remediation-matrix.md`, `docs/exec-plans/0026-ui-residual-finding-closure.md`, `docs/exec-plans/0027-live-horizon-skyline-preview.md`, `docs/exec-plans/0028-user-registry-endpoint.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Externally blocked execution plans:
   `docs/exec-plans/0019-stage6-production-promotion.md` and
   `docs/exec-plans/0022-native-x86-ui-image-qualification.md`
-- Active execution plan:
-  `docs/exec-plans/0028-user-registry-endpoint.md`; the retained preview
-  baseline is documented by completed plan
-  `docs/exec-plans/0027-live-horizon-skyline-preview.md`
+- Active execution plan: none. The retained preview baseline and user endpoint
+  are documented by completed plans 0027 and 0028.
 
 ## Current Objective
 
-Plan 0028 is active. The retained preview now serves one owner-accessible
+Plan 0028 is complete. The retained preview serves one owner-accessible
 `https://bb00.tail23b778.ts.net:18788` origin for `/v1`, `/auth/token`, and
 `/v2`. Endpoint discovery, the optional OpenStackClient package, Kolla
 configuration, owner-local TLS, a Tailscale-address-only system-HAProxy route,
 and the exact same-host Edge/Distribution replica lifecycle are implemented.
 Docker 28.0.4, pinned Podman 5.8.2, and pinned ORAS 1.3.3 push/pull pass;
-project B cannot pull project A content; and Docker push/pull continues while
-the primary Edge and Distribution pair is stopped. Secrets use only stdin and
-mode-0600 staging, which is absent after the run. Owner evidence SHA-256 is
-`e9b87ca4588bf959210634509645bb57c5d515782e258e6f29f8cd9613929874`.
-The explicit local CA and same-host replicas remain preview boundaries. The
-exact next action is to install the Coffer wheel into Kolla toolbox, exercise
-the six `openstack registry` commands through the live catalog, then finish
-backend closure, restart, reconfigure, log-redaction, UI, and full-regression
-checks.
+project B cannot pull or push project A content; and Docker push/pull continues
+while the primary Edge and Distribution pair is stopped. The packaged
+OpenStackClient resolves the catalog and manages repositories/quota. Horizon's
+installed adapter and Skyline's same-origin proxy return both `preview-proof`
+and `osc-proof`. Restart persistence, backend closure, operational-path denial,
+runtime log redaction, and repeat-safe reconfigure pass. Secrets use only stdin
+and mode-0600 staging, which is absent after the run. Owner acceptance-v2
+evidence SHA-256 is
+`4c406c24c951280c645655270fafc48d34f5e46dc441785226050e2de7d6b121`.
+The final regression passes 1,666 repository, 37 Horizon, and 31 Skyline tests.
+The explicit local CA and same-host replicas remain preview boundaries. No
+active execution plan remains; the exact next action is owner inspection, then
+a new production plan beginning with generally trusted TLS and independent
+failure domains.
 
 Plan 0027 is complete. Retained domain `coffer-ui-preview-1` runs on `bb00`
 at guest address `192.168.122.204`, internal VIP `192.168.122.205`, and

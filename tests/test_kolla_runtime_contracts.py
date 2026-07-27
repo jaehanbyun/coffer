@@ -161,6 +161,44 @@ def test_user_registry_preview_origin_and_replicas_remain_exactly_bounded() -> (
     assert "https://${guest_address}:18888/v2/" in replicas
     assert "bb00.tail23b778.ts.net:18788/auth/token" in replicas
 
+    host_lifecycle = (
+        ROOT
+        / "poc"
+        / "ui-preview"
+        / "bb00-registry-lifecycle-acceptance.sh"
+    ).read_text(encoding="utf-8")
+    guest_lifecycle = (
+        ROOT
+        / "poc"
+        / "ui-preview"
+        / "guest-registry-lifecycle-acceptance.sh"
+    ).read_text(encoding="utf-8")
+    mac_lifecycle = (
+        ROOT
+        / "poc"
+        / "ui-preview"
+        / "mac-registry-lifecycle-acceptance.sh"
+    ).read_text(encoding="utf-8")
+    assert "--password-stdin" in host_lifecycle
+    assert "clients.docker.digest" in host_lifecycle
+    assert "coffer-registry-acceptance-v2.json" in host_lifecycle
+    assert "/v1/internal/maintenance/registry-token" in host_lifecycle
+    assert "8787|8788|8789|18888|18889" in host_lifecycle
+    assert "docker restart" in guest_lifecycle
+    assert "owner secret found in Coffer runtime logs" in guest_lifecycle
+    assert "Authorization" in guest_lifecycle
+    assert "client_network_backend_ports=closed" in mac_lifecycle
+    assert "restart_persistence=passed" in mac_lifecycle
+
+    client_acceptance = (
+        ROOT / "poc" / "ui-preview" / "bb00-registry-acceptance.sh"
+    ).read_text(encoding="utf-8")
+    assert "coffer.user-endpoint-acceptance/v2" in client_acceptance
+    assert "project_b_pull_denied: true" in client_acceptance
+    assert "project_b_push_denied: true" in client_acceptance
+    assert 'docker --config "${docker_b}" pull' in client_acceptance
+    assert 'docker --config "${docker_b}" push' in client_acceptance
+
 
 def test_multinode_lifecycle_scans_every_runtime_log_without_retaining_it() -> (
     None
