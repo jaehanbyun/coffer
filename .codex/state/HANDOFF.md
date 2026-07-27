@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-27
-- Status: plan 0025 completed locally; plans 0019 and 0022 blocked externally; plans 0020, 0021, 0023, 0024, and 0025 completed locally;
+- Status: plan 0026 active; plans 0019 and 0022 blocked externally; plans 0020, 0021, 0023, 0024, and 0025 completed locally;
   native x86_64 UI parents and derivatives built and passed provenance/runtime
   collection, but standalone Docker Scout CVE evidence requires an unauthorized
   Docker login; the disposable VM, volumes, key, and runtime residue are absent;
@@ -44,10 +44,24 @@
 - Externally blocked execution plans:
   `docs/exec-plans/0019-stage6-production-promotion.md` and
   `docs/exec-plans/0022-native-x86-ui-image-qualification.md`
-- Active execution plan: none; the next work package is residual UI finding
-  closure.
+- Active execution plan:
+  `docs/exec-plans/0026-ui-residual-finding-closure.md`
 
 ## Current Objective
+
+Plan 0026 is active to close the three High findings that remain on both
+accepted ARM64 cumulative UI derivatives. Trivy and Scout agree on affected
+`oslo.messaging` 17.3.0 `CVE-2026-44393` with no fixed version in the accepted
+evidence. Scout additionally classifies Ubuntu's system
+`setuptools-68.1.2.egg-info` as an upstream PyPI package and reports
+`CVE-2024-6345` plus `CVE-2025-47273`. The installed dpkg revision is
+`68.1.2-2ubuntu1.2`; Canonical records Noble fixed at
+`68.1.2-2ubuntu1.1` and `68.1.2-2ubuntu1.2`, respectively. The plan will prove
+those backports and any product-bound OpenVEX statement without hiding raw
+scanner evidence or replacing the distro package with pip. The first exact
+action is to add a strict residual manifest bound to Plan 0025 result SHA-256
+`a920ce2076908469c06103fbd0f19953cbf6e67a4dead964faaf85d20ed21e0a`,
+then cover fail-closed parsing before any image rebuild.
 
 Plan 0025 is complete after combining only the native ARM64 Python remediations
 accepted in plans 0023 and 0024. Horizon selects 11 targets and 12 package
@@ -3276,14 +3290,14 @@ release contains it yet.
 
 ## Exact Next Action
 
-Create `docs/exec-plans/0026-ui-residual-finding-closure.md`. Bind its baseline
-to Plan 0025 result SHA-256
-`a920ce2076908469c06103fbd0f19953cbf6e67a4dead964faaf85d20ed21e0a`,
-then test a bounded native ARM64 derivative that removes or updates only
-Ubuntu's system setuptools 68.1.2 and proves both Coffer UI runtimes still
-work. Keep `CVE-2026-44393` in oslo.messaging fail-closed until an upstream
-fixed release exists. Do not alter production UI Containerfiles, waive a
-finding, handle a Docker credential, publish an image, or create a live cloud.
+Add `poc/ui-images/residual_findings.json`, bind it to Plan 0025 result
+SHA-256
+`a920ce2076908469c06103fbd0f19953cbf6e67a4dead964faaf85d20ed21e0a`
+and the exact four after-scan hashes, then implement
+`poc/ui-images/residual_finding.py` with strict positive and fail-closed
+fixtures. Do not generate VEX, rebuild images, alter production UI
+Containerfiles, waive a finding, handle a Docker credential, publish an image,
+or create a live cloud until that contract passes.
 
 ## After This Work Package
 
