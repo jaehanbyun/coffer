@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import hashlib
 import importlib.util
 import json
 import subprocess
@@ -260,7 +262,11 @@ def test_matrix_runner_collects_system_python_proof() -> None:
     assert "generate_setuptools_openvex.py" in runner
     assert "residual_trial.py" in runner
     assert "--vex-location" in runner
+    assert "--vex-author '<security@coffer.invalid>'" in runner
     assert "--ignore-suppressed" in runner
+    assert "docker scout sbom" in runner
+    assert "--horizon-scout-sbom" in runner
+    assert "--skyline-scout-sbom" in runner
     assert "./trial_python_overlay.sh --matrix-residual accepted" in makefile
 
 
@@ -275,7 +281,7 @@ def test_openvex_document_is_exact_and_deterministic() -> None:
 
     assert document["@context"] == "https://openvex.dev/ns/v0.2.0"
     assert document["@id"].startswith("urn:uuid:")
-    assert document["author"] == "Coffer Security Working Group"
+    assert document["author"] == "Coffer Security <security@coffer.invalid>"
     assert [item["vulnerability"]["name"] for item in document["statements"]] == [
         "CVE-2024-6345",
         "CVE-2025-47273",
@@ -292,6 +298,69 @@ def test_openvex_document_is_exact_and_deterministic() -> None:
         subcomponent="pkg:pypi/setuptools@68.1.2",
         findings=("CVE-2024-6345", "CVE-2025-47273"),
     )
+
+
+def scout_sbom_document(
+    *,
+    surface: str = "horizon",
+    config_digest: str = f"sha256:{'1' * 64}",
+) -> tuple[dict[str, object], str]:
+    manifest = {
+        "schemaVersion": 2,
+        "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+        "config": {
+            "mediaType": "application/vnd.docker.container.image.v1+json",
+            "size": 128,
+            "digest": config_digest,
+        },
+        "layers": [],
+    }
+    raw_manifest = json.dumps(
+        manifest,
+        separators=(",", ":"),
+    ).encode()
+    manifest_digest = f"sha256:{hashlib.sha256(raw_manifest).hexdigest()}"
+    archive_name = (
+        "work/ui-python-overlay-trial-matrix-accepted-residual/evidence/"
+        f"{surface}-after.tar"
+    )
+    return (
+        {
+            "source": {
+                "type": "image",
+                "image": {
+                    "digest": manifest_digest,
+                    "manifest": manifest,
+                    "name": archive_name,
+                    "raw_manifest": base64.b64encode(raw_manifest).decode(),
+                },
+            },
+        },
+        archive_name,
+    )
+
+
+def test_scout_projection_binds_archive_manifest_and_config() -> None:
+    document, archive_name = scout_sbom_document()
+    result = OPENVEX.scout_projection(
+        document,
+        expected_archive_name=archive_name,
+        expected_config_digest=f"sha256:{'1' * 64}",
+    )
+
+    assert result == {
+        "archive_name": archive_name,
+        "image_config_digest": f"sha256:{'1' * 64}",
+        "image_manifest_digest": document["source"]["image"]["digest"],
+    }
+
+    document["source"]["image"]["digest"] = f"sha256:{'2' * 64}"
+    with pytest.raises(OPENVEX.VexError, match="raw manifest binding"):
+        OPENVEX.scout_projection(
+            document,
+            expected_archive_name=archive_name,
+            expected_config_digest=f"sha256:{'1' * 64}",
+        )
 
 
 def test_openvex_rejects_unverified_source() -> None:

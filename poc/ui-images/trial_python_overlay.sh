@@ -594,29 +594,60 @@ if [[ "${RESIDUAL_MODE}" == true ]]; then
             | all
         )
     ' "${EVIDENCE}/setuptools-runtimes.json" >/dev/null
+fi
+
+phase="two-scanner before and after evidence"
+if [[ "${RESIDUAL_MODE}" == true ]]; then
+    phase="Docker Scout archive identity and exact OpenVEX generation"
+    for surface in horizon skyline; do
+        if [[ "${surface}" == horizon ]]; then
+            image="${HORIZON_AFTER}"
+        else
+            image="${SKYLINE_AFTER}"
+        fi
+        archive="${EVIDENCE}/${surface}-after.tar"
+        archive_reference="work/ui-python-overlay-trial-${TARGET_KEY}/evidence/${surface}-after.tar"
+        sbom_reference="work/ui-python-overlay-trial-${TARGET_KEY}/evidence/${surface}-after.scout.sbom.json"
+        podman save --format docker-archive --output "${archive}" "${image}"
+        (
+            cd "${ROOT}"
+            docker scout sbom \
+                --ref "${image}" \
+                --format json \
+                --output "${sbom_reference}" \
+                "archive://${archive_reference}"
+        )
+        chmod 0640 "${EVIDENCE}/${surface}-after.scout.sbom.json"
+    done
     python3 "${HARNESS}/generate_setuptools_openvex.py" \
         --manifest "${RESIDUAL_MANIFEST}" \
         --source-evidence "${RESIDUAL_SOURCE}" \
         --baseline-result "${RESIDUAL_BASELINE}" \
         --images "${EVIDENCE}/images.json" \
         --runtimes "${EVIDENCE}/setuptools-runtimes.json" \
+        --horizon-scout-sbom \
+        "${EVIDENCE}/horizon-after.scout.sbom.json" \
+        --skyline-scout-sbom \
+        "${EVIDENCE}/skyline-after.scout.sbom.json" \
         --output "${EVIDENCE}/vex"
 fi
-
-phase="two-scanner before and after evidence"
 for entry in "${scan_entries[@]}"; do
     key="${entry%%=*}"
     image="${entry#*=}"
     archive="${EVIDENCE}/${key}.tar"
-    podman save --format docker-archive --output "${archive}" "${image}"
+    if [[ ! -f "${archive}" ]]; then
+        podman save --format docker-archive --output "${archive}" "${image}"
+    fi
     (
         cd "${ROOT}"
-        docker scout cves --format sarif \
+        docker scout cves --ref "${image}" --format sarif \
             --output "work/ui-python-overlay-trial-${TARGET_KEY}/evidence/${key}.scout.sarif.json" \
             "archive://work/ui-python-overlay-trial-${TARGET_KEY}/evidence/${key}.tar"
         if [[ "${RESIDUAL_MODE}" == true ]] && [[ "${key}" == *-after ]]; then
             docker scout cves \
+                --ref "${image}" \
                 --vex-location "work/ui-python-overlay-trial-${TARGET_KEY}/evidence/vex" \
+                --vex-author '<security@coffer.invalid>' \
                 --ignore-suppressed \
                 --format sarif \
                 --output "work/ui-python-overlay-trial-${TARGET_KEY}/evidence/${key}.scout.vex.sarif.json" \

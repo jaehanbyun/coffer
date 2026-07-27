@@ -11,6 +11,7 @@ from generate_setuptools_openvex import (
     INDEX_SCHEMA,
     VexError,
     load_json,
+    scout_projection,
     sha256_file,
     vex_document,
 )
@@ -94,6 +95,10 @@ def validate_openvex(
         "images_sha256": sha256_file(evidence / "images.json"),
         "residual_manifest_sha256": sha256_file(manifest_path),
         "runtime_evidence_sha256": sha256_file(evidence / "setuptools-runtimes.json"),
+        "scout_sbom_sha256": {
+            surface: sha256_file(evidence / f"{surface}-after.scout.sbom.json")
+            for surface in SURFACES
+        },
         "source_evidence_sha256": sha256_file(source_path),
     }
     if index.get("inputs") != expected_inputs:
@@ -113,12 +118,24 @@ def validate_openvex(
         path = evidence / "vex" / f"{surface}.vex.json"
         image = images["images"][f"{surface}-after"]
         image_id = image["id"]
-        expected_product = (
-            f"pkg:docker/localhost/coffer-ui-python-trial-{surface}-after@{image_id}"
+        archive_name = (
+            "work/ui-python-overlay-trial-matrix-accepted-residual/evidence/"
+            f"{surface}-after.tar"
         )
+        scout = scout_projection(
+            load_json(
+                evidence / f"{surface}-after.scout.sbom.json",
+                f"{surface} Docker Scout SBOM",
+            ),
+            expected_archive_name=archive_name,
+            expected_config_digest=image_id,
+        )
+        expected_product = f"pkg:docker/{archive_name}@{scout['image_manifest_digest']}"
         if entry != {
+            "archive_name": archive_name,
             "filename": f"{surface}.vex.json",
-            "image_id": image_id,
+            "image_config_digest": image_id,
+            "image_manifest_digest": scout["image_manifest_digest"],
             "product": expected_product,
             "sha256": sha256_file(path),
         }:

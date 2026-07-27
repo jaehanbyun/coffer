@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -80,6 +81,7 @@ def image_projection(
     images: dict[str, Any],
     runtime_images: dict[str, Any],
     runtime_documents: dict[str, Any],
+    scout_document: dict[str, Any],
     surface: str,
 ) -> dict[str, str]:
     raw_image = images.get(f"{surface}-after")
@@ -126,11 +128,71 @@ def image_projection(
         }
     ):
         raise VexError("OpenVEX runtime decision is invalid")
-    repository = expected_name.removesuffix(":2026.1-python-overlay")
+    archive_name = (
+        "work/ui-python-overlay-trial-matrix-accepted-residual/evidence/"
+        f"{surface}-after.tar"
+    )
+    scout = scout_projection(
+        scout_document,
+        expected_archive_name=archive_name,
+        expected_config_digest=image_id,
+    )
     return {
-        "image_id": image_id,
-        "product": f"pkg:docker/{repository}@{image_id}",
+        "archive_name": archive_name,
+        "image_config_digest": image_id,
+        "image_manifest_digest": scout["image_manifest_digest"],
+        "product": (f"pkg:docker/{archive_name}@{scout['image_manifest_digest']}"),
         "timestamp": timestamp,
+    }
+
+
+def scout_projection(
+    document: dict[str, Any],
+    *,
+    expected_archive_name: str,
+    expected_config_digest: str,
+) -> dict[str, str]:
+    source = document.get("source")
+    if not isinstance(source, dict) or source.get("type") != "image":
+        raise VexError("Docker Scout source identity is invalid")
+    image = source.get("image")
+    if not isinstance(image, dict) or image.get("name") != expected_archive_name:
+        raise VexError("Docker Scout archive identity is invalid")
+    manifest_digest = image.get("digest")
+    manifest = image.get("manifest")
+    raw_manifest = image.get("raw_manifest")
+    if (
+        not isinstance(manifest_digest, str)
+        or not manifest_digest.startswith("sha256:")
+        or not DIGEST.fullmatch(manifest_digest.removeprefix("sha256:"))
+        or not isinstance(manifest, dict)
+        or manifest.get("schemaVersion") != 2
+        or manifest.get("mediaType")
+        != "application/vnd.docker.distribution.manifest.v2+json"
+        or not isinstance(raw_manifest, str)
+    ):
+        raise VexError("Docker Scout manifest identity is invalid")
+    config = manifest.get("config")
+    if (
+        not isinstance(config, dict)
+        or config.get("mediaType") != "application/vnd.docker.container.image.v1+json"
+        or config.get("digest") != expected_config_digest
+    ):
+        raise VexError("Docker Scout config identity is invalid")
+    try:
+        encoded_manifest = base64.b64decode(raw_manifest, validate=True)
+        decoded_manifest = json.loads(encoded_manifest)
+    except (ValueError, json.JSONDecodeError) as error:
+        raise VexError("Docker Scout raw manifest is invalid") from error
+    if (
+        decoded_manifest != manifest
+        or f"sha256:{hashlib.sha256(encoded_manifest).hexdigest()}" != manifest_digest
+    ):
+        raise VexError("Docker Scout raw manifest binding is invalid")
+    return {
+        "archive_name": expected_archive_name,
+        "image_config_digest": expected_config_digest,
+        "image_manifest_digest": manifest_digest,
     }
 
 
@@ -155,7 +217,7 @@ def vex_document(
     return {
         "@context": OPENVEX_CONTEXT,
         "@id": f"urn:uuid:{document_id}",
-        "author": "Coffer Security Working Group",
+        "author": "Coffer Security <security@coffer.invalid>",
         "statements": [
             {
                 "impact_statement": (
@@ -206,6 +268,7 @@ def generate(
     baseline_result_path: Path,
     images_path: Path,
     runtimes_path: Path,
+    scout_sbom_paths: dict[str, Path],
     output: Path,
 ) -> dict[str, Any]:
     if output.exists() or output.is_symlink():
@@ -238,6 +301,15 @@ def generate(
     )
     images_document = load_json(images_path, "matrix image evidence")
     runtime_document = load_json(runtimes_path, "setuptools runtime evidence")
+    if set(scout_sbom_paths) != set(SURFACES):
+        raise VexError("Docker Scout SBOM surface set is invalid")
+    scout_documents = {
+        surface: load_json(
+            scout_sbom_paths[surface],
+            f"{surface} Docker Scout SBOM",
+        )
+        for surface in SURFACES
+    }
     if (
         images_document.get("schema") != IMAGES_SCHEMA
         or runtime_document.get("schema") != RUNTIME_SCHEMA
@@ -260,6 +332,7 @@ def generate(
             images,
             runtime_images,
             runtime_surfaces,
+            scout_documents[surface],
             surface,
         )
         for surface in SURFACES
@@ -281,8 +354,10 @@ def generate(
             ),
         )
         files[surface] = {
+            "archive_name": projection["archive_name"],
             "filename": filename,
-            "image_id": projection["image_id"],
+            "image_config_digest": projection["image_config_digest"],
+            "image_manifest_digest": projection["image_manifest_digest"],
             "product": projection["product"],
             "sha256": sha256_file(path),
         }
@@ -292,6 +367,9 @@ def generate(
             "images_sha256": sha256_file(images_path),
             "residual_manifest_sha256": sha256_file(manifest_path),
             "runtime_evidence_sha256": sha256_file(runtimes_path),
+            "scout_sbom_sha256": {
+                surface: sha256_file(scout_sbom_paths[surface]) for surface in SURFACES
+            },
             "source_evidence_sha256": sha256_file(source_path),
         },
         "openvex": files,
@@ -308,6 +386,8 @@ def main() -> int:
     parser.add_argument("--baseline-result", type=Path, required=True)
     parser.add_argument("--images", type=Path, required=True)
     parser.add_argument("--runtimes", type=Path, required=True)
+    parser.add_argument("--horizon-scout-sbom", type=Path, required=True)
+    parser.add_argument("--skyline-scout-sbom", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     arguments = parser.parse_args()
     try:
@@ -317,6 +397,10 @@ def main() -> int:
             baseline_result_path=arguments.baseline_result,
             images_path=arguments.images,
             runtimes_path=arguments.runtimes,
+            scout_sbom_paths={
+                "horizon": arguments.horizon_scout_sbom,
+                "skyline": arguments.skyline_scout_sbom,
+            },
             output=arguments.output,
         )
     except VexError as error:
