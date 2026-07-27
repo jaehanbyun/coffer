@@ -12,6 +12,7 @@ from keystonemiddleware.fixture import AuthTokenFixture
 from coffer.config import new_config
 from coffer.api import PublicEndpoints
 from coffer.db import RepositoryStore
+from coffer.observability import CofferMetrics
 from coffer.quota import QuotaStore
 from coffer.wsgi import build_application
 
@@ -102,6 +103,7 @@ def client(tmp_path: Any, auth_fixture: AuthTokenFixture) -> testing.TestClient:
             "token_cache_time": "-1",
         },
         quota_store=quotas,
+        metrics=CofferMetrics(),
         public_endpoints=PublicEndpoints(
             control="https://registry.invalid/v1",
             registry="https://registry.invalid/v2/",

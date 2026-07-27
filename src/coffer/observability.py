@@ -20,6 +20,8 @@ BOUNDED_ROUTES = frozenset(
         "/healthz",
         "/metrics",
         "/readyz",
+        "/v1",
+        "/v1/",
         "/v1/internal/maintenance/registry-token",
         "/v1/quota",
         "/v1/repositories",
