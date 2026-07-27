@@ -36,7 +36,7 @@
   disabled-by-default immutable Horizon/Skyline image contracts and exact
   fallback lifecycle complete locally with 108 role checks; four desktop/narrow
   UI fixture screenshots visually inspected; current UI remediation suite
-  passes 108 focused checks, full Python regression passes 1,563 tests, and the
+  passes 162 focused checks, full Python regression passes 1,563 tests, and the
   prior Horizon/Skyline/108-check Kolla repository
   gates remain complete
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`, `docs/exec-plans/0023-ui-parent-remediation-baseline.md`, `docs/exec-plans/0024-ui-crypto-pair-remediation.md`, `docs/exec-plans/0025-ui-cumulative-remediation-matrix.md`
@@ -70,7 +70,17 @@ surface, scanner/finding, vendor source/order/version, cross-package overlap,
 symlink, and unknown projection failures; JSON, compilation, Ruff, formatting,
 and all 137 UI image tests pass. The exact next action is a bounded Canonical
 source-evidence collector that proves both patches in Noble
-`setuptools` `68.1.2-2ubuntu1.2` before any OpenVEX generation.
+`setuptools` `68.1.2-2ubuntu1.2` before any OpenVEX generation. That collector
+is now complete and a live Ubuntu security archive acquisition verified the
+clear-signed `.dsc`, its exact upstream and Debian archive checksums, safe
+member set, quilt series, and all three security patch hashes. The
+owner-readable source result SHA-256 is
+`0e92b26994b6c21bbc8bdee48df71754b1ae431a157d22e8adeafb5dae2b048e`;
+downloaded source artifacts and manual scratch are absent. Fifty-four residual
+tests and all 162 UI image tests pass with Ruff, formatting, JSON, and
+compilation. The exact next action is to execute a no-shell VCS and
+path-containment behavior probe using `/usr/bin/python3` on both exact
+cumulative derivatives before generating OpenVEX.
 
 Plan 0025 is complete after combining only the native ARM64 Python remediations
 accepted in plans 0023 and 0024. Horizon selects 11 targets and 12 package
@@ -3299,14 +3309,14 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add a bounded source-evidence collector alongside
-`poc/ui-images/residual_finding.py`. It must acquire the exact Ubuntu Noble
-`setuptools` `68.1.2-2ubuntu1.2` source artifacts, verify their published
-hashes, prove that the Canonical patches for `CVE-2024-6345` and
-`CVE-2025-47273` are present, and emit only non-secret owner-readable
-evidence. Do not generate VEX, rebuild images, alter production UI
-Containerfiles, waive a finding, handle a Docker credential, publish an image,
-or create a live cloud until that source proof passes.
+Add `poc/ui-images/probe_setuptools_backport.py`. It must run under the system
+Python on each exact cumulative derivative, bind dpkg
+`python3-setuptools=68.1.2-2ubuntu1.2` and upstream metadata 68.1.2, prove VCS
+execution uses list argv without a shell, reject the encoded absolute-path
+download filename, accept a benign contained filename, and emit no identity
+or secret. Integrate it into matrix mode and fail before VEX generation if
+either surface differs. Do not alter production UI Containerfiles, waive a
+finding, handle a Docker credential, publish an image, or create a live cloud.
 
 ## After This Work Package
 

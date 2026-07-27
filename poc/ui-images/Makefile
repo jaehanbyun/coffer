@@ -1,6 +1,6 @@
 REPO_ROOT := $(abspath $(CURDIR)/../..)
 
-.PHONY: probe-parents qualify trial-os-cleanup trial-python-click \
+.PHONY: collect-residual-source probe-parents qualify trial-os-cleanup trial-python-click \
 	trial-python-cumulative \
 	trial-python-cryptography-pyopenssl \
 	trial-python-django trial-python-httplib2 trial-python-overlay \
@@ -58,3 +58,8 @@ trial-python-urllib3:
 
 qualify:
 	./qualify.sh
+
+collect-residual-source:
+	cd "$(REPO_ROOT)" && uv run python poc/ui-images/collect_residual_source.py \
+		--manifest poc/ui-images/residual_findings.json \
+		--output work/ui-residual-finding/evidence/ubuntu-setuptools-source.json

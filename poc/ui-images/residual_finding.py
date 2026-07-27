@@ -14,6 +14,7 @@ KEY = re.compile(r"^[a-z][a-z0-9-]{1,31}$")
 PACKAGE = re.compile(r"^[A-Za-z][A-Za-z0-9._-]{0,63}$")
 VERSION = re.compile(r"^[0-9][A-Za-z0-9.+:~-]{0,63}$")
 PURL = re.compile(r"^pkg:pypi/[A-Za-z0-9._-]+@[0-9][A-Za-z0-9.+!-]{0,31}$")
+SOURCE_FILENAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$")
 DISPOSITIONS = frozenset(
     {
         "affected-no-fixed-release",
@@ -47,6 +48,38 @@ class VendorEvidence:
     finding_id: str
     fixed_package_version: str
     source: str
+
+
+@dataclass(frozen=True)
+class SourceArtifact:
+    filename: str
+    url: str
+    sha256: str
+    size: int
+
+
+@dataclass(frozen=True)
+class SourcePatch:
+    filename: str
+    finding_id: str
+    sha256: str
+
+
+@dataclass(frozen=True)
+class VendorSource:
+    package: str
+    version: str
+    artifacts: tuple[SourceArtifact, ...]
+    patches: tuple[SourcePatch, ...]
+    series_sha256: str
+
+    def artifact(self, filename: str) -> SourceArtifact:
+        try:
+            return {artifact.filename: artifact for artifact in self.artifacts}[
+                filename
+            ]
+        except KeyError as error:
+            raise ResidualError("vendor source artifact is unsupported") from error
 
 
 @dataclass(frozen=True)
@@ -85,6 +118,7 @@ class ResidualContract:
     result_sha256: str
     sources: tuple[EvidenceSource, ...]
     packages: tuple[ResidualPackage, ...]
+    vendor_source: VendorSource
 
     def package(self, key: str) -> ResidualPackage:
         try:
@@ -241,6 +275,124 @@ def _vendor_evidence(value: object) -> tuple[VendorEvidence, ...]:
     return tuple(result)
 
 
+def _source_artifact(value: object, package: str, version: str) -> SourceArtifact:
+    if not isinstance(value, dict) or set(value) != {
+        "filename",
+        "url",
+        "sha256",
+        "size",
+    }:
+        raise ResidualError("vendor source artifact is invalid")
+    filename = value.get("filename")
+    url = value.get("url")
+    sha256 = value.get("sha256")
+    size = value.get("size")
+    if (
+        not isinstance(filename, str)
+        or not SOURCE_FILENAME.fullmatch(filename)
+        or not isinstance(url, str)
+        or not isinstance(sha256, str)
+        or not DIGEST.fullmatch(sha256)
+        or not isinstance(size, int)
+        or isinstance(size, bool)
+        or size < 1
+        or size > 8 * 1024 * 1024
+    ):
+        raise ResidualError("vendor source artifact is invalid")
+    expected_url = (
+        f"https://security.ubuntu.com/ubuntu/pool/main/s/{package}/{filename}"
+    )
+    if url != expected_url:
+        raise ResidualError("vendor source artifact URL is not exact")
+    if version not in filename and ".orig.tar." not in filename:
+        raise ResidualError("vendor source artifact version is not exact")
+    return SourceArtifact(
+        filename=filename,
+        url=url,
+        sha256=sha256,
+        size=size,
+    )
+
+
+def _source_patch(value: object) -> SourcePatch:
+    if not isinstance(value, dict) or set(value) != {
+        "filename",
+        "finding_id",
+        "sha256",
+    }:
+        raise ResidualError("vendor source patch is invalid")
+    filename = value.get("filename")
+    finding_id = value.get("finding_id")
+    sha256 = value.get("sha256")
+    if (
+        not isinstance(filename, str)
+        or not SOURCE_FILENAME.fullmatch(filename)
+        or not filename.endswith(".patch")
+        or not isinstance(finding_id, str)
+        or not FINDING.fullmatch(finding_id)
+        or not isinstance(sha256, str)
+        or not DIGEST.fullmatch(sha256)
+    ):
+        raise ResidualError("vendor source patch is invalid")
+    return SourcePatch(
+        filename=filename,
+        finding_id=finding_id,
+        sha256=sha256,
+    )
+
+
+def _vendor_source(value: object) -> VendorSource:
+    if not isinstance(value, dict) or set(value) != {
+        "package",
+        "version",
+        "artifacts",
+        "patches",
+        "series_sha256",
+    }:
+        raise ResidualError("vendor source is invalid")
+    package = value.get("package")
+    version = value.get("version")
+    raw_artifacts = value.get("artifacts")
+    raw_patches = value.get("patches")
+    series_sha256 = value.get("series_sha256")
+    if (
+        package != "setuptools"
+        or version != "68.1.2-2ubuntu1.2"
+        or not isinstance(raw_artifacts, list)
+        or not isinstance(raw_patches, list)
+        or not isinstance(series_sha256, str)
+        or not DIGEST.fullmatch(series_sha256)
+    ):
+        raise ResidualError("vendor source is invalid")
+    artifacts = tuple(
+        _source_artifact(item, package, version) for item in raw_artifacts
+    )
+    if tuple(item.filename for item in artifacts) != tuple(
+        sorted({item.filename for item in artifacts})
+    ) or {item.filename for item in artifacts} != {
+        "setuptools_68.1.2-2ubuntu1.2.debian.tar.xz",
+        "setuptools_68.1.2-2ubuntu1.2.dsc",
+        "setuptools_68.1.2.orig.tar.gz",
+    }:
+        raise ResidualError("vendor source artifact set is not exact")
+    patches = tuple(_source_patch(item) for item in raw_patches)
+    if tuple(item.filename for item in patches) != tuple(
+        sorted({item.filename for item in patches})
+    ) or tuple(item.finding_id for item in patches) != (
+        "CVE-2024-6345",
+        "CVE-2025-47273",
+        "CVE-2025-47273",
+    ):
+        raise ResidualError("vendor source patch set is not exact")
+    return VendorSource(
+        package=package,
+        version=version,
+        artifacts=artifacts,
+        patches=patches,
+        series_sha256=series_sha256,
+    )
+
+
 def _package(key: str, value: object) -> ResidualPackage:
     if (
         not KEY.fullmatch(key)
@@ -321,7 +473,7 @@ def load_contract(path: Path) -> ResidualContract:
         raise ResidualError("residual manifest is unreadable") from error
     if (
         not isinstance(document, dict)
-        or set(document) != {"schema", "baseline", "packages"}
+        or set(document) != {"schema", "baseline", "packages", "vendor_source"}
         or document.get("schema") != SCHEMA
     ):
         raise ResidualError("residual manifest schema is unsupported")
@@ -364,6 +516,7 @@ def load_contract(path: Path) -> ResidualContract:
         result_sha256=result_sha256,
         sources=sources,
         packages=packages,
+        vendor_source=_vendor_source(document.get("vendor_source")),
     )
     if any(
         not contract.finding_ids_for(surface, scanner)
@@ -384,6 +537,10 @@ def main() -> int:
             {
                 "result_sha256": contract.result_sha256,
                 "packages": [package.key for package in contract.packages],
+                "vendor_source": {
+                    "package": contract.vendor_source.package,
+                    "version": contract.vendor_source.version,
+                },
                 "projections": {
                     surface: {
                         scanner: list(contract.finding_ids_for(surface, scanner))

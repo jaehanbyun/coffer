@@ -94,6 +94,28 @@ fail-closed for every finding that is not proven fixed or not affected.
 
 ## Progress Log
 
+### 2026-07-27 — Canonical source backports verified
+
+- Completed: Added a bounded source collector that downloads the exact
+  Ubuntu security archive `.dsc`, upstream tarball, and Debian patch tarball,
+  enforces published sizes and SHA-256 values, parses the clear-signed source
+  identity and checksum block, rejects unsafe archive members, and verifies
+  the patch set plus quilt series.
+- Evidence: The live collection verified source
+  `setuptools` `68.1.2-2ubuntu1.2`, `CVE-2024-6345.patch`,
+  `CVE-2025-47273-pre1.patch`, and `CVE-2025-47273.patch` at their exact
+  manifest hashes. Owner-readable result SHA-256 is
+  `0e92b26994b6c21bbc8bdee48df71754b1ae431a157d22e8adeafb5dae2b048e`.
+  Downloaded source artifacts were not retained.
+- Verification: Source bundle, drift, malformed signed metadata, unsafe tar,
+  missing/changed patch, exclusive output, and linked-manifest tests bring the
+  residual suite to 54 and the combined UI image suite to 162. Ruff,
+  formatting, JSON, and compilation pass.
+- Changed files: Expanded residual manifest/model, source collector and Make
+  target, focused tests, this plan, and durable handoff.
+- Next exact action: Add an in-image system-Python probe for both backported
+  security behaviors and wire it into the exact cumulative ARM64 transaction.
+
 ### 2026-07-27 — Immutable residual contract complete
 
 - Completed: Added a v1 residual manifest and strict loader bound to Plan
@@ -132,7 +154,8 @@ fail-closed for every finding that is not proven fixed or not affected.
 | Plan 0025 residual inventory | exact after-scan JSON projection | passed; identical 1 Trivy/3 Scout High on both surfaces |
 | Canonical package status | USN-7002-1 and USN-7544-1 | passed; installed Noble revision includes both fixes |
 | Residual contract and fixtures | focused pytest, Ruff, format, JSON | passed; 29 direct and 137 combined UI tests |
-| Vendor patch and negative behavior proof | exact source/package inspection and bounded runtime probes | pending |
+| Vendor source patch proof | exact source archive collection and inspection | passed; result SHA-256 `0e92b269…048e` |
+| Installed package negative behavior proof | bounded runtime probes on both exact derivatives | pending |
 | VEX-aware Scout result | raw plus `--vex-location` acquisition | pending |
 | oslo.messaging release gate | official OpenStack changes/releases | pending |
 | Final repository gates | focused/full pytest, static, secret, residue, diff | pending |
@@ -152,12 +175,13 @@ fail-closed for every finding that is not proven fixed or not affected.
 
 ## Handoff
 
-- Current state: Plan 0026 is active; the immutable residual contract and
-  fail-closed parser are complete.
-- Exact next action: Implement exact Canonical source/patch acquisition and
-  verification for both setuptools findings.
-- First file or command: Add a bounded source-evidence collector alongside
-  `poc/ui-images/residual_finding.py`, bound to the manifest's vendor entries
-  and Noble source checksums.
+- Current state: Plan 0026 is active; the immutable residual contract and exact
+  Canonical source proof are complete.
+- Exact next action: Implement and integrate the installed system setuptools
+  behavior probe on both cumulative derivatives.
+- First file or command: Add
+  `poc/ui-images/probe_setuptools_backport.py`, cover its no-shell VCS and
+  path-containment assertions, then call it from matrix mode before VEX
+  generation.
 - Questions requiring user input: None. No credential, publication, live
   deployment, waiver, or production image mutation is required.
