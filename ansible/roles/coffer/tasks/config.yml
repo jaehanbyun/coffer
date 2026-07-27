@@ -182,9 +182,9 @@
     inventory_hostname in
     groups[coffer_services[item].group]
 
-- name: Copy verified Kolla frontend CA material to edge
+- name: Copy the verified Coffer backend CA material to edge
   ansible.builtin.copy:
-    src: "{{ kolla_certificates_dir }}/ca/root.crt"
+    src: "{{ coffer_backend_cacert }}"
     dest: "{{ node_config_directory }}/coffer-edge/backend-ca.crt"
     owner: "{{ config_owner_user }}"
     group: "{{ config_owner_group }}"
@@ -192,9 +192,9 @@
   become: true
   when: inventory_hostname in groups['coffer-edge']
 
-- name: Copy verified Kolla frontend CA material to the reconciler
+- name: Copy the verified Coffer backend CA material to the reconciler
   ansible.builtin.copy:
-    src: "{{ kolla_certificates_dir }}/ca/root.crt"
+    src: "{{ coffer_backend_cacert }}"
     dest: "{{ node_config_directory }}/coffer-reconcile/registry-ca.crt"
     owner: "{{ config_owner_user }}"
     group: "{{ config_owner_group }}"

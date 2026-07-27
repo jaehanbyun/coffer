@@ -19,6 +19,9 @@ HORIZON_MEMBERS = {
     ),
 }
 HORIZON_POLICY_MEMBER = "cofferdashboard/conf/coffer_policy.yaml"
+HORIZON_DEFAULT_POLICY_MEMBER = (
+    "cofferdashboard/conf/default_policies/coffer.yaml"
+)
 HORIZON_ABSENT = (
     "/tmp/coffer_horizon-0.1.0-py3-none-any.whl",
     "/tmp/install-coffer-horizon.py",
@@ -60,6 +63,9 @@ def collect_horizon(
         for member, destination in HORIZON_MEMBERS.items()
     }
     files[HORIZON_POLICY_MEMBER] = file_sha256(config_root / "coffer_policy.yaml")
+    files[HORIZON_DEFAULT_POLICY_MEMBER] = file_sha256(
+        config_root / "default_policies" / "coffer.yaml"
+    )
     return {
         "package": {"name": "coffer-horizon", "version": package_version},
         "files": files,

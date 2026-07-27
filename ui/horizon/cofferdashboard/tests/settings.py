@@ -19,7 +19,7 @@ INSTALLED_APPS = list(set(INSTALLED_APPS))  # noqa: F405
 
 POLICY_FILES.update({"oci-registry": "coffer_policy.yaml"})  # noqa: F405
 DEFAULT_POLICY_FILES.update(  # noqa: F405
-    {"oci-registry": "coffer_policy.yaml"}
+    {"oci-registry": "default_policies/coffer.yaml"}
 )
 POLICY_FILES_PATH = str(Path(__file__).parents[1] / "conf")
 

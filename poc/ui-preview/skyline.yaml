@@ -1,0 +1,4 @@
+---
+openstack:
+  service_mapping:
+    oci-registry: coffer

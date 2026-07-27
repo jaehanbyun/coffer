@@ -38,6 +38,7 @@ def _verify_source(tree: Path) -> None:
     constants = _read(tree / "src/client/client/constants.js")
     routes = _read(tree / "src/pages/basic/routes/index.js")
     menu = _read(tree / "src/layouts/menu.jsx")
+    repositories = _read(tree / "src/stores/coffer/repositories.js")
     _require("coffer: 'v1'" in constants, "Coffer endpoint version is missing")
     _require(
         "getOriginEndpoint('coffer') ? getOpenstackEndpoint('coffer') : ''"
@@ -50,6 +51,11 @@ def _verify_source(tree: Path) -> None:
     _require(
         "routePath: '/registry/repository/detail/:id'" in menu,
         "repository detail route map is missing",
+    )
+    _require(
+        "get listResponseKey()" in repositories
+        and "return 'repositories';" in repositories,
+        "repository list response envelope is not explicitly pluralized",
     )
 
     locale = json.loads(_read(tree / "src/locales/en.json"))

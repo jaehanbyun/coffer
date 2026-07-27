@@ -1,0 +1,20 @@
+- name: repository:create
+  check_str: role:member or role:admin
+  description: Create a repository in the scoped project.
+  scope_types:
+    - project
+- name: repository:list
+  check_str: role:reader or role:member or role:admin
+  description: List repositories in the scoped project.
+  scope_types:
+    - project
+- name: repository:get
+  check_str: role:reader or role:member or role:admin
+  description: Inspect a repository in the scoped project.
+  scope_types:
+    - project
+- name: quota:get
+  check_str: role:reader or role:member or role:admin
+  description: Read Registry quota for the scoped project.
+  scope_types:
+    - project

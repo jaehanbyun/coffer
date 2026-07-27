@@ -425,3 +425,21 @@ def test_policy_mirror_is_bounded_to_the_ui_operations():
         "repository:get": "role:reader or role:member or role:admin",
         "quota:get": "role:reader or role:member or role:admin",
     }
+
+
+def test_default_policy_metadata_matches_the_policy_mirror():
+    policy_root = __file__.rsplit("/tests/", 1)[0] + "/conf"
+    with open(
+        policy_root + "/coffer_policy.yaml",
+        encoding="utf-8",
+    ) as stream:
+        rules = yaml.safe_load(stream)
+    with open(
+        policy_root + "/default_policies/coffer.yaml",
+        encoding="utf-8",
+    ) as stream:
+        defaults = yaml.safe_load(stream)
+
+    assert {item["name"]: item["check_str"] for item in defaults} == rules
+    assert all(item["scope_types"] == ["project"] for item in defaults)
+    assert all(item["description"] for item in defaults)

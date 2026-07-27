@@ -29,7 +29,7 @@ include = ["cofferdashboard*"]
 
 [tool.setuptools.package-data]
 cofferdashboard = [
-  "conf/*.yaml",
+  "conf/**/*.yaml",
   "local_settings.d/*.py",
   "templates/**/*.html",
 ]

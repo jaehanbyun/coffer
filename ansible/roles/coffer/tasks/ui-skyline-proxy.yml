@@ -1,0 +1,20 @@
+---
+- name: Reconcile the Skyline same-origin proxy for Coffer
+  ansible.builtin.blockinfile:
+    path: "{{ node_config_directory }}/skyline-console/nginx.conf"
+    marker: "# {mark} COFFER SKYLINE SAME-ORIGIN PROXY"
+    insertbefore: '^\s*# Service: skyline$'
+    state: "{{ 'present' if coffer_enable_skyline_console | bool else 'absent' }}"
+    block: |
+      # Service: coffer
+      location {{ skyline_nginx_prefix }}/{{ openstack_region_name | lower }}/coffer/ {
+          proxy_pass {{ coffer_internal_origin }}/;
+          proxy_redirect {{ coffer_internal_origin }}/ {{ skyline_nginx_prefix }}/{{ openstack_region_name | lower }}/coffer/;
+          proxy_buffering off;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+          proxy_set_header X-Forwarded-Host $host;
+          proxy_set_header Host $http_host;
+      }
+  become: true
+  notify: Restart coffer-skyline-console container

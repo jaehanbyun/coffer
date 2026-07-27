@@ -323,9 +323,9 @@ target_wheels=()
 cp "${WHEEL_INPUT}/$(basename "${horizon_wheel}")" "${horizon_wheel}"
 cp "${WHEEL_INPUT}/$(basename "${skyline_wheel}")" "${skyline_wheel}"
 test "$(shasum -a 256 "${horizon_wheel}" | awk '{print $1}')" = \
-    "33f0d950818f2d18d9ef6b5e3766445e1e867f39d4bc83a2c2739227b0bee957"
+    "a634543218a14731f50a291c9f38728fe3deab26da5ae8ef0a92a1d10805cdb2"
 test "$(shasum -a 256 "${skyline_wheel}" | awk '{print $1}')" = \
-    "8df1ca2aff8ee05766ba963e3e3a746b8d40a8051591afcf3a526464faa8a034"
+    "250013bb4ade737613d3c02d4c09a4b541a2803c86cc6aabea9f2583c54d480b"
 for wheel_index in "${!TARGET_WHEEL_NAMES[@]}"; do
     target_wheel="${WHEELS}/${TARGET_WHEEL_NAMES[wheel_index]}"
     target_wheels+=("${target_wheel}")

@@ -33,6 +33,7 @@ def wheel(path: Path, surface: str) -> tuple[Path, dict[str, str]]:
             "_1920_project_registry_repositories_panel.py": b"panel",
             "cofferdashboard/local_settings.d/_1930_coffer_policy.py": b"settings",
             "cofferdashboard/conf/coffer_policy.yaml": b"policy",
+            "cofferdashboard/conf/default_policies/coffer.yaml": b"defaults",
         }
     else:
         name = "skyline-console"

@@ -43,6 +43,9 @@ def test_horizon_runtime_maps_exact_destination_files(tmp_path: Path) -> None:
     expected[RUNTIME.HORIZON_POLICY_MEMBER] = write(
         config / "coffer_policy.yaml", b"policy"
     )
+    expected[RUNTIME.HORIZON_DEFAULT_POLICY_MEMBER] = write(
+        config / "default_policies" / "coffer.yaml", b"defaults"
+    )
 
     result = RUNTIME.collect_horizon(
         horizon_root=horizon,

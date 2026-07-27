@@ -140,6 +140,7 @@ def test_horizon_image_installer_copies_only_runtime_registration(
         "local_settings.d/_1930_coffer_policy.py": "settings\n",
         "local_settings.d/_9999_unrelated.py": "unrelated\n",
         "conf/coffer_policy.yaml": "policy\n",
+        "conf/default_policies/coffer.yaml": "defaults\n",
     }
     for relative, content in inputs.items():
         path = plugin / relative
@@ -155,6 +156,7 @@ def test_horizon_image_installer_copies_only_runtime_registration(
     }
     assert copied == {
         "config/coffer_policy.yaml": "policy\n",
+        "config/default_policies/coffer.yaml": "defaults\n",
         "horizon/local/enabled/_1910_project_registry_panel_group.py": "group\n",
         "horizon/local/enabled/_1920_project_registry_repositories_panel.py": (
             "panel\n"

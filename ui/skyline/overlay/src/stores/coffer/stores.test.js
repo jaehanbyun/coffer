@@ -19,6 +19,7 @@ describe('RepositoryStore', () => {
 
   it('uses only the server continuation marker', () => {
     const store = new RepositoryStore();
+    expect(store.listResponseKey).toBe('repositories');
     expect(
       store.parseMarker([{ id: 'last-row' }], {
         next_marker: 'server-marker',

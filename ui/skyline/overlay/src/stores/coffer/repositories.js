@@ -13,6 +13,10 @@ export class RepositoryStore extends Base {
     return false;
   }
 
+  get listResponseKey() {
+    return 'repositories';
+  }
+
   get paramsFuncPage() {
     return ({ current, ...params }) => params;
   }

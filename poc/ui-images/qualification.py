@@ -34,6 +34,7 @@ SURFACES = {
             "cofferdashboard/enabled/_1920_project_registry_repositories_panel.py",
             "cofferdashboard/local_settings.d/_1930_coffer_policy.py",
             "cofferdashboard/conf/coffer_policy.yaml",
+            "cofferdashboard/conf/default_policies/coffer.yaml",
         ),
         "absent": (
             "/tmp/coffer_horizon-0.1.0-py3-none-any.whl",

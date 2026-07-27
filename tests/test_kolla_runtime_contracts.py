@@ -53,15 +53,57 @@ def test_service_cert_copy_includes_one_shot_bootstrap() -> None:
     assert 'project_services: "{{ coffer_processes }}"' in config_tasks
 
 
-def test_edge_and_reconciler_trust_the_kolla_frontend_ca() -> None:
+def test_edge_and_reconciler_trust_the_configured_backend_ca() -> None:
     config_tasks = (
         ROOT / "ansible" / "roles" / "coffer" / "tasks" / "config.yml"
     ).read_text(encoding="utf-8")
 
     assert (
-        config_tasks.count('src: "{{ kolla_certificates_dir }}/ca/root.crt"')
-        == 2
+        config_tasks.count('src: "{{ coffer_backend_cacert }}"')
+        == 3
     )
+    assert 'src: "{{ kolla_certificates_dir }}/ca/root.crt"' not in config_tasks
+
+
+def test_ui_preview_maps_the_keystone_registry_service_into_skyline() -> None:
+    skyline_override = (
+        ROOT / "poc" / "ui-preview" / "skyline.yaml"
+    ).read_text(encoding="utf-8")
+    guest_kolla = (
+        ROOT / "poc" / "ui-preview" / "guest-kolla.sh"
+    ).read_text(encoding="utf-8")
+    guest_companion = (
+        ROOT / "poc" / "ui-preview" / "guest-companion.sh"
+    ).read_text(encoding="utf-8")
+
+    assert "oci-registry: coffer" in skyline_override
+    assert '"${config_root}/config/skyline/skyline.yaml"' in guest_kolla
+    assert "reconfigure --tags skyline" in guest_kolla
+    assert 'if test ! -e "${inventory}"; then' in guest_kolla
+    assert "verify_log_secret_free" in guest_companion
+    assert '"password" in name or "secret" in name' in guest_companion
+
+
+def test_skyline_integration_owns_the_same_origin_coffer_proxy() -> None:
+    playbook = (ROOT / "ansible" / "coffer.yml").read_text(encoding="utf-8")
+    proxy = (
+        ROOT
+        / "ansible"
+        / "roles"
+        / "coffer"
+        / "tasks"
+        / "ui-skyline-proxy.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "tasks_from: ui-skyline-proxy" in playbook
+    assert "coffer_ui_active | bool" in playbook
+    assert "COFFER SKYLINE SAME-ORIGIN PROXY" in proxy
+    assert "proxy_pass {{ coffer_internal_origin }}/;" in proxy
+    assert (
+        "{{ skyline_nginx_prefix }}/{{ openstack_region_name | lower }}"
+        "/coffer/"
+    ) in proxy
+    assert "192.168." not in proxy
 
 
 def test_multinode_lifecycle_scans_every_runtime_log_without_retaining_it() -> (

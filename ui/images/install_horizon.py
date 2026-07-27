@@ -34,6 +34,10 @@ def install_dashboard(
         plugin_root / "conf" / "coffer_policy.yaml",
         config_root / "coffer_policy.yaml",
     )
+    copy_file(
+        plugin_root / "conf" / "default_policies" / "coffer.yaml",
+        config_root / "default_policies" / "coffer.yaml",
+    )
 
 
 def main() -> int:

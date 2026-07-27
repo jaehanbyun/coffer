@@ -47,6 +47,7 @@ cofferdashboard/local_settings.d/_1930_coffer_policy.py
     -> openstack_dashboard/local/local_settings.d/
 
 cofferdashboard/conf/coffer_policy.yaml
+cofferdashboard/conf/default_policies/coffer.yaml
     -> openstack_dashboard/conf/
 ```
 

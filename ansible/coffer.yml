@@ -228,6 +228,15 @@
         - kolla_action in ['deploy', 'reconfigure', 'upgrade', 'pull']
         - coffer_ui_active | bool
 
+    - name: Reconcile Skyline's same-origin Coffer proxy
+      ansible.builtin.include_role:
+        name: coffer
+        tasks_from: ui-skyline-proxy
+      when:
+        - enable_coffer | bool
+        - kolla_action in ['deploy', 'reconfigure', 'upgrade']
+        - coffer_ui_active | bool
+
     - name: Pull the selected Skyline Console image
       ansible.builtin.include_role:
         name: service-images-pull
