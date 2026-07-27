@@ -14,7 +14,7 @@ Unconditionally adding `op.create_table("repositories")` would fail on those dat
 
 ## Decision
 
-1. Revision `0003_repository_metadata` integrates repository metadata into the single Coffer control-schema chain and Alembic compares both repository and quota metadata. Revision `0004_inventory_import` adds the baseline-import marker. The later `0005_maintenance_comparison_sessions` revision is now the current head and adds bounded live-comparison authorization metadata without changing repository ownership.
+1. Revision `0003_repository_metadata` integrates repository metadata into the single Coffer control-schema chain and Alembic compares both repository and quota metadata. Revision `0004_inventory_import` adds the baseline-import marker. The later `0005_maintenance_sessions` revision is now the current head and adds bounded live-comparison authorization metadata without changing repository ownership.
 2. The revision runs online. On a fresh database it creates `repositories`; on an existing database it validates the exact five-column contract, `id` primary key, string bounds, nullability, and named `(project_id, name)` uniqueness before adopting the table without rewriting rows.
 3. Incompatible legacy structure aborts before Alembic records revision `0003`. Offline SQL generation is rejected because it cannot safely decide create versus adopt.
 4. `RepositoryStore` and `QuotaStore` both require the exact current revision and their required tables during normal construction. `MetaData.create_all()` is available only behind explicit `bootstrap_schema=True` in unit and disposable fixtures.

@@ -159,7 +159,7 @@ The pure local implementation boundary is complete:
   registry upstream I/O; and
 - fixed denial/unavailable responses and decision logs omit caller-selected
   repository authority, claim tokens, and dependency exception text.
-- revision `0005_maintenance_comparison_sessions` provides finite, idempotent,
+- revision `0005_maintenance_sessions` provides finite, idempotent,
   irreversible approved/completed/revoked sessions; exact imported-digest,
   workload, active-claim, committed-repository, expiry, completion, and
   revocation checks drive the live-comparison authority; and

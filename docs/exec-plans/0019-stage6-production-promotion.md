@@ -283,12 +283,12 @@ operator-local release.
   this plan, and `.codex/state/HANDOFF.md`.
 - Next exact action: Define the approved live-comparison session lifecycle in
   ADR 0015, then begin its local SQL schema with
-  `src/coffer/migrations/versions/0005_maintenance_comparison_sessions.py`.
+  `src/coffer/migrations/versions/0005_maintenance_sessions.py`.
 
 ### 2026-07-25 — Live-comparison session authority completed
 
 - Completed: Added Alembic revision
-  `0005_maintenance_comparison_sessions` and matching quota-store lifecycle.
+  `0005_maintenance_sessions` and matching quota-store lifecycle.
   An owner-controlled approval request is finite, idempotent, bound to the
   imported digest, workload, and non-secret writer-exclusion evidence
   reference, and refuses missing import authority or active reconciliation

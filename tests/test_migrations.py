@@ -6,6 +6,7 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 import pytest
 from sqlalchemy import create_engine, inspect, insert, text
 
@@ -30,6 +31,16 @@ def migration_config(database_url: str) -> Config:
     config = Config(str(ROOT / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
     return config
+
+
+def test_revision_identifiers_fit_alembic_version_table() -> None:
+    scripts = ScriptDirectory.from_config(
+        migration_config("sqlite:///:memory:")
+    )
+    revisions = [revision.revision for revision in scripts.walk_revisions()]
+
+    assert len(revisions) == len(set(revisions))
+    assert all(len(revision) <= 32 for revision in revisions)
 
 
 def test_production_store_requires_the_versioned_schema(tmp_path: Path) -> None:
@@ -286,7 +297,7 @@ def test_claim_version_migration_backfills_and_refuses_loss(
 ) -> None:
     database_url = f"sqlite:///{tmp_path / 'claim-version.sqlite'}"
     config = migration_config(database_url)
-    command.upgrade(config, "0005_maintenance_comparison_sessions")
+    command.upgrade(config, "0005_maintenance_sessions")
     engine = create_engine(database_url)
     now = datetime.now(UTC).replace(microsecond=0)
     now_sql = now.replace(tzinfo=None).isoformat(sep=" ")
@@ -344,7 +355,7 @@ def test_claim_version_migration_backfills_and_refuses_loss(
     with pytest.raises(RuntimeError, match="active reconciliation"):
         command.downgrade(
             config,
-            "0005_maintenance_comparison_sessions",
+            "0005_maintenance_sessions",
         )
     with engine.connect() as connection:
         assert connection.execute(
@@ -388,4 +399,4 @@ def test_retained_comparison_session_blocks_schema_downgrade(
     with create_engine(database_url).connect() as connection:
         assert connection.execute(
             text("SELECT version_num FROM alembic_version")
-        ).scalar_one() == "0005_maintenance_comparison_sessions"
+        ).scalar_one() == "0005_maintenance_sessions"

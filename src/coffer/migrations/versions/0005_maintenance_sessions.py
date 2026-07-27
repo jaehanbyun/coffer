@@ -1,6 +1,6 @@
 """Add bounded live-comparison maintenance sessions.
 
-Revision ID: 0005_maintenance_comparison_sessions
+Revision ID: 0005_maintenance_sessions
 Revises: 0004_inventory_import
 Create Date: 2026-07-25
 """
@@ -13,7 +13,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = "0005_maintenance_comparison_sessions"
+revision: str = "0005_maintenance_sessions"
 down_revision: Union[str, Sequence[str], None] = "0004_inventory_import"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

@@ -1,7 +1,7 @@
 """Bind reconciliation claims to reservation versions.
 
 Revision ID: 0006_claim_version_binding
-Revises: 0005_maintenance_comparison_sessions
+Revises: 0005_maintenance_sessions
 Create Date: 2026-07-26
 """
 
@@ -15,7 +15,7 @@ import sqlalchemy as sa
 
 revision: str = "0006_claim_version_binding"
 down_revision: Union[str, Sequence[str], None] = (
-    "0005_maintenance_comparison_sessions"
+    "0005_maintenance_sessions"
 )
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
