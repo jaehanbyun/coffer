@@ -83,7 +83,7 @@ fail-closed for every finding that is not proven fixed or not affected.
 
 ## Tasks
 
-- [ ] Add the strict residual-finding and vendor-evidence contract with
+- [x] Add the strict residual-finding and vendor-evidence contract with
       positive and fail-closed rejection tests.
 - [ ] Verify exact Ubuntu backport content and security behavior; generate and
       validate product-bound OpenVEX only if the evidence closes both findings.
@@ -93,6 +93,24 @@ fail-closed for every finding that is not proven fixed or not affected.
       documentation, commit, and push.
 
 ## Progress Log
+
+### 2026-07-27 — Immutable residual contract complete
+
+- Completed: Added a v1 residual manifest and strict loader bound to Plan
+  0025's accepted result, all four after-scan hashes, exact surface/scanner
+  projections, package/PURL/version/path identities, disposition, and primary
+  vendor evidence.
+- Evidence: Twenty-nine focused tests accept the exact two-package,
+  three-finding contract and reject schema, hash, source set/order/path,
+  package order/identity/path/PURL/surface, scanner/finding, vendor
+  source/order/fixed-version, cross-package overlap, symlink, and unknown
+  projection failures. JSON, compilation, Ruff, formatting, and all 137 UI
+  image tests pass.
+- Changed files: Residual JSON and loader, focused tests, Make verification
+  membership, this plan, and durable handoff.
+- Next exact action: Add source-evidence acquisition and verification for the
+  exact Noble `setuptools` source revision and both Canonical patches before
+  defining or generating an OpenVEX document.
 
 ### 2026-07-27 — Work package activated
 
@@ -113,7 +131,7 @@ fail-closed for every finding that is not proven fixed or not affected.
 |---|---|---|
 | Plan 0025 residual inventory | exact after-scan JSON projection | passed; identical 1 Trivy/3 Scout High on both surfaces |
 | Canonical package status | USN-7002-1 and USN-7544-1 | passed; installed Noble revision includes both fixes |
-| Residual contract and fixtures | focused pytest, Ruff, format, JSON | pending |
+| Residual contract and fixtures | focused pytest, Ruff, format, JSON | passed; 29 direct and 137 combined UI tests |
 | Vendor patch and negative behavior proof | exact source/package inspection and bounded runtime probes | pending |
 | VEX-aware Scout result | raw plus `--vex-location` acquisition | pending |
 | oslo.messaging release gate | official OpenStack changes/releases | pending |
@@ -134,12 +152,12 @@ fail-closed for every finding that is not proven fixed or not affected.
 
 ## Handoff
 
-- Current state: Plan 0026 is active; research has separated the vendor-patched
-  system package reports from the genuinely affected venv package.
-- Exact next action: Implement the immutable residual-finding manifest and
-  strict loader.
-- First file or command: Add
-  `poc/ui-images/residual_findings.json`, then
-  `poc/ui-images/residual_finding.py` and focused tests.
+- Current state: Plan 0026 is active; the immutable residual contract and
+  fail-closed parser are complete.
+- Exact next action: Implement exact Canonical source/patch acquisition and
+  verification for both setuptools findings.
+- First file or command: Add a bounded source-evidence collector alongside
+  `poc/ui-images/residual_finding.py`, bound to the manifest's vendor entries
+  and Noble source checksums.
 - Questions requiring user input: None. No credential, publication, live
   deployment, waiver, or production image mutation is required.

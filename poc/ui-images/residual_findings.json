@@ -1,0 +1,90 @@
+{
+  "baseline": {
+    "result_sha256": "a920ce2076908469c06103fbd0f19953cbf6e67a4dead964faaf85d20ed21e0a",
+    "sources": [
+      {
+        "path": "work/ui-python-overlay-trial-matrix-accepted/evidence/horizon-after.scout.sarif.json",
+        "scanner": "scout",
+        "sha256": "d38414d278312972473d1569954b32234902f5322d9f8e36416bbbec4672883a",
+        "surface": "horizon"
+      },
+      {
+        "path": "work/ui-python-overlay-trial-matrix-accepted/evidence/horizon-after.trivy.json",
+        "scanner": "trivy",
+        "sha256": "d7be4ec2999363622e50536158ad64c9c8ff55ed1fe10cc9314c15e719f96deb",
+        "surface": "horizon"
+      },
+      {
+        "path": "work/ui-python-overlay-trial-matrix-accepted/evidence/skyline-after.scout.sarif.json",
+        "scanner": "scout",
+        "sha256": "4179d0474d2c06f88902190361c6a45121c28d3aca2cf25a956a89f5d0f6d2f6",
+        "surface": "skyline"
+      },
+      {
+        "path": "work/ui-python-overlay-trial-matrix-accepted/evidence/skyline-after.trivy.json",
+        "scanner": "trivy",
+        "sha256": "3605b6b8659e981d6e4974ab4f073b28eb4c2e1b8f699dc5025872d5dc530917",
+        "surface": "skyline"
+      }
+    ]
+  },
+  "packages": {
+    "oslo-messaging": {
+      "disposition": "affected-no-fixed-release",
+      "findings_by_scanner": {
+        "scout": [
+          "CVE-2026-44393"
+        ],
+        "trivy": [
+          "CVE-2026-44393"
+        ]
+      },
+      "installed_path": "var/lib/kolla/venv/lib/python3.12/site-packages/oslo_messaging-17.3.0.dist-info/METADATA",
+      "installed_version": "17.3.0",
+      "package_name": "oslo.messaging",
+      "purl": "pkg:pypi/oslo.messaging@17.3.0",
+      "surfaces": [
+        "horizon",
+        "skyline"
+      ],
+      "vendor_evidence": [
+        {
+          "finding_id": "CVE-2026-44393",
+          "fixed_package_version": "none-published",
+          "source": "https://review.opendev.org/c/openstack/security-doc/+/989478"
+        }
+      ]
+    },
+    "ubuntu-setuptools": {
+      "disposition": "vendor-backport-to-prove",
+      "findings_by_scanner": {
+        "scout": [
+          "CVE-2024-6345",
+          "CVE-2025-47273"
+        ],
+        "trivy": []
+      },
+      "installed_path": "usr/lib/python3/dist-packages/setuptools-68.1.2.egg-info/PKG-INFO",
+      "installed_version": "68.1.2-2ubuntu1.2",
+      "package_name": "python3-setuptools",
+      "purl": "pkg:pypi/setuptools@68.1.2",
+      "surfaces": [
+        "horizon",
+        "skyline"
+      ],
+      "vendor_evidence": [
+        {
+          "finding_id": "CVE-2024-6345",
+          "fixed_package_version": "68.1.2-2ubuntu1.1",
+          "source": "https://ubuntu.com/security/notices/USN-7002-1"
+        },
+        {
+          "finding_id": "CVE-2025-47273",
+          "fixed_package_version": "68.1.2-2ubuntu1.2",
+          "source": "https://ubuntu.com/security/notices/USN-7544-1"
+        }
+      ]
+    }
+  },
+  "schema": "coffer.ui-residual-findings/v1"
+}

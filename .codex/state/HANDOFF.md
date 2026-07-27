@@ -61,7 +61,16 @@ those backports and any product-bound OpenVEX statement without hiding raw
 scanner evidence or replacing the distro package with pip. The first exact
 action is to add a strict residual manifest bound to Plan 0025 result SHA-256
 `a920ce2076908469c06103fbd0f19953cbf6e67a4dead964faaf85d20ed21e0a`,
-then cover fail-closed parsing before any image rebuild.
+then cover fail-closed parsing before any image rebuild. That immutable v1
+contract and parser are now complete. They bind all four after-scan hashes,
+exact source paths, package/PURL/version/path identities, scanner projections,
+dispositions, and primary vendor evidence. Twenty-nine direct tests reject
+schema, digest, source set/order/path, package identity/order/path/PURL,
+surface, scanner/finding, vendor source/order/version, cross-package overlap,
+symlink, and unknown projection failures; JSON, compilation, Ruff, formatting,
+and all 137 UI image tests pass. The exact next action is a bounded Canonical
+source-evidence collector that proves both patches in Noble
+`setuptools` `68.1.2-2ubuntu1.2` before any OpenVEX generation.
 
 Plan 0025 is complete after combining only the native ARM64 Python remediations
 accepted in plans 0023 and 0024. Horizon selects 11 targets and 12 package
@@ -3290,14 +3299,14 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/ui-images/residual_findings.json`, bind it to Plan 0025 result
-SHA-256
-`a920ce2076908469c06103fbd0f19953cbf6e67a4dead964faaf85d20ed21e0a`
-and the exact four after-scan hashes, then implement
-`poc/ui-images/residual_finding.py` with strict positive and fail-closed
-fixtures. Do not generate VEX, rebuild images, alter production UI
+Add a bounded source-evidence collector alongside
+`poc/ui-images/residual_finding.py`. It must acquire the exact Ubuntu Noble
+`setuptools` `68.1.2-2ubuntu1.2` source artifacts, verify their published
+hashes, prove that the Canonical patches for `CVE-2024-6345` and
+`CVE-2025-47273` are present, and emit only non-secret owner-readable
+evidence. Do not generate VEX, rebuild images, alter production UI
 Containerfiles, waive a finding, handle a Docker credential, publish an image,
-or create a live cloud until that contract passes.
+or create a live cloud until that source proof passes.
 
 ## After This Work Package
 
