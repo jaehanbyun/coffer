@@ -84,7 +84,7 @@ another private backend.
 - [x] Audit the live external DNS/TLS options, Kolla-rendered edge routing,
       catalog record, client availability, and direct-backend reachability.
 - [x] Add versioned endpoint discovery and update the OpenAPI contract.
-- [ ] Implement and package the OpenStackClient command surface with tests and
+- [x] Implement and package the OpenStackClient command surface with tests and
       owner-safe login output.
 - [ ] Extend the retained preview harness and companion role for the selected
       external origin, TLS material, system-HAProxy route, and repeatable
@@ -132,6 +132,27 @@ another private backend.
 - Next exact action: Implement the optional OpenStackClient extension and
   exercise its entry points from a built wheel.
 
+### 2026-07-27 — OpenStackClient command surface completed
+
+- Completed: Added a catalog-native `registry` OpenStackClient plugin and the
+  six commands `endpoint show`, `repository create/list/show`, `quota show`,
+  and `login`. The client validates the server discovery document, preserves
+  project-scoped pagination, and returns bounded errors without reflecting a
+  response body.
+- Security: `registry login` accepts only a finite application credential ID,
+  reads its secret from a hidden prompt or stdin, invokes Docker, Podman, or
+  ORAS without a shell, and sends the secret only through the child process
+  stdin. The human/admin password path is absent.
+- Evidence: 56 focused tests and Ruff 0.12.1 pass. A clean wheel build contains
+  the exact extension and six command entry points; OpenStackClient 9.0.0
+  loads and lists all six commands. Generated build, egg-info, and temporary
+  wheel state were moved to Trash after verification.
+- Changed files: `pyproject.toml`, new `src/cofferclient/` package, focused
+  client tests, this plan, and the durable handoff.
+- Next exact action: Extend the preview lifecycle for the selected origin,
+  acquire owner-only Tailscale TLS material, and reconfigure Coffer's public
+  origin and Keystone catalog before installing the bounded host route.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -139,7 +160,7 @@ another private backend.
 | Repository recovery | AGENTS, HANDOFF, plan, Git status/log | passed; clean at `bc9d95d` |
 | Requirement audit | plan 0027, role defaults, package entry points | passed; endpoint and client gaps confirmed |
 | Discovery unit and API contract | focused pytest, JSON, compilation | passed; 45 tests |
-| Client unit and package contract | focused pytest and wheel entry-point inspection | pending |
+| Client unit and package contract | focused pytest, Ruff, wheel entry-point inspection | passed; 56 focused tests and six commands |
 | Live catalog and path routing | Keystone catalog plus HTTPS requests | pending |
 | Real OCI clients and isolation | Docker, Podman, ORAS project A/B acceptance | pending |
 | Security and lifecycle | direct-backend probes, restart, reconfigure, log scan | pending |
@@ -159,12 +180,12 @@ another private backend.
 
 ## Handoff
 
-- Current state: Plan 0028 is active. The public origin and API discovery
-  contract are frozen and tested; the retained runtime has not yet been
-  reconfigured.
-- Exact next action: Implement the optional OpenStackClient extension and
-  inspect its installed command entry points from a built wheel.
-- First file or command: Add `src/cofferclient/` and the
-  `openstack.cli.extension` plus `openstack.registry.v1` entry points in
-  `pyproject.toml`.
+- Current state: Plan 0028 is active. Discovery and the packaged client command
+  surface are complete; the retained runtime still advertises its
+  guest-internal origin.
+- Exact next action: Add the owner-facing TLS and host-proxy lifecycle, then
+  reconfigure the retained preview to advertise the selected origin.
+- First file or command: Extend
+  `poc/ui-preview/bb00-system-haproxy.sh` and its marker-owned snippet with an
+  HTTPS-terminating 18788 frontend and verified-TLS edge backend.
 - Questions requiring user input: None.

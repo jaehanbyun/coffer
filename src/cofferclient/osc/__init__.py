@@ -1,0 +1,1 @@
+"""OpenStackClient integration for Coffer."""

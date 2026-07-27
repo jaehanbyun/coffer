@@ -68,8 +68,11 @@ and registry-challenge evidence, then implement the discovery contract in
 policy, OpenAPI, Kolla config, and fail-closed same-origin validation pass 45
 focused tests for the selected
 `https://bb00.tail23b778.ts.net:18788` origin. The exact next action is to add
-the optional OpenStackClient extension under `src/cofferclient/`, verify its
-wheel entry points, and then reconfigure the retained preview.
+the bounded owner-facing TLS and host-proxy lifecycle, then reconfigure the
+retained preview. The optional `src/cofferclient/` extension is now complete:
+all six `openstack registry` commands load from a built wheel, 56 focused
+tests and Ruff pass, and registry login sends only a finite application
+credential secret over child stdin without using a shell.
 
 Plan 0027 is complete. Retained domain `coffer-ui-preview-1` runs on `bb00`
 at guest address `192.168.122.204`, internal VIP `192.168.122.205`, and

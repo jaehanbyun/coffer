@@ -1,0 +1,254 @@
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping, Sequence
+import getpass
+import os
+import shutil
+import subprocess
+import sys
+from typing import Any
+from urllib.parse import urlsplit
+
+from cliff import lister, show
+from osc_lib import exceptions
+from osc_lib.command import command
+
+from cofferclient.client import Client
+
+
+REPOSITORY_COLUMNS = (
+    "id",
+    "name",
+    "project_id",
+    "immutable_tags",
+    "created_at",
+)
+QUOTA_COLUMNS = (
+    "project_id",
+    "limit_bytes",
+    "used_bytes",
+    "reserved_bytes",
+)
+
+
+def _values(
+    document: Mapping[str, object],
+    columns: Sequence[str],
+) -> tuple[Any, ...]:
+    return tuple(document.get(column) for column in columns)
+
+
+def _client(osc_command: command.Command) -> Client:
+    return osc_command.app.client_manager.registry
+
+
+def login(
+    *,
+    registry_endpoint: str,
+    application_credential_id: str,
+    secret: str,
+    executable: str,
+    runner: Callable[..., Any] = subprocess.run,
+) -> str:
+    parsed = urlsplit(registry_endpoint)
+    if (
+        parsed.scheme != "https"
+        or not parsed.netloc
+        or parsed.path != "/v2/"
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise exceptions.CommandError("Registry endpoint is not a safe HTTPS URL")
+    if (
+        not application_credential_id
+        or len(application_credential_id) > 255
+        or any(character.isspace() for character in application_credential_id)
+    ):
+        raise exceptions.CommandError(
+            "A valid application credential ID is required"
+        )
+    if (
+        not secret
+        or len(secret) > 4096
+        or "\x00" in secret
+        or "\n" in secret
+        or "\r" in secret
+    ):
+        raise exceptions.CommandError(
+            "A single-line application credential secret is required"
+        )
+    program = shutil.which(executable)
+    if program is None:
+        raise exceptions.CommandError(f"{executable} is not installed")
+    runner(
+        [
+            program,
+            "login",
+            "--username",
+            application_credential_id,
+            "--password-stdin",
+            parsed.netloc,
+        ],
+        input=f"{secret}\n",
+        text=True,
+        check=True,
+    )
+    return parsed.netloc
+
+
+class ShowEndpoint(show.ShowOne):
+    """Show the public control, token, and OCI endpoints."""
+
+    def take_action(
+        self,
+        _parsed_args: Any,
+    ) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        endpoints = _client(self).endpoints()
+        columns = ("control", "registry", "token")
+        return columns, tuple(getattr(endpoints, column) for column in columns)
+
+
+class CreateRepository(show.ShowOne):
+    """Create a project-scoped registry repository."""
+
+    def get_parser(self, prog_name: str) -> Any:
+        parser = super().get_parser(prog_name)
+        parser.add_argument("name", metavar="<name>")
+        parser.add_argument(
+            "--immutable-tags",
+            action="store_true",
+            help="Prevent an existing tag from being replaced.",
+        )
+        return parser
+
+    def take_action(
+        self,
+        parsed_args: Any,
+    ) -> tuple[tuple[str, ...], tuple[Any, ...]]:
+        repository = _client(self).create_repository(
+            parsed_args.name,
+            immutable_tags=parsed_args.immutable_tags,
+        )
+        return REPOSITORY_COLUMNS, _values(repository, REPOSITORY_COLUMNS)
+
+
+class ListRepositories(lister.Lister):
+    """List project-scoped registry repositories."""
+
+    def get_parser(self, prog_name: str) -> Any:
+        parser = super().get_parser(prog_name)
+        parser.add_argument(
+            "--limit",
+            type=int,
+            default=100,
+            choices=range(1, 1001),
+            metavar="<1-1000>",
+        )
+        parser.add_argument("--marker", metavar="<repository-id>")
+        parser.add_argument(
+            "--all",
+            action="store_true",
+            help="Follow all bounded repository pages.",
+        )
+        return parser
+
+    def take_action(
+        self,
+        parsed_args: Any,
+    ) -> tuple[tuple[str, ...], tuple[tuple[Any, ...], ...]]:
+        registry = _client(self)
+        marker = parsed_args.marker
+        seen_markers: set[str] = set()
+        rows: list[tuple[Any, ...]] = []
+        for _page in range(1000):
+            repositories, next_marker = registry.repositories(
+                limit=parsed_args.limit,
+                marker=marker,
+            )
+            rows.extend(
+                _values(repository, REPOSITORY_COLUMNS)
+                for repository in repositories
+            )
+            if not parsed_args.all or next_marker is None:
+                return REPOSITORY_COLUMNS, tuple(rows)
+            if next_marker in seen_markers:
+                raise exceptions.CommandError(
+                    "Registry repeated a repository page marker"
+                )
+            seen_markers.add(next_marker)
+            marker = next_marker
+        raise exceptions.CommandError("Registry pagination exceeded 1000 pages")
+
+
+class ShowRepository(show.ShowOne):
+    """Show one project-scoped registry repository."""
+
+    def get_parser(self, prog_name: str) -> Any:
+        parser = super().get_parser(prog_name)
+        parser.add_argument("repository", metavar="<repository-id>")
+        return parser
+
+    def take_action(
+        self,
+        parsed_args: Any,
+    ) -> tuple[tuple[str, ...], tuple[Any, ...]]:
+        repository = _client(self).repository(parsed_args.repository)
+        return REPOSITORY_COLUMNS, _values(repository, REPOSITORY_COLUMNS)
+
+
+class ShowQuota(show.ShowOne):
+    """Show registry quota and usage for the scoped project."""
+
+    def take_action(
+        self,
+        _parsed_args: Any,
+    ) -> tuple[tuple[str, ...], tuple[Any, ...]]:
+        quota = _client(self).quota()
+        return QUOTA_COLUMNS, _values(quota, QUOTA_COLUMNS)
+
+
+class Login(command.Command):
+    """Authenticate an OCI client with a finite application credential."""
+
+    def get_parser(self, prog_name: str) -> Any:
+        parser = super().get_parser(prog_name)
+        parser.add_argument(
+            "--application-credential-id",
+            default=os.environ.get("OS_APPLICATION_CREDENTIAL_ID"),
+            metavar="<application-credential-id>",
+            help=(
+                "Finite project-scoped application credential ID. "
+                "(Env: OS_APPLICATION_CREDENTIAL_ID)"
+            ),
+        )
+        parser.add_argument(
+            "--client",
+            choices=("docker", "podman", "oras"),
+            default="docker",
+        )
+        return parser
+
+    def take_action(self, parsed_args: Any) -> None:
+        if sys.stdin.isatty():
+            secret = getpass.getpass("Application credential secret: ")
+        else:
+            secret = sys.stdin.read(4097).removesuffix("\n")
+        endpoints = _client(self).endpoints()
+        try:
+            host = login(
+                registry_endpoint=endpoints.registry,
+                application_credential_id=parsed_args.application_credential_id,
+                secret=secret,
+                executable=parsed_args.client,
+            )
+        except subprocess.CalledProcessError as exc:
+            raise exceptions.CommandError(
+                f"{parsed_args.client} login failed"
+            ) from exc
+        finally:
+            secret = ""
+        self.app.stdout.write(
+            f"Authenticated {parsed_args.client} to {host}\n"
+        )

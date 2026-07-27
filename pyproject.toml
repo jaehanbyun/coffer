@@ -38,7 +38,22 @@ coffer-config-validate = "coffer.config_validator:main"
 coffer-edge = "coffer.edge_runner:main"
 coffer-registry-metrics = "coffer.registry_metrics_runner:main"
 
+[project.entry-points."openstack.cli.extension"]
+registry = "cofferclient.osc.plugin"
+
+[project.entry-points."openstack.registry.v1"]
+registry_endpoint_show = "cofferclient.osc.commands:ShowEndpoint"
+registry_login = "cofferclient.osc.commands:Login"
+registry_quota_show = "cofferclient.osc.commands:ShowQuota"
+registry_repository_create = "cofferclient.osc.commands:CreateRepository"
+registry_repository_list = "cofferclient.osc.commands:ListRepositories"
+registry_repository_show = "cofferclient.osc.commands:ShowRepository"
+
 [project.optional-dependencies]
+client = [
+  "osc-lib==4.4.0",
+  "python-openstackclient==9.0.0",
+]
 mariadb = [
   "PyMySQL==1.2.0",
 ]
