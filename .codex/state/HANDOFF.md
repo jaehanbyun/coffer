@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-27
-- Status: plan 0025 active; plans 0019 and 0022 blocked externally; plans 0020, 0021, 0023, and 0024 completed locally;
+- Status: plan 0025 completed locally; plans 0019 and 0022 blocked externally; plans 0020, 0021, 0023, 0024, and 0025 completed locally;
   native x86_64 UI parents and derivatives built and passed provenance/runtime
   collection, but standalone Docker Scout CVE evidence requires an unauthorized
   Docker login; the disposable VM, volumes, key, and runtime residue are absent;
@@ -36,20 +36,20 @@
   disabled-by-default immutable Horizon/Skyline image contracts and exact
   fallback lifecycle complete locally with 108 role checks; four desktop/narrow
   UI fixture screenshots visually inspected; current UI remediation suite
-  passes 107 focused checks, full Python regression passes 1,562 tests, and the
+  passes 108 focused checks, full Python regression passes 1,563 tests, and the
   prior Horizon/Skyline/108-check Kolla repository
   gates remain complete
-- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`, `docs/exec-plans/0023-ui-parent-remediation-baseline.md`, `docs/exec-plans/0024-ui-crypto-pair-remediation.md`
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`, `docs/exec-plans/0023-ui-parent-remediation-baseline.md`, `docs/exec-plans/0024-ui-crypto-pair-remediation.md`, `docs/exec-plans/0025-ui-cumulative-remediation-matrix.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Externally blocked execution plans:
   `docs/exec-plans/0019-stage6-production-promotion.md` and
   `docs/exec-plans/0022-native-x86-ui-image-qualification.md`
-- Active execution plan:
-  `docs/exec-plans/0025-ui-cumulative-remediation-matrix.md`
+- Active execution plan: none; the next work package is residual UI finding
+  closure.
 
 ## Current Objective
 
-Plan 0025 is active to combine only the native ARM64 Python remediations
+Plan 0025 is complete after combining only the native ARM64 Python remediations
 accepted in plans 0023 and 0024. Horizon selects 11 targets and 12 package
 components; Skyline selects nine targets and ten components because Django
 and Pillow are Horizon-only. Their declared aggregate scanner sets contain
@@ -66,10 +66,8 @@ The cumulative execution boundary is now complete as separate no-network
 surface builds, a multi-probe runtime schema, atomic evidence collection, and
 an exact aggregate classifier. It keeps all isolated target commands intact,
 selects no Horizon-only wheel for Skyline, and changes no production file.
-Bash, strict ShellCheck, Ruff, compilation, JSON, 107 focused UI image tests,
-and all 1,562 repository tests pass. The exact next action is
-`make -C poc/ui-images trial-python-cumulative` from a clean boundary, followed
-by result and cleanup-residue inspection.
+Bash, strict ShellCheck, Ruff, compilation, JSON, 108 focused UI image tests,
+and all 1,563 repository tests pass.
 The first live transaction built both cumulative images and passed all
 installs, `pip check`, 20 probes, runtime collection, and four two-scanner
 acquisitions, then stopped before result creation because the classifier
@@ -78,14 +76,30 @@ bounded images and generated non-evidence state are absent and Podman is
 stopped. The exact next action is to test the matrix-specific parser against
 the retained owner-only partial evidence, remove that failed evidence, and
 rerun the full transaction cleanly.
-The matrix-specific parser and rejection fixture now pass. A debug-only
+The matrix-specific parser and rejection fixture pass. A debug-only
 classification of the retained partial evidence closed every other contract:
 Horizon High became Trivy 31 to 1 and Scout 34 to 3; Skyline became 16 to 1
 and 19 to 3, with exact removals, zero introduced Critical/High, and zero
 Trivy secrets. That result was not accepted. All partial evidence and bounded
-state are absent, Podman is stopped, and 108 focused UI image tests pass. The
-exact next action is to commit this correction and rerun the full transaction
-from a clean boundary.
+state were removed before a clean rerun.
+
+The clean rerun passed the entire transaction. Horizon High changed from
+Trivy 31 to 1 and Scout 34 to 3; Skyline changed from 16 to 1 and 19 to 3.
+Each scanner removed exactly the declared aggregate set, introduced zero
+Critical/High findings, and Trivy found zero secrets. The accepted result
+SHA-256 is
+`a920ce2076908469c06103fbd0f19953cbf6e67a4dead964faaf85d20ed21e0a`.
+Only owner-readable ignored evidence remains. All bounded images, contexts,
+wheel copies, archives, and scanner caches are absent; an independent Podman
+restart confirmed the bounded image namespace is empty and the machine is
+stopped again.
+
+The result remains blocked and `production_candidate=false`. Trivy retains
+`CVE-2026-44393` in `oslo.messaging` 17.3.0 on both surfaces. Scout retains
+that finding plus `CVE-2024-6345` and `CVE-2025-47273` in Ubuntu's system
+`setuptools` 68.1.2. The exact next action is a separate plan 0026 to test
+whether the system setuptools copy can be safely removed or upgraded while
+keeping the unfixed oslo.messaging advisory as an upstream release gate.
 
 Plan 0024 is complete after proving the only dependency-valid remediation for
 the cryptography and pyOpenSSL findings. Installed pyOpenSSL 24.2.1
@@ -3262,13 +3276,14 @@ release contains it yet.
 
 ## Exact Next Action
 
-Commit the matrix parser correction, then run
-`make -C poc/ui-images trial-python-cumulative` from a clean bounded work
-directory. Accept evidence only if both surface builds, every target probe,
-exact package/file/OS/UI/lineage deltas, scanner-specific aggregate removals,
-zero introduced Critical/High, zero Trivy secrets, and residue cleanup pass.
-Do not alter production UI Containerfiles, waive a finding, handle a Docker
-credential, publish an image, or create a live cloud.
+Create `docs/exec-plans/0026-ui-residual-finding-closure.md`. Bind its baseline
+to Plan 0025 result SHA-256
+`a920ce2076908469c06103fbd0f19953cbf6e67a4dead964faaf85d20ed21e0a`,
+then test a bounded native ARM64 derivative that removes or updates only
+Ubuntu's system setuptools 68.1.2 and proves both Coffer UI runtimes still
+work. Keep `CVE-2026-44393` in oslo.messaging fail-closed until an upstream
+fixed release exists. Do not alter production UI Containerfiles, waive a
+finding, handle a Docker credential, publish an image, or create a live cloud.
 
 ## After This Work Package
 

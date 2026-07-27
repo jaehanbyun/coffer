@@ -189,6 +189,26 @@ creates a separate no-network build context for each surface, runs every
 selected compatibility probe, collects exact aggregate package/runtime
 evidence, and requires the scanner-specific cumulative finding delta. The
 result remains fail-closed and cannot change a production Containerfile.
+
+The 2026-07-27 clean native ARM64 cumulative trial accepted this matrix as a
+compatibility and remediation mechanism. Horizon High changed from Trivy 31
+to 1 and Scout 34 to 3; Skyline changed from Trivy 16 to 1 and Scout 19 to 3.
+Every declared finding was removed, no Critical/High finding was introduced,
+and Trivy found no secret. The accepted result SHA-256 is
+`a920ce2076908469c06103fbd0f19953cbf6e67a4dead964faaf85d20ed21e0a`.
+Only owner-readable evidence remains under ignored
+`work/ui-python-overlay-trial-matrix-accepted/evidence/`; all bounded images,
+contexts, wheel copies, archives, scanner caches, and the harness-started
+Podman machine are absent after exit.
+
+This result is still not a production candidate. Both surfaces retain
+`CVE-2026-44393` in `oslo.messaging` 17.3.0, for which the scanners report no
+fixed version. Docker Scout additionally reports `CVE-2024-6345` and
+`CVE-2025-47273` in Ubuntu's system `setuptools` 68.1.2. Those residuals,
+canonical AMD64 evidence, signed publication, and live Kolla acceptance remain
+separate gates; no finding waiver or private OpenStack constraints override is
+implied.
+
 Both `trivy` and `scout` keys are mandatory;
 each scanner may have an empty expected set, but their union must be nonempty,
 sorted, unique, canonical CVE or GHSA identifiers and must exactly equal the accepted

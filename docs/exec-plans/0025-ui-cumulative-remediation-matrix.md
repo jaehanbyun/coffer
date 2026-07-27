@@ -1,6 +1,6 @@
 ---
 title: "UI cumulative Python remediation matrix"
-status: active
+status: completed
 updated: 2026-07-27
 owner: primary-agent
 ---
@@ -18,21 +18,21 @@ production Containerfile or weakening the absolute production gate.
 
 ## Done Criteria
 
-- [ ] A checked-in matrix contract selects exactly the accepted target keys
+- [x] A checked-in matrix contract selects exactly the accepted target keys
       for each surface and refuses unknown, duplicate, unsorted,
       surface-incompatible, component-overlapping, or mutable input.
 - [x] The cumulative offline build and evidence contracts bind all 12 Horizon
       and 10 Skyline package components, their exact wheels, individual
       compatibility probes, surface membership, dependency metadata, and
       source hashes.
-- [ ] Both cumulative derivatives preserve the accepted OS cleanup inventory,
+- [x] Both cumulative derivatives preserve the accepted OS cleanup inventory,
       change only the declared Python distributions, pass `pip check`, every
       accepted probe, Coffer UI runtime, lineage, and build-input cleanup.
-- [ ] Trivy and Docker Scout remove exactly the declared aggregate findings
+- [x] Trivy and Docker Scout remove exactly the declared aggregate findings
       for each surface, introduce no Critical/High finding, find no secret,
       and leave the absolute production gate blocked if any inherited
       Critical/High finding remains.
-- [ ] Focused and full regression, static, documentation, secret, residue, and
+- [x] Focused and full regression, static, documentation, secret, residue, and
       diff gates pass; verified milestones are committed and pushed.
 
 ## Non-goals
@@ -84,11 +84,38 @@ production Containerfile or weakening the absolute production gate.
       classifier for exact surface-specific target and wheel sets.
 - [x] Add a bounded cumulative runner and Make target while preserving all
       isolated target commands.
-- [ ] Run and independently inspect the two-surface native ARM64 transaction.
-- [ ] Complete repository gates, update this plan and handoff, commit, and
+- [x] Run and independently inspect the two-surface native ARM64 transaction.
+- [x] Complete repository gates, update this plan and handoff, commit, and
       push.
 
 ## Progress Log
+
+### 2026-07-27 — Clean cumulative ARM64 transaction accepted
+
+- Completed: Repeated the entire bounded transaction from absent work state
+  and a stopped Podman machine. Both cumulative derivatives installed exactly
+  the declared package sets without a network, passed `pip check`, all 20
+  compatibility probes, Coffer UI runtime checks, exact OS/Python/file/lineage
+  comparison, build-input cleanup, and four fresh scanner acquisitions.
+- Evidence: Horizon High changed from Trivy 31 to 1 and Scout 34 to 3;
+  Skyline changed from Trivy 16 to 1 and Scout 19 to 3. Each scanner removed
+  exactly its declared aggregate set, introduced zero Critical/High findings,
+  and Trivy found zero secrets. The accepted result SHA-256 is
+  `a920ce2076908469c06103fbd0f19953cbf6e67a4dead964faaf85d20ed21e0a`.
+- Boundary: The result remains `production_candidate=false` and status
+  `blocked`. Both surfaces retain `CVE-2026-44393` in `oslo.messaging`
+  17.3.0; Scout additionally retains `CVE-2024-6345` and `CVE-2025-47273`
+  in Ubuntu's system `setuptools` 68.1.2. No waiver, private constraints
+  override, production Containerfile change, publication, or live deployment
+  occurred.
+- Cleanup and regression: Only owner-readable ignored evidence remains. All
+  bounded images, contexts, wheel copies, archives, and scanner caches are
+  absent; an independent machine restart confirmed the image namespace is
+  empty and Podman is stopped again. The focused UI image suite passes 108
+  tests and the full repository suite passes 1,563.
+- Next exact action: Open a separate residual-finding closure plan that tests
+  whether the system setuptools copy can be safely removed or upgraded, and
+  records the unfixed oslo.messaging finding as an upstream release gate.
 
 ### 2026-07-27 — First native trial stopped at matrix schema projection
 
@@ -163,10 +190,10 @@ production Containerfile or weakening the absolute production gate.
 |---|---|---|
 | Accepted target inventory | target schema v4 loader | passed; Horizon 11 targets/12 components, Skyline 9/10 |
 | Matrix contract fixtures | focused pytest, Ruff, formatting, compilation, JSON | passed; 13 tests |
-| Cumulative execution boundary | static plus focused/full regression | passed; 108 focused, 1,562 total |
-| Cumulative native ARM64 transaction | bounded two-surface harness | pending |
-| Runtime and scanner delta | exact inventories and two scanners | pending |
-| Final repository gates | static, focused/full pytest, secret, residue, diff | pending |
+| Cumulative execution boundary | static plus focused/full regression | passed; 108 focused, 1,563 total |
+| Cumulative native ARM64 transaction | bounded two-surface harness | passed cleanly from absent work state |
+| Runtime and scanner delta | exact inventories and two scanners | passed; Horizon 31→1/34→3, Skyline 16→1/19→3 High |
+| Final repository gates | static, focused/full pytest, secret, residue, diff | passed; 108 focused and 1,563 total tests, evidence-only residue |
 
 ## Failures, Blockers, and Risks
 
@@ -189,11 +216,11 @@ production Containerfile or weakening the absolute production gate.
 
 ## Handoff
 
-- Current state: Plan 0025 is active; the cumulative implementation and local
-  regression gates are complete.
-- Exact next action: Commit the classifier correction and run the clean native
-  ARM64 cumulative transaction.
-- First file or command:
-  `make -C poc/ui-images trial-python-cumulative`.
+- Current state: Plan 0025 is complete. The clean cumulative ARM64 experiment
+  is accepted while the absolute production gate remains blocked.
+- Exact next action: Create plan 0026 for residual UI finding closure.
+- First file or command: Inspect the three remaining scanner findings in
+  `work/ui-python-overlay-trial-matrix-accepted/evidence/` and define a
+  bounded system-setuptools trial without changing production images.
 - Questions requiring user input: None. No credential, external publication,
   live deployment, waiver, or security-boundary change is required.
