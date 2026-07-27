@@ -73,6 +73,14 @@ retained preview. The optional `src/cofferclient/` extension is now complete:
 all six `openstack registry` commands load from a built wheel, 56 focused
 tests and Ruff pass, and registry login sends only a finite application
 credential secret over child stdin without using a shell.
+The bounded host-TLS and same-host replica lifecycle is also complete locally:
+61 focused checks pass, the owner-local CA private key remains only on the
+Mac, and only owner-readable leaf/public trust inputs are staged on `bb00`.
+Tailscale-managed TLS is unavailable for this tailnet, so the explicit local
+CA is a preview boundary and a generally trusted certificate remains a
+production gate. The exact next action is to rebuild and reconfigure the
+retained guest from the committed source, start the replica pair, and install
+the validated host route.
 
 Plan 0027 is complete. Retained domain `coffer-ui-preview-1` runs on `bb00`
 at guest address `192.168.122.204`, internal VIP `192.168.122.205`, and

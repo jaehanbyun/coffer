@@ -118,15 +118,48 @@ def test_bb00_system_haproxy_preview_is_bounded_and_recoverable() -> None:
     assert snippet.count("# END COFFER UI PREVIEW") == 1
     assert "bind 100.123.168.66:18443" in snippet
     assert "bind 100.123.168.66:19999" in snippet
+    assert (
+        "bind 100.123.168.66:18788 ssl crt "
+        "/etc/haproxy/certs/coffer-registry-preview.pem"
+    ) in snippet
     assert "server coffer_aio 192.168.122.221:443 check" in snippet
     assert "server coffer_aio 192.168.122.221:9999 check" in snippet
+    assert "server coffer_edge_primary 192.168.122.204:8788 ssl" in snippet
+    assert "server coffer_edge_replica 192.168.122.204:18888 ssl" in snippet
+    assert snippet.count("verify required") == 2
+    assert "/v1/internal/" in snippet
     assert "0.0.0.0" not in snippet
-    assert ":8788" not in snippet
+    assert ":8789" not in snippet
+    assert ":18889" not in snippet
     assert 'test "$(id -u)" -eq 0' in lifecycle
+    assert "validate_tls_sources" in lifecycle
+    assert "checkhost" in lifecycle
+    assert "coffer-registry-preview.pem" in lifecycle
     assert "haproxy -c -f" in lifecycle
     assert "systemctl reload haproxy" in lifecycle
     assert "HAProxy reload failed; restored the previous config" in lifecycle
     assert "refusing to change a different Coffer preview block" in lifecycle
+
+
+def test_user_registry_preview_origin_and_replicas_remain_exactly_bounded() -> (
+    None
+):
+    globals_file = (
+        ROOT / "poc" / "ui-preview" / "coffer-globals.yml"
+    ).read_text(encoding="utf-8")
+    replicas = (
+        ROOT / "poc" / "ui-preview" / "guest-replicas.sh"
+    ).read_text(encoding="utf-8")
+
+    assert 'coffer_external_fqdn: "bb00.tail23b778.ts.net"' in globals_file
+    assert 'coffer_edge_public_port: "18788"' in globals_file
+    assert 'edge_container="coffer_edge_replica"' in replicas
+    assert 'registry_container="coffer_registry_replica"' in replicas
+    assert "bind_port = 18888" in replicas
+    assert "addr: ${guest_address}:18889" in replicas
+    assert "192.168.122.204:18888/v2/" not in replicas
+    assert "https://${guest_address}:18888/v2/" in replicas
+    assert "bb00.tail23b778.ts.net:18788/auth/token" in replicas
 
 
 def test_multinode_lifecycle_scans_every_runtime_log_without_retaining_it() -> (

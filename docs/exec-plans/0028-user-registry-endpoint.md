@@ -153,6 +153,28 @@ another private backend.
   acquire owner-only Tailscale TLS material, and reconfigure Coffer's public
   origin and Keystone catalog before installing the bounded host route.
 
+### 2026-07-27 — Bounded public-route and replica lifecycle prepared
+
+- Completed: Extended the marker-owned system-HAProxy contract with one
+  `100.123.168.66:18788` TLS frontend, explicit private/operational path
+  denials, verified-TLS primary and secondary Edge backends, exact Docker
+  client trust, legacy-block migration, rollback, status, and cleanup.
+- Completed: Added a Mac-owned local-CA lifecycle, a runtime-only Coffer image
+  refresh, and exact same-host Edge/Distribution replica lifecycle. The
+  selected external FQDN and port now enter Kolla through companion globals.
+- TLS boundary: The root CA key remains mode 0600 on the Mac. Only the public
+  CA, leaf key/certificate, and public guest backend CA are staged mode 0600
+  under the owner's `bb00` directory; no private material entered Git or
+  command output.
+- Evidence: Bash syntax, strict ShellCheck, diff checks, and 61 focused Kolla,
+  configuration, API, and client tests pass. Local leaf and CA validation
+  passes exact hostname, expiry, chain, and key-pair checks.
+- Changed files: Preview HAProxy, TLS, image-refresh, replica, globals, and
+  runbook artifacts; focused Kolla contract tests; this plan and handoff.
+- Next exact action: Copy the committed source into the guest, rebuild only
+  the Coffer runtime image, run companion prechecks/reconfigure, and start the
+  exact replicas before installing the host route.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -177,15 +199,21 @@ another private backend.
   explicit client trust procedure or a verifiable host certificate.
 - The retained AIO can prove only same-host load-balancer and replica
   behavior. Separate-host HA remains a production gate.
+- Two Tailscale-managed certificate attempts failed closed: the ordinary user
+  lacks cert permission, and a root-scoped socket call proved that this
+  tailnet does not support TLS certificates. The selected preview fallback is
+  an explicit owner-local CA; a generally trusted production FQDN/certificate
+  remains a production gate.
 
 ## Handoff
 
-- Current state: Plan 0028 is active. Discovery and the packaged client command
-  surface are complete; the retained runtime still advertises its
-  guest-internal origin.
-- Exact next action: Add the owner-facing TLS and host-proxy lifecycle, then
-  reconfigure the retained preview to advertise the selected origin.
-- First file or command: Extend
-  `poc/ui-preview/bb00-system-haproxy.sh` and its marker-owned snippet with an
-  HTTPS-terminating 18788 frontend and verified-TLS edge backend.
+- Current state: Plan 0028 is active. Discovery, client commands, and the
+  bounded TLS/proxy/replica lifecycle are complete locally; the retained
+  runtime still advertises its guest-internal origin.
+- Exact next action: Rebuild/reconfigure the retained preview from the
+  committed source and start the exact replicas before installing the host
+  route.
+- First file or command: Archive the current Git revision over
+  `/home/ubuntu/coffer`, then run `guest-refresh-coffer.sh` and
+  `guest-companion.sh prechecks`.
 - Questions requiring user input: None.

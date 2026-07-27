@@ -7,6 +7,8 @@ coffer_config_controller_become: true
 coffer_enable_reconcile: false
 coffer_enable_metrics: false
 coffer_enable_maintenance_identity: false
+coffer_external_fqdn: "bb00.tail23b778.ts.net"
+coffer_edge_public_port: "18788"
 
 coffer_image_full: "localhost/coffer:ui-preview"
 coffer_registry_image_full: "localhost/coffer-registry:ui-preview"
