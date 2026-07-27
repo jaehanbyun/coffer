@@ -66,6 +66,31 @@ avoid a browser warning for the preview IP certificate. Open
 Skyline. Coffer's OCI/control ingress is available at
 `http://localhost:18789`.
 
+For retained owner access without an SSH tunnel,
+`bb00-system-haproxy.sh install` adds one marker-owned block to the existing
+system HAProxy on `bb00`. It binds only the host's Tailscale address, not the
+LAN or wildcard addresses, and passes the already terminated Kolla TLS streams
+through without copying a private key onto the shared host:
+
+```text
+https://100.123.168.66:18443  Horizon
+https://100.123.168.66:19999  Skyline
+```
+
+The backend preview certificate was issued for `192.168.122.221`, so a browser
+using the `bb00` address requires a one-time certificate-warning bypass. The
+proxy routes only these two dashboards to the preview external VIP. It does
+not expose Keystone, MariaDB, the Coffer data plane, or a backend container
+port. The lifecycle validates the complete HAProxy configuration before an
+atomic install or removal, preserves a one-time backup, and owns only its
+bounded marker block:
+
+```text
+sudo ./bb00-system-haproxy.sh install
+sudo ./bb00-system-haproxy.sh status
+sudo ./bb00-system-haproxy.sh remove
+```
+
 The externally terminated TLS path can be inspected separately:
 
 ```text

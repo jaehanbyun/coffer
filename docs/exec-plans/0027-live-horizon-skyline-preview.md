@@ -193,8 +193,9 @@ without recording credentials in Git or exposing a new public listener.
 | Skyline live browser acceptance | local SSH tunnel, project A login | passed; catalog menu, quota, list, detail |
 | OCI and project isolation | real Docker push/pull and cross-project denial | passed; digest retained, A allowed, B denied |
 | Restart, idempotency, secret, and residue | six-container restart, second reconfigure, exact secret scans | passed; only safe one-shot migration reports changed |
-| Repository regression | `PATH="$PWD/.venv/bin:$PATH" ./.venv/bin/python -m pytest -q` | passed; 1,648 tests |
+| Repository regression | `PATH="$PWD/.venv/bin:$PATH" ./.venv/bin/python -m pytest -q` | passed; 1,649 tests |
 | Source and harness quality | Python compilation, Bash syntax, strict ShellCheck, YAML/JSON parse, diff check | passed |
+| Direct owner access | system HAProxy TCP passthrough on `100.123.168.66:18443` and `:19999`, Mac-side HTTPS requests | passed; both dashboards return 200 |
 
 ## Failures, Blockers, and Risks
 
@@ -223,18 +224,41 @@ without recording credentials in Git or exposing a new public listener.
   an explicit non-production warning and cannot become an image publication
   path.
 
+### 2026-07-27 — Retained system-HAProxy access added
+
+- Completed: Added one bounded marker-owned block to the existing `bb00`
+  system HAProxy. Horizon TLS is passed through from
+  `100.123.168.66:18443` to `192.168.122.221:443`; Skyline TLS is passed
+  through from `100.123.168.66:19999` to `192.168.122.221:9999`.
+- Safety boundary: The listeners bind only the Tailscale address. Keystone,
+  MariaDB, Coffer's data plane, internal VIP, and backend container ports
+  remain unexposed. The complete candidate config passed HAProxy validation,
+  the prior root-owned config is retained as
+  `/etc/haproxy/haproxy.cfg.coffer-ui-preview.bak`, and the system service
+  remains active after reload.
+- Evidence: Both direct Mac-side HTTPS requests return 200, the listeners
+  resolve to the exact `bb00` address and ports, and the guest still reports
+  41 running containers with zero unhealthy containers. The backend
+  certificate is issued for `192.168.122.221`, so the owner must pass a
+  one-time browser certificate warning when using the `bb00` address.
+- Cleanup: `sudo poc/ui-preview/bb00-system-haproxy.sh remove` removes only
+  the marker-owned block after full-config validation and reload. Run it
+  before destroying the preview VM.
+
 ## Handoff
 
 - Current state: Plan 0027 is complete. The retained
   `coffer-ui-preview-1` is running on `bb00`, autostart is disabled, all 41
   containers are running and healthy, both dashboards show the same live
-  registry repository, and owner-only credentials remain on the guest.
+  registry repository, owner-only credentials remain on the guest, and the
+  two system-HAProxy TLS passthrough listeners are active.
 - Exact next action: The owner can inspect Horizon and Skyline using the
-  local-only SSH tunnel and credential retrieval commands in
+  direct `bb00` addresses and credential retrieval command in
   `poc/ui-preview/README.md`. No deployment action is required.
-- First command when the preview is no longer needed: Run
-  `poc/ui-preview/provision.sh destroy` on `bb00`; its ownership checks limit
-  deletion to the exact preview domain and named volumes.
+- First commands when the preview is no longer needed: Remove the bounded
+  system-HAProxy block with `bb00-system-haproxy.sh remove`, then run
+  `poc/ui-preview/provision.sh destroy` on `bb00`; their ownership checks
+  limit changes to the exact listeners, preview domain, and named volumes.
 - Questions requiring user input: None. The current request authorizes a
   retained isolated preview deployment, disposable credentials, and
   owner-only access delivery.

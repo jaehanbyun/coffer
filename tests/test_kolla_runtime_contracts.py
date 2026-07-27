@@ -106,6 +106,29 @@ def test_skyline_integration_owns_the_same_origin_coffer_proxy() -> None:
     assert "192.168." not in proxy
 
 
+def test_bb00_system_haproxy_preview_is_bounded_and_recoverable() -> None:
+    snippet = (
+        ROOT / "poc" / "ui-preview" / "bb00-system-haproxy.cfg"
+    ).read_text(encoding="utf-8")
+    lifecycle = (
+        ROOT / "poc" / "ui-preview" / "bb00-system-haproxy.sh"
+    ).read_text(encoding="utf-8")
+
+    assert snippet.count("# BEGIN COFFER UI PREVIEW") == 1
+    assert snippet.count("# END COFFER UI PREVIEW") == 1
+    assert "bind 100.123.168.66:18443" in snippet
+    assert "bind 100.123.168.66:19999" in snippet
+    assert "server coffer_aio 192.168.122.221:443 check" in snippet
+    assert "server coffer_aio 192.168.122.221:9999 check" in snippet
+    assert "0.0.0.0" not in snippet
+    assert ":8788" not in snippet
+    assert 'test "$(id -u)" -eq 0' in lifecycle
+    assert "haproxy -c -f" in lifecycle
+    assert "systemctl reload haproxy" in lifecycle
+    assert "HAProxy reload failed; restored the previous config" in lifecycle
+    assert "refusing to change a different Coffer preview block" in lifecycle
+
+
 def test_multinode_lifecycle_scans_every_runtime_log_without_retaining_it() -> (
     None
 ):
