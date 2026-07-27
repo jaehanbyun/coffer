@@ -209,6 +209,22 @@ canonical AMD64 evidence, signed publication, and live Kolla acceptance remain
 separate gates; no finding waiver or private OpenStack constraints override is
 implied.
 
+`trial-python-residual` rebuilds the accepted matrix under a separate bounded
+work root and runs the installed Ubuntu package through `/usr/bin/python3`.
+The probe requires exact dpkg revision `68.1.2-2ubuntu1.2`, setuptools metadata
+version `68.1.2`, and the system module path. It also intercepts VCS commands
+containing shell metacharacters and requires list-form `subprocess.check_call`
+arguments, then rejects an encoded absolute download path and accepts a benign
+path under the requested root.
+
+Only after both image probes and the exact Canonical source-patch evidence pass
+does the runner generate per-image OpenVEX. Each statement is bound to the
+immutable image ID and setuptools PURL, uses `not_affected` with
+`vulnerable_code_not_present`, and is applied by Docker Scout from a separate
+VEX directory. Raw Scout SARIF remains beside the VEX-aware SARIF. The residual
+classifier must remove exactly the two setuptools findings while retaining the
+affected oslo.messaging finding and the overall production block.
+
 Both `trivy` and `scout` keys are mandatory;
 each scanner may have an empty expected set, but their union must be nonempty,
 sorted, unique, canonical CVE or GHSA identifiers and must exactly equal the accepted

@@ -78,9 +78,16 @@ owner-readable source result SHA-256 is
 `0e92b26994b6c21bbc8bdee48df71754b1ae431a157d22e8adeafb5dae2b048e`;
 downloaded source artifacts and manual scratch are absent. Fifty-four residual
 tests and all 162 UI image tests pass with Ruff, formatting, JSON, and
-compilation. The exact next action is to execute a no-shell VCS and
-path-containment behavior probe using `/usr/bin/python3` on both exact
-cumulative derivatives before generating OpenVEX.
+compilation. The system-Python behavior probe, exact two-surface collector,
+deterministic immutable-product OpenVEX generator, raw-plus-VEX-aware Scout
+boundary, and fail-closed residual classifier are now implemented. Eighty-seven
+direct residual, source, and matrix tests, all 173 UI image tests, and all 1,628
+repository tests pass with Ruff, Bash syntax, strict ShellCheck, compilation,
+and diff checks. The separate residual mode preserves the accepted Plan 0025
+work root and cannot suppress the remaining oslo.messaging finding. The exact
+next action is
+`make -C poc/ui-images trial-python-residual`, followed by independent
+evidence and residue inspection.
 
 Plan 0025 is complete after combining only the native ARM64 Python remediations
 accepted in plans 0023 and 0024. Horizon selects 11 targets and 12 package

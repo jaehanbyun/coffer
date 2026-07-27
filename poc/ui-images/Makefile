@@ -2,6 +2,7 @@ REPO_ROOT := $(abspath $(CURDIR)/../..)
 
 .PHONY: collect-residual-source probe-parents qualify trial-os-cleanup trial-python-click \
 	trial-python-cumulative \
+	trial-python-residual \
 	trial-python-cryptography-pyopenssl \
 	trial-python-django trial-python-httplib2 trial-python-overlay \
 	trial-python-lxml trial-python-msgpack trial-python-pyjwt trial-python-ujson \
@@ -12,7 +13,7 @@ verify:
 		tests/test_ui_image_collectors.py tests/test_ui_parent_remediation.py \
 		tests/test_ui_parent_package_probe.py tests/test_ui_os_cleanup_trial.py \
 		tests/test_ui_python_overlay_trial.py tests/test_ui_python_matrix_trial.py \
-		tests/test_ui_residual_finding.py
+		tests/test_ui_residual_finding.py tests/test_ui_setuptools_backport.py
 
 probe-parents:
 	./probe_stock_parents.sh
@@ -28,6 +29,9 @@ trial-python-click:
 
 trial-python-cumulative:
 	./trial_python_overlay.sh --matrix accepted
+
+trial-python-residual:
+	./trial_python_overlay.sh --matrix-residual accepted
 
 trial-python-cryptography-pyopenssl:
 	./trial_python_overlay.sh cryptography-pyopenssl

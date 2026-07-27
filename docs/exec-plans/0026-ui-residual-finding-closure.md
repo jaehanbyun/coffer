@@ -94,6 +94,27 @@ fail-closed for every finding that is not proven fixed or not affected.
 
 ## Progress Log
 
+### 2026-07-27 — Runtime and OpenVEX transaction boundary implemented
+
+- Completed: Added an exact system-Python probe for the installed Ubuntu
+  setuptools revision, static and intercepted-runtime no-shell VCS checks,
+  encoded-absolute-path rejection, a two-surface immutable image collector,
+  product-bound deterministic OpenVEX generation, raw-plus-VEX-aware Scout
+  acquisition, and a fail-closed residual classifier.
+- Safety: The residual mode has its own bounded work root, leaves the accepted
+  Plan 0025 evidence untouched, retains raw SARIF, requires
+  `vulnerable_code_not_present`, and keeps oslo.messaging plus every
+  independent production gate blocked.
+- Verification: Eighty-seven direct residual, matrix, and source tests, all
+  173 UI image tests, and all 1,628 repository tests pass with Ruff, Bash
+  syntax, strict ShellCheck, compilation, and diff checks.
+- Changed files: Probe, collector, OpenVEX generator, residual classifier,
+  residual transaction mode and Make target, focused tests, and UI image
+  operator documentation.
+- Next exact action: Execute `make -C poc/ui-images trial-python-residual` on
+  native ARM64 and accept evidence only if both behavior probes and Docker
+  Scout's exact two-finding VEX delta pass.
+
 ### 2026-07-27 — Canonical source backports verified
 
 - Completed: Added a bounded source collector that downloads the exact
@@ -176,12 +197,11 @@ fail-closed for every finding that is not proven fixed or not affected.
 ## Handoff
 
 - Current state: Plan 0026 is active; the immutable residual contract and exact
-  Canonical source proof are complete.
-- Exact next action: Implement and integrate the installed system setuptools
-  behavior probe on both cumulative derivatives.
-- First file or command: Add
-  `poc/ui-images/probe_setuptools_backport.py`, cover its no-shell VCS and
-  path-containment assertions, then call it from matrix mode before VEX
-  generation.
+  Canonical source proof plus the bounded runtime/OpenVEX transaction are
+  complete locally.
+- Exact next action: Run the native ARM64 residual transaction and inspect its
+  raw and VEX-aware scanner evidence.
+- First file or command:
+  `make -C poc/ui-images trial-python-residual`.
 - Questions requiring user input: None. No credential, publication, live
   deployment, waiver, or production image mutation is required.

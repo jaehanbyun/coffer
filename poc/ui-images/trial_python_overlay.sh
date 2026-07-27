@@ -4,15 +4,21 @@ set -Eeuo pipefail
 umask 027
 
 MATRIX_MODE=false
+RESIDUAL_MODE=false
 MATRIX_KEY=""
-if [[ "$#" -eq 2 ]] && [[ "$1" == "--matrix" ]]; then
+if [[ "$#" -eq 2 ]] && [[ "$1" == "--matrix-residual" ]]; then
+    MATRIX_MODE=true
+    RESIDUAL_MODE=true
+    MATRIX_KEY="$2"
+    TARGET_KEY="matrix-${MATRIX_KEY}-residual"
+elif [[ "$#" -eq 2 ]] && [[ "$1" == "--matrix" ]]; then
     MATRIX_MODE=true
     MATRIX_KEY="$2"
     TARGET_KEY="matrix-${MATRIX_KEY}"
 elif [[ "$#" -le 1 ]]; then
     TARGET_KEY="${1:-mako}"
 else
-    echo "usage: trial_python_overlay.sh [target-key] | --matrix matrix-key" >&2
+    echo "usage: trial_python_overlay.sh [target-key] | --matrix matrix-key | --matrix-residual matrix-key" >&2
     exit 1
 fi
 if [[ ! "${TARGET_KEY}" =~ ^[a-z][a-z0-9-]{1,31}$ ]]; then
@@ -43,6 +49,9 @@ WHEEL_INPUT="${ROOT}/work/ui-image-qualification/wheels"
 OS_CLEANUP_RESULT="${ROOT}/work/ui-os-cleanup-trial/evidence/cleanup-trial.json"
 OS_CLEANUP_INVENTORIES="${ROOT}/work/ui-os-cleanup-trial/evidence/inventories.json"
 REMEDIATION_RESULT="${ROOT}/work/ui-image-qualification/evidence/remediation.json"
+RESIDUAL_MANIFEST="${HARNESS}/residual_findings.json"
+RESIDUAL_SOURCE="${ROOT}/work/ui-residual-finding/evidence/ubuntu-setuptools-source.json"
+RESIDUAL_BASELINE="${ROOT}/work/ui-python-overlay-trial-matrix-accepted/evidence/python-matrix-trial.json"
 TARGET_WHEEL_NAMES=()
 TARGET_WHEEL_URLS=()
 TARGET_WHEEL_SHA256S=()
@@ -568,6 +577,31 @@ done
 python3 "${collection_script}" "${collection_args[@]}"
 jq -e --arg architecture "${architecture}" \
     '.architecture == $architecture' "${EVIDENCE}/manifest.json" >/dev/null
+if [[ "${RESIDUAL_MODE}" == true ]]; then
+    python3 "${HARNESS}/collect_setuptools_backport.py" \
+        --output "${EVIDENCE}/setuptools-runtimes.json" \
+        --horizon-after "${HORIZON_AFTER}" \
+        --skyline-after "${SKYLINE_AFTER}"
+    jq -e --arg architecture "${architecture}" '
+        .schema == "coffer.ui-setuptools-backport-evidence/v1"
+        and .architecture == $architecture
+        and (
+            [.runtimes[].decision.backported_behaviors_verified]
+            | all
+        )
+        and (
+            [.runtimes[].decision.vex_generation_allowed]
+            | all
+        )
+    ' "${EVIDENCE}/setuptools-runtimes.json" >/dev/null
+    python3 "${HARNESS}/generate_setuptools_openvex.py" \
+        --manifest "${RESIDUAL_MANIFEST}" \
+        --source-evidence "${RESIDUAL_SOURCE}" \
+        --baseline-result "${RESIDUAL_BASELINE}" \
+        --images "${EVIDENCE}/images.json" \
+        --runtimes "${EVIDENCE}/setuptools-runtimes.json" \
+        --output "${EVIDENCE}/vex"
+fi
 
 phase="two-scanner before and after evidence"
 for entry in "${scan_entries[@]}"; do
@@ -580,6 +614,14 @@ for entry in "${scan_entries[@]}"; do
         docker scout cves --format sarif \
             --output "work/ui-python-overlay-trial-${TARGET_KEY}/evidence/${key}.scout.sarif.json" \
             "archive://work/ui-python-overlay-trial-${TARGET_KEY}/evidence/${key}.tar"
+        if [[ "${RESIDUAL_MODE}" == true ]] && [[ "${key}" == *-after ]]; then
+            docker scout cves \
+                --vex-location "work/ui-python-overlay-trial-${TARGET_KEY}/evidence/vex" \
+                --ignore-suppressed \
+                --format sarif \
+                --output "work/ui-python-overlay-trial-${TARGET_KEY}/evidence/${key}.scout.vex.sarif.json" \
+                "archive://work/ui-python-overlay-trial-${TARGET_KEY}/evidence/${key}.tar"
+        fi
     )
     podman run --rm --network none \
         --volume "${EVIDENCE}:/evidence:rw" \
@@ -643,6 +685,27 @@ else
         and .decision.target == $target
         and .decision.production_containerfile_changed == false
     ' "${trial_result}" >/dev/null
+fi
+
+if [[ "${RESIDUAL_MODE}" == true ]]; then
+    phase="fail-closed residual OpenVEX classification"
+    residual_exit=0
+    python3 "${HARNESS}/residual_trial.py" "${EVIDENCE}" \
+        --root "${ROOT}" \
+        --manifest "${RESIDUAL_MANIFEST}" \
+        --source-evidence "${RESIDUAL_SOURCE}" \
+        --baseline-result "${RESIDUAL_BASELINE}" || residual_exit=$?
+    if [[ "${residual_exit}" -ne 3 ]]; then
+        exit "${residual_exit}"
+    fi
+    jq -e '
+        .decision.status == "blocked"
+        and .decision.production_candidate == false
+        and .decision.setuptools_openvex_accepted == true
+        and .decision.waivers_applied == false
+        and .decision.raw_scanner_evidence_retained == true
+        and .packages["oslo-messaging"].release_qualified == false
+    ' "${EVIDENCE}/residual-trial.json" >/dev/null
 fi
 
 echo "UI ${TARGET_RESULT_NAME} overlay trial accepted but production remains blocked; evidence=${EVIDENCE}"
