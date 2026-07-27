@@ -1,0 +1,64 @@
+{
+  "advisory": {
+    "affected_below": "17.3.1",
+    "finding_id": "CVE-2026-44393",
+    "ossn": "OSSN-0096",
+    "security_change": 989478,
+    "security_revision": "9546853cc8f3da604085fd75eb05d2fbb289533c",
+    "source": "https://review.opendev.org/c/openstack/security-doc/+/989478"
+  },
+  "candidate_policy": {
+    "minimum_version": "17.3.1",
+    "required_artifact_types": [
+      "bdist_wheel",
+      "sdist"
+    ],
+    "series": "17.3",
+    "source_probe": "ssl_enforce_hostname_verification"
+  },
+  "current_observation": {
+    "as_of": "2026-07-27",
+    "fixed_stable_release": null,
+    "pypi_latest": "18.2.0",
+    "stable_releases": [
+      "17.3.0"
+    ],
+    "upper_constraint": "oslo.messaging===17.3.0"
+  },
+  "mainline_observation": {
+    "patch_change": 988095,
+    "patch_revision": "73dc887a9caf7540685bdcb148f63d1a91f34bc0",
+    "tags": [
+      {
+        "source_probe_present": false,
+        "source_sha256": "7c54081476db457ac66f82df377347c6eb413b614801158181adee11a138e30e",
+        "version": "18.0.0"
+      },
+      {
+        "source_probe_present": true,
+        "source_sha256": "73fa9af464e7ad4d4bf030461b7900eaa47202f7a861cd9de39ee393c58199b3",
+        "version": "18.1.0"
+      },
+      {
+        "source_probe_present": true,
+        "source_sha256": "0d5e4ad2de8c204c248cc4f98b7ecde06a32dc9d166de078f9ad79988a84712e",
+        "version": "18.2.0"
+      }
+    ]
+  },
+  "package": "oslo.messaging",
+  "qualification": null,
+  "schema": "coffer.ui-oslo-messaging-release-gate/v1",
+  "stable_series": {
+    "installed_version": "17.3.0",
+    "name": "stable/2026.1",
+    "patch_change": 988979,
+    "patch_revision": "399f96e8044419ea16929a39174617ba59644052",
+    "release_notes": "https://docs.openstack.org/releasenotes/oslo.messaging/2026.1.html",
+    "upper_constraints": "https://opendev.org/openstack/requirements/raw/branch/stable/2026.1/upper-constraints.txt"
+  },
+  "upstream_metadata": {
+    "pypi": "https://pypi.org/pypi/oslo.messaging/json",
+    "source_template": "https://opendev.org/openstack/oslo.messaging/raw/tag/{version}/oslo_messaging/_drivers/impl_rabbit.py"
+  }
+}

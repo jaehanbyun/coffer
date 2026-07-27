@@ -320,9 +320,8 @@ def scout_sbom_document(
         separators=(",", ":"),
     ).encode()
     manifest_digest = f"sha256:{hashlib.sha256(raw_manifest).hexdigest()}"
-    archive_name = (
-        "work/ui-python-overlay-trial-matrix-accepted-residual/evidence/"
-        f"{surface}-after.tar"
+    image_name = (
+        f"localhost/coffer-ui-python-trial-{surface}-after:2026.1-python-overlay"
     )
     return (
         {
@@ -331,34 +330,34 @@ def scout_sbom_document(
                 "image": {
                     "digest": manifest_digest,
                     "manifest": manifest,
-                    "name": archive_name,
+                    "name": image_name,
                     "raw_manifest": base64.b64encode(raw_manifest).decode(),
                 },
             },
         },
-        archive_name,
+        image_name,
     )
 
 
-def test_scout_projection_binds_archive_manifest_and_config() -> None:
-    document, archive_name = scout_sbom_document()
+def test_scout_projection_binds_image_manifest_and_config() -> None:
+    document, image_name = scout_sbom_document()
     result = OPENVEX.scout_projection(
         document,
-        expected_archive_name=archive_name,
+        expected_image_name=image_name,
         expected_config_digest=f"sha256:{'1' * 64}",
     )
 
     assert result == {
-        "archive_name": archive_name,
         "image_config_digest": f"sha256:{'1' * 64}",
         "image_manifest_digest": document["source"]["image"]["digest"],
+        "image_name": image_name,
     }
 
     document["source"]["image"]["digest"] = f"sha256:{'2' * 64}"
     with pytest.raises(OPENVEX.VexError, match="raw manifest binding"):
         OPENVEX.scout_projection(
             document,
-            expected_archive_name=archive_name,
+            expected_image_name=image_name,
             expected_config_digest=f"sha256:{'1' * 64}",
         )
 

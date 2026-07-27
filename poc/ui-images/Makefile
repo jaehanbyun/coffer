@@ -1,6 +1,7 @@
 REPO_ROOT := $(abspath $(CURDIR)/../..)
 
-.PHONY: collect-residual-source probe-parents qualify trial-os-cleanup trial-python-click \
+.PHONY: check-oslo-messaging collect-residual-source probe-parents qualify \
+	trial-os-cleanup trial-python-click \
 	trial-python-cumulative \
 	trial-python-residual \
 	trial-python-cryptography-pyopenssl \
@@ -13,7 +14,12 @@ verify:
 		tests/test_ui_image_collectors.py tests/test_ui_parent_remediation.py \
 		tests/test_ui_parent_package_probe.py tests/test_ui_os_cleanup_trial.py \
 		tests/test_ui_python_overlay_trial.py tests/test_ui_python_matrix_trial.py \
-		tests/test_ui_residual_finding.py tests/test_ui_setuptools_backport.py
+		tests/test_ui_residual_finding.py tests/test_ui_setuptools_backport.py \
+		tests/test_ui_oslo_messaging_release_gate.py
+
+check-oslo-messaging:
+	cd "$(REPO_ROOT)" && uv run python \
+		poc/ui-images/oslo_messaging_release_gate.py --allow-blocked
 
 probe-parents:
 	./probe_stock_parents.sh

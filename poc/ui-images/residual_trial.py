@@ -118,24 +118,24 @@ def validate_openvex(
         path = evidence / "vex" / f"{surface}.vex.json"
         image = images["images"][f"{surface}-after"]
         image_id = image["id"]
-        archive_name = (
-            "work/ui-python-overlay-trial-matrix-accepted-residual/evidence/"
-            f"{surface}-after.tar"
+        image_name = (
+            f"localhost/coffer-ui-python-trial-{surface}-after:2026.1-python-overlay"
         )
         scout = scout_projection(
             load_json(
                 evidence / f"{surface}-after.scout.sbom.json",
                 f"{surface} Docker Scout SBOM",
             ),
-            expected_archive_name=archive_name,
+            expected_image_name=image_name,
             expected_config_digest=image_id,
         )
-        expected_product = f"pkg:docker/{archive_name}@{scout['image_manifest_digest']}"
+        repository = image_name.removesuffix(":2026.1-python-overlay")
+        expected_product = f"pkg:docker/{repository}@{scout['image_manifest_digest']}"
         if entry != {
-            "archive_name": archive_name,
             "filename": f"{surface}.vex.json",
             "image_config_digest": image_id,
             "image_manifest_digest": scout["image_manifest_digest"],
+            "image_name": image_name,
             "product": expected_product,
             "sha256": sha256_file(path),
         }:

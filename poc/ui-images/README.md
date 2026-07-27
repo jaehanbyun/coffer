@@ -219,11 +219,31 @@ path under the requested root.
 
 Only after both image probes and the exact Canonical source-patch evidence pass
 does the runner generate per-image OpenVEX. Each statement is bound to the
-immutable image ID and setuptools PURL, uses `not_affected` with
+exact Docker Scout image name, OCI manifest digest, image-config digest, and
+setuptools PURL, uses `not_affected` with
 `vulnerable_code_not_present`, and is applied by Docker Scout from a separate
 VEX directory. Raw Scout SARIF remains beside the VEX-aware SARIF. The residual
 classifier must remove exactly the two setuptools findings while retaining the
 affected oslo.messaging finding and the overall production block.
+
+The clean native ARM64 residual transaction accepted that disposition on
+2026-07-27. Raw Scout reported 0 Critical/3 High on both surfaces; VEX-aware
+Scout reported 0 Critical/1 High and removed exactly `CVE-2024-6345` plus
+`CVE-2025-47273`. Trivy independently retained the same single High
+`CVE-2026-44393`, and both scanners reported zero secrets. Result SHA-256 is
+`f9747c30fefb2652b5e053f597c7614763fec47f0ef17ebb5c4538fcf930e0d2`.
+Only owner-readable evidence remains; trial images, archives, contexts, wheels,
+scanner caches, and the harness-started Podman machine are absent.
+
+`check-oslo-messaging` validates the separate stable-release gate. The
+checked-in observation records that the `stable/2026.1` fix is merged but PyPI
+still has only `17.3.0` in the `17.3` series and the official upper constraint
+remains `oslo.messaging===17.3.0`. A future release must be at least `17.3.1`,
+contain the stable patch and hostname-verification source probe, publish
+non-yanked wheel and sdist artifacts, and update the stable constraint. It
+then remains only `candidate-released` until exact artifacts and both Horizon
+and Skyline runtime/scanner evidence qualify it. Even
+`candidate-qualified` keeps the independent production gates closed.
 
 Both `trivy` and `scout` keys are mandatory;
 each scanner may have an empty expected set, but their union must be nonempty,

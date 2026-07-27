@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-27
-- Status: plan 0026 active; plans 0019 and 0022 blocked externally; plans 0020, 0021, 0023, 0024, and 0025 completed locally;
+- Status: plans 0019 and 0022 blocked externally; plans 0020, 0021, 0023, 0024, 0025, and 0026 completed locally;
   native x86_64 UI parents and derivatives built and passed provenance/runtime
   collection, but standalone Docker Scout CVE evidence requires an unauthorized
   Docker login; the disposable VM, volumes, key, and runtime residue are absent;
@@ -36,58 +36,47 @@
   disabled-by-default immutable Horizon/Skyline image contracts and exact
   fallback lifecycle complete locally with 108 role checks; four desktop/narrow
   UI fixture screenshots visually inspected; current UI remediation suite
-  passes 162 focused checks, full Python regression passes 1,563 tests, and the
+  passes 190 focused checks, full Python regression passes 1,645 tests, and the
   prior Horizon/Skyline/108-check Kolla repository
   gates remain complete
-- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`, `docs/exec-plans/0023-ui-parent-remediation-baseline.md`, `docs/exec-plans/0024-ui-crypto-pair-remediation.md`, `docs/exec-plans/0025-ui-cumulative-remediation-matrix.md`
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`, `docs/exec-plans/0023-ui-parent-remediation-baseline.md`, `docs/exec-plans/0024-ui-crypto-pair-remediation.md`, `docs/exec-plans/0025-ui-cumulative-remediation-matrix.md`, `docs/exec-plans/0026-ui-residual-finding-closure.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Externally blocked execution plans:
   `docs/exec-plans/0019-stage6-production-promotion.md` and
   `docs/exec-plans/0022-native-x86-ui-image-qualification.md`
-- Active execution plan:
-  `docs/exec-plans/0026-ui-residual-finding-closure.md`
+- Active execution plan: none; resume
+  `docs/exec-plans/0019-stage6-production-promotion.md` only after its exact
+  upstream release gates change.
 
 ## Current Objective
 
-Plan 0026 is active to close the three High findings that remain on both
-accepted ARM64 cumulative UI derivatives. Trivy and Scout agree on affected
-`oslo.messaging` 17.3.0 `CVE-2026-44393` with no fixed version in the accepted
-evidence. Scout additionally classifies Ubuntu's system
-`setuptools-68.1.2.egg-info` as an upstream PyPI package and reports
-`CVE-2024-6345` plus `CVE-2025-47273`. The installed dpkg revision is
-`68.1.2-2ubuntu1.2`; Canonical records Noble fixed at
-`68.1.2-2ubuntu1.1` and `68.1.2-2ubuntu1.2`, respectively. The plan will prove
-those backports and any product-bound OpenVEX statement without hiding raw
-scanner evidence or replacing the distro package with pip. The first exact
-action is to add a strict residual manifest bound to Plan 0025 result SHA-256
-`a920ce2076908469c06103fbd0f19953cbf6e67a4dead964faaf85d20ed21e0a`,
-then cover fail-closed parsing before any image rebuild. That immutable v1
-contract and parser are now complete. They bind all four after-scan hashes,
-exact source paths, package/PURL/version/path identities, scanner projections,
-dispositions, and primary vendor evidence. Twenty-nine direct tests reject
-schema, digest, source set/order/path, package identity/order/path/PURL,
-surface, scanner/finding, vendor source/order/version, cross-package overlap,
-symlink, and unknown projection failures; JSON, compilation, Ruff, formatting,
-and all 137 UI image tests pass. The exact next action is a bounded Canonical
-source-evidence collector that proves both patches in Noble
-`setuptools` `68.1.2-2ubuntu1.2` before any OpenVEX generation. That collector
-is now complete and a live Ubuntu security archive acquisition verified the
-clear-signed `.dsc`, its exact upstream and Debian archive checksums, safe
-member set, quilt series, and all three security patch hashes. The
-owner-readable source result SHA-256 is
-`0e92b26994b6c21bbc8bdee48df71754b1ae431a157d22e8adeafb5dae2b048e`;
-downloaded source artifacts and manual scratch are absent. Fifty-four residual
-tests and all 162 UI image tests pass with Ruff, formatting, JSON, and
-compilation. The system-Python behavior probe, exact two-surface collector,
-deterministic immutable-product OpenVEX generator, raw-plus-VEX-aware Scout
-boundary, and fail-closed residual classifier are now implemented. Eighty-seven
-direct residual, source, and matrix tests, all 173 UI image tests, and all 1,628
-repository tests pass with Ruff, Bash syntax, strict ShellCheck, compilation,
-and diff checks. The separate residual mode preserves the accepted Plan 0025
-work root and cannot suppress the remaining oslo.messaging finding. The exact
-next action is
-`make -C poc/ui-images trial-python-residual`, followed by independent
-evidence and residue inspection.
+Plan 0026 is complete locally. The clean native ARM64 residual transaction
+re-proved Canonical's exact setuptools source backports and both in-image
+security behaviors, then bound each OpenVEX product to Docker Scout's exact
+image name, OCI manifest digest, and image-config digest. Raw Scout remained
+at 0 Critical/3 High on each surface; the VEX-aware view removed exactly
+`CVE-2024-6345` and `CVE-2025-47273` and retained only
+`CVE-2026-44393`. Trivy independently retained the same 0 Critical/1 High,
+and both surfaces had zero secret findings. Owner-readable result SHA-256 is
+`f9747c30fefb2652b5e053f597c7614763fec47f0ef17ebb5c4538fcf930e0d2`;
+OpenVEX index SHA-256 is
+`4792adec711fadf8f6738a38c2798b7eb38b2d731abe347862783c2c27dc47e7`.
+All trial images, archives, contexts, wheels, caches, debug scratch, and the
+harness-started Podman runtime are absent.
+
+The checked-in oslo.messaging release gate records that stable change 988979
+is merged at `399f96e8044419ea16929a39174617ba59644052`, but PyPI still has
+no fixed `17.3.x` release and stable/2026.1 upper constraints remain
+`oslo.messaging===17.3.0`. A future candidate must be at least 17.3.1,
+contain the patch and hostname-verification source probe, have non-yanked
+official wheel and sdist artifacts, and match the stable constraint. It remains
+only `candidate-released` until exact artifacts plus Horizon and Skyline
+runtime/scanner evidence qualify it. Cross-series 18.x, an unreleased commit,
+private wheel, metadata drift, and one-surface-only proof all fail closed.
+Even a qualified UI dependency does not override independent Stage 6 gates.
+All 190 UI image tests and all 1,645 repository tests pass with Ruff,
+formatting, JSON, compilation, Bash, strict ShellCheck, secret, documentation,
+diff, and residue checks.
 
 Plan 0025 is complete after combining only the native ARM64 Python remediations
 accepted in plans 0023 and 0024. Horizon selects 11 targets and 12 package
@@ -3316,24 +3305,25 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/ui-images/probe_setuptools_backport.py`. It must run under the system
-Python on each exact cumulative derivative, bind dpkg
-`python3-setuptools=68.1.2-2ubuntu1.2` and upstream metadata 68.1.2, prove VCS
-execution uses list argv without a shell, reject the encoded absolute-path
-download filename, accept a benign contained filename, and emit no identity
-or secret. Integrate it into matrix mode and fail before VEX generation if
-either surface differs. Do not alter production UI Containerfiles, waive a
-finding, handle a Docker credential, publish an image, or create a live cloud.
+Run `make -C poc/ui-images check-oslo-messaging` after official
+stable/2026.1 metadata changes. Update only the observed release object after
+verifying a non-yanked 17.3.1-or-later wheel and sdist, exact tag ancestry and
+source probe, and a matching upper constraint. Then run exact Horizon and
+Skyline runtime/scanner qualification. Do not substitute 18.x, an unreleased
+commit, or a private wheel, and do not treat dependency qualification as
+permission to bypass the separate Distribution, Ceph, native AMD64, signing,
+publication, live Kolla, or browser gates.
 
 ## After This Work Package
 
 The REST/OpenAPI, Horizon, Skyline, disabled-by-default Kolla UI lifecycle,
 rendered fixture, and full repository verification scope is complete locally.
-Plan 0021 closes the native ARM64 local UI image build/scan gap with an honest
-blocked result. Plan 0022 proves native x86_64 build/runtime compatibility but
-cannot produce the accepted canonical two-scanner result without separately
-authorized Docker Scout authentication. Stage 6's qualified pilot still
-requires released dependency gates, parent-image remediation, a canonical
-native x86_64 result, signing/publication through an approved operator
-pipeline, and live catalog, Keystone, Kolla, and browser acceptance. Official
+Plan 0021 closes the native ARM64 local UI image build/scan gap, and plans
+0023-0026 reduce it to one correctly retained oslo.messaging High with a
+strict release gate. Plan 0022 proves native x86_64 build/runtime compatibility
+but cannot produce the accepted canonical two-scanner result without
+separately authorized Docker Scout authentication. Stage 6's qualified pilot
+still requires released dependency gates, a canonical native x86_64 result,
+signing/publication through an approved operator pipeline, and live catalog,
+Keystone, Kolla, Horizon, and Skyline browser acceptance. Official
 OpenStack/Kolla governance work remains later.

@@ -128,20 +128,17 @@ def image_projection(
         }
     ):
         raise VexError("OpenVEX runtime decision is invalid")
-    archive_name = (
-        "work/ui-python-overlay-trial-matrix-accepted-residual/evidence/"
-        f"{surface}-after.tar"
-    )
     scout = scout_projection(
         scout_document,
-        expected_archive_name=archive_name,
+        expected_image_name=expected_name,
         expected_config_digest=image_id,
     )
+    repository = expected_name.removesuffix(":2026.1-python-overlay")
     return {
-        "archive_name": archive_name,
         "image_config_digest": image_id,
         "image_manifest_digest": scout["image_manifest_digest"],
-        "product": (f"pkg:docker/{archive_name}@{scout['image_manifest_digest']}"),
+        "image_name": expected_name,
+        "product": (f"pkg:docker/{repository}@{scout['image_manifest_digest']}"),
         "timestamp": timestamp,
     }
 
@@ -149,15 +146,15 @@ def image_projection(
 def scout_projection(
     document: dict[str, Any],
     *,
-    expected_archive_name: str,
+    expected_image_name: str,
     expected_config_digest: str,
 ) -> dict[str, str]:
     source = document.get("source")
     if not isinstance(source, dict) or source.get("type") != "image":
         raise VexError("Docker Scout source identity is invalid")
     image = source.get("image")
-    if not isinstance(image, dict) or image.get("name") != expected_archive_name:
-        raise VexError("Docker Scout archive identity is invalid")
+    if not isinstance(image, dict) or image.get("name") != expected_image_name:
+        raise VexError("Docker Scout image identity is invalid")
     manifest_digest = image.get("digest")
     manifest = image.get("manifest")
     raw_manifest = image.get("raw_manifest")
@@ -190,9 +187,9 @@ def scout_projection(
     ):
         raise VexError("Docker Scout raw manifest binding is invalid")
     return {
-        "archive_name": expected_archive_name,
         "image_config_digest": expected_config_digest,
         "image_manifest_digest": manifest_digest,
+        "image_name": expected_image_name,
     }
 
 
@@ -354,10 +351,10 @@ def generate(
             ),
         )
         files[surface] = {
-            "archive_name": projection["archive_name"],
             "filename": filename,
             "image_config_digest": projection["image_config_digest"],
             "image_manifest_digest": projection["image_manifest_digest"],
+            "image_name": projection["image_name"],
             "product": projection["product"],
             "sha256": sha256_file(path),
         }
