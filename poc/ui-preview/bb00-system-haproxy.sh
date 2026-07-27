@@ -8,6 +8,7 @@ backup_config="/etc/haproxy/haproxy.cfg.coffer-ui-preview.bak"
 source_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 snippet="${source_root}/bb00-system-haproxy.cfg"
 legacy_snippet="${source_root}/bb00-system-haproxy-v1.cfg"
+previous_snippet="${source_root}/bb00-system-haproxy-v2-ip-verify.cfg"
 tailscale_address="100.123.168.66"
 registry_fqdn="bb00.tail23b778.ts.net"
 horizon_port="18443"
@@ -32,6 +33,7 @@ require_host() {
     test ! -L "${system_config}"
     test -r "${snippet}"
     test -r "${legacy_snippet}"
+    test -r "${previous_snippet}"
     command -v haproxy >/dev/null
     command -v openssl >/dev/null
     command -v systemctl >/dev/null
@@ -106,16 +108,20 @@ render_candidate() {
     local output="$2"
 
     python3 - \
-        "${system_config}" "${snippet}" "${legacy_snippet}" "${output}" \
+        "${system_config}" "${snippet}" "${legacy_snippet}" \
+        "${previous_snippet}" "${output}" \
         "${operation}" "${begin_marker}" "${end_marker}" <<'PY'
 from pathlib import Path
 import sys
 
-config_path, snippet_path, legacy_path, output_path = map(Path, sys.argv[1:5])
-operation, begin_marker, end_marker = sys.argv[5:]
+config_path, snippet_path, legacy_path, previous_path, output_path = map(
+    Path, sys.argv[1:6]
+)
+operation, begin_marker, end_marker = sys.argv[6:]
 config = config_path.read_text(encoding="utf-8")
 snippet = snippet_path.read_text(encoding="utf-8").strip()
 legacy = legacy_path.read_text(encoding="utf-8").strip()
+previous = previous_path.read_text(encoding="utf-8").strip()
 begin_count = config.count(begin_marker)
 end_count = config.count(end_marker)
 if begin_count != end_count or begin_count > 1:
@@ -129,13 +135,13 @@ else:
     begin = end = -1
     current = ""
 
-if current and current not in {snippet, legacy}:
+if current and current not in {snippet, legacy, previous}:
     raise SystemExit("refusing to change a different Coffer preview block")
 
 if operation == "install":
     if current == snippet:
         rendered = config
-    elif current == legacy:
+    elif current in {legacy, previous}:
         rendered = config[:begin] + snippet + config[end:]
     else:
         rendered = config.rstrip() + "\n\n" + snippet + "\n"

@@ -42,8 +42,10 @@
   both dashboards show the same live registry repository, restart and
   two-project OCI isolation pass, and the retained VM remains
   autostart-disabled and explicitly non-production; the existing system
-  HAProxy exposes only the two TLS dashboard streams on the `bb00` Tailscale
-  address through a bounded marker-owned block
+  HAProxy exposes the two dashboard streams and one single-origin Coffer
+  control/token/OCI route only on the `bb00` Tailscale address; real
+  Docker/Podman/ORAS, project denial, and same-host primary-pair outage
+  acceptance pass through that route
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`, `docs/exec-plans/0023-ui-parent-remediation-baseline.md`, `docs/exec-plans/0024-ui-crypto-pair-remediation.md`, `docs/exec-plans/0025-ui-cumulative-remediation-matrix.md`, `docs/exec-plans/0026-ui-residual-finding-closure.md`, `docs/exec-plans/0027-live-horizon-skyline-preview.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Externally blocked execution plans:
@@ -56,31 +58,21 @@
 
 ## Current Objective
 
-Plan 0028 is active. Its objective is to promote the retained preview's
-guest-internal Coffer route into one owner-accessible HTTPS origin covering
-`/v1`, `/auth/token`, and `/v2`, add explicit endpoint discovery and a
-packaged OpenStackClient command surface, and prove Docker, Podman, ORAS,
-project isolation, backend closure, restart, reconfigure, and bounded
-same-host HA without weakening any production gate. The exact next action is
-to freeze that origin from live `bb00` DNS/TLS, system-HAProxy, guest catalog,
-and registry-challenge evidence, then implement the discovery contract in
-`src/coffer/wsgi.py`. That discovery milestone is now complete: the API,
-policy, OpenAPI, Kolla config, and fail-closed same-origin validation pass 45
-focused tests for the selected
-`https://bb00.tail23b778.ts.net:18788` origin. The exact next action is to add
-the bounded owner-facing TLS and host-proxy lifecycle, then reconfigure the
-retained preview. The optional `src/cofferclient/` extension is now complete:
-all six `openstack registry` commands load from a built wheel, 56 focused
-tests and Ruff pass, and registry login sends only a finite application
-credential secret over child stdin without using a shell.
-The bounded host-TLS and same-host replica lifecycle is also complete locally:
-61 focused checks pass, the owner-local CA private key remains only on the
-Mac, and only owner-readable leaf/public trust inputs are staged on `bb00`.
-Tailscale-managed TLS is unavailable for this tailnet, so the explicit local
-CA is a preview boundary and a generally trusted certificate remains a
-production gate. The exact next action is to rebuild and reconfigure the
-retained guest from the committed source, start the replica pair, and install
-the validated host route.
+Plan 0028 is active. The retained preview now serves one owner-accessible
+`https://bb00.tail23b778.ts.net:18788` origin for `/v1`, `/auth/token`, and
+`/v2`. Endpoint discovery, the optional OpenStackClient package, Kolla
+configuration, owner-local TLS, a Tailscale-address-only system-HAProxy route,
+and the exact same-host Edge/Distribution replica lifecycle are implemented.
+Docker 28.0.4, pinned Podman 5.8.2, and pinned ORAS 1.3.3 push/pull pass;
+project B cannot pull project A content; and Docker push/pull continues while
+the primary Edge and Distribution pair is stopped. Secrets use only stdin and
+mode-0600 staging, which is absent after the run. Owner evidence SHA-256 is
+`e9b87ca4588bf959210634509645bb57c5d515782e258e6f29f8cd9613929874`.
+The explicit local CA and same-host replicas remain preview boundaries. The
+exact next action is to install the Coffer wheel into Kolla toolbox, exercise
+the six `openstack registry` commands through the live catalog, then finish
+backend closure, restart, reconfigure, log-redaction, UI, and full-regression
+checks.
 
 Plan 0027 is complete. Retained domain `coffer-ui-preview-1` runs on `bb00`
 at guest address `192.168.122.204`, internal VIP `192.168.122.205`, and

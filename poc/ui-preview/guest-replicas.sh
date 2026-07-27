@@ -88,7 +88,7 @@ start_replicas() {
                 --cacert "${backend_ca}" \
                 --output /dev/null \
                 --write-out '%{http_code}' \
-                "https://${guest_address}:18888/v2/" || true
+                "https://${guest_address}:18888/v2/" 2>/dev/null || true
         )" = 401; then
             break
         fi

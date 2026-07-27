@@ -120,6 +120,20 @@ sudo ./guest-replicas.sh stop
 This proves shared-RGW and load-balancer continuity only; both replicas still
 share one VM and failure domain.
 
+Run the real-client and bounded primary-pair outage acceptance from the Mac:
+
+```text
+./mac-registry-acceptance.sh
+```
+
+The orchestrator stages only two disposable application credentials through
+mode-0600 temporary files, stops the primary Edge and Distribution pair, and
+always restores the pair and removes the staging files on exit. The host-side
+runner verifies the TLS name and token challenge, Docker, pinned Podman and
+ORAS push/pull, project-B denial, and a failover push/pull. It retains only
+secret-free, owner-readable evidence at
+`/home/jh.byun/coffer-registry-acceptance.json`.
+
 The externally terminated TLS path can be inspected separately:
 
 ```text

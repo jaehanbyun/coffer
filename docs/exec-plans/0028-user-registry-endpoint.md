@@ -86,7 +86,7 @@ another private backend.
 - [x] Add versioned endpoint discovery and update the OpenAPI contract.
 - [x] Implement and package the OpenStackClient command surface with tests and
       owner-safe login output.
-- [ ] Extend the retained preview harness and companion role for the selected
+- [x] Extend the retained preview harness and companion role for the selected
       external origin, TLS material, system-HAProxy route, and repeatable
       teardown.
 - [ ] Reconfigure the preview and verify catalog, UIs, real clients, isolation,
@@ -175,6 +175,30 @@ another private backend.
   the Coffer runtime image, run companion prechecks/reconfigure, and start the
   exact replicas before installing the host route.
 
+### 2026-07-27 — Public route and real-client HA acceptance passed
+
+- Completed: Rebuilt and reconfigured the retained runtime with the selected
+  public origin, started an exact same-host Edge/Distribution replica pair,
+  and installed the Tailscale-address-only system-HAProxy route with verified
+  TLS on both hops. The primary pair was then stopped as one bounded fault and
+  restored by a fail-closed Mac orchestrator.
+- Evidence: Docker 28.0.4, pinned Podman 5.8.2, and pinned ORAS 1.3.3 each
+  pushed and pulled through the public origin. Project B was denied project
+  A's Docker content. A Docker push and pull continued while the primary Edge
+  and Distribution containers were stopped. The primary and replica paths
+  advertise the exact external token realm; the primary containers returned
+  healthy after restoration.
+- Security: TLS chain and hostname verification passed; client secrets crossed
+  only stdin and owner-readable mode-0600 staging, and all staging files were
+  removed. Secret-free owner evidence remains on `bb00` with SHA-256
+  `e9b87ca4588bf959210634509645bb57c5d515782e258e6f29f8cd9613929874`.
+- Failures resolved: Added a bounded HAProxy transition retry after an initial
+  post-stop 503, and stopped requiring Docker and Podman to produce identical
+  manifest digests because clients may normalize media types independently.
+- Next exact action: Install the built Coffer wheel into the retained Kolla
+  toolbox and run the six `openstack registry` commands against the live
+  catalog without exposing an application-credential secret.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -183,10 +207,10 @@ another private backend.
 | Requirement audit | plan 0027, role defaults, package entry points | passed; endpoint and client gaps confirmed |
 | Discovery unit and API contract | focused pytest, JSON, compilation | passed; 45 tests |
 | Client unit and package contract | focused pytest, Ruff, wheel entry-point inspection | passed; 56 focused tests and six commands |
-| Live catalog and path routing | Keystone catalog plus HTTPS requests | pending |
-| Real OCI clients and isolation | Docker, Podman, ORAS project A/B acceptance | pending |
+| Live catalog and path routing | Keystone catalog plus HTTPS requests | public route and challenge passed; CLI catalog exercise pending |
+| Real OCI clients and isolation | Docker, Podman, ORAS project A/B acceptance | passed |
 | Security and lifecycle | direct-backend probes, restart, reconfigure, log scan | pending |
-| Functional HA | bounded replica stop and continued push/pull | pending |
+| Functional HA | bounded primary Edge/Distribution stop and continued push/pull | passed; same-host only |
 | Full regression | complete repository test and source checks | pending |
 
 ## Failures, Blockers, and Risks
@@ -207,13 +231,12 @@ another private backend.
 
 ## Handoff
 
-- Current state: Plan 0028 is active. Discovery, client commands, and the
-  bounded TLS/proxy/replica lifecycle are complete locally; the retained
-  runtime still advertises its guest-internal origin.
-- Exact next action: Rebuild/reconfigure the retained preview from the
-  committed source and start the exact replicas before installing the host
-  route.
-- First file or command: Archive the current Git revision over
-  `/home/ubuntu/coffer`, then run `guest-refresh-coffer.sh` and
-  `guest-companion.sh prechecks`.
+- Current state: Plan 0028 is active. The discovery and client packages are
+  complete; the public origin, real Docker/Podman/ORAS path, project
+  isolation, and same-host primary-pair outage path pass live acceptance.
+- Exact next action: Exercise the packaged OpenStackClient extension from
+  Kolla toolbox against the live Keystone catalog and Coffer API.
+- First file or command: Build the current Coffer wheel on the Mac, copy it
+  into `coffer-ui-preview-1`, and install it into `kolla_toolbox` with
+  `--no-deps`.
 - Questions requiring user input: None.
