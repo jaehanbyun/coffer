@@ -162,7 +162,12 @@ def container_json(
         detail = process.stdout.strip()
         if (
             process.returncode != 0
-            and detail.startswith("coffer-ui-python-overlay-runtime: ")
+            and detail.startswith(
+                (
+                    "coffer-ui-python-overlay-runtime: ",
+                    "coffer-ui-python-matrix-runtime: ",
+                )
+            )
             and "\n" not in detail
         ):
             raise CollectionError(f"{collector.stem} failed for {key}: {detail}")

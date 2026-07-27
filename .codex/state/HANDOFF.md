@@ -36,7 +36,7 @@
   disabled-by-default immutable Horizon/Skyline image contracts and exact
   fallback lifecycle complete locally with 108 role checks; four desktop/narrow
   UI fixture screenshots visually inspected; current UI remediation suite
-  passes 86 focused checks, full Python regression passes 1,541 tests, and the
+  passes 107 focused checks, full Python regression passes 1,562 tests, and the
   prior Horizon/Skyline/108-check Kolla repository
   gates remain complete
 - Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`, `docs/exec-plans/0023-ui-parent-remediation-baseline.md`, `docs/exec-plans/0024-ui-crypto-pair-remediation.md`
@@ -62,9 +62,14 @@ and bound to target manifest SHA-256
 `880f487647bd068b1d9f951a7440cae9a142382f74e10ba2b5e460b09b7505b7`.
 Thirteen focused tests pass exact selection plus schema, hash, surface, target,
 ordering, completeness, overlap, label, symlink, and unknown-key rejection.
-The exact next action is to extend `collect_python_runtime.py` with an explicit
-matrix/surface mode that runs every selected probe and records every exact
-component while preserving isolated target behavior.
+The cumulative execution boundary is now complete as separate no-network
+surface builds, a multi-probe runtime schema, atomic evidence collection, and
+an exact aggregate classifier. It keeps all isolated target commands intact,
+selects no Horizon-only wheel for Skyline, and changes no production file.
+Bash, strict ShellCheck, Ruff, compilation, JSON, 107 focused UI image tests,
+and all 1,562 repository tests pass. The exact next action is
+`make -C poc/ui-images trial-python-cumulative` from a clean boundary, followed
+by result and cleanup-residue inspection.
 
 Plan 0024 is complete after proving the only dependency-valid remediation for
 the cryptography and pyOpenSSL findings. Installed pyOpenSSL 24.2.1
@@ -3241,13 +3246,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Extend `poc/ui-images/collect_python_runtime.py` with explicit
-`--matrix-manifest`, `--matrix`, and `--surface` inputs. Run every selected
-target probe and bind every exact surface component while preserving the
-existing isolated `--target` contract and output. Add positive and rejection
-fixtures before changing the build runner. Do not alter production UI
-Containerfiles, waive a finding, handle a Docker credential, publish an image,
-or create a live cloud.
+Run `make -C poc/ui-images trial-python-cumulative` from a clean bounded work
+directory. Accept evidence only if both surface builds, every target probe,
+exact package/file/OS/UI/lineage deltas, scanner-specific aggregate removals,
+zero introduced Critical/High, zero Trivy secrets, and residue cleanup pass.
+Do not alter production UI Containerfiles, waive a finding, handle a Docker
+credential, publish an image, or create a live cloud.
 
 ## After This Work Package
 

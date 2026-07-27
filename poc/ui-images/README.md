@@ -159,6 +159,7 @@ set, at a time on top of the accepted cleanup derivative:
 ```console
 make -C poc/ui-images trial-python-overlay
 make -C poc/ui-images trial-python-click
+make -C poc/ui-images trial-python-cumulative
 make -C poc/ui-images trial-python-cryptography-pyopenssl
 make -C poc/ui-images trial-python-django
 make -C poc/ui-images trial-python-httplib2
@@ -178,6 +179,16 @@ and scanner-specific expected findings; the target also binds the
 compatibility probe, explicit installed UI surfaces, and trial label.
 Component names, wheel filenames, and findings must be disjoint, companions
 must be sorted, and the target key must exactly identify the component set.
+
+`trial-python-cumulative` selects the checked-in `accepted` entry from
+`python_matrices.json`. The matrix manifest is bound to the exact
+`python_targets.json` SHA-256 and names the complete sorted target set for each
+surface. Horizon receives all 12 accepted package components; Skyline receives
+ten and does not install the Horizon-only Django or Pillow wheels. The runner
+creates a separate no-network build context for each surface, runs every
+selected compatibility probe, collects exact aggregate package/runtime
+evidence, and requires the scanner-specific cumulative finding delta. The
+result remains fail-closed and cannot change a production Containerfile.
 Both `trivy` and `scout` keys are mandatory;
 each scanner may have an empty expected set, but their union must be nonempty,
 sorted, unique, canonical CVE or GHSA identifiers and must exactly equal the accepted

@@ -21,7 +21,7 @@ production Containerfile or weakening the absolute production gate.
 - [ ] A checked-in matrix contract selects exactly the accepted target keys
       for each surface and refuses unknown, duplicate, unsorted,
       surface-incompatible, component-overlapping, or mutable input.
-- [ ] The cumulative offline build and evidence contracts bind all 12 Horizon
+- [x] The cumulative offline build and evidence contracts bind all 12 Horizon
       and 10 Skyline package components, their exact wheels, individual
       compatibility probes, surface membership, dependency metadata, and
       source hashes.
@@ -80,15 +80,35 @@ production Containerfile or weakening the absolute production gate.
 
 - [x] Add strict matrix model, checked-in surface selections, and positive and
       rejection fixtures.
-- [ ] Extend the offline build, runtime collector, evidence manifest, and
+- [x] Extend the offline build, runtime collector, evidence manifest, and
       classifier for exact surface-specific target and wheel sets.
-- [ ] Add a bounded cumulative runner and Make target while preserving all
+- [x] Add a bounded cumulative runner and Make target while preserving all
       isolated target commands.
 - [ ] Run and independently inspect the two-surface native ARM64 transaction.
 - [ ] Complete repository gates, update this plan and handoff, commit, and
       push.
 
 ## Progress Log
+
+### 2026-07-27 — Cumulative execution boundary complete
+
+- Completed: Added a surface-specific no-network matrix Containerfile,
+  multi-probe runtime collector, atomic evidence collector, exact runtime and
+  scanner classifier, bounded runner mode, Make target, and operator
+  documentation. The existing isolated target path remains unchanged.
+- Evidence: Matrix mode installs exactly 12 Horizon and ten Skyline package
+  components, binds the two manifests and all source wheels, runs every
+  selected probe, requires exact package/file/UI/OS/lineage deltas, and
+  accepts only each scanner's declared aggregate removals with zero
+  introduction or secret. Static Bash, strict ShellCheck, Ruff, compilation,
+  JSON, 107 focused UI image tests, and all 1,562 repository tests pass.
+- Changed files: Matrix Containerfile, runtime/evidence/classifier modules,
+  bounded runner and Make target, shared runtime error projection, tests,
+  README, this plan, and durable handoff.
+- Next exact action: Run
+  `make -C poc/ui-images trial-python-cumulative` from a clean boundary and
+  inspect the owner-only result plus cleanup residue before accepting any
+  cumulative evidence.
 
 ### 2026-07-27 — Immutable matrix contract complete
 
@@ -124,6 +144,7 @@ production Containerfile or weakening the absolute production gate.
 |---|---|---|
 | Accepted target inventory | target schema v4 loader | passed; Horizon 11 targets/12 components, Skyline 9/10 |
 | Matrix contract fixtures | focused pytest, Ruff, formatting, compilation, JSON | passed; 13 tests |
+| Cumulative execution boundary | static plus focused/full regression | passed; 107 focused, 1,562 total |
 | Cumulative native ARM64 transaction | bounded two-surface harness | pending |
 | Runtime and scanner delta | exact inventories and two scanners | pending |
 | Final repository gates | static, focused/full pytest, secret, residue, diff | pending |
@@ -145,9 +166,10 @@ production Containerfile or weakening the absolute production gate.
 
 ## Handoff
 
-- Current state: Plan 0025 is active; the immutable matrix model is complete.
-- Exact next action: Add explicit cumulative mode to the runtime collector.
-- First file or command: Extend
-  `poc/ui-images/collect_python_runtime.py` without changing isolated mode.
+- Current state: Plan 0025 is active; the cumulative implementation and local
+  regression gates are complete.
+- Exact next action: Run the clean native ARM64 cumulative transaction.
+- First file or command:
+  `make -C poc/ui-images trial-python-cumulative`.
 - Questions requiring user input: None. No credential, external publication,
   live deployment, waiver, or security-boundary change is required.

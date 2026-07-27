@@ -3,19 +3,32 @@
 set -Eeuo pipefail
 umask 027
 
-if [[ "$#" -gt 1 ]]; then
-    echo "usage: trial_python_overlay.sh [target-key]" >&2
+MATRIX_MODE=false
+MATRIX_KEY=""
+if [[ "$#" -eq 2 ]] && [[ "$1" == "--matrix" ]]; then
+    MATRIX_MODE=true
+    MATRIX_KEY="$2"
+    TARGET_KEY="matrix-${MATRIX_KEY}"
+elif [[ "$#" -le 1 ]]; then
+    TARGET_KEY="${1:-mako}"
+else
+    echo "usage: trial_python_overlay.sh [target-key] | --matrix matrix-key" >&2
     exit 1
 fi
-TARGET_KEY="${1:-mako}"
 if [[ ! "${TARGET_KEY}" =~ ^[a-z][a-z0-9-]{1,31}$ ]]; then
-    echo "invalid Python overlay target key" >&2
+    echo "invalid Python overlay target or matrix key" >&2
+    exit 1
+fi
+if [[ "${MATRIX_MODE}" == true ]] \
+    && [[ ! "${MATRIX_KEY}" =~ ^[a-z][a-z0-9-]{1,31}$ ]]; then
+    echo "invalid Python overlay target or matrix key" >&2
     exit 1
 fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 HARNESS="${ROOT}/poc/ui-images"
 TARGET_MANIFEST="${HARNESS}/python_targets.json"
+MATRIX_MANIFEST="${HARNESS}/python_matrices.json"
 WORK="${ROOT}/work/ui-python-overlay-trial-${TARGET_KEY}"
 EVIDENCE="${WORK}/evidence"
 CONTEXTS="${WORK}/contexts"
@@ -124,49 +137,97 @@ for command_name in curl docker git jq podman python3 shasum; do
 done
 test -f "${TARGET_MANIFEST}"
 test ! -L "${TARGET_MANIFEST}"
+if [[ "${MATRIX_MODE}" == true ]]; then
+    test -f "${MATRIX_MANIFEST}"
+    test ! -L "${MATRIX_MANIFEST}"
+fi
 while IFS=$'\t' read -r wheel_name wheel_url wheel_sha256 wheel_architecture; do
     TARGET_WHEEL_NAMES+=("${wheel_name}")
     TARGET_WHEEL_URLS+=("${wheel_url}")
     TARGET_WHEEL_SHA256S+=("${wheel_sha256}")
     TARGET_WHEEL_ARCHITECTURES+=("${wheel_architecture}")
 done < <(
-    jq -er --arg target "${TARGET_KEY}" '
-        .targets[$target] as $entry
-        | ([$entry] + ($entry.companions // []))[]
-        | [
-            .wheel_filename,
-            .wheel_url,
-            .wheel_sha256,
-            .wheel_architecture
-          ]
-        | @tsv
-    ' "${TARGET_MANIFEST}"
+    if [[ "${MATRIX_MODE}" == true ]]; then
+        jq -er \
+            --arg matrix "${MATRIX_KEY}" \
+            --slurpfile matrices "${MATRIX_MANIFEST}" '
+            . as $targets
+            | $matrices[0].matrices[$matrix].surfaces
+            | ([.[]] | add | unique)
+            | map(
+                . as $key
+                | $targets.targets[$key] as $entry
+                | [$entry] + ($entry.companions // [])
+              )
+            | add
+            | unique_by(.normalized_name)
+            | sort_by(.normalized_name)
+            | .[]
+            | [
+                .wheel_filename,
+                .wheel_url,
+                .wheel_sha256,
+                .wheel_architecture
+              ]
+            | @tsv
+        ' "${TARGET_MANIFEST}"
+    else
+        jq -er --arg target "${TARGET_KEY}" '
+            .targets[$target] as $entry
+            | ([$entry] + ($entry.companions // []))[]
+            | [
+                .wheel_filename,
+                .wheel_url,
+                .wheel_sha256,
+                .wheel_architecture
+              ]
+            | @tsv
+        ' "${TARGET_MANIFEST}"
+    fi
 )
 test "${#TARGET_WHEEL_NAMES[@]}" -gt 0
 test "${#TARGET_WHEEL_NAMES[@]}" = "${#TARGET_WHEEL_URLS[@]}"
 test "${#TARGET_WHEEL_NAMES[@]}" = "${#TARGET_WHEEL_SHA256S[@]}"
 test "${#TARGET_WHEEL_NAMES[@]}" = "${#TARGET_WHEEL_ARCHITECTURES[@]}"
-TARGET_RESULT_NAME="$(
-    jq -er --arg target "${TARGET_KEY}" '
-        .targets[$target] as $entry
-        | ([$entry] + ($entry.companions // []))
-        | map(.display_name + "==" + .to_version)
-        | join(" + ")
-    ' "${TARGET_MANIFEST}"
-)"
-TARGET_TRIAL_LABEL="$(
-    jq -er --arg target "${TARGET_KEY}" \
-        '.targets[$target].trial_label' "${TARGET_MANIFEST}"
-)"
-TARGET_KEY="${TARGET_KEY}" TARGET_MANIFEST="${TARGET_MANIFEST}" \
-    PYTHONPATH="${HARNESS}" python3 -c \
-    'import os; from pathlib import Path; from python_target import load_target; load_target(Path(os.environ["TARGET_MANIFEST"]), os.environ["TARGET_KEY"])'
-while IFS= read -r target_surface; do
-    TARGET_SURFACES+=("${target_surface}")
-done < <(
-    jq -er --arg target "${TARGET_KEY}" \
-        '.targets[$target].surfaces[]' "${TARGET_MANIFEST}"
-)
+if [[ "${MATRIX_MODE}" == true ]]; then
+    TARGET_RESULT_NAME="${MATRIX_KEY} cumulative matrix"
+    TARGET_TRIAL_LABEL="$(
+        jq -er --arg matrix "${MATRIX_KEY}" \
+            '.matrices[$matrix].trial_label' "${MATRIX_MANIFEST}"
+    )"
+    MATRIX_KEY="${MATRIX_KEY}" MATRIX_MANIFEST="${MATRIX_MANIFEST}" \
+        TARGET_MANIFEST="${TARGET_MANIFEST}" PYTHONPATH="${HARNESS}" \
+        python3 -c \
+        'import os; from pathlib import Path; from python_matrix import load_matrix; load_matrix(Path(os.environ["MATRIX_MANIFEST"]), Path(os.environ["TARGET_MANIFEST"]), os.environ["MATRIX_KEY"])'
+    while IFS= read -r target_surface; do
+        TARGET_SURFACES+=("${target_surface}")
+    done < <(
+        jq -er --arg matrix "${MATRIX_KEY}" \
+            '.matrices[$matrix].surfaces | keys[]' "${MATRIX_MANIFEST}"
+    )
+else
+    TARGET_RESULT_NAME="$(
+        jq -er --arg target "${TARGET_KEY}" '
+            .targets[$target] as $entry
+            | ([$entry] + ($entry.companions // []))
+            | map(.display_name + "==" + .to_version)
+            | join(" + ")
+        ' "${TARGET_MANIFEST}"
+    )"
+    TARGET_TRIAL_LABEL="$(
+        jq -er --arg target "${TARGET_KEY}" \
+            '.targets[$target].trial_label' "${TARGET_MANIFEST}"
+    )"
+    TARGET_KEY="${TARGET_KEY}" TARGET_MANIFEST="${TARGET_MANIFEST}" \
+        PYTHONPATH="${HARNESS}" python3 -c \
+        'import os; from pathlib import Path; from python_target import load_target; load_target(Path(os.environ["TARGET_MANIFEST"]), os.environ["TARGET_KEY"])'
+    while IFS= read -r target_surface; do
+        TARGET_SURFACES+=("${target_surface}")
+    done < <(
+        jq -er --arg target "${TARGET_KEY}" \
+            '.targets[$target].surfaces[]' "${TARGET_MANIFEST}"
+    )
+fi
 test "${#TARGET_SURFACES[@]}" -gt 0
 docker scout version >/dev/null
 if [[ -e "${WORK}" ]]; then
@@ -366,17 +427,6 @@ podman build --pull-never --network none --platform "${platform}" \
     --tag "${SKYLINE_BEFORE}" "${cleanup_context}"
 
 phase="fixed ${TARGET_RESULT_NAME} overlay derivatives"
-overlay_context="${CONTEXTS}/python-overlay"
-target_wheel_context="${overlay_context}/target-wheels"
-mkdir -p "${target_wheel_context}"
-cp \
-    "${HARNESS}/python_overlay.Containerfile" \
-    "${HARNESS}/python_target.py" \
-    "${TARGET_MANIFEST}" \
-    "${overlay_context}/"
-for target_wheel in "${target_wheels[@]}"; do
-    cp "${target_wheel}" "${target_wheel_context}/"
-done
 for target_surface in "${TARGET_SURFACES[@]}"; do
     case "${target_surface}" in
         horizon)
@@ -392,12 +442,59 @@ for target_surface in "${TARGET_SURFACES[@]}"; do
             exit 1
             ;;
     esac
-    podman build --pull-never --network none --platform "${platform}" \
-        --build-arg "BASE_IMAGE=${surface_before}" \
-        --build-arg "TARGET_KEY=${TARGET_KEY}" \
-        --build-arg "TARGET_LABEL=${TARGET_TRIAL_LABEL}" \
-        --file "${overlay_context}/python_overlay.Containerfile" \
-        --tag "${surface_after}" "${overlay_context}"
+    if [[ "${MATRIX_MODE}" == true ]]; then
+        overlay_context="${CONTEXTS}/python-matrix-${target_surface}"
+        target_wheel_context="${overlay_context}/target-wheels"
+        mkdir -p "${target_wheel_context}"
+        cp \
+            "${HARNESS}/python_matrix.Containerfile" \
+            "${HARNESS}/python_matrix.py" \
+            "${MATRIX_MANIFEST}" \
+            "${HARNESS}/python_target.py" \
+            "${TARGET_MANIFEST}" \
+            "${overlay_context}/"
+        while IFS= read -r matrix_wheel_name; do
+            cp "${WHEELS}/${matrix_wheel_name}" "${target_wheel_context}/"
+        done < <(
+            jq -er \
+                --arg matrix "${MATRIX_KEY}" \
+                --arg surface "${target_surface}" \
+                --slurpfile targets "${TARGET_MANIFEST}" '
+                .matrices[$matrix].surfaces[$surface][]
+                | . as $key
+                | $targets[0].targets[$key] as $entry
+                | ([$entry] + ($entry.companions // []))[]
+                | .wheel_filename
+            ' "${MATRIX_MANIFEST}"
+        )
+        podman build --pull-never --network none --platform "${platform}" \
+            --build-arg "BASE_IMAGE=${surface_before}" \
+            --build-arg "MATRIX_KEY=${MATRIX_KEY}" \
+            --build-arg "MATRIX_LABEL=${TARGET_TRIAL_LABEL}" \
+            --build-arg "MATRIX_SURFACE=${target_surface}" \
+            --file "${overlay_context}/python_matrix.Containerfile" \
+            --tag "${surface_after}" "${overlay_context}"
+    else
+        overlay_context="${CONTEXTS}/python-overlay"
+        target_wheel_context="${overlay_context}/target-wheels"
+        if [[ ! -d "${target_wheel_context}" ]]; then
+            mkdir -p "${target_wheel_context}"
+            cp \
+                "${HARNESS}/python_overlay.Containerfile" \
+                "${HARNESS}/python_target.py" \
+                "${TARGET_MANIFEST}" \
+                "${overlay_context}/"
+            for target_wheel in "${target_wheels[@]}"; do
+                cp "${target_wheel}" "${target_wheel_context}/"
+            done
+        fi
+        podman build --pull-never --network none --platform "${platform}" \
+            --build-arg "BASE_IMAGE=${surface_before}" \
+            --build-arg "TARGET_KEY=${TARGET_KEY}" \
+            --build-arg "TARGET_LABEL=${TARGET_TRIAL_LABEL}" \
+            --file "${overlay_context}/python_overlay.Containerfile" \
+            --tag "${surface_after}" "${overlay_context}"
+    fi
 done
 
 phase="Trivy acquisition"
@@ -420,7 +517,6 @@ collection_args=(
     --horizon-wheel "${horizon_wheel}" \
     --skyline-wheel "${skyline_wheel}" \
     --target-manifest "${TARGET_MANIFEST}" \
-    --target "${TARGET_KEY}" \
     --baseline-result "${OS_CLEANUP_RESULT}" \
     --baseline-inventories "${OS_CLEANUP_INVENTORIES}" \
     --remediation-result "${REMEDIATION_RESULT}" \
@@ -431,6 +527,16 @@ collection_args=(
     --docker-scout-version "${docker_scout_version}" \
     --trivy-version "${trivy_version}"
 )
+if [[ "${MATRIX_MODE}" == true ]]; then
+    collection_args+=(
+        --matrix-manifest "${MATRIX_MANIFEST}"
+        --matrix "${MATRIX_KEY}"
+    )
+    collection_script="${HARNESS}/collect_python_matrix_trial.py"
+else
+    collection_args+=(--target "${TARGET_KEY}")
+    collection_script="${HARNESS}/collect_python_trial.py"
+fi
 for target_wheel in "${target_wheels[@]}"; do
     collection_args+=(--target-wheel "${target_wheel}")
 done
@@ -459,7 +565,7 @@ for target_surface in "${TARGET_SURFACES[@]}"; do
             ;;
     esac
 done
-python3 "${HARNESS}/collect_python_trial.py" "${collection_args[@]}"
+python3 "${collection_script}" "${collection_args[@]}"
 jq -e --arg architecture "${architecture}" \
     '.architecture == $architecture' "${EVIDENCE}/manifest.json" >/dev/null
 
@@ -500,22 +606,43 @@ trial_args=(
     --remediation-result "${REMEDIATION_RESULT}" \
     --horizon-wheel "${horizon_wheel}" \
     --skyline-wheel "${skyline_wheel}" \
-    --target-manifest "${TARGET_MANIFEST}" \
-    --target "${TARGET_KEY}"
+    --target-manifest "${TARGET_MANIFEST}"
 )
+if [[ "${MATRIX_MODE}" == true ]]; then
+    trial_args+=(
+        --matrix-manifest "${MATRIX_MANIFEST}"
+        --matrix "${MATRIX_KEY}"
+    )
+    trial_script="${HARNESS}/python_matrix_trial.py"
+    trial_result="${EVIDENCE}/python-matrix-trial.json"
+else
+    trial_args+=(--target "${TARGET_KEY}")
+    trial_script="${HARNESS}/python_trial.py"
+    trial_result="${EVIDENCE}/python-trial.json"
+fi
 for target_wheel in "${target_wheels[@]}"; do
     trial_args+=(--target-wheel "${target_wheel}")
 done
-python3 "${HARNESS}/python_trial.py" "${trial_args[@]}" || trial_exit=$?
+python3 "${trial_script}" "${trial_args[@]}" || trial_exit=$?
 if [[ "${trial_exit}" -ne 3 ]]; then
     exit "${trial_exit}"
 fi
-jq -e --arg target "${TARGET_RESULT_NAME}" '
-    .decision.status == "blocked"
-    and .decision.production_candidate == false
-    and .decision.python_overlay_trial_accepted == true
-    and .decision.target == $target
-    and .decision.production_containerfile_changed == false
-' "${EVIDENCE}/python-trial.json" >/dev/null
+if [[ "${MATRIX_MODE}" == true ]]; then
+    jq -e --arg matrix "${MATRIX_KEY}" '
+        .decision.status == "blocked"
+        and .decision.production_candidate == false
+        and .decision.python_matrix_trial_accepted == true
+        and .decision.matrix == $matrix
+        and .decision.production_containerfile_changed == false
+    ' "${trial_result}" >/dev/null
+else
+    jq -e --arg target "${TARGET_RESULT_NAME}" '
+        .decision.status == "blocked"
+        and .decision.production_candidate == false
+        and .decision.python_overlay_trial_accepted == true
+        and .decision.target == $target
+        and .decision.production_containerfile_changed == false
+    ' "${trial_result}" >/dev/null
+fi
 
 echo "UI ${TARGET_RESULT_NAME} overlay trial accepted but production remains blocked; evidence=${EVIDENCE}"

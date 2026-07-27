@@ -16,6 +16,7 @@ from python_target import (
     Target,
     TargetError,
     load_targets,
+    probe_target,
 )
 
 SCHEMA = "coffer.ui-python-overlay-matrices/v1"
@@ -247,19 +248,55 @@ def load_matrix(
         raise MatrixError("matrix key is unsupported") from error
 
 
+def probe_surface(
+    surface: MatrixSurface,
+    *,
+    enforce_security: bool = True,
+) -> tuple[tuple[str, str, str], ...]:
+    results = tuple(
+        (
+            target.key,
+            target.probe,
+            probe_target(target, enforce_security=enforce_security),
+        )
+        for target in surface.targets
+    )
+    if any(
+        result != target.expected_probe_result
+        for target, (_, _, result) in zip(
+            surface.targets,
+            results,
+            strict=True,
+        )
+    ):
+        raise MatrixError("matrix probe result is invalid")
+    return results
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--target-manifest", type=Path, required=True)
     parser.add_argument("--matrix", required=True)
+    parser.add_argument("--surface", choices=sorted(SURFACES))
+    parser.add_argument(
+        "--probe-mode",
+        choices=("baseline", "candidate"),
+        default="candidate",
+    )
     arguments = parser.parse_args()
     try:
-        load_matrix(
+        matrix = load_matrix(
             arguments.manifest,
             arguments.target_manifest,
             arguments.matrix,
         )
-    except MatrixError as error:
+        if arguments.surface:
+            probe_surface(
+                matrix.for_surface(arguments.surface),
+                enforce_security=arguments.probe_mode == "candidate",
+            )
+    except (MatrixError, TargetError, ImportError) as error:
         print(f"coffer-ui-python-matrix: {error}")
         return 2
     return 0
