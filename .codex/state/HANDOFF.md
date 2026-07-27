@@ -1,7 +1,7 @@
 # Coffer Handoff
 
 - Updated: 2026-07-27
-- Status: plans 0019 and 0022 blocked externally; plans 0020, 0021, 0023, 0024, 0025, and 0026 completed locally;
+- Status: plan 0027 completed with a retained live preview; plans 0019 and 0022 blocked externally; plans 0020, 0021, 0023, 0024, 0025, and 0026 completed locally;
   native x86_64 UI parents and derivatives built and passed provenance/runtime
   collection, but standalone Docker Scout CVE evidence requires an unauthorized
   Docker login; the disposable VM, volumes, key, and runtime residue are absent;
@@ -36,19 +36,35 @@
   disabled-by-default immutable Horizon/Skyline image contracts and exact
   fallback lifecycle complete locally with 108 role checks; four desktop/narrow
   UI fixture screenshots visually inspected; current UI remediation suite
-  passes 190 focused checks, full Python regression passes 1,645 tests, and the
-  prior Horizon/Skyline/108-check Kolla repository
-  gates remain complete
-- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`, `docs/exec-plans/0023-ui-parent-remediation-baseline.md`, `docs/exec-plans/0024-ui-crypto-pair-remediation.md`, `docs/exec-plans/0025-ui-cumulative-remediation-matrix.md`, `docs/exec-plans/0026-ui-residual-finding-closure.md`
+  passes 190 focused checks, full Python regression passes 1,648 tests, and the
+  prior Horizon/Skyline/108-check Kolla repository gates remain complete;
+  isolated Kolla 2026.1 Coffer, Horizon, and Skyline now run on `bb00`,
+  both dashboards show the same live registry repository, restart and
+  two-project OCI isolation pass, and the retained VM remains
+  autostart-disabled and explicitly non-production
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`, `docs/exec-plans/0023-ui-parent-remediation-baseline.md`, `docs/exec-plans/0024-ui-crypto-pair-remediation.md`, `docs/exec-plans/0025-ui-cumulative-remediation-matrix.md`, `docs/exec-plans/0026-ui-residual-finding-closure.md`, `docs/exec-plans/0027-live-horizon-skyline-preview.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Externally blocked execution plans:
   `docs/exec-plans/0019-stage6-production-promotion.md` and
   `docs/exec-plans/0022-native-x86-ui-image-qualification.md`
-- Active execution plan: none; resume
-  `docs/exec-plans/0019-stage6-production-promotion.md` only after its exact
-  upstream release gates change.
+- Active execution plan: none; the retained preview is documented by completed
+  plan `docs/exec-plans/0027-live-horizon-skyline-preview.md`
 
 ## Current Objective
+
+Plan 0027 is complete. Retained domain `coffer-ui-preview-1` runs on `bb00`
+at guest address `192.168.122.204`, internal VIP `192.168.122.205`, and
+external VIP `192.168.122.221`, with 8 vCPUs, 40 GiB RAM, a 220-GiB sparse
+root in only the `coffer-rgw` pool, and libvirt autostart disabled. The guest
+reports 41 running containers, zero non-running or unhealthy containers, both
+VIPs present, and owner-only identity and acceptance evidence at mode 0600.
+Horizon and Skyline both show `preview-proof`, quota, and the same repository
+detail. OCI digest
+`sha256:7a3ebe5bfd1a4a19797d20b0c0bb39d44393e9a03fd852c0865b0f540d868df0`
+survived a six-container restart; project B cannot read or write project A's
+content. The exact next action is user inspection through the local-only SSH
+tunnels and owner-only credential retrieval in `poc/ui-preview/README.md`.
+No production promotion follows from this functional preview.
 
 Plan 0026 is complete locally. The clean native ARM64 residual transaction
 re-proved Canonical's exact setuptools source backports and both in-image
@@ -74,9 +90,9 @@ only `candidate-released` until exact artifacts plus Horizon and Skyline
 runtime/scanner evidence qualify it. Cross-series 18.x, an unreleased commit,
 private wheel, metadata drift, and one-surface-only proof all fail closed.
 Even a qualified UI dependency does not override independent Stage 6 gates.
-All 190 UI image tests and all 1,645 repository tests pass with Ruff,
-formatting, JSON, compilation, Bash, strict ShellCheck, secret, documentation,
-diff, and residue checks.
+All 190 UI image tests and all 1,648 repository tests pass. The current
+preview additions also pass JSON, compilation, Bash, strict ShellCheck,
+secret, documentation, diff, and residue checks.
 
 Plan 0025 is complete after combining only the native ARM64 Python remediations
 accepted in plans 0023 and 0024. Horizon selects 11 targets and 12 package
@@ -3305,14 +3321,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Run `make -C poc/ui-images check-oslo-messaging` after official
-stable/2026.1 metadata changes. Update only the observed release object after
-verifying a non-yanked 17.3.1-or-later wheel and sdist, exact tag ancestry and
-source probe, and a matching upper constraint. Then run exact Horizon and
-Skyline runtime/scanner qualification. Do not substitute 18.x, an unreleased
-commit, or a private wheel, and do not treat dependency qualification as
-permission to bypass the separate Distribution, Ceph, native AMD64, signing,
-publication, live Kolla, or browser gates.
+Inspect the exact Kolla 2026.1 Horizon/Skyline port, image, and endpoint
+contracts, then add a collision-checked `coffer-ui-preview-1` provisioner that
+uses the `coffer-rgw` pool, autostart disabled, and SSH-tunnel-only access. Do
+not mutate `dev11-*`, host listeners, or a production image gate.
 
 ## After This Work Package
 
