@@ -15,7 +15,11 @@ The harness covers:
 - database creation followed by repeat-safe one-shot bootstrap;
 - bootstrap-before-process ordering and bootstrap-failure rollout blocking;
 - secret source permissions and per-process recipient boundaries;
-- fixture-only per-reconciler maintenance credential/client-key recipients;
+- disabled-by-default, opt-in authenticated reconciler with exact
+  per-replica maintenance credential/client-key recipients;
+- owner-only credential validation, explicit worker/claim binding, bounded
+  Keystone and broker exchange, and bearer-authenticated Distribution probe
+  configuration;
 - private mTLS maintenance frontend certificate mapping, exact route, and
   ordinary-frontend header stripping;
 - idempotent reconfigure, pull, and stop;
@@ -57,6 +61,11 @@ in `docs/research/kolla-ui-integration.md`, changes only an existing `horizon`
 or `skyline_console` container, and restores the recorded immutable fallback
 image on disable. The harness uses exact fake digests and does not build, pull,
 or execute either UI image.
+
+The reconciler remains disabled by default. This contract harness enables it
+with generated placeholders to prove configuration, recipient, private-mTLS,
+claim-lease, lifecycle, and direct-metrics topology only. It does not contact
+Keystone or the broker and is not disposable-region production evidence.
 
 The script creates only `poc/kolla-ansible-role/work`, uses loopback ports
 `61313` and `18787` for bounded readiness/collision checks, and removes the

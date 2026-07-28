@@ -227,6 +227,56 @@ def test_settings_require_a_safe_origin_and_sequential_lease_budget() -> None:
         )
 
 
+def test_https_reconciliation_requires_exact_maintenance_identity_budget() -> None:
+    with pytest.raises(RunnerConfigurationError, match="maintenance authentication"):
+        RunnerSettings.from_config(
+            config(
+                upstream_url="https://registry.internal:8789",
+                cafile="/etc/coffer/registry-ca.crt",
+                allow_insecure_http=False,
+            )
+        )
+
+    with pytest.raises(RunnerConfigurationError, match="explicit worker_id"):
+        RunnerSettings.from_config(
+            config(
+                authentication_mode="maintenance",
+                upstream_url="https://registry.internal:8789",
+                cafile="/etc/coffer/registry-ca.crt",
+                allow_insecure_http=False,
+                worker_id=None,
+                lease_seconds=310,
+            )
+        )
+
+    too_short = config(
+        authentication_mode="maintenance",
+        upstream_url="https://registry.internal:8789",
+        cafile="/etc/coffer/registry-ca.crt",
+        allow_insecure_http=False,
+        worker_id="reconciler-controller-1",
+        lease_seconds=309,
+    )
+    with pytest.raises(RunnerConfigurationError, match="sequential batch"):
+        RunnerSettings.from_config(too_short)
+
+    accepted = config(
+        authentication_mode="maintenance",
+        upstream_url="https://registry.internal:8789",
+        cafile="/etc/coffer/registry-ca.crt",
+        allow_insecure_http=False,
+        worker_id="reconciler-controller-1",
+        lease_seconds=310,
+    )
+    settings = RunnerSettings.from_config(accepted)
+    assert settings.authentication_mode == "maintenance"
+    assert settings.worker_id == "reconciler-controller-1"
+
+    accepted.set_override("insecure", True, group="keystone")
+    with pytest.raises(RunnerConfigurationError, match="verified Keystone TLS"):
+        RunnerSettings.from_config(accepted)
+
+
 def test_new_config_instances_do_not_share_reconciliation_overrides() -> None:
     first = new_config()
     first(args=[])

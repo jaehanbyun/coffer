@@ -358,9 +358,9 @@ service = {issuer.service}
 {common_database}
 [reconciliation]
 mode = once
-upstream_url = https://coffer-stage2-registry:8789
-cafile = /etc/coffer/registry-ca.crt
-allow_insecure_http = false
+authentication_mode = unauthenticated_fixture
+upstream_url = http://127.0.0.1:5000
+allow_insecure_http = true
 timeout_seconds = 5
 batch_limit = 1
 lease_seconds = 120
@@ -370,15 +370,7 @@ lease_seconds = 120
         "reconcile",
         command="coffer-reconcile --config-file /etc/coffer/coffer.conf",
         config=reconcile_config,
-        entries=[
-            (
-                "registry-ca.crt",
-                ca_pem,
-                0o644,
-                "/etc/coffer/registry-ca.crt",
-                "0644",
-            )
-        ],
+        entries=[],
         permissions=standard_permission,
         ca_pem=ca_pem,
     )

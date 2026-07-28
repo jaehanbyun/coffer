@@ -45,6 +45,21 @@ insecure = false
 
 [reconciliation]
 mode = once
+authentication_mode = maintenance
 upstream_url = https://coffer-registry.internal:8789
 cafile = /etc/coffer/registry-ca.crt
 allow_insecure_http = false
+timeout_seconds = 10
+maintenance_token_url = https://coffer-maintenance.internal:8790/v1/internal/maintenance/registry-token
+maintenance_timeout_seconds = 10
+application_credential_id_file = /etc/coffer/maintenance-application-credential-id
+application_credential_secret_file = /etc/coffer/maintenance-application-credential-secret
+maintenance_client_certfile = /etc/coffer/maintenance-client.crt
+maintenance_client_keyfile = /etc/coffer/maintenance-client.key
+maintenance_service_project_id = replace-with-service-project-id
+maintenance_user_id = replace-with-user-id
+worker_id = reconciler-region-one-a
+stale_after_seconds = 300
+batch_limit = 10
+max_pages_per_cycle = 100
+lease_seconds = 450

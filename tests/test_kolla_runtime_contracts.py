@@ -65,6 +65,25 @@ def test_edge_and_reconciler_trust_the_configured_backend_ca() -> None:
     assert 'src: "{{ kolla_certificates_dir }}/ca/root.crt"' not in config_tasks
 
 
+def test_stage2_empty_reconciler_is_explicit_loopback_fixture_only() -> None:
+    generator = (
+        ROOT / "poc" / "kolla-runtime" / "generate_fixture.py"
+    ).read_text(encoding="utf-8")
+    verifier = (
+        ROOT / "poc" / "kolla-runtime" / "verify.sh"
+    ).read_text(encoding="utf-8")
+    reconcile_config = generator.split(
+        'reconcile_config = f"""\\',
+        maxsplit=1,
+    )[1].split('"""', maxsplit=1)[0]
+
+    assert "authentication_mode = unauthenticated_fixture" in reconcile_config
+    assert "upstream_url = http://127.0.0.1:5000" in reconcile_config
+    assert "allow_insecure_http = true" in reconcile_config
+    assert "https://coffer-stage2-registry:8789" not in reconcile_config
+    assert "loopback-only empty reconciliation image smoke" in verifier
+
+
 def test_ui_preview_maps_the_keystone_registry_service_into_skyline() -> None:
     skyline_override = (
         ROOT / "poc" / "ui-preview" / "skyline.yaml"

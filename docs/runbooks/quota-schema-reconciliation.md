@@ -123,11 +123,26 @@ For each candidate it:
    worker ID, and random token; the worker ID is diagnostic only, while the
    persisted token/version pair is the fencing authority.
 2. Resolves the stored project and repository IDs through the Coffer control authority into `p/<project-id>/<repository>`.
-3. Sends `HEAD /v2/<canonical-repository>/manifests/<sha256-digest>` to one credential-free configured HTTP(S) origin. Production must use a private TLS service path and an approved in-memory service-auth header or equivalent network identity.
-4. Commits or refreshes state only for HTTP 200 with exactly one matching `Docker-Content-Digest` header.
-5. Releases charged state only for exact HTTP 404.
-6. Leaves quota state unchanged for 401, 403, every 5xx or other status, missing/mismatched/duplicate digest headers, missing repository authority, timeout, or transport failure. The claim remains until expiry and supplies bounded retry backoff.
-7. Applies an actionable observation only if the caller version matches both
+3. Re-reads its owner-only application-credential files, obtains a
+   project-scoped Keystone token, and verifies that the token belongs to the
+   exact maintenance user and project, has only `service` plus
+   `registry_maintenance`, and carries the single approved
+   `oci-registry`/`POST` access rule for the internal broker path.
+4. Posts only the current repository ID, reservation ID, claim token, and
+   expected version to the private mTLS maintenance broker. HAProxy derives
+   the configured workload ID from the client certificate; the worker does
+   not supply that identity in an HTTP header. The broker revalidates the SQL
+   authority and returns one short-lived repository-scoped pull token.
+5. Sends the token only in memory with
+   `HEAD /v2/<canonical-repository>/manifests/<sha256-digest>` over verified
+   HTTPS to Distribution.
+6. Commits or refreshes state only for HTTP 200 with exactly one matching `Docker-Content-Digest` header.
+7. Releases charged state only for exact HTTP 404.
+8. Leaves quota state unchanged for identity, TLS, broker, token, 401, 403,
+   every 5xx or other status, missing/mismatched/duplicate digest headers,
+   missing repository authority, timeout, or transport failure. The claim
+   remains until expiry and supplies bounded retry backoff.
+9. Applies an actionable observation only if the caller version matches both
    the current reservation and the version persisted on the current unexpired
    claim, and the claim token matches. Successful mutation consumes that claim
    in the same transaction. A version conflict releases only the matching old
@@ -152,16 +167,40 @@ A cycle follows the returned deterministic cursor for at most `max_pages_per_cyc
 
 The process rejects startup unless:
 
-- `upstream_url` is one credential-free HTTP(S) origin with no path, query, fragment, or URL credentials;
-- HTTPS uses the system trust store or the configured public `cafile`;
-- plaintext HTTP is explicitly enabled and targets only loopback, which is a disposable fixture boundary;
+- `upstream_url` is one credential-free origin with no path, query, fragment,
+  or URL credentials;
+- production HTTPS selects `authentication_mode=maintenance`, uses the
+  configured public `cafile`, and supplies the exact private broker URL,
+  owner-only application-credential files, per-worker client certificate and
+  key, maintenance project/user IDs, and explicit worker ID;
+- Keystone uses `/v3`, verified TLS, the configured bounded timeout, and the
+  same operator trust bundle unless a separate public CA is configured;
+- plaintext HTTP is explicitly enabled, targets only loopback, and selects
+  `authentication_mode=unauthenticated_fixture`; it is a disposable fixture
+  boundary and cannot be used for an HTTPS or production probe;
 - the database has the exact expected Alembic quota revision before the repository store is constructed;
-- `lease_seconds >= batch_limit * timeout_seconds + 10`, covering the sequential page probe budget plus mutation grace;
+- maintenance mode satisfies
+  `lease_seconds >= batch_limit * (timeout_seconds + maintenance_timeout_seconds + keystone.timeout) + 10`,
+  covering every sequential exchange and probe plus mutation grace;
 - initial dependency retry is no greater than the configured cap.
 
 Completed present, absent, indeterminate, and stale outcomes exit 0 and log only fixed aggregate counts. Invalid configuration/schema exits 78. An unexpected one-shot dependency/runtime failure exits 75 with a neutral result class and no exception text. Periodic mode instead applies symmetric bounded jitter, capped exponential failure backoff, and reset to the healthy interval after the next success. Fencing still rejects late results if real work exceeds the validated lease.
 
-No service-auth secret, bearer token, client private key, or database URL belongs on the command line or in the sample file. This package does not solve authenticated service-to-service probe credential delivery; production integration must choose an owner-approved private TLS/network identity or in-memory credential path separately.
+No application-credential value, Keystone or Distribution bearer token, client
+private key, or database URL belongs on the command line or in the sample
+file. Configuration contains only absolute file paths and immutable identity
+IDs. Credential files and the client key must be current-user-owned, regular,
+single-link mode-`0600` files; public CA and client-certificate files must be
+regular, single-link mode `0600` or `0644`. The worker re-reads credential
+files for each exchange and rebuilds the mTLS context for each broker request
+so an operator can rotate material atomically without retaining it in the
+configuration object.
+
+The authenticated client and Kolla recipient/frontend contract are
+implemented, but production enablement still requires the owner-approved
+Barbican materialization and complete disposable-region lifecycle evidence
+defined by ADR 0015. Missing or invalid material is an indeterminate
+observation, never proof that a manifest is absent.
 
 ## Disposable Verification
 

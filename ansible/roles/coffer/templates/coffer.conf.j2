@@ -101,10 +101,20 @@ metrics_enabled = {{ coffer_enable_metrics | bool }}
 {% elif service_name == 'coffer-reconcile' %}
 [reconciliation]
 mode = {{ coffer_reconcile_mode }}
+authentication_mode = maintenance
 upstream_url = {{ coffer_registry_internal_origin }}
 cafile = /etc/coffer/registry-ca.crt
 allow_insecure_http = false
 timeout_seconds = {{ coffer_reconcile_timeout_seconds }}
+maintenance_token_url = {{ coffer_maintenance_token_url }}
+maintenance_timeout_seconds = {{ coffer_reconcile_maintenance_timeout_seconds }}
+application_credential_id_file = /etc/coffer/maintenance-application-credential-id
+application_credential_secret_file = /etc/coffer/maintenance-application-credential-secret
+maintenance_client_certfile = /etc/coffer/maintenance-client.crt
+maintenance_client_keyfile = /etc/coffer/maintenance-client.key
+maintenance_service_project_id = {{ coffer_maintenance_service_project_id }}
+maintenance_user_id = {{ coffer_maintenance_user_id }}
+worker_id = {{ coffer_maintenance_workload_id }}
 lease_seconds = {{ coffer_reconcile_lease_seconds }}
 batch_limit = {{ coffer_reconcile_batch_limit }}
 max_pages_per_cycle = {{ coffer_reconcile_max_pages_per_cycle }}
@@ -113,4 +123,10 @@ management_bind_host = {{ api_interface_address }}
 management_bind_port = {{ coffer_reconcile_metrics_port }}
 management_tls_certfile = /etc/coffer/reconcile-metrics.crt
 management_tls_keyfile = /etc/coffer/reconcile-metrics.key
+
+[keystone]
+auth_url = {{ keystone_internal_url }}/v3
+cafile = /etc/coffer/registry-ca.crt
+insecure = false
+timeout = {{ coffer_reconcile_keystone_timeout_seconds }}
 {% endif %}

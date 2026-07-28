@@ -38,7 +38,7 @@
   gather_facts: false
   serial: '{{ kolla_serial | default("0") }}'
   tasks:
-    - name: Validate the fixture-only maintenance frontend inputs
+    - name: Validate the maintenance frontend inputs
       ansible.builtin.include_role:
         name: coffer
         tasks_from: maintenance-precheck

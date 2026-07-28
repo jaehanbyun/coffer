@@ -24,6 +24,14 @@ processes, an authenticated OCI blob/manifest publication through quota
 admission, digest persistence over all three service restarts, stdout log
 hygiene, SBOM/CVE generation, and exact runtime/image cleanup.
 
+The empty reconciliation check is deliberately only an installed-command and
+Kolla-start smoke test. It has no stale reservation to probe and uses the
+explicit `unauthenticated_fixture` mode against an unreachable loopback
+origin. Production HTTPS reconciliation is never credential-free; its
+Keystone application-credential, private mTLS broker, short-lived
+repository-token, and Distribution `HEAD` contract is exercised by the
+companion-role and focused authenticated-probe suites.
+
 The generated private keys, JWT, upload state, HTTP secret, SQLite database,
 and OCI payloads stay under an ignored owner-only temporary directory and are
 removed on every exit. Non-secret image metadata, SPDX SBOMs, and Docker Scout

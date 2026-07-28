@@ -1,8 +1,8 @@
 ---
-- name: Require the bounded maintenance identity fixture contract
+- name: Require the bounded maintenance identity contract
   ansible.builtin.assert:
     that:
-      - not coffer_enable_reconcile | bool
+      - kolla_enable_tls_internal | bool
       - coffer_maintenance_port | int >= 1024
       - coffer_maintenance_port | int <= 65535
       - >-
@@ -18,9 +18,23 @@
         '^([0-9a-fA-F]{32}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-'
         '[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$')
       - >-
+        coffer_maintenance_token_url is match(
+        '^https://[^/@]+(:[0-9]+)?'
+        '/v1/internal/maintenance/registry-token$')
+      - >-
+        coffer_maintenance_exchange_budget_seconds | int >=
+        coffer_reconcile_keystone_timeout_seconds | int +
+        coffer_reconcile_maintenance_timeout_seconds | int
+      - >-
         coffer_reconcile_lease_seconds | int >=
-        60 +
-        coffer_maintenance_exchange_budget_seconds | int
+        (
+          coffer_reconcile_batch_limit | int *
+          (
+            coffer_reconcile_timeout_seconds | int +
+            coffer_maintenance_exchange_budget_seconds | int
+          )
+        ) + 10
+      - coffer_reconcile_lease_seconds | int <= 3600
       - >-
         coffer_maintenance_workloads |
         map(attribute='inventory_host') |
@@ -35,9 +49,12 @@
         map(attribute='workload_id') |
         list | unique | length ==
         coffer_maintenance_workloads | length
+      - >-
+        not coffer_enable_reconcile | bool or
+        coffer_maintenance_workload_id | length > 0
     fail_msg: >-
-      The fixture-only maintenance identity contract is invalid or
-      reconciliation was enabled before disposable lifecycle acceptance.
+      The maintenance identity, private TLS, workload, timeout, or claim-lease
+      contract is invalid.
 
 - name: Require bounded maintenance workload identifiers
   ansible.builtin.assert:

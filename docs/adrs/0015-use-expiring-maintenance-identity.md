@@ -127,7 +127,7 @@ Acceptance is based on pure local evidence proving:
 - exact service-project and dual-role admission, with `admin` explicitly
   rejected;
 - public-edge denial without upstream I/O;
-- server-side repository resolution and refusal of caller-selected authority;
+- server-side repository resolution and refusal of caller-selected authority
 - current claim/version/session enforcement and stale-authority denial;
 - one-repository pull-only JWT claims, bounded expiry, and no refresh token;
 - fixed secret-safe failures and output.
@@ -158,19 +158,28 @@ The pure local implementation boundary is complete:
 - the public edge returns a fixed 404 for the internal namespace without API or
   registry upstream I/O; and
 - fixed denial/unavailable responses and decision logs omit caller-selected
-  repository authority, claim tokens, and dependency exception text.
+  repository authority, claim tokens, and dependency exception text;
 - revision `0005_maintenance_sessions` provides finite, idempotent,
   irreversible approved/completed/revoked sessions; exact imported-digest,
   workload, active-claim, committed-repository, expiry, completion, and
   revocation checks drive the live-comparison authority; and
-- schema downgrade refuses to discard retained session evidence.
+- schema downgrade refuses to discard retained session evidence;
+- the installed worker has a claim-aware authenticated probe that reads only
+  owner-only per-replica credential files, obtains an exact project-scoped
+  access-rule Keystone token, exchanges current SQL claim authority over the
+  private mTLS frontend, and performs one bearer-authenticated Distribution
+  `HEAD`; every failure remains indeterminate; and
+- the Kolla role keeps both production defaults false but can render and
+  validate the complete opt-in recipient, worker, private frontend, bounded
+  claim-lease, and direct-metrics contract with generated placeholders.
 
 ADR 0015 is accepted for this architecture and local contract. There is still
-no real credential or secret materialization. The opt-in Kolla fixture now
-proves exact generated-placeholder recipients, an exact-certificate private
-frontend, ordinary-frontend denial, and a trusted-proxy-to-WSGI adapter. The
-production default and reconciler remain disabled. Real lifecycle and
-private-TLS deployment gates cannot be represented by the local fixture.
+no real credential or secret materialization. The opt-in Kolla fixture proves
+exact generated-placeholder recipients, an exact-certificate private
+frontend, ordinary-frontend denial, a trusted-proxy-to-WSGI adapter, and the
+worker's authenticated runtime configuration. Production defaults remain
+disabled. Real lifecycle and private-TLS deployment gates cannot be
+represented by the local fixture.
 
 ## Consequences
 

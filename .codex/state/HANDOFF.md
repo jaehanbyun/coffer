@@ -168,19 +168,29 @@ three-controller/three-storage production topology, twelve Coffer replicas
 including authenticated reconcilers, replicated Kolla/Ceph dependencies,
 private TLS, nine OCI/CLI/UI surfaces, thirteen failure classes, serial
 upgrade/rollback, isolated restore, audit, and complete zero-residue teardown.
-The completed Stage 5 evidence cannot be reused. Source review also confirmed
-that the current periodic reconciler still performs an unauthenticated
-Distribution HEAD even though the role can materialize the accepted
-maintenance identity and mTLS frontend; the role correctly keeps reconcile
-disabled until that client path is implemented.
+The completed Stage 5 evidence cannot be reused.
+
+The authenticated reconciliation source/configuration gap is now closed
+locally. The installed worker re-reads exact owner-only application-credential
+files, validates the project-scoped Keystone token and single access rule,
+exchanges the exact repository/reservation/claim/version authority through the
+private mTLS broker, and sends only one short-lived pull token to a
+verified-HTTPS Distribution `HEAD`. HTTPS cannot use the unauthenticated
+adapter; plaintext is restricted to explicit loopback-only fixtures. Every
+identity, TLS, broker, token, registry, rotation-race, or malformed-response
+failure remains indeterminate. The Kolla role can opt into a fifth reconciler
+process with per-host credentials/certificates, exact private frontend
+mapping, bounded lease, direct metrics, and lifecycle coverage; both production
+defaults remain false.
 
 The current-source owner-mode-0600 ledger SHA-256 is
 `39de57c74b966112eb59ccb86b541b09044846fff5d10af8a5f6635f8372535b`;
 it now remains zero passed, one blocked, nine pending, and
-`production_candidate=false`. Thirteen production Kolla, thirty-four combined
-Kolla/ledger, 134 promotion-harness, and all 1,804 repository tests pass. The
-exact next action is the authenticated reconciliation probe and Kolla
-production enablement.
+`production_candidate=false`. Eighty-eight focused runtime/config tests, the
+107-check Kolla lifecycle, all 134 promotion-harness tests, and all 1,823
+repository tests pass. No real identity, secret, certificate, endpoint, Kolla
+deployment, or retained preview state changed. The exact next action is the
+tenth operator-release and supply-chain specialist verifier.
 
 Plan 0028 is complete. The retained preview serves one owner-accessible
 `https://bb00.tail23b778.ts.net:18788` origin for `/v1`, `/auth/token`, and
@@ -3465,8 +3475,10 @@ release contains it yet.
 - The active Codex workspace still enters through a compatibility symlink. Reopen it from `/Users/byeonjaehan/projects/personal/coffer`, then remove the legacy symlink; the Git root already resolves to the canonical Coffer path.
 - The Mac lab closes real Keystone HTTP/TLS, duplicate-name isolation, reader/member/admin/service mapping, domain/system isolation, finite credential lifecycle, real control middleware, incoming service-token enforcement, bounded cache, and outage behavior. Shared production SQL/memcache and multi-worker consistency remain deployment gates.
 - Keystone authentication proves current credential validity but does not reveal whether the credential record has a non-null future `expires_at`; accepted ADR 0008 therefore requires explicit provisioning expiry plus the verified lifecycle regression matrix.
-- The runbook's identity, private RGW bucket, Distribution TLS, single-process integrated auth, GC dry-run, shared upload state, Barbican KMS, shared-SQL quota, and isolated reconciliation paths now have evidence. Routine production credential helpers, existing-data upgrade, integrated authenticated reconciliation, multi-worker scheduling, and separate-host HA remain deployment gates.
-- Application-credential access rules currently fail closed rather than being supported. Exact service/method/path semantics need a later accepted design if users require them.
+- The runbook's identity, private RGW bucket, Distribution TLS, single-process integrated auth, GC dry-run, shared upload state, Barbican KMS, shared-SQL quota, and authenticated reconciliation source path now have evidence. Real credential materialization/lifecycle, existing-data upgrade, multi-worker scheduling, and separate-host HA remain deployment gates.
+- Application-credential access rules are supported only for the exact
+  `oci-registry` service, `POST`, and internal maintenance-token path. Any
+  unrestricted, additional, or different rule fails closed.
 - The static two-key fixture does not prove per-replica trust rollout, signer transition, old-key retirement, rollback, or Distribution key reload without restart.
 - Broker decision logs correlate request/JTI/Keystone audit IDs and reductions with explicit Distribution 200/401 outcomes, and single-process bounded metrics are verified. Multi-worker and multi-replica aggregation remains open M3 work.
 - Local bounded Prometheus metrics now exist, but process-local counters cannot be considered correct under the reference two-worker Gunicorn model until aggregation/restart semantics are selected and tested.
@@ -3476,15 +3488,13 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `src/coffer/maintenance_probe.py` as the authenticated reconciliation
-exchange. Bind each exact SQL reservation/repository/claim/version tuple to the
-private mTLS maintenance token request, read application-credential and client
-key material only from owner-only files, and send only the reduced pull token
-to Distribution. Wire it into `src/coffer/reconciliation_runner.py`, preserve
-indeterminate behavior on denial/outage/rotation races, prove no secret
-retention, and open the role's production reconcile guard only after focused
-security and lifecycle tests pass. Do not create the live production pilot
-while official release readiness remains blocked.
+Add `poc/production-promotion/operator_release.py` as the tenth source-bound
+specialist result with focused tests. It must validate the exact first nine
+transaction digests, accepted/rejected ADR disposition, operator/runbook and
+release documentation, immutable supply-chain evidence, repository regression,
+secret scans, teardown record, and honest production boundary. Integrate it
+into the canonical ledger, Makefile, and promotion documentation. Do not create
+the live production pilot while official release readiness remains blocked.
 
 ## After This Work Package
 

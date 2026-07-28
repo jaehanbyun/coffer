@@ -1,5 +1,5 @@
 ---
-- name: Validate fixture-only maintenance identity inputs
+- name: Validate maintenance identity inputs
   ansible.builtin.import_tasks: maintenance-precheck.yml
   when: coffer_enable_maintenance_identity | bool
 
@@ -159,10 +159,12 @@
 - name: Refuse an unresolved reconciliation identity
   ansible.builtin.assert:
     that:
-      - not coffer_enable_reconcile | bool
+      - >-
+        not coffer_enable_reconcile | bool or
+        coffer_enable_maintenance_identity | bool
     fail_msg: >-
-      coffer-reconcile remains disabled until the authenticated private-TLS
-      credential provider and disposable lifecycle evidence are complete.
+      coffer-reconcile requires the authenticated private-mTLS maintenance
+      identity contract.
 
 - name: Inspect required owner-controlled Coffer secrets
   vars:

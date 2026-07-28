@@ -205,6 +205,7 @@ def prepare() -> None:
         target_config / "haproxy" / "services.d",
         target_config / "proxysql" / "users",
         target_config / "proxysql" / "rules",
+        target_config / "skyline-console",
         secret_directory,
         public_directory,
         maintenance_secret_directory,
@@ -214,6 +215,11 @@ def prepare() -> None:
     ):
         directory.mkdir(parents=True, exist_ok=True)
     maintenance_secret_directory.chmod(0o700)
+    write_text(
+        target_config / "skyline-console" / "nginx.conf",
+        "http {\n    # Service: skyline\n}\n",
+        0o660,
+    )
 
     write_text(
         WORK / "bin" / "ip",

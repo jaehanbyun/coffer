@@ -54,6 +54,14 @@ coffer_internal_origin: >-
     coffer_internal_fqdn |
     kolla_url(internal_protocol, coffer_edge_port)
   }}
+coffer_maintenance_internal_origin: >-
+  {{
+    coffer_internal_fqdn |
+    kolla_url('https', coffer_maintenance_port)
+  }}
+coffer_maintenance_token_url: >-
+  {{ coffer_maintenance_internal_origin
+  }}/v1/internal/maintenance/registry-token
 coffer_external_origin: >-
   {{
     coffer_external_fqdn |
@@ -142,6 +150,14 @@ coffer_maintenance_service_project_id: ""
 coffer_maintenance_user_id: ""
 coffer_maintenance_workloads: []
 coffer_maintenance_exchange_budget_seconds: 30
+coffer_maintenance_workload_id: >-
+  {{
+    coffer_maintenance_workloads |
+    selectattr('inventory_host', 'equalto', inventory_hostname) |
+    map(attribute='workload_id') |
+    first |
+    default('')
+  }}
 
 ####################
 # Database
@@ -243,9 +259,11 @@ coffer_registry_metrics_upstream_timeout_seconds: 5
 
 coffer_reconcile_mode: "periodic"
 coffer_reconcile_timeout_seconds: 10
+coffer_reconcile_maintenance_timeout_seconds: 10
+coffer_reconcile_keystone_timeout_seconds: 10
 coffer_reconcile_batch_limit: 10
 coffer_reconcile_max_pages_per_cycle: 100
-coffer_reconcile_lease_seconds: 120
+coffer_reconcile_lease_seconds: 450
 coffer_reconcile_interval_seconds: 60
 
 ####################

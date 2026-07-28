@@ -394,6 +394,7 @@ assert_container_test "custom CA is installed" "${CONTROL_CONTAINER}" \
 assert_equal "registry host port exposure" "" \
     "$(podman port "${REGISTRY_CONTAINER}")"
 
+phase="loopback-only empty reconciliation image smoke"
 podman run --name "${RECONCILE_CONTAINER}" --rm \
     --network "${NETWORK}" \
     --env KOLLA_CONFIG_STRATEGY=COPY_ALWAYS \

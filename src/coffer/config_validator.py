@@ -17,6 +17,7 @@ from coffer.quota_admission import RegistryTokenVerifier
 from coffer.reconciliation_runner import (
     ReconciliationManagementSettings,
     RunnerSettings,
+    build_manifest_probe,
 )
 from coffer.registry_metrics_runner import RegistryMetricsSettings
 from coffer.runtime import WSGIServerSettings
@@ -177,7 +178,7 @@ def validate_component(conf: cfg.ConfigOpts, component: str) -> None:
         raise ConfigValidationError(
             "reconciliation upstream must use verified HTTPS"
         )
-    ssl.create_default_context(cafile=settings.cafile)
+    build_manifest_probe(conf, settings)
     if settings.mode == "periodic":
         management = ReconciliationManagementSettings.from_config(conf)
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)

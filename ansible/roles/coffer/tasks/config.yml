@@ -92,11 +92,10 @@
   loop: >-
     {{
       coffer_services |
+      select_services_enabled_and_mapped_to_host |
       dict2items |
       rejectattr('key', 'equalto', 'coffer-registry') |
       rejectattr('key', 'equalto', 'coffer-registry-metrics') |
-      selectattr('value.enabled') |
-      selectattr('value.group', 'in', group_names) |
       list
     }}
   loop_control:

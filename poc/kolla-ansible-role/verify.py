@@ -419,10 +419,10 @@ def verify_disabled_and_negative_prechecks() -> None:
         "kolla_internal_vip_address=127.0.0.1",
     )
     assert_failure_case(
-        "maintenance reconciliation remains disabled",
+        "reconciliation without maintenance identity",
         lambda: None,
         "-e",
-        "coffer_enable_reconcile=true",
+        "coffer_enable_maintenance_identity=false",
     )
     assert_failure_case(
         "unsafe maintenance secret permission",
@@ -559,6 +559,14 @@ def verify_isolated_lab_protocol_split() -> None:
         "coffer_deployment_profile=isolated-lab",
         "-e",
         "kolla_enable_tls_internal=false",
+        "-e",
+        "coffer_enable_reconcile=false",
+        "-e",
+        "coffer_enable_maintenance_identity=false",
+        "-e",
+        "coffer_enable_horizon_dashboard=false",
+        "-e",
+        "coffer_enable_skyline_console=false",
     )
     with listening(61313):
         run_action(
@@ -567,6 +575,14 @@ def verify_isolated_lab_protocol_split() -> None:
             "coffer_deployment_profile=isolated-lab",
             "-e",
             "kolla_enable_tls_internal=false",
+            "-e",
+            "coffer_enable_reconcile=false",
+            "-e",
+            "coffer_enable_maintenance_identity=false",
+            "-e",
+            "coffer_enable_horizon_dashboard=false",
+            "-e",
+            "coffer_enable_skyline_console=false",
         )
     edge_config = (
         WORK / "target-config" / "coffer-edge" / "coffer.conf"
@@ -622,12 +638,9 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
             "coffer_edge",
             "coffer_registry",
             "coffer_registry_metrics",
+            "coffer_reconcile",
         },
-        "deploy starts HAProxy and the four enabled Coffer processes",
-    )
-    check(
-        "coffer_reconcile" not in current_state["containers"],
-        "unresolved reconciliation identity remains disabled",
+        "deploy starts HAProxy and the five enabled Coffer processes",
     )
     bootstrap_index = next(
         index
@@ -645,6 +658,7 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
             "coffer_edge",
             "coffer_registry",
             "coffer_registry_metrics",
+            "coffer_reconcile",
         }
     ]
     check(
@@ -841,13 +855,40 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
             "/etc/coffer/maintenance-client.key",
         }
         <= reconcile_destinations,
-        "disabled reconciler fixture declares exact future runtime recipients",
+        "enabled reconciler declares exact authenticated runtime recipients",
     )
     reconcile_config = (
         target / "coffer-reconcile" / "coffer.conf"
     ).read_text(encoding="utf-8")
     check(
         "mode = periodic" in reconcile_config
+        and "authentication_mode = maintenance" in reconcile_config
+        and (
+            "maintenance_token_url = https://registry.internal.example.test:"
+            "18790/v1/internal/maintenance/registry-token"
+        )
+        in reconcile_config
+        and (
+            "application_credential_id_file = "
+            "/etc/coffer/maintenance-application-credential-id"
+        )
+        in reconcile_config
+        and (
+            "application_credential_secret_file = "
+            "/etc/coffer/maintenance-application-credential-secret"
+        )
+        in reconcile_config
+        and (
+            "maintenance_client_certfile = "
+            "/etc/coffer/maintenance-client.crt"
+        )
+        in reconcile_config
+        and (
+            "maintenance_client_keyfile = "
+            "/etc/coffer/maintenance-client.key"
+        )
+        in reconcile_config
+        and "worker_id = reconciler-coffer-stage3-contract" in reconcile_config
         and "management_bind_host = 127.0.0.1" in reconcile_config
         and "management_bind_port = 18790" in reconcile_config
         and (
@@ -860,7 +901,7 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
             "/etc/coffer/reconcile-metrics.key"
         )
         in reconcile_config,
-        "periodic reconciler fixture renders the private TLS management listener",
+        "periodic reconciler renders authenticated probe and TLS management",
     )
     api_config = (target / "coffer-api" / "coffer.conf").read_text(
         encoding="utf-8"
@@ -985,8 +1026,8 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
     scrape_configs = prometheus_document["scrape_configs"]
     check(
         [job["job_name"] for job in scrape_configs]
-        == ["coffer-api", "coffer-edge", "coffer-registry"],
-        "Prometheus omits the disabled reconciler and owns enabled direct jobs",
+        == ["coffer-api", "coffer-edge", "coffer-registry", "coffer-reconcile"],
+        "Prometheus owns enabled direct service and reconciler jobs",
     )
     targets = {
         target_value
@@ -996,17 +1037,22 @@ def verify_rendered_contract(secret_values: dict[str, str]) -> None:
     }
     check(
         targets
-        == {"127.0.0.1:18787", "127.0.0.1:18788", "127.0.0.1:18791"}
+        == {
+            "127.0.0.1:18787",
+            "127.0.0.1:18788",
+            "127.0.0.1:18790",
+            "127.0.0.1:18791",
+        }
         and "127.0.0.2" not in prometheus_path.read_text(encoding="utf-8")
         and "registry.internal.example.test:18787"
         not in prometheus_path.read_text(encoding="utf-8"),
         "Prometheus targets direct backend addresses and never a VIP or FQDN",
     )
     check(
-        "coffer-reconcile" not in prometheus_path.read_text(encoding="utf-8")
+        "coffer-reconcile" in prometheus_path.read_text(encoding="utf-8")
         and "127.0.0.1:18790"
-        not in prometheus_path.read_text(encoding="utf-8"),
-        "disabled one-shot or periodic reconciler creates no phantom scrape target",
+        in prometheus_path.read_text(encoding="utf-8"),
+        "enabled periodic reconciler has one direct scrape target",
     )
     check(
         all(
@@ -1257,6 +1303,7 @@ def verify_successful_lifecycle() -> None:
             "coffer_edge",
             "coffer_registry",
             "coffer_registry_metrics",
+            "coffer_reconcile",
         }.intersection(stopped),
         "stop removes only Coffer-owned process containers",
     )

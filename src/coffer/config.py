@@ -96,10 +96,28 @@ MAINTENANCE_OPTS = [
 RECONCILIATION_GROUP = cfg.OptGroup("reconciliation")
 RECONCILIATION_OPTS = [
     cfg.StrOpt("mode", default="once", choices=("once", "periodic")),
+    cfg.StrOpt(
+        "authentication_mode",
+        default="unauthenticated_fixture",
+        choices=("unauthenticated_fixture", "maintenance"),
+    ),
     cfg.URIOpt("upstream_url"),
     cfg.StrOpt("cafile"),
     cfg.BoolOpt("allow_insecure_http", default=False),
     cfg.FloatOpt("timeout_seconds", default=10.0, min=0.1, max=60.0),
+    cfg.URIOpt("maintenance_token_url"),
+    cfg.FloatOpt(
+        "maintenance_timeout_seconds",
+        default=10.0,
+        min=0.1,
+        max=60.0,
+    ),
+    cfg.StrOpt("application_credential_id_file"),
+    cfg.StrOpt("application_credential_secret_file"),
+    cfg.StrOpt("maintenance_client_certfile"),
+    cfg.StrOpt("maintenance_client_keyfile"),
+    cfg.StrOpt("maintenance_service_project_id"),
+    cfg.StrOpt("maintenance_user_id"),
     cfg.StrOpt("worker_id"),
     cfg.IntOpt("stale_after_seconds", default=300, min=0, max=86400),
     cfg.IntOpt("lease_seconds", default=120, min=1, max=3600),

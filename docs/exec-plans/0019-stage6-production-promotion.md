@@ -3219,6 +3219,54 @@ operator-local release.
   periodic runner and open the Kolla reconcile guard only after focused
   denial, rotation, outage, leak, and stale-claim tests pass.
 
+### 2026-07-28 — Authenticated reconciliation client and Kolla opt-in completed
+
+- Runtime path: Added a claim-aware production probe that re-reads exact
+  owner-only application-credential files, obtains and validates a
+  project-scoped Keystone token with the single accepted access rule, exchanges
+  repository/reservation/claim/version authority through the private mTLS
+  maintenance broker, and sends only the returned short-lived pull token to
+  one verified-HTTPS Distribution `HEAD`.
+- Fail-closed behavior: HTTPS cannot select the unauthenticated adapter;
+  plaintext is restricted to an explicit loopback-only fixture. Missing,
+  linked, over-permissive, malformed, rotated-between-use, denied, timed-out,
+  malformed-response, wrong-digest, and dependency-outage paths remain
+  indeterminate and never release quota. Tokens are request-local and neither
+  token nor credential values enter configuration, logs, or results.
+- Fencing and budget: Every probe receives the exact claimed repository ID,
+  reservation ID, claim token, and expected row version. Maintenance mode
+  requires an explicit workload ID, verified Keystone TLS, exact owner-only
+  identity and mTLS files, and a lease covering the sequential Keystone,
+  broker, Registry, and mutation budget.
+- Kolla integration: The companion role now renders a fifth
+  `coffer-reconcile` process only when both reconcile and the complete
+  maintenance identity are explicitly enabled. It validates one unique
+  per-host application credential and client keypair, the private certificate
+  mapping/frontend, exact recipients, direct metrics target, lifecycle
+  actions, and claim-lease budget. Both production defaults remain false.
+- Compatibility boundary: The old Stage 2 image smoke uses only an explicit
+  empty `unauthenticated_fixture` with an unreachable loopback origin. Shipped
+  samples and the reconciliation runbook now describe the production
+  authenticated contract and do not imply credential-free HTTPS.
+- Honest disposition: No real Keystone object, Barbican secret, certificate,
+  endpoint, Kolla deployment, or retained preview state changed. This closes
+  the source/configuration gap but is not the live maintenance-identity or
+  Kolla multinode promotion evidence.
+- Verification: 88 focused runtime/config tests, the 107-check Kolla
+  companion-role lifecycle, all 134 promotion-harness tests, compilation,
+  diff checks, and all 1,823 repository tests pass.
+- Changed files: authenticated probe and runner contracts, reconciliation
+  configuration and validator, Kolla role/defaults/prechecks/harness, Stage 2
+  compatibility fixture, samples, ADR 0015, maintenance research, runbook,
+  focused tests, this plan, and `HANDOFF.md`.
+- Next exact action: Add
+  `poc/production-promotion/operator_release.py` as the tenth source-bound
+  specialist result. It must validate the exact nine prior transaction
+  digests, accepted/rejected ADR disposition, operator/runbook/release
+  documentation, immutable release and supply-chain evidence, repository
+  regression, secret scanning, and honest production boundary before the
+  canonical ledger can pass `operator_release`.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -3288,6 +3336,10 @@ operator-local release.
 | Promotion harness after Kolla integration | `make -C poc/production-promotion verify` | passed; 134 |
 | Canonical ledger after Kolla integration | direct `ledger.py` compilation from the owner-only release result; mode and SHA inspection | passed; 0 passed, 1 blocked, 9 pending, mode 0600, `production_candidate=false` |
 | Post-Kolla-contract full Python regression | `uv run pytest -q` | passed; 1804 |
+| Authenticated reconciliation core | `uv run pytest -q tests/test_maintenance_probe.py tests/test_config_validator.py tests/test_quota_reconciliation.py tests/test_reconciliation_runner.py tests/test_kolla_runtime_contracts.py` | passed; 88 |
+| Authenticated Kolla opt-in lifecycle | `make -C poc/kolla-ansible-role verify` | passed; 107 |
+| Promotion harness after authenticated reconciliation | `make -C poc/production-promotion verify` | passed; 134 |
+| Post-authenticated-reconciliation full Python regression | `uv run pytest -q` | passed; 1823 |
 | Full Python regression | `uv run pytest -q` | passed; 310 |
 | Kolla companion-role regression | `make -C poc/kolla-ansible-role verify` | passed; 68 |
 | Maintenance identity code/config inventory | Focused inspection of live comparison, reconciliation runner/probe, WSGI, Kolla config, secrets, and Stage 5 inputs | passed |
@@ -3498,20 +3550,20 @@ operator-local release.
 - Ceph's encrypted-copy fix is merged but unreleased. Branch execution may be
   useful only as explicitly labelled anticipatory evidence; it cannot satisfy
   the stable-release gate.
-- The maintenance architecture, broker, trusted adapter, and generated Kolla
-  recipient/frontend fixture are locally proven. Creating or delivering a real
-  identity, credential, certificate, endpoint, or remote Kolla secret remains
-  separately gated. The approved destructive filesystem fixture is complete;
-  real RGW collection remains gated by released dependencies and the fresh
-  pilot transaction.
+- The maintenance architecture, broker, authenticated worker, trusted adapter,
+  and generated Kolla recipient/frontend fixture are locally proven. Creating
+  or delivering a real identity, credential, certificate, endpoint, or remote
+  Kolla secret remains separately gated. The approved destructive filesystem
+  fixture is complete; real RGW collection remains gated by released
+  dependencies and the fresh pilot transaction.
 
 ## Handoff
 
 - Current state: Stage 5 is complete and committed. Stage 6 has deterministic
-  upstream release gates plus an accepted local maintenance broker/session
-  design. The opt-in generated Kolla recipient/private-frontend fixture and
-  trusted workload adapter and fixture-only lifecycle are complete; defaults
-  and reconciliation remain disabled. The provenance-bound S3 inventory helper
+  upstream release gates plus an accepted local maintenance broker/session and
+  authenticated reconciliation worker. The opt-in generated Kolla
+  recipient/private-frontend/client fixture and trusted workload adapter are
+  complete; both production defaults remain disabled. The provenance-bound S3 inventory helper
   plus the pure state model and fixture-only data-protection lifecycle are
   complete. The canonical restored SQL/RGW backup verifier now gates the
   lifecycle through an ordered no-network adapter seam. The controlled
@@ -3522,14 +3574,12 @@ operator-local release.
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
 - Exact next action: Add
-  `src/coffer/maintenance_probe.py` as the authenticated reconciliation
-  exchange. It must bind the exact SQL claim authority to the private mTLS
-  token request, use owner-only application-credential and client-key files,
-  send only the reduced pull token to Distribution, fail indeterminate on
-  denial/outage/rotation races, and retain no secret or endpoint data. Wire it
-  into `src/coffer/reconciliation_runner.py` and open the Kolla production
-  reconcile guard only after focused security and lifecycle tests pass. Do not
-  create the live pilot while official release readiness remains blocked.
+  `poc/production-promotion/operator_release.py` and its source-bound tests,
+  then integrate the tenth result into `ledger.py`, the Makefile, and operator
+  documentation. It must consume the exact first nine digests and validate
+  ADR, documentation, immutable release/supply-chain, regression, secret-scan,
+  and honest-boundary evidence. Do not create the live pilot while official
+  release readiness remains blocked.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

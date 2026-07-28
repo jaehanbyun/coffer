@@ -1,8 +1,9 @@
 # Stage 6 Maintenance Secret Delivery
 
 - Date: 2026-07-25
-- Status: fixture-only Kolla contract implemented; no real identity or secret
-  created
+- Updated: 2026-07-28
+- Status: authenticated worker client and opt-in Kolla contract implemented;
+  no real identity, secret, or disposable-region evidence created
 - Scope: accepted ADR 0015 identity material, per-workload mTLS, Kolla
   materialization, rotation, revocation, and residue
 - Related ADRs: `docs/adrs/0008-finite-application-credentials-as-provisioning-contract.md`,
@@ -12,9 +13,9 @@
 
 ## Outcome
 
-The existing companion role has a usable owner-controlled file boundary, but
-it is not yet a maintenance-identity implementation. The recommended next
-contract is:
+The companion role and installed reconciler now implement the local
+maintenance-identity delivery and authenticated-probe contract. The production
+lifecycle is:
 
 1. the deployment owner creates one dedicated maintenance service user and
    role assignment, then one finite restricted application credential per
@@ -32,10 +33,16 @@ contract is:
    the internal broker for one repository pull token, and retains both tokens
    only in memory.
 
-The local fixture contract now implements the recipient and frontend shape
-using generated disposable placeholders. It creates no Keystone object,
-Barbican secret, ACL, consumer, real certificate, endpoint, or remote state.
-`coffer_enable_reconcile` remains false.
+The repository implements the recipient, frontend, and worker-client shape
+using generated disposable placeholders. The worker re-reads exact owner-only
+application-credential files, obtains a project-scoped Keystone token,
+exchanges the live SQL claim through the private mTLS broker, and uses the
+returned one-repository pull token for one Distribution `HEAD`. Every
+authentication, TLS, broker, JSON, token, or registry error remains
+indeterminate. The implementation creates no Keystone object, Barbican
+secret, ACL, consumer, real certificate, endpoint, or remote state. Both
+production defaults remain false; only the isolated contract baseline enables
+the complete path.
 
 ## Implemented Fixture Boundary
 
@@ -51,7 +58,7 @@ harness turns it on only for generated files and proves:
   single-link mode-`0600` files;
 - each mode-`0644` client certificate verifies against the exact maintenance
   CA and matches its own private key;
-- disabled reconciler `config.json` receives only the exact credential
+- reconciler `config.json` receives only the exact credential
   ID/secret and client certificate/key paths; no API, edge, registry, or
   bootstrap recipient receives those values;
 - a private internal-VIP HAProxy frontend requires the exact client CA, maps
@@ -65,10 +72,12 @@ harness turns it on only for generated files and proves:
   accepting a mapped workload only when the direct peer is an allowlisted
   HAProxy address and the workload is configured.
 
-The product builder can assemble the accepted SQL authority, policy, broker,
-resource, and adapter when `[maintenance] enabled=true`. The production Kolla
-default remains false, the reconciler remains disabled, and the worker still
-has no runtime Keystone-token or broker-token provider.
+The product builder assembles the accepted SQL authority, policy, broker,
+resource, and adapter when `[maintenance] enabled=true`. The worker now has an
+explicit runtime Keystone-token and broker-token provider. The production
+Kolla defaults remain false, and `coffer_enable_reconcile=true` is refused
+unless the maintenance identity, verified private TLS, exact workload mapping,
+owner-only inputs, and worst-case sequential claim-lease budget all validate.
 
 ## Current Role Boundary
 
@@ -86,15 +95,19 @@ The current role already proves these reusable properties:
 - RGW keys and the Distribution HTTP secret appear only in the private
   Distribution configuration;
 - public JWKS goes only to edge and registry; and
-- the reconciler currently receives only its mode-0600 config, registry CA,
-  system CA inputs, database access, and no Distribution credential.
+- the reconciler receives its mode-0600 config, registry CA, database access,
+  one exact per-replica application credential, and one exact per-replica mTLS
+  keypair; it receives no tenant credential, Distribution HTTP secret, RGW
+  credential, or registry signing key.
 
-The current precheck intentionally refuses `coffer_enable_reconcile=true`.
-There is no maintenance user/role, application-credential file, per-replica
-client certificate, client CA, private mTLS frontend, trusted workload adapter,
-token provider, or live-comparison job. The existing backend TLS key is a
-server key copied to listener processes and must not be reused as a maintenance
-client key.
+The current precheck permits the explicit opt-in only with the complete local
+contract. The exact maintenance port is 8790 by default and the private
+frontend, trusted workload adapter, authenticated probe, rotation-ready
+per-replica files, and fail-closed configuration validator are implemented.
+There is still no real maintenance user/role, application credential,
+certificate, Barbican materialization, live-comparison job, or disposable
+private-TLS execution evidence. The existing backend TLS key remains a server
+key and is never reused as a maintenance client key.
 
 ## Required Material and Exact Recipients
 
@@ -139,7 +152,7 @@ are `0600`; public certificates are regular nonempty `0644` files. Symlinks,
 group/world write, unexpected hard links, empty files, and unresolved host
 entries fail precheck.
 
-The future Kolla config should copy only these files into
+The Kolla config copies only these files into
 `coffer-reconcile`:
 
 ```text
@@ -203,9 +216,12 @@ load balancer/service peers. Even if network or workload identity is
 misconfigured, the exact restricted application credential, user, project,
 roles, live SQL claim/session, and pull-only token reduction remain mandatory.
 
-The exact frontend port and certificate-to-workload mapping format are not
-selected here. They require Kolla/HAProxy implementation review and collision
-prechecks before acceptance.
+The default exact frontend port is 8790. The mapping uses the verified client
+certificate's SHA-256 fingerprint to select one configured workload, after
+deleting any caller-supplied workload header. Kolla prechecks validate port,
+host/workload cardinality, unique credential IDs and certificate fingerprints,
+certificate/key pairing, and claim-lease budget. This is still a rendered
+contract rather than live HAProxy/Keystone evidence.
 
 ## Rotation, Revocation, and Teardown
 

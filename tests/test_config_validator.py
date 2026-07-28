@@ -171,6 +171,7 @@ def test_registry_metrics_validation_requires_server_tls_without_database(
             serialization.NoEncryption(),
         )
     )
+    key_path.chmod(0o600)
     conf = new_config()
     conf(args=[])
     conf.set_override(
@@ -219,6 +220,19 @@ def test_periodic_reconciliation_validation_requires_management_tls(
             serialization.NoEncryption(),
         )
     )
+    key_path.chmod(0o600)
+    credential_id_path = tmp_path / "credential-id"
+    credential_secret_path = tmp_path / "credential-secret"
+    credential_id_path.write_text(
+        "33333333-3333-4333-8333-333333333333",
+        encoding="utf-8",
+    )
+    credential_secret_path.write_text(
+        "credential-secret-value",
+        encoding="utf-8",
+    )
+    credential_id_path.chmod(0o600)
+    credential_secret_path.chmod(0o600)
     conf = new_config()
     conf(args=[])
     conf.set_override(
@@ -236,6 +250,69 @@ def test_periodic_reconciliation_validation_requires_management_tls(
         "cafile",
         str(certificate_path),
         group="reconciliation",
+    )
+    conf.set_override(
+        "authentication_mode",
+        "maintenance",
+        group="reconciliation",
+    )
+    conf.set_override(
+        "worker_id",
+        "reconciler-controller-1",
+        group="reconciliation",
+    )
+    conf.set_override(
+        "lease_seconds",
+        310,
+        group="reconciliation",
+    )
+    conf.set_override(
+        "maintenance_token_url",
+        (
+            "https://registry.internal.example:8790"
+            "/v1/internal/maintenance/registry-token"
+        ),
+        group="reconciliation",
+    )
+    conf.set_override(
+        "application_credential_id_file",
+        str(credential_id_path),
+        group="reconciliation",
+    )
+    conf.set_override(
+        "application_credential_secret_file",
+        str(credential_secret_path),
+        group="reconciliation",
+    )
+    conf.set_override(
+        "maintenance_client_certfile",
+        str(certificate_path),
+        group="reconciliation",
+    )
+    conf.set_override(
+        "maintenance_client_keyfile",
+        str(key_path),
+        group="reconciliation",
+    )
+    conf.set_override(
+        "maintenance_service_project_id",
+        "11111111-1111-4111-8111-111111111111",
+        group="reconciliation",
+    )
+    conf.set_override(
+        "maintenance_user_id",
+        "22222222-2222-4222-8222-222222222222",
+        group="reconciliation",
+    )
+    conf.set_override(
+        "auth_url",
+        "https://keystone.internal.example/v3",
+        group="keystone",
+    )
+    conf.set_override(
+        "cafile",
+        str(certificate_path),
+        group="keystone",
     )
     conf.set_override(
         "management_tls_certfile",

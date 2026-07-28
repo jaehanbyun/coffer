@@ -63,7 +63,20 @@ class FakeProbe:
         self.before_return = before_return
         self.calls: list[tuple[str, str]] = []
 
-    def probe(self, *, repository: str, digest: str) -> ProbeObservation:
+    def probe(
+        self,
+        *,
+        repository: str,
+        digest: str,
+        repository_id: str,
+        reservation_id: str,
+        claim_token: str,
+        expected_version: int,
+    ) -> ProbeObservation:
+        assert repository_id
+        assert reservation_id
+        assert claim_token
+        assert expected_version >= 1
         self.calls.append((repository, digest))
         if callable(self.before_return):
             self.before_return()

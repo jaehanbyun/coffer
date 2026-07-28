@@ -62,6 +62,19 @@ class ManifestProbe(Protocol):
     def probe(self, *, repository: str, digest: str) -> ProbeObservation: ...
 
 
+class ReconciliationManifestProbe(Protocol):
+    def probe(
+        self,
+        *,
+        repository: str,
+        digest: str,
+        repository_id: str,
+        reservation_id: str,
+        claim_token: str,
+        expected_version: int,
+    ) -> ProbeObservation: ...
+
+
 class RepositoryResolver(Protocol):
     def resolve(self, *, project_id: str, repository_id: str) -> str | None: ...
 
@@ -163,6 +176,26 @@ class HTTPDistributionManifestProbe:
             connection.close()
 
 
+class UnauthenticatedFixtureReconciliationProbe:
+    """Adapt the generic HTTP probe only for an explicit loopback fixture."""
+
+    def __init__(self, probe: ManifestProbe) -> None:
+        self._probe = probe
+
+    def probe(
+        self,
+        *,
+        repository: str,
+        digest: str,
+        repository_id: str,
+        reservation_id: str,
+        claim_token: str,
+        expected_version: int,
+    ) -> ProbeObservation:
+        del repository_id, reservation_id, claim_token, expected_version
+        return self._probe.probe(repository=repository, digest=digest)
+
+
 @dataclass(frozen=True, slots=True)
 class ReconciliationRun:
     scanned: int
@@ -178,7 +211,7 @@ class QuotaReconciler:
         self,
         quotas: QuotaStore,
         repositories: RepositoryResolver,
-        probe: ManifestProbe,
+        probe: ReconciliationManifestProbe,
         *,
         worker_id: str,
         stale_after: timedelta = timedelta(minutes=5),
@@ -264,7 +297,12 @@ class QuotaReconciler:
                 self._observe("indeterminate")
                 continue
             observation = self._probe.probe(
-                repository=repository, digest=candidate.manifest_digest
+                repository=repository,
+                digest=candidate.manifest_digest,
+                repository_id=candidate.repository_id,
+                reservation_id=candidate.reservation_id,
+                claim_token=candidate.claim_token,
+                expected_version=candidate.version,
             )
             try:
                 if observation.presence == ManifestPresence.PRESENT:

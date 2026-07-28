@@ -24,14 +24,23 @@ from oslo_config import cfg
 
 from coffer.config import parse_config, setup_logging
 from coffer.db import RepositoryStore
+from coffer.maintenance_probe import (
+    AuthenticatedReconciliationManifestProbe,
+    KeystoneApplicationCredentialTokenSource,
+    build_mtls_ssl_context,
+    build_verified_ssl_context,
+    read_owner_only_credential,
+)
 from coffer.observability import CofferMetrics
 from coffer.quota import QuotaStore, ReconciliationMetricsSnapshot
 from coffer.quota_reconciliation import (
     HTTPDistributionManifestProbe,
     QuotaReconciler,
     ReconciliationCursor,
+    ReconciliationManifestProbe,
     ReconciliationRun,
     RepositoryStoreResolver,
+    UnauthenticatedFixtureReconciliationProbe,
 )
 from coffer.schema import SchemaNotReady
 
@@ -111,6 +120,7 @@ class ReconciliationManagementSettings:
 @dataclass(frozen=True, slots=True)
 class RunnerSettings:
     mode: str
+    authentication_mode: str
     upstream_url: str
     cafile: str | None
     allow_insecure_http: bool
@@ -164,11 +174,23 @@ class RunnerSettings:
                 raise RunnerConfigurationError(
                     "a reconciliation CA file requires an HTTPS origin"
                 )
+            if options.authentication_mode != "unauthenticated_fixture":
+                raise RunnerConfigurationError(
+                    "plaintext reconciliation is only an unauthenticated fixture"
+                )
         elif parsed.scheme != "https":
             raise RunnerConfigurationError(
                 "reconciliation upstream_url must use HTTP(S)"
             )
+        elif options.authentication_mode != "maintenance":
+            raise RunnerConfigurationError(
+                "HTTPS reconciliation requires maintenance authentication"
+            )
 
+        if options.authentication_mode == "maintenance" and not options.worker_id:
+            raise RunnerConfigurationError(
+                "maintenance reconciliation requires an explicit worker_id"
+            )
         worker_id = options.worker_id or (
             f"reconciler-{os.getpid()}-{uuid.uuid4().hex[:8]}"
         )
@@ -180,9 +202,17 @@ class RunnerSettings:
             raise RunnerConfigurationError(
                 "reconciliation worker_id must contain 1 to 128 characters"
             )
+        per_candidate_budget = options.timeout_seconds
+        if options.authentication_mode == "maintenance":
+            if conf.keystone.insecure:
+                raise RunnerConfigurationError(
+                    "maintenance reconciliation requires verified Keystone TLS"
+                )
+            per_candidate_budget += (
+                options.maintenance_timeout_seconds + conf.keystone.timeout
+            )
         required_lease = (
-            options.batch_limit * options.timeout_seconds
-            + MUTATION_GRACE_SECONDS
+            options.batch_limit * per_candidate_budget + MUTATION_GRACE_SECONDS
         )
         if options.lease_seconds < required_lease:
             raise RunnerConfigurationError(
@@ -194,6 +224,7 @@ class RunnerSettings:
             )
         return cls(
             mode=options.mode,
+            authentication_mode=options.authentication_mode,
             upstream_url=upstream_url,
             cafile=options.cafile,
             allow_insecure_http=options.allow_insecure_http,
@@ -229,16 +260,7 @@ def build_reconciler(
         transaction_observer=metrics.observe_quota_transaction,
     )
     repositories = RepositoryStore(conf.database.connection)
-    tls_context = (
-        ssl.create_default_context(cafile=settings.cafile)
-        if settings.upstream_url.startswith("https://")
-        else None
-    )
-    probe = HTTPDistributionManifestProbe(
-        settings.upstream_url,
-        timeout_seconds=settings.timeout_seconds,
-        ssl_context=tls_context,
-    )
+    probe = build_manifest_probe(conf, settings)
     return QuotaReconciler(
         quotas,
         RepositoryStoreResolver(repositories),
@@ -248,6 +270,73 @@ def build_reconciler(
         lease_for=settings.lease_for,
         batch_limit=settings.batch_limit,
         metrics=metrics,
+    )
+
+
+def build_manifest_probe(
+    conf: cfg.ConfigOpts,
+    settings: RunnerSettings,
+) -> ReconciliationManifestProbe:
+    if settings.authentication_mode == "unauthenticated_fixture":
+        return UnauthenticatedFixtureReconciliationProbe(
+            HTTPDistributionManifestProbe(
+                settings.upstream_url,
+                timeout_seconds=settings.timeout_seconds,
+            )
+        )
+
+    options = conf.reconciliation
+    required = (
+        settings.cafile,
+        conf.keystone.auth_url,
+        options.maintenance_token_url,
+        options.application_credential_id_file,
+        options.application_credential_secret_file,
+        options.maintenance_client_certfile,
+        options.maintenance_client_keyfile,
+        options.maintenance_service_project_id,
+        options.maintenance_user_id,
+    )
+    if any(not isinstance(value, str) or not value for value in required):
+        raise RunnerConfigurationError(
+            "maintenance reconciliation configuration is incomplete"
+        )
+    assert settings.cafile is not None
+    identity_cafile = conf.keystone.cafile or settings.cafile
+    credential_id = read_owner_only_credential(
+        options.application_credential_id_file
+    )
+    credential_secret = read_owner_only_credential(
+        options.application_credential_secret_file
+    )
+    del credential_id, credential_secret
+    identity_source = KeystoneApplicationCredentialTokenSource(
+        auth_url=conf.keystone.auth_url,
+        cafile=identity_cafile,
+        timeout_seconds=conf.keystone.timeout,
+        credential_id_file=options.application_credential_id_file,
+        credential_secret_file=options.application_credential_secret_file,
+        expected_project_id=options.maintenance_service_project_id,
+        expected_user_id=options.maintenance_user_id,
+    )
+    registry_context = build_verified_ssl_context(settings.cafile)
+    build_mtls_ssl_context(
+        cafile=settings.cafile,
+        certfile=options.maintenance_client_certfile,
+        keyfile=options.maintenance_client_keyfile,
+    )
+    return AuthenticatedReconciliationManifestProbe(
+        registry_url=settings.upstream_url,
+        maintenance_token_url=options.maintenance_token_url,
+        identity_token_source=identity_source,
+        registry_ssl_context=registry_context,
+        maintenance_ssl_context_factory=lambda: build_mtls_ssl_context(
+            cafile=settings.cafile,
+            certfile=options.maintenance_client_certfile,
+            keyfile=options.maintenance_client_keyfile,
+        ),
+        registry_timeout_seconds=settings.timeout_seconds,
+        maintenance_timeout_seconds=options.maintenance_timeout_seconds,
     )
 
 
