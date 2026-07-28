@@ -281,6 +281,47 @@ passed production gate after a future Distribution release transition. The
 filesystem harness and its exact pin must be updated and rerun for that release
 before `gc_retention` can pass again.
 
+The representative load/soak/fault specialist command is:
+
+```text
+make -C poc/production-promotion load-soak-result
+```
+
+It validates the same release, artifacts, RGW/KMS, maintenance identity, data
+protection, observability, and exact-release GC results before opening
+`work/production-promotion/load-soak-evidence.json`. A valid evidence document
+must bind all seven prerequisite digests and the checked-in client, raw OCI,
+control, telemetry, profile, fault, lifecycle, 53-action pilot, and cleanup
+sources. A result from an older Distribution release is refused even when its
+GC wrapper remains structurally valid.
+
+The non-synthetic disposable OpenStack transaction must prove:
+
+- Docker, Podman, Skopeo, ORAS, nerdctl, and raw OCI behavior across all
+  twelve operations, nine content classes, and both x86_64 and aarch64;
+- verified private TLS, shared SQL and RGW, edge-only data-plane access, direct
+  observability, exact digests, project isolation, quota accounting, Galera
+  convergence, reconciliation fencing, and multipart cleanup;
+- 120-second smoke, 1,800-second qualification, and 7,200-second soak profiles,
+  including the fixed 1/2/4/8/16/32/64 concurrency ramp, an accepted boundary
+  of at least 32, and explicit rejection at the next saturation step;
+- bounded latency, availability, and resource headroom under all ten API,
+  edge, registry, HAProxy, Galera, RGW, Barbican, reconciler, and rolling
+  restart fault classes, followed by recovery without digest or quota drift;
+- 53 completed and checkpointed pilot actions, verified resume behavior, all
+  twenty fixed failure cases, complete metric/reset/stale-series evidence,
+  nonempty log scans, and zero secret or unexpected-error findings; and
+- terminal teardown with all eighteen residue classes at zero and unrelated
+  OpenStack state unchanged.
+
+Only coverage counts, booleans, hashes, and the existing compact lifecycle
+proof survive in `coffer.production-promotion-load-soak-result/v1`; client
+credentials, endpoints, project/repository names, upload locations, object
+identities, and log contents do not. The ledger passes `load_soak` only when
+the exact seven prerequisite digests match the other results in the same
+transaction. The repository fixtures verify this fail-closed contract but are
+not production load evidence.
+
 The final enforcement target is:
 
 ```text

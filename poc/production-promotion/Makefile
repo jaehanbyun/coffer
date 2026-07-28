@@ -11,10 +11,12 @@ DATA_PROTECTION_OUTPUT := $(REPO_ROOT)/work/production-promotion/data-protection
 DATA_PROTECTION_EVIDENCE := $(REPO_ROOT)/work/production-promotion/data-protection-evidence.json
 OBSERVABILITY_OUTPUT := $(REPO_ROOT)/work/production-promotion/observability-result.json
 OBSERVABILITY_EVIDENCE := $(REPO_ROOT)/work/production-promotion/observability-evidence.json
+LOAD_SOAK_OUTPUT := $(REPO_ROOT)/work/production-promotion/load-soak-result.json
+LOAD_SOAK_EVIDENCE := $(REPO_ROOT)/work/production-promotion/load-soak-evidence.json
 LEDGER_OUTPUT := $(REPO_ROOT)/work/production-promotion/promotion-ledger.json
 ARTIFACT_INPUTS := $(REPO_ROOT)/work/production-promotion/artifacts
 
-.PHONY: artifact-result check data-protection-result gc-retention-result ledger maintenance-identity-result observability-result require-promotion require-qualified rgw-kms-result verify
+.PHONY: artifact-result check data-protection-result gc-retention-result ledger load-soak-result maintenance-identity-result observability-result require-promotion require-qualified rgw-kms-result verify
 
 check:
 	cd "$(REPO_ROOT)" && uv run python \
@@ -80,6 +82,19 @@ gc-retention-result: check
 		--gc-result "$(GC_FIXTURE_OUTPUT)" \
 		--output "$(GC_OUTPUT)"
 
+load-soak-result: check
+	cd "$(REPO_ROOT)" && uv run python \
+		poc/production-promotion/load_soak.py \
+		--release-readiness "$(OUTPUT)" \
+		--artifact-result "$(ARTIFACT_OUTPUT)" \
+		--rgw-kms-result "$(RGW_KMS_OUTPUT)" \
+		--maintenance-identity-result "$(MAINTENANCE_OUTPUT)" \
+		--data-protection-result "$(DATA_PROTECTION_OUTPUT)" \
+		--observability-result "$(OBSERVABILITY_OUTPUT)" \
+		--gc-retention-result "$(GC_OUTPUT)" \
+		--evidence "$(LOAD_SOAK_EVIDENCE)" \
+		--output "$(LOAD_SOAK_OUTPUT)"
+
 ledger: check
 	cd "$(REPO_ROOT)" && set -- \
 		--release-readiness "$(OUTPUT)" \
@@ -101,6 +116,9 @@ ledger: check
 	fi; \
 	if test -f "$(OBSERVABILITY_OUTPUT)"; then \
 		set -- "$$@" --observability-result "$(OBSERVABILITY_OUTPUT)"; \
+	fi; \
+	if test -f "$(LOAD_SOAK_OUTPUT)"; then \
+		set -- "$$@" --load-soak-result "$(LOAD_SOAK_OUTPUT)"; \
 	fi; \
 	uv run python poc/production-promotion/ledger.py "$$@"
 
@@ -127,6 +145,9 @@ require-promotion: check
 	if test -f "$(OBSERVABILITY_OUTPUT)"; then \
 		set -- "$$@" --observability-result "$(OBSERVABILITY_OUTPUT)"; \
 	fi; \
+	if test -f "$(LOAD_SOAK_OUTPUT)"; then \
+		set -- "$$@" --load-soak-result "$(LOAD_SOAK_OUTPUT)"; \
+	fi; \
 	uv run python poc/production-promotion/ledger.py "$$@"
 
 verify:
@@ -139,4 +160,5 @@ verify:
 		tests/test_production_promotion_data_protection.py \
 		tests/test_production_promotion_observability.py \
 		tests/test_production_promotion_gc_retention.py \
+		tests/test_production_promotion_load_soak.py \
 		tests/test_gc_filesystem_result.py

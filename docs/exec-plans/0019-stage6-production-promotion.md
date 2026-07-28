@@ -3123,6 +3123,51 @@ operator-local release.
   non-synthetic private-TLS/shared-SQL/RGW client, upload, quota-contention,
   Galera, fencing, dependency-fault, saturation, recovery, and teardown matrix.
 
+### 2026-07-28 — Production load/soak/fault specialist contract completed
+
+- Completed: Added the source-bound
+  `coffer.production-promotion-load-soak-result/v1` compiler. It validates
+  candidate-qualified release, immutable artifacts, RGW/KMS, maintenance
+  identity, data protection, observability, and exact-release GC before
+  opening load evidence. GC Distribution version and revision are rechecked
+  against the current release transaction.
+- Live boundary: Only a non-synthetic disposable OpenStack run can qualify.
+  The result requires the complete six-client, twelve-operation, nine-content,
+  two-architecture matrix, private TLS, shared SQL/RGW, edge-only data-plane
+  access, direct telemetry, 53 checkpointed actions with resume proof,
+  smoke/qualification/two-hour soak and 1/2/4/8/16/32/64 ramp profiles, all
+  ten fault classes, quota/Galera/fencing/multipart invariants, recovery,
+  twenty fixed failure cases, audit/log scans, unchanged unrelated state, and
+  terminal zero-residue teardown.
+- Source integrity: In addition to semantic entry-point hashes, one
+  path-sensitive deterministic tree hash binds every non-test Python, Go,
+  JSON, and Go module source used by the load harness. Any internal driver,
+  collector, executor, topology, or adapter change invalidates retained
+  evidence.
+- Ledger integration: The canonical ledger now accepts `load_soak` only when
+  its seven prerequisite digests equal the already validated results in the
+  same transaction. Makefile targets and operator documentation describe the
+  owner-only evidence and output paths. Fixtures prove the contract only and
+  cannot act as production evidence.
+- Honest current disposition: The same-day official release result still
+  blocks before any downstream load file is read. Direct invocation exits
+  `3`, writes no result, and creates no runtime action. The current owner-only
+  ledger SHA-256 is
+  `7755d2c20ca224c4bc9ea77596b3cc6d924ab110453747c1d74314faa332d997`;
+  it remains zero passed, one blocked, nine pending, and
+  `production_candidate=false`.
+- Verification: Fifteen load specialist tests, thirty-four combined
+  load/ledger tests, all 119 promotion-harness tests, focused Ruff E/F/I,
+  compilation, diff checks, direct exit-3 ordering, output absence, ledger
+  mode/digest inspection, and all 1,789 repository tests pass.
+- Changed files: Load specialist compiler/tests, ledger and Makefile
+  integration, promotion README, this plan, and `HANDOFF.md`.
+- Next exact action: Add the fresh Kolla multinode specialist result. It must
+  bind all first eight promotion results and accept only an independently
+  addressed production-candidate topology with HA/failure-domain, Keystone,
+  OCI/CLI/UI, rolling upgrade/rollback, backup/restore, audit, and complete
+  teardown evidence.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -3180,6 +3225,12 @@ operator-local release.
 | Promotion harness after GC release binding | `make -C poc/production-promotion verify` | passed; 102 |
 | Canonical ledger after GC release binding | direct `ledger.py` compilation from the owner-only release result; mode and SHA inspection | passed; 0 passed, 1 blocked, 9 pending, mode 0600, `production_candidate=false` |
 | Post-GC-release-binding full Python regression | `uv run pytest -q` | passed; 1772 |
+| Production load/soak specialist contract | `uv run pytest -q tests/test_production_promotion_load_soak.py` | passed; 15 |
+| Load/soak plus canonical ledger contract | `uv run pytest -q tests/test_production_promotion_load_soak.py tests/test_production_promotion_ledger.py` | passed; 34 |
+| Current production load/soak refusal | direct `load_soak.py` invocation with the same-day blocked readiness result and missing downstream paths | passed; exit 3 before downstream reads, no result created |
+| Promotion harness after load/soak integration | `make -C poc/production-promotion verify` | passed; 119 |
+| Canonical ledger after load/soak integration | direct `ledger.py` compilation from the owner-only release result; mode and SHA inspection | passed; 0 passed, 1 blocked, 9 pending, mode 0600, `production_candidate=false` |
+| Post-load/soak-contract full Python regression | `uv run pytest -q` | passed; 1789 |
 | Full Python regression | `uv run pytest -q` | passed; 310 |
 | Kolla companion-role regression | `make -C poc/kolla-ansible-role verify` | passed; 68 |
 | Maintenance identity code/config inventory | Focused inspection of live comparison, reconciliation runner/probe, WSGI, Kolla config, secrets, and Stage 5 inputs | passed |
@@ -3414,12 +3465,13 @@ operator-local release.
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
 - Exact next action: Add
-  `poc/production-promotion/load_soak.py` as the source-bound specialist result.
-  It must validate release, artifact, RGW/KMS, maintenance identity, data
-  protection, observability, and exact-release GC digests before accepting the
-  non-synthetic private-TLS/shared-SQL/RGW client, quota/Galera/fencing,
-  dependency-fault, saturation, recovery, and teardown matrix. Do not invoke
-  the live pilot while official release readiness remains blocked.
+  `poc/production-promotion/kolla_multinode.py` as the source-bound specialist
+  result. It must validate all first eight promotion results before accepting
+  a fresh independently addressed Kolla multinode deployment, HA/failure
+  domains, Keystone/catalog, OCI/CLI/Horizon/Skyline acceptance, replica and
+  dependency failures, rolling upgrade/rollback, backup/restore, audit, and
+  terminal teardown. Do not create the live pilot while official release
+  readiness remains blocked.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

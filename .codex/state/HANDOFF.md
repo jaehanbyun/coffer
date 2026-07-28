@@ -149,14 +149,26 @@ before missing artifact or GC paths and creates no wrapper output. GitHub's
 unauthenticated API rate limit returned 403 on a redundant official refresh;
 the same-day owner-only release result still passed all direct ordering checks.
 
+The production load/soak/fault specialist contract is now implemented. It
+binds all seven prior results plus the current client, raw OCI, control,
+telemetry, profile, lifecycle, 53-action pilot, fault, and cleanup sources.
+Only a non-synthetic disposable OpenStack transaction with the complete
+six-client/twelve-operation/nine-content/two-architecture matrix, private TLS,
+shared SQL/RGW, edge-only routing, three load profiles, saturation boundary,
+ten fault classes, quota/Galera/fencing/multipart invariants, bounded recovery,
+all twenty failure cases, audit scans, unchanged unrelated state, and terminal
+zero-residue teardown can qualify. A path-sensitive runtime tree hash binds
+every non-test Python, Go, JSON, and Go module implementation file. It also
+rechecks that the production GC result matches the current Distribution
+release. Fixtures and the retained preview cannot promote it.
+
 The current-source owner-mode-0600 ledger SHA-256 is
-`8e24eb36a6119ba9ee83d61a5ee783a8af88f4dcd155fb34aa0c36c775d375a6`;
+`7755d2c20ca224c4bc9ea77596b3cc6d924ab110453747c1d74314faa332d997`;
 it now remains zero passed, one blocked, nine pending, and
-`production_candidate=false`. Six production GC, twenty-three combined
-GC/ledger, 102 promotion-harness, and all 1,772 repository tests pass. The
-exact next action is the load/soak/fault specialist contract bound to release,
-artifacts, RGW/KMS, maintenance, data protection, observability, and
-exact-release GC.
+`production_candidate=false`. Fifteen production load/soak, thirty-four
+combined load/ledger, 119 promotion-harness, and all 1,789 repository tests
+pass. The exact next action is the fresh Kolla multinode specialist contract
+bound to all first eight promotion results.
 
 Plan 0028 is complete. The retained preview serves one owner-accessible
 `https://bb00.tail23b778.ts.net:18788` origin for `/v1`, `/auth/token`, and
@@ -3452,12 +3464,13 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/production-promotion/load_soak.py` as the source-bound specialist
-result. Validate release, artifact, RGW/KMS, maintenance identity, data
-protection, observability, and exact-release GC digests before accepting the
-non-synthetic private-TLS/shared-SQL/RGW client, quota/Galera/fencing,
-dependency-fault, saturation, recovery, and teardown matrix. Do not invoke a
-live production pilot while official release readiness remains blocked.
+Add `poc/production-promotion/kolla_multinode.py` as the source-bound
+specialist result. Validate all first eight promotion results before accepting
+a fresh independently addressed Kolla multinode deployment, HA/failure
+domains, Keystone/catalog, OCI/CLI/Horizon/Skyline acceptance, replica and
+dependency failures, rolling upgrade/rollback, backup/restore, audit, and
+terminal teardown. Do not create the live production pilot while official
+release readiness remains blocked.
 
 ## After This Work Package
 

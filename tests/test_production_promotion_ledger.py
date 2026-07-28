@@ -36,6 +36,18 @@ observability_test = importlib.util.module_from_spec(OBSERVABILITY_SPEC)
 sys.modules[OBSERVABILITY_SPEC.name] = observability_test
 OBSERVABILITY_SPEC.loader.exec_module(observability_test)
 
+LOAD_SOAK_TEST_SOURCE = (
+    ROOT / "tests" / "test_production_promotion_load_soak.py"
+)
+LOAD_SOAK_SPEC = importlib.util.spec_from_file_location(
+    "coffer_ledger_load_soak_test_helpers",
+    LOAD_SOAK_TEST_SOURCE,
+)
+assert LOAD_SOAK_SPEC is not None and LOAD_SOAK_SPEC.loader is not None
+load_soak_test = importlib.util.module_from_spec(LOAD_SOAK_SPEC)
+sys.modules[LOAD_SOAK_SPEC.name] = load_soak_test
+LOAD_SOAK_SPEC.loader.exec_module(load_soak_test)
+
 
 def release(status: str = "blocked") -> dict[str, object]:
     reason = [] if status == "candidate-qualified" else ["not qualified"]
@@ -494,6 +506,22 @@ def observability_result() -> dict[str, object]:
     return result
 
 
+def load_soak_result() -> dict[str, object]:
+    result = load_soak_test.load_soak.compile_result(
+        **load_soak_test.compile_inputs()
+    )
+    result["prerequisites"] = {
+        "artifact_result_sha256": f"sha256:{'5' * 64}",
+        "data_protection_result_sha256": f"sha256:{'9' * 64}",
+        "gc_retention_result_sha256": f"sha256:{'4' * 64}",
+        "maintenance_identity_result_sha256": f"sha256:{'f' * 64}",
+        "observability_result_sha256": f"sha256:{'8' * 64}",
+        "release_readiness_sha256": f"sha256:{'3' * 64}",
+        "rgw_kms_result_sha256": f"sha256:{'e' * 64}",
+    }
+    return result
+
+
 def test_blocked_release_and_release_bound_gc_are_reported_independently() -> None:
     result = ledger.compile_ledger(
         release_readiness=release(),
@@ -652,6 +680,45 @@ def test_valid_observability_requires_and_passes_all_prerequisites() -> None:
         "status": "passed",
     }
     assert len(result["pending_gates"]) == 4
+
+
+def test_valid_load_soak_requires_and_passes_all_prerequisites() -> None:
+    result = ledger.compile_ledger(
+        release_readiness=release(),
+        release_digest=f"sha256:{'3' * 64}",
+        artifact_result=artifact_result(),
+        artifact_digest=f"sha256:{'5' * 64}",
+        rgw_kms_result=rgw_kms_result(),
+        rgw_kms_digest=f"sha256:{'e' * 64}",
+        maintenance_identity_result=maintenance_identity_result(),
+        maintenance_identity_digest=f"sha256:{'f' * 64}",
+        data_protection_result=data_protection_result(),
+        data_protection_digest=f"sha256:{'9' * 64}",
+        observability_result=observability_result(),
+        observability_digest=f"sha256:{'8' * 64}",
+        gc_result=gc_result(),
+        gc_digest=f"sha256:{'4' * 64}",
+        load_soak_result=load_soak_result(),
+        load_soak_digest=f"sha256:{'7' * 64}",
+        today=date(2026, 7, 28),
+    )
+    gates = {gate["id"]: gate for gate in result["gates"]}
+
+    assert result["status"] == "blocked"
+    assert result["passed_gate_count"] == 7
+    assert gates["load_soak"] == {
+        "evidence": {
+            "schema": ledger.LOAD_SOAK_RESULT.SCHEMA,
+            "sha256": f"sha256:{'7' * 64}",
+        },
+        "id": "load_soak",
+        "reason": None,
+        "status": "passed",
+    }
+    assert result["pending_gates"] == [
+        "kolla_multinode",
+        "operator_release",
+    ]
 
 
 def test_qualified_release_still_cannot_self_promote_missing_gates() -> None:
@@ -996,6 +1063,70 @@ def test_observability_result_is_atomic_and_prerequisite_bound() -> None:
             **common,
             observability_result=changed_binding,
             observability_digest=f"sha256:{'8' * 64}",
+        )
+
+
+def test_load_soak_result_is_atomic_and_prerequisite_bound() -> None:
+    common = {
+        "artifact_digest": f"sha256:{'5' * 64}",
+        "artifact_result": artifact_result(),
+        "data_protection_digest": f"sha256:{'9' * 64}",
+        "data_protection_result": data_protection_result(),
+        "gc_digest": f"sha256:{'4' * 64}",
+        "gc_result": gc_result(),
+        "maintenance_identity_digest": f"sha256:{'f' * 64}",
+        "maintenance_identity_result": maintenance_identity_result(),
+        "observability_digest": f"sha256:{'8' * 64}",
+        "observability_result": observability_result(),
+        "release_digest": f"sha256:{'3' * 64}",
+        "release_readiness": release(),
+        "rgw_kms_digest": f"sha256:{'e' * 64}",
+        "rgw_kms_result": rgw_kms_result(),
+        "today": date(2026, 7, 28),
+    }
+    with pytest.raises(ledger.PromotionLedgerError, match="digest"):
+        ledger.compile_ledger(
+            **common,
+            load_soak_result=load_soak_result(),
+        )
+    with pytest.raises(ledger.PromotionLedgerError, match="no specialist"):
+        ledger.compile_ledger(
+            **common,
+            load_soak_digest=f"sha256:{'7' * 64}",
+        )
+    with pytest.raises(ledger.PromotionLedgerError, match="prerequisite"):
+        ledger.compile_ledger(
+            release_readiness=release(),
+            release_digest=f"sha256:{'3' * 64}",
+            load_soak_result=load_soak_result(),
+            load_soak_digest=f"sha256:{'7' * 64}",
+            today=date(2026, 7, 28),
+        )
+
+    changed = load_soak_result()
+    changed["execution"]["action_count"] = 52
+    with pytest.raises(
+        ledger.PromotionLedgerError,
+        match="load/soak specialist",
+    ):
+        ledger.compile_ledger(
+            **common,
+            load_soak_result=changed,
+            load_soak_digest=f"sha256:{'7' * 64}",
+        )
+
+    changed_binding = load_soak_result()
+    changed_binding["prerequisites"][
+        "observability_result_sha256"
+    ] = f"sha256:{'0' * 64}"
+    with pytest.raises(
+        ledger.PromotionLedgerError,
+        match="prerequisite binding",
+    ):
+        ledger.compile_ledger(
+            **common,
+            load_soak_result=changed_binding,
+            load_soak_digest=f"sha256:{'7' * 64}",
         )
 
 

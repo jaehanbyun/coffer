@@ -22,6 +22,7 @@ RGW_KMS_RESULT_SOURCE = DIRECTORY / "rgw_kms.py"
 MAINTENANCE_IDENTITY_RESULT_SOURCE = DIRECTORY / "maintenance_identity.py"
 DATA_PROTECTION_RESULT_SOURCE = DIRECTORY / "data_protection.py"
 OBSERVABILITY_RESULT_SOURCE = DIRECTORY / "observability.py"
+LOAD_SOAK_RESULT_SOURCE = DIRECTORY / "load_soak.py"
 
 SCHEMA = "coffer.production-promotion-ledger/v1"
 RELEASE_SCHEMA = "coffer.production-promotion-release-readiness/v1"
@@ -110,6 +111,10 @@ OBSERVABILITY_RESULT = _load_module(
     "coffer_production_promotion_observability_result",
     OBSERVABILITY_RESULT_SOURCE,
 )
+LOAD_SOAK_RESULT = _load_module(
+    "coffer_production_promotion_load_soak_result",
+    LOAD_SOAK_RESULT_SOURCE,
+)
 
 
 def _sha256_bytes(payload: bytes) -> str:
@@ -131,6 +136,9 @@ def source_hashes() -> dict[str, str]:
         ),
         "gc_result_verifier_sha256": _sha256(GC_RESULT_SOURCE),
         "ledger_sha256": _sha256(Path(__file__).resolve()),
+        "load_soak_result_verifier_sha256": _sha256(
+            LOAD_SOAK_RESULT_SOURCE
+        ),
         "maintenance_identity_result_verifier_sha256": _sha256(
             MAINTENANCE_IDENTITY_RESULT_SOURCE
         ),
@@ -287,6 +295,8 @@ def compile_ledger(
     data_protection_digest: str | None = None,
     observability_result: object | None = None,
     observability_digest: str | None = None,
+    load_soak_result: object | None = None,
+    load_soak_digest: str | None = None,
     today: date | None = None,
 ) -> dict[str, Any]:
     current = datetime.now(tz=UTC).date() if today is None else today
@@ -578,6 +588,68 @@ def compile_ledger(
             "status": "passed",
         }
 
+    if load_soak_result is None:
+        if load_soak_digest is not None:
+            raise PromotionLedgerError(
+                "load/soak digest has no specialist result"
+            )
+    else:
+        if load_soak_digest is None:
+            raise PromotionLedgerError(
+                "load/soak specialist result digest is required"
+            )
+        if (
+            artifact_result is None
+            or artifact_digest is None
+            or rgw_kms_result is None
+            or rgw_kms_digest is None
+            or maintenance_identity_result is None
+            or maintenance_identity_digest is None
+            or data_protection_result is None
+            or data_protection_digest is None
+            or observability_result is None
+            or observability_digest is None
+            or gc_result is None
+            or gc_digest is None
+        ):
+            raise PromotionLedgerError(
+                "load/soak prerequisite results are absent"
+            )
+        try:
+            qualified_load_soak = LOAD_SOAK_RESULT.validate_final_result(
+                load_soak_result
+            )
+        except LOAD_SOAK_RESULT.LoadSoakResultError as error:
+            raise PromotionLedgerError(
+                "load/soak specialist result is invalid"
+            ) from error
+        prerequisites = _mapping(
+            qualified_load_soak["prerequisites"],
+            "load/soak prerequisites",
+        )
+        if prerequisites != {
+            "artifact_result_sha256": artifact_digest,
+            "data_protection_result_sha256": data_protection_digest,
+            "gc_retention_result_sha256": gc_digest,
+            "maintenance_identity_result_sha256": (
+                maintenance_identity_digest
+            ),
+            "observability_result_sha256": observability_digest,
+            "release_readiness_sha256": release_digest,
+            "rgw_kms_result_sha256": rgw_kms_digest,
+        }:
+            raise PromotionLedgerError(
+                "load/soak prerequisite binding changed"
+            )
+        gates["load_soak"] = {
+            "evidence": _evidence(
+                qualified_load_soak["schema"],
+                load_soak_digest,
+            ),
+            "reason": None,
+            "status": "passed",
+        }
+
     ordered_gates = [
         {"id": gate_id, **gates[gate_id]}
         for gate_id in GATE_ORDER
@@ -678,6 +750,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--maintenance-identity-result", type=Path)
     parser.add_argument("--data-protection-result", type=Path)
     parser.add_argument("--observability-result", type=Path)
+    parser.add_argument("--load-soak-result", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--require-qualified", action="store_true")
     arguments = parser.parse_args(argv)
@@ -698,6 +771,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         data_protection_digest: str | None = None
         observability_value: dict[str, Any] | None = None
         observability_digest: str | None = None
+        load_soak_value: dict[str, Any] | None = None
+        load_soak_digest: str | None = None
         if arguments.gc_result is not None:
             gc_value, gc_digest = _load_private(
                 arguments.gc_result,
@@ -730,6 +805,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 arguments.observability_result,
                 "observability specialist result",
             )
+        if arguments.load_soak_result is not None:
+            load_soak_value, load_soak_digest = _load_private(
+                arguments.load_soak_result,
+                "load/soak specialist result",
+            )
         ledger = compile_ledger(
             release_readiness=release,
             release_digest=release_digest,
@@ -745,6 +825,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             data_protection_digest=data_protection_digest,
             observability_result=observability_value,
             observability_digest=observability_digest,
+            load_soak_result=load_soak_value,
+            load_soak_digest=load_soak_digest,
         )
         _write_owner_only(arguments.output, ledger)
         print(json.dumps(ledger, indent=2, sort_keys=True))
