@@ -23,6 +23,7 @@ MAINTENANCE_IDENTITY_RESULT_SOURCE = DIRECTORY / "maintenance_identity.py"
 DATA_PROTECTION_RESULT_SOURCE = DIRECTORY / "data_protection.py"
 OBSERVABILITY_RESULT_SOURCE = DIRECTORY / "observability.py"
 LOAD_SOAK_RESULT_SOURCE = DIRECTORY / "load_soak.py"
+KOLLA_MULTINODE_RESULT_SOURCE = DIRECTORY / "kolla_multinode.py"
 
 SCHEMA = "coffer.production-promotion-ledger/v1"
 RELEASE_SCHEMA = "coffer.production-promotion-release-readiness/v1"
@@ -115,6 +116,10 @@ LOAD_SOAK_RESULT = _load_module(
     "coffer_production_promotion_load_soak_result",
     LOAD_SOAK_RESULT_SOURCE,
 )
+KOLLA_MULTINODE_RESULT = _load_module(
+    "coffer_production_promotion_kolla_multinode_result",
+    KOLLA_MULTINODE_RESULT_SOURCE,
+)
 
 
 def _sha256_bytes(payload: bytes) -> str:
@@ -136,6 +141,9 @@ def source_hashes() -> dict[str, str]:
         ),
         "gc_result_verifier_sha256": _sha256(GC_RESULT_SOURCE),
         "ledger_sha256": _sha256(Path(__file__).resolve()),
+        "kolla_multinode_result_verifier_sha256": _sha256(
+            KOLLA_MULTINODE_RESULT_SOURCE
+        ),
         "load_soak_result_verifier_sha256": _sha256(
             LOAD_SOAK_RESULT_SOURCE
         ),
@@ -297,6 +305,8 @@ def compile_ledger(
     observability_digest: str | None = None,
     load_soak_result: object | None = None,
     load_soak_digest: str | None = None,
+    kolla_multinode_result: object | None = None,
+    kolla_multinode_digest: str | None = None,
     today: date | None = None,
 ) -> dict[str, Any]:
     current = datetime.now(tz=UTC).date() if today is None else today
@@ -650,6 +660,73 @@ def compile_ledger(
             "status": "passed",
         }
 
+    if kolla_multinode_result is None:
+        if kolla_multinode_digest is not None:
+            raise PromotionLedgerError(
+                "Kolla multinode digest has no specialist result"
+            )
+    else:
+        if kolla_multinode_digest is None:
+            raise PromotionLedgerError(
+                "Kolla multinode specialist result digest is required"
+            )
+        if (
+            artifact_result is None
+            or artifact_digest is None
+            or rgw_kms_result is None
+            or rgw_kms_digest is None
+            or maintenance_identity_result is None
+            or maintenance_identity_digest is None
+            or data_protection_result is None
+            or data_protection_digest is None
+            or observability_result is None
+            or observability_digest is None
+            or gc_result is None
+            or gc_digest is None
+            or load_soak_result is None
+            or load_soak_digest is None
+        ):
+            raise PromotionLedgerError(
+                "Kolla multinode prerequisite results are absent"
+            )
+        try:
+            qualified_kolla = (
+                KOLLA_MULTINODE_RESULT.validate_final_result(
+                    kolla_multinode_result
+                )
+            )
+        except KOLLA_MULTINODE_RESULT.KollaMultinodeResultError as error:
+            raise PromotionLedgerError(
+                "Kolla multinode specialist result is invalid"
+            ) from error
+        prerequisites = _mapping(
+            qualified_kolla["prerequisites"],
+            "Kolla multinode prerequisites",
+        )
+        if prerequisites != {
+            "artifact_result_sha256": artifact_digest,
+            "data_protection_result_sha256": data_protection_digest,
+            "gc_retention_result_sha256": gc_digest,
+            "load_soak_result_sha256": load_soak_digest,
+            "maintenance_identity_result_sha256": (
+                maintenance_identity_digest
+            ),
+            "observability_result_sha256": observability_digest,
+            "release_readiness_sha256": release_digest,
+            "rgw_kms_result_sha256": rgw_kms_digest,
+        }:
+            raise PromotionLedgerError(
+                "Kolla multinode prerequisite binding changed"
+            )
+        gates["kolla_multinode"] = {
+            "evidence": _evidence(
+                qualified_kolla["schema"],
+                kolla_multinode_digest,
+            ),
+            "reason": None,
+            "status": "passed",
+        }
+
     ordered_gates = [
         {"id": gate_id, **gates[gate_id]}
         for gate_id in GATE_ORDER
@@ -751,6 +828,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--data-protection-result", type=Path)
     parser.add_argument("--observability-result", type=Path)
     parser.add_argument("--load-soak-result", type=Path)
+    parser.add_argument("--kolla-multinode-result", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--require-qualified", action="store_true")
     arguments = parser.parse_args(argv)
@@ -773,6 +851,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         observability_digest: str | None = None
         load_soak_value: dict[str, Any] | None = None
         load_soak_digest: str | None = None
+        kolla_multinode_value: dict[str, Any] | None = None
+        kolla_multinode_digest: str | None = None
         if arguments.gc_result is not None:
             gc_value, gc_digest = _load_private(
                 arguments.gc_result,
@@ -810,6 +890,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 arguments.load_soak_result,
                 "load/soak specialist result",
             )
+        if arguments.kolla_multinode_result is not None:
+            kolla_multinode_value, kolla_multinode_digest = _load_private(
+                arguments.kolla_multinode_result,
+                "Kolla multinode specialist result",
+            )
         ledger = compile_ledger(
             release_readiness=release,
             release_digest=release_digest,
@@ -827,6 +912,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             observability_digest=observability_digest,
             load_soak_result=load_soak_value,
             load_soak_digest=load_soak_digest,
+            kolla_multinode_result=kolla_multinode_value,
+            kolla_multinode_digest=kolla_multinode_digest,
         )
         _write_owner_only(arguments.output, ledger)
         print(json.dumps(ledger, indent=2, sort_keys=True))

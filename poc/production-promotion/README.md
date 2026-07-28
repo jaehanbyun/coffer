@@ -322,6 +322,54 @@ the exact seven prerequisite digests match the other results in the same
 transaction. The repository fixtures verify this fail-closed contract but are
 not production load evidence.
 
+The fresh Kolla multinode specialist command is:
+
+```text
+make -C poc/production-promotion kolla-multinode-result
+```
+
+It validates all first eight promotion results before opening
+`work/production-promotion/kolla-multinode-evidence.json`. Evidence is bound
+to the exact release/artifact transaction, the Kolla HA harness, companion
+role, runtime-image contract, OpenStack client, accepted topology ADR, and a
+path-sensitive hash of every relevant non-test deployment source. The
+completed Stage 5 pilot cannot be reused because it predates the qualified
+artifacts and identity/data/observability/load results and ran with
+reconciliation disabled.
+
+A qualified non-synthetic disposable OpenStack run requires:
+
+- three independent controller and three independent storage failure domains,
+  with three API, edge, Distribution, and authenticated reconciler replicas;
+- three-member HAProxy, Galera, RabbitMQ, Ceph MON/OSD, and RGW sets, two MGR
+  and RGW ingress pairs, host-level CRUSH, replication size/min-size 3/2,
+  verified internal/backend TLS, one public origin, closed backend ports, and
+  a bootstrap registry separate from the tenant registry;
+- Kolla 2026.1 bootstrap/prechecks/deploy/config validation, one-shot database
+  migration, exact image digests, catalog registration, health checks, and
+  repeat-safe reconfigure;
+- Docker, Podman, Skopeo, ORAS, nerdctl, raw OCI, OpenStackClient, Horizon, and
+  Skyline acceptance over the same repository/quota state, including
+  two-project denial, quota `429`, dependency `503`, edge-only routing, and
+  digest persistence;
+- all thirteen replica, controller, HAProxy, Galera, RabbitMQ, RGW, storage,
+  Barbican, and fencing faults with expected behavior, security, data
+  integrity, and full recovery;
+- serial rolling upgrade and compatible rollback, migration replay, signing
+  key overlap/retirement, isolated SQL/RGW SSE-KMS restore, inventory equality,
+  authenticated comparison, and exact rollback; and
+- nonempty log/secret scans followed by repeat-safe audited teardown of every
+  owned identity, secret, bucket/object version, database, container, image,
+  VM, volume, network, and temporary file with unrelated state unchanged.
+
+Only bounded counts, booleans, revisions, and evidence hashes survive in
+`coffer.production-promotion-kolla-multinode-result/v1`. No endpoint, host,
+project, repository, credential, certificate, bucket, object, VM, or log
+identity is retained. The current operator role still deliberately refuses an
+enabled reconciler until the accepted maintenance-token client is wired into
+the periodic runner; therefore the verifier contract can be completed now,
+but real Kolla promotion evidence cannot be produced by bypassing that guard.
+
 The final enforcement target is:
 
 ```text

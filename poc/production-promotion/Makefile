@@ -13,10 +13,12 @@ OBSERVABILITY_OUTPUT := $(REPO_ROOT)/work/production-promotion/observability-res
 OBSERVABILITY_EVIDENCE := $(REPO_ROOT)/work/production-promotion/observability-evidence.json
 LOAD_SOAK_OUTPUT := $(REPO_ROOT)/work/production-promotion/load-soak-result.json
 LOAD_SOAK_EVIDENCE := $(REPO_ROOT)/work/production-promotion/load-soak-evidence.json
+KOLLA_MULTINODE_OUTPUT := $(REPO_ROOT)/work/production-promotion/kolla-multinode-result.json
+KOLLA_MULTINODE_EVIDENCE := $(REPO_ROOT)/work/production-promotion/kolla-multinode-evidence.json
 LEDGER_OUTPUT := $(REPO_ROOT)/work/production-promotion/promotion-ledger.json
 ARTIFACT_INPUTS := $(REPO_ROOT)/work/production-promotion/artifacts
 
-.PHONY: artifact-result check data-protection-result gc-retention-result ledger load-soak-result maintenance-identity-result observability-result require-promotion require-qualified rgw-kms-result verify
+.PHONY: artifact-result check data-protection-result gc-retention-result kolla-multinode-result ledger load-soak-result maintenance-identity-result observability-result require-promotion require-qualified rgw-kms-result verify
 
 check:
 	cd "$(REPO_ROOT)" && uv run python \
@@ -95,6 +97,20 @@ load-soak-result: check
 		--evidence "$(LOAD_SOAK_EVIDENCE)" \
 		--output "$(LOAD_SOAK_OUTPUT)"
 
+kolla-multinode-result: check
+	cd "$(REPO_ROOT)" && uv run python \
+		poc/production-promotion/kolla_multinode.py \
+		--release-readiness "$(OUTPUT)" \
+		--artifact-result "$(ARTIFACT_OUTPUT)" \
+		--rgw-kms-result "$(RGW_KMS_OUTPUT)" \
+		--maintenance-identity-result "$(MAINTENANCE_OUTPUT)" \
+		--data-protection-result "$(DATA_PROTECTION_OUTPUT)" \
+		--observability-result "$(OBSERVABILITY_OUTPUT)" \
+		--gc-retention-result "$(GC_OUTPUT)" \
+		--load-soak-result "$(LOAD_SOAK_OUTPUT)" \
+		--evidence "$(KOLLA_MULTINODE_EVIDENCE)" \
+		--output "$(KOLLA_MULTINODE_OUTPUT)"
+
 ledger: check
 	cd "$(REPO_ROOT)" && set -- \
 		--release-readiness "$(OUTPUT)" \
@@ -119,6 +135,9 @@ ledger: check
 	fi; \
 	if test -f "$(LOAD_SOAK_OUTPUT)"; then \
 		set -- "$$@" --load-soak-result "$(LOAD_SOAK_OUTPUT)"; \
+	fi; \
+	if test -f "$(KOLLA_MULTINODE_OUTPUT)"; then \
+		set -- "$$@" --kolla-multinode-result "$(KOLLA_MULTINODE_OUTPUT)"; \
 	fi; \
 	uv run python poc/production-promotion/ledger.py "$$@"
 
@@ -148,6 +167,9 @@ require-promotion: check
 	if test -f "$(LOAD_SOAK_OUTPUT)"; then \
 		set -- "$$@" --load-soak-result "$(LOAD_SOAK_OUTPUT)"; \
 	fi; \
+	if test -f "$(KOLLA_MULTINODE_OUTPUT)"; then \
+		set -- "$$@" --kolla-multinode-result "$(KOLLA_MULTINODE_OUTPUT)"; \
+	fi; \
 	uv run python poc/production-promotion/ledger.py "$$@"
 
 verify:
@@ -161,4 +183,5 @@ verify:
 		tests/test_production_promotion_observability.py \
 		tests/test_production_promotion_gc_retention.py \
 		tests/test_production_promotion_load_soak.py \
+		tests/test_production_promotion_kolla_multinode.py \
 		tests/test_gc_filesystem_result.py

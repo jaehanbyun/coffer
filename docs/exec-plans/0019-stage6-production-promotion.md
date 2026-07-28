@@ -3168,6 +3168,57 @@ operator-local release.
   OCI/CLI/UI, rolling upgrade/rollback, backup/restore, audit, and complete
   teardown evidence.
 
+### 2026-07-28 — Fresh Kolla multinode specialist contract completed
+
+- Completed: Added
+  `coffer.production-promotion-kolla-multinode-result/v1`. The compiler
+  validates all first eight specialist transactions before opening Kolla
+  evidence and binds the Kolla HA harness, companion role, runtime-image
+  contract, OpenStack client, topology ADR, and every relevant non-test
+  deployment source through deterministic tree hashes.
+- Production boundary: A result requires three independent controller and
+  three independent storage failure domains; three API, edge, Distribution,
+  and authenticated reconciler replicas; replicated HAProxy/Galera/RabbitMQ/
+  Ceph/RGW dependencies; private TLS and closed backends; Kolla 2026.1
+  deploy/reconfigure; nine OCI/CLI/UI acceptance surfaces; all thirteen
+  bounded failures; serial upgrade/rollback and key rotation; isolated
+  SQL/RGW SSE-KMS restore; audit scans; and repeat-safe zero-residue teardown
+  with unrelated state unchanged.
+- Stage 5 separation: The old Stage 5 result cannot promote this gate. It used
+  blocked functional artifacts, predated all seven downstream specialist
+  transactions, did not include Horizon/Skyline or the production maintenance
+  identity, and intentionally ran reconciliation disabled.
+- Discovered runtime gap: The current role renders exact maintenance
+  application-credential and client-certificate recipients and the private
+  mTLS HAProxy frontend, but the periodic reconciler still constructs an
+  unauthenticated `HTTPDistributionManifestProbe`. The role therefore
+  correctly refuses `coffer_enable_reconcile=true`. Real Kolla promotion
+  evidence remains impossible until the reconciler exchanges each exact
+  claim for a pull-only token through the maintenance broker.
+- Ledger integration: The canonical ledger now accepts `kolla_multinode` only
+  when its eight prerequisite digests match the same transaction. Makefile
+  targets and operator documentation expose the owner-only evidence/result
+  paths without adding any status override.
+- Honest current disposition: Direct invocation against the same-day blocked
+  release exits `3` before any downstream evidence or infrastructure action.
+  The current owner-only ledger SHA-256 is
+  `39de57c74b966112eb59ccb86b541b09044846fff5d10af8a5f6635f8372535b`;
+  it remains zero passed, one blocked, nine pending, and
+  `production_candidate=false`.
+- Verification: Thirteen Kolla specialist tests, thirty-four combined
+  Kolla/ledger tests, all 134 promotion-harness tests, focused Ruff E/F/I,
+  compilation, diff checks, direct exit-3 ordering, output absence, ledger
+  mode/digest inspection, and all 1,804 repository tests pass.
+- Changed files: Kolla multinode specialist compiler/tests, ledger and
+  Makefile integration, promotion README, this plan, and `HANDOFF.md`.
+- Next exact action: Add an authenticated reconciliation probe beginning in
+  `src/coffer/maintenance_probe.py`. It must exchange the exact reservation,
+  repository, claim token, and expected version through the private mTLS
+  maintenance endpoint using owner-only application-credential files, then
+  send only the returned pull token to Distribution. Wire it into the
+  periodic runner and open the Kolla reconcile guard only after focused
+  denial, rotation, outage, leak, and stale-claim tests pass.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -3231,6 +3282,12 @@ operator-local release.
 | Promotion harness after load/soak integration | `make -C poc/production-promotion verify` | passed; 119 |
 | Canonical ledger after load/soak integration | direct `ledger.py` compilation from the owner-only release result; mode and SHA inspection | passed; 0 passed, 1 blocked, 9 pending, mode 0600, `production_candidate=false` |
 | Post-load/soak-contract full Python regression | `uv run pytest -q` | passed; 1789 |
+| Fresh Kolla multinode specialist contract | `uv run pytest -q tests/test_production_promotion_kolla_multinode.py` | passed; 13 |
+| Kolla multinode plus canonical ledger contract | `uv run pytest -q tests/test_production_promotion_kolla_multinode.py tests/test_production_promotion_ledger.py` | passed; 34 |
+| Current production Kolla refusal | direct `kolla_multinode.py` invocation with the same-day blocked readiness result and missing downstream paths | passed; exit 3 before downstream reads or VM action, no result created |
+| Promotion harness after Kolla integration | `make -C poc/production-promotion verify` | passed; 134 |
+| Canonical ledger after Kolla integration | direct `ledger.py` compilation from the owner-only release result; mode and SHA inspection | passed; 0 passed, 1 blocked, 9 pending, mode 0600, `production_candidate=false` |
+| Post-Kolla-contract full Python regression | `uv run pytest -q` | passed; 1804 |
 | Full Python regression | `uv run pytest -q` | passed; 310 |
 | Kolla companion-role regression | `make -C poc/kolla-ansible-role verify` | passed; 68 |
 | Maintenance identity code/config inventory | Focused inspection of live comparison, reconciliation runner/probe, WSGI, Kolla config, secrets, and Stage 5 inputs | passed |
@@ -3465,13 +3522,14 @@ operator-local release.
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
 - Exact next action: Add
-  `poc/production-promotion/kolla_multinode.py` as the source-bound specialist
-  result. It must validate all first eight promotion results before accepting
-  a fresh independently addressed Kolla multinode deployment, HA/failure
-  domains, Keystone/catalog, OCI/CLI/Horizon/Skyline acceptance, replica and
-  dependency failures, rolling upgrade/rollback, backup/restore, audit, and
-  terminal teardown. Do not create the live pilot while official release
-  readiness remains blocked.
+  `src/coffer/maintenance_probe.py` as the authenticated reconciliation
+  exchange. It must bind the exact SQL claim authority to the private mTLS
+  token request, use owner-only application-credential and client-key files,
+  send only the reduced pull token to Distribution, fail indeterminate on
+  denial/outage/rotation races, and retain no secret or endpoint data. Wire it
+  into `src/coffer/reconciliation_runner.py` and open the Kolla production
+  reconcile guard only after focused security and lifecycle tests pass. Do not
+  create the live pilot while official release readiness remains blocked.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

@@ -162,13 +162,25 @@ every non-test Python, Go, JSON, and Go module implementation file. It also
 rechecks that the production GC result matches the current Distribution
 release. Fixtures and the retained preview cannot promote it.
 
+The fresh Kolla multinode specialist contract is now implemented. It consumes
+all first eight result digests and requires an independently addressed
+three-controller/three-storage production topology, twelve Coffer replicas
+including authenticated reconcilers, replicated Kolla/Ceph dependencies,
+private TLS, nine OCI/CLI/UI surfaces, thirteen failure classes, serial
+upgrade/rollback, isolated restore, audit, and complete zero-residue teardown.
+The completed Stage 5 evidence cannot be reused. Source review also confirmed
+that the current periodic reconciler still performs an unauthenticated
+Distribution HEAD even though the role can materialize the accepted
+maintenance identity and mTLS frontend; the role correctly keeps reconcile
+disabled until that client path is implemented.
+
 The current-source owner-mode-0600 ledger SHA-256 is
-`7755d2c20ca224c4bc9ea77596b3cc6d924ab110453747c1d74314faa332d997`;
+`39de57c74b966112eb59ccb86b541b09044846fff5d10af8a5f6635f8372535b`;
 it now remains zero passed, one blocked, nine pending, and
-`production_candidate=false`. Fifteen production load/soak, thirty-four
-combined load/ledger, 119 promotion-harness, and all 1,789 repository tests
-pass. The exact next action is the fresh Kolla multinode specialist contract
-bound to all first eight promotion results.
+`production_candidate=false`. Thirteen production Kolla, thirty-four combined
+Kolla/ledger, 134 promotion-harness, and all 1,804 repository tests pass. The
+exact next action is the authenticated reconciliation probe and Kolla
+production enablement.
 
 Plan 0028 is complete. The retained preview serves one owner-accessible
 `https://bb00.tail23b778.ts.net:18788` origin for `/v1`, `/auth/token`, and
@@ -3464,13 +3476,15 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/production-promotion/kolla_multinode.py` as the source-bound
-specialist result. Validate all first eight promotion results before accepting
-a fresh independently addressed Kolla multinode deployment, HA/failure
-domains, Keystone/catalog, OCI/CLI/Horizon/Skyline acceptance, replica and
-dependency failures, rolling upgrade/rollback, backup/restore, audit, and
-terminal teardown. Do not create the live production pilot while official
-release readiness remains blocked.
+Add `src/coffer/maintenance_probe.py` as the authenticated reconciliation
+exchange. Bind each exact SQL reservation/repository/claim/version tuple to the
+private mTLS maintenance token request, read application-credential and client
+key material only from owner-only files, and send only the reduced pull token
+to Distribution. Wire it into `src/coffer/reconciliation_runner.py`, preserve
+indeterminate behavior on denial/outage/rotation races, prove no secret
+retention, and open the role's production reconcile guard only after focused
+security and lifecycle tests pass. Do not create the live production pilot
+while official release readiness remains blocked.
 
 ## After This Work Package
 

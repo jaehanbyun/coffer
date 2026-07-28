@@ -48,6 +48,18 @@ load_soak_test = importlib.util.module_from_spec(LOAD_SOAK_SPEC)
 sys.modules[LOAD_SOAK_SPEC.name] = load_soak_test
 LOAD_SOAK_SPEC.loader.exec_module(load_soak_test)
 
+KOLLA_TEST_SOURCE = (
+    ROOT / "tests" / "test_production_promotion_kolla_multinode.py"
+)
+KOLLA_SPEC = importlib.util.spec_from_file_location(
+    "coffer_ledger_kolla_test_helpers",
+    KOLLA_TEST_SOURCE,
+)
+assert KOLLA_SPEC is not None and KOLLA_SPEC.loader is not None
+kolla_test = importlib.util.module_from_spec(KOLLA_SPEC)
+sys.modules[KOLLA_SPEC.name] = kolla_test
+KOLLA_SPEC.loader.exec_module(kolla_test)
+
 
 def release(status: str = "blocked") -> dict[str, object]:
     reason = [] if status == "candidate-qualified" else ["not qualified"]
@@ -522,6 +534,23 @@ def load_soak_result() -> dict[str, object]:
     return result
 
 
+def kolla_multinode_result() -> dict[str, object]:
+    result = kolla_test.kolla.compile_result(
+        **kolla_test.compile_inputs()
+    )
+    result["prerequisites"] = {
+        "artifact_result_sha256": f"sha256:{'5' * 64}",
+        "data_protection_result_sha256": f"sha256:{'9' * 64}",
+        "gc_retention_result_sha256": f"sha256:{'4' * 64}",
+        "load_soak_result_sha256": f"sha256:{'7' * 64}",
+        "maintenance_identity_result_sha256": f"sha256:{'f' * 64}",
+        "observability_result_sha256": f"sha256:{'8' * 64}",
+        "release_readiness_sha256": f"sha256:{'3' * 64}",
+        "rgw_kms_result_sha256": f"sha256:{'e' * 64}",
+    }
+    return result
+
+
 def test_blocked_release_and_release_bound_gc_are_reported_independently() -> None:
     result = ledger.compile_ledger(
         release_readiness=release(),
@@ -719,6 +748,44 @@ def test_valid_load_soak_requires_and_passes_all_prerequisites() -> None:
         "kolla_multinode",
         "operator_release",
     ]
+
+
+def test_valid_kolla_multinode_passes_only_after_first_eight_gates() -> None:
+    result = ledger.compile_ledger(
+        release_readiness=release(),
+        release_digest=f"sha256:{'3' * 64}",
+        artifact_result=artifact_result(),
+        artifact_digest=f"sha256:{'5' * 64}",
+        rgw_kms_result=rgw_kms_result(),
+        rgw_kms_digest=f"sha256:{'e' * 64}",
+        maintenance_identity_result=maintenance_identity_result(),
+        maintenance_identity_digest=f"sha256:{'f' * 64}",
+        data_protection_result=data_protection_result(),
+        data_protection_digest=f"sha256:{'9' * 64}",
+        observability_result=observability_result(),
+        observability_digest=f"sha256:{'8' * 64}",
+        gc_result=gc_result(),
+        gc_digest=f"sha256:{'4' * 64}",
+        load_soak_result=load_soak_result(),
+        load_soak_digest=f"sha256:{'7' * 64}",
+        kolla_multinode_result=kolla_multinode_result(),
+        kolla_multinode_digest=f"sha256:{'6' * 64}",
+        today=date(2026, 7, 28),
+    )
+    gates = {gate["id"]: gate for gate in result["gates"]}
+
+    assert result["status"] == "blocked"
+    assert result["passed_gate_count"] == 8
+    assert gates["kolla_multinode"] == {
+        "evidence": {
+            "schema": ledger.KOLLA_MULTINODE_RESULT.SCHEMA,
+            "sha256": f"sha256:{'6' * 64}",
+        },
+        "id": "kolla_multinode",
+        "reason": None,
+        "status": "passed",
+    }
+    assert result["pending_gates"] == ["operator_release"]
 
 
 def test_qualified_release_still_cannot_self_promote_missing_gates() -> None:
@@ -1127,6 +1194,72 @@ def test_load_soak_result_is_atomic_and_prerequisite_bound() -> None:
             **common,
             load_soak_result=changed_binding,
             load_soak_digest=f"sha256:{'7' * 64}",
+        )
+
+
+def test_kolla_multinode_result_is_atomic_and_prerequisite_bound() -> None:
+    common = {
+        "artifact_digest": f"sha256:{'5' * 64}",
+        "artifact_result": artifact_result(),
+        "data_protection_digest": f"sha256:{'9' * 64}",
+        "data_protection_result": data_protection_result(),
+        "gc_digest": f"sha256:{'4' * 64}",
+        "gc_result": gc_result(),
+        "load_soak_digest": f"sha256:{'7' * 64}",
+        "load_soak_result": load_soak_result(),
+        "maintenance_identity_digest": f"sha256:{'f' * 64}",
+        "maintenance_identity_result": maintenance_identity_result(),
+        "observability_digest": f"sha256:{'8' * 64}",
+        "observability_result": observability_result(),
+        "release_digest": f"sha256:{'3' * 64}",
+        "release_readiness": release(),
+        "rgw_kms_digest": f"sha256:{'e' * 64}",
+        "rgw_kms_result": rgw_kms_result(),
+        "today": date(2026, 7, 28),
+    }
+    with pytest.raises(ledger.PromotionLedgerError, match="digest"):
+        ledger.compile_ledger(
+            **common,
+            kolla_multinode_result=kolla_multinode_result(),
+        )
+    with pytest.raises(ledger.PromotionLedgerError, match="no specialist"):
+        ledger.compile_ledger(
+            **common,
+            kolla_multinode_digest=f"sha256:{'6' * 64}",
+        )
+    with pytest.raises(ledger.PromotionLedgerError, match="prerequisite"):
+        ledger.compile_ledger(
+            release_readiness=release(),
+            release_digest=f"sha256:{'3' * 64}",
+            kolla_multinode_result=kolla_multinode_result(),
+            kolla_multinode_digest=f"sha256:{'6' * 64}",
+            today=date(2026, 7, 28),
+        )
+
+    changed = kolla_multinode_result()
+    changed["topology"]["controller_count"] = 2
+    with pytest.raises(
+        ledger.PromotionLedgerError,
+        match="Kolla multinode specialist",
+    ):
+        ledger.compile_ledger(
+            **common,
+            kolla_multinode_result=changed,
+            kolla_multinode_digest=f"sha256:{'6' * 64}",
+        )
+
+    changed_binding = kolla_multinode_result()
+    changed_binding["prerequisites"][
+        "load_soak_result_sha256"
+    ] = f"sha256:{'0' * 64}"
+    with pytest.raises(
+        ledger.PromotionLedgerError,
+        match="prerequisite binding",
+    ):
+        ledger.compile_ledger(
+            **common,
+            kolla_multinode_result=changed_binding,
+            kolla_multinode_digest=f"sha256:{'6' * 64}",
         )
 
 
