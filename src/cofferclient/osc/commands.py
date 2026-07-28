@@ -29,6 +29,15 @@ QUOTA_COLUMNS = (
     "used_bytes",
     "reserved_bytes",
 )
+ARTIFACT_COLUMNS = (
+    "digest",
+    "tags",
+    "kind",
+    "media_type",
+    "artifact_type",
+    "size_bytes",
+    "pushed_at",
+)
 
 
 def _values(
@@ -196,6 +205,80 @@ class ShowRepository(show.ShowOne):
     ) -> tuple[tuple[str, ...], tuple[Any, ...]]:
         repository = _client(self).repository(parsed_args.repository)
         return REPOSITORY_COLUMNS, _values(repository, REPOSITORY_COLUMNS)
+
+
+class ListArtifacts(lister.Lister):
+    """List digest-addressed artifacts in one project repository."""
+
+    def get_parser(self, prog_name: str) -> Any:
+        parser = super().get_parser(prog_name)
+        parser.add_argument("repository", metavar="<repository-id>")
+        parser.add_argument(
+            "--limit",
+            type=int,
+            default=100,
+            choices=range(1, 101),
+            metavar="<1-100>",
+        )
+        parser.add_argument("--marker", metavar="<artifact-digest>")
+        parser.add_argument("--query", metavar="<tag-or-digest>")
+        parser.add_argument(
+            "--all",
+            action="store_true",
+            help="Follow all bounded artifact pages.",
+        )
+        return parser
+
+    def take_action(
+        self,
+        parsed_args: Any,
+    ) -> tuple[tuple[str, ...], tuple[tuple[Any, ...], ...]]:
+        registry = _client(self)
+        marker = parsed_args.marker
+        seen_markers: set[str] = set()
+        rows: list[tuple[Any, ...]] = []
+        for _page in range(10_000):
+            artifacts, next_marker = registry.artifacts(
+                parsed_args.repository,
+                limit=parsed_args.limit,
+                marker=marker,
+                query=parsed_args.query,
+            )
+            rows.extend(
+                _values(artifact, ARTIFACT_COLUMNS)
+                for artifact in artifacts
+            )
+            if not parsed_args.all or next_marker is None:
+                return ARTIFACT_COLUMNS, tuple(rows)
+            if next_marker in seen_markers:
+                raise exceptions.CommandError(
+                    "Registry repeated an artifact page marker"
+                )
+            seen_markers.add(next_marker)
+            marker = next_marker
+        raise exceptions.CommandError(
+            "Registry artifact pagination exceeded 10000 pages"
+        )
+
+
+class ShowArtifact(show.ShowOne):
+    """Show one digest-addressed repository artifact."""
+
+    def get_parser(self, prog_name: str) -> Any:
+        parser = super().get_parser(prog_name)
+        parser.add_argument("repository", metavar="<repository-id>")
+        parser.add_argument("digest", metavar="<sha256-digest>")
+        return parser
+
+    def take_action(
+        self,
+        parsed_args: Any,
+    ) -> tuple[tuple[str, ...], tuple[Any, ...]]:
+        artifact = _client(self).artifact(
+            parsed_args.repository,
+            parsed_args.digest,
+        )
+        return ARTIFACT_COLUMNS, _values(artifact, ARTIFACT_COLUMNS)
 
 
 class ShowQuota(show.ShowOne):

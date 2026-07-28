@@ -10,6 +10,7 @@ from alembic.script import ScriptDirectory
 import pytest
 from sqlalchemy import create_engine, inspect, insert, text
 
+from coffer.artifacts import ArtifactSchemaNotReady, ArtifactStore
 from coffer.db import (
     RepositorySchemaNotReady,
     RepositoryStore,
@@ -50,6 +51,8 @@ def test_production_store_requires_the_versioned_schema(tmp_path: Path) -> None:
         QuotaStore(database_url)
     with pytest.raises(RepositorySchemaNotReady, match="migration is required"):
         RepositoryStore(database_url)
+    with pytest.raises(ArtifactSchemaNotReady, match="migration is required"):
+        ArtifactStore(database_url)
 
 
 def test_explicit_test_bootstrap_does_not_claim_an_alembic_revision(
@@ -174,6 +177,9 @@ def test_alembic_upgrade_is_repeatable_and_downgrade_is_bounded(
         "quota_reconciliation_claims",
         "quota_reservation_descriptors",
         "quota_reservations",
+        "registry_artifacts",
+        "registry_tag_claims",
+        "registry_tags",
         "repositories",
     }
     assert {
@@ -360,7 +366,7 @@ def test_claim_version_migration_backfills_and_refuses_loss(
     with engine.connect() as connection:
         assert connection.execute(
             text("SELECT version_num FROM alembic_version")
-        ).scalar_one() == CURRENT_SCHEMA_REVISION
+        ).scalar_one() == "0006_claim_version_binding"
 
 
 def test_retained_comparison_session_blocks_schema_downgrade(

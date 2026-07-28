@@ -187,6 +187,106 @@
         }
       }
     },
+    "/repositories/{repository_id}/artifacts": {
+      "get": {
+        "operationId": "listRepositoryArtifacts",
+        "summary": "List artifacts in a scoped project repository",
+        "x-openstack-policy": "artifact:list",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RepositoryId"
+          },
+          {
+            "$ref": "#/components/parameters/ArtifactLimit"
+          },
+          {
+            "$ref": "#/components/parameters/ArtifactMarker"
+          },
+          {
+            "$ref": "#/components/parameters/ArtifactQuery"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Digest-addressed artifact page.",
+            "headers": {
+              "X-Openstack-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/KeystoneUnauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/repositories/{repository_id}/artifacts/{digest}": {
+      "get": {
+        "operationId": "getRepositoryArtifact",
+        "summary": "Get one artifact in a scoped project repository",
+        "x-openstack-policy": "artifact:get",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RepositoryId"
+          },
+          {
+            "$ref": "#/components/parameters/ArtifactDigest"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Digest-addressed artifact detail.",
+            "headers": {
+              "X-Openstack-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/KeystoneUnauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
     "/quota": {
       "get": {
         "operationId": "getProjectQuota",
@@ -262,6 +362,47 @@
         "schema": {
           "type": "string",
           "format": "uuid"
+        }
+      },
+      "ArtifactLimit": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 100
+        }
+      },
+      "ArtifactMarker": {
+        "name": "marker",
+        "in": "query",
+        "required": false,
+        "description": "Artifact digest from the current repository and query.",
+        "schema": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "ArtifactQuery": {
+        "name": "query",
+        "in": "query",
+        "required": false,
+        "description": "Bounded tag substring or digest prefix.",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "ArtifactDigest": {
+        "name": "digest",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
         }
       }
     },
@@ -525,6 +666,132 @@
           "immutable_tags": {
             "type": "boolean",
             "default": false
+          }
+        }
+      },
+      "Artifact": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "project_id",
+          "repository_id",
+          "digest",
+          "media_type",
+          "artifact_type",
+          "kind",
+          "size_bytes",
+          "pushed_at",
+          "updated_at",
+          "tags",
+          "tag_count",
+          "tags_truncated"
+        ],
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "repository_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "media_type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "artifact_type": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "artifact",
+              "image",
+              "image_index"
+            ]
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9223372036854775807
+          },
+          "pushed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "tags": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$"
+            }
+          },
+          "tag_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tags_truncated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ArtifactEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "artifact"
+        ],
+        "properties": {
+          "artifact": {
+            "$ref": "#/components/schemas/Artifact"
+          }
+        }
+      },
+      "ArtifactPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "artifacts",
+          "next_marker"
+        ],
+        "properties": {
+          "artifacts": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/Artifact"
+            }
+          },
+          "next_marker": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },

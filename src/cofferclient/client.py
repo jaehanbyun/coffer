@@ -173,6 +173,46 @@ class Client:
         )
         return _mapping(document.get("repository"), "repository")
 
+    def artifacts(
+        self,
+        repository_id: str,
+        *,
+        limit: int = 100,
+        marker: str | None = None,
+        query: str | None = None,
+    ) -> tuple[tuple[Mapping[str, object], ...], str | None]:
+        params: dict[str, object] = {"limit": limit}
+        if marker is not None:
+            params["marker"] = marker
+        if query is not None:
+            params["query"] = query
+        document = self._request(
+            "GET",
+            f"/repositories/{repository_id}/artifacts",
+            params=params,
+        )
+        raw_artifacts = document.get("artifacts")
+        if not isinstance(raw_artifacts, list):
+            raise InvalidResponse("Registry returned an invalid artifact page")
+        artifacts = tuple(
+            _mapping(artifact, "artifact") for artifact in raw_artifacts
+        )
+        next_marker = document.get("next_marker")
+        if next_marker is not None and not isinstance(next_marker, str):
+            raise InvalidResponse("Registry returned an invalid artifact marker")
+        return artifacts, next_marker
+
+    def artifact(
+        self,
+        repository_id: str,
+        digest: str,
+    ) -> Mapping[str, object]:
+        document = self._request(
+            "GET",
+            f"/repositories/{repository_id}/artifacts/{digest}",
+        )
+        return _mapping(document.get("artifact"), "artifact")
+
     def quota(self) -> Mapping[str, object]:
         document = self._request("GET", "/quota")
         return _mapping(document.get("quota"), "quota")

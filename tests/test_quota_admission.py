@@ -10,6 +10,7 @@ from falcon import testing
 import pytest
 from sqlalchemy import exc as sa_exception
 
+from coffer.artifacts import ArtifactStore
 from coffer.db import RepositoryStore
 from coffer.keystone import ApplicationCredentialPrincipal
 from coffer.observability import CofferMetrics
@@ -31,16 +32,31 @@ def sha256_digest(value: bytes) -> str:
     return f"sha256:{hashlib.sha256(value).hexdigest()}"
 
 
-def manifest(config_size: int = 100, layer_size: int = 200) -> bytes:
+def manifest(
+    config_size: int = 100,
+    layer_size: int = 200,
+    *,
+    config_media_type: str | None = None,
+    annotation: str | None = None,
+) -> bytes:
+    config: dict[str, object] = {
+        "digest": sha256_digest(b"config"),
+        "size": config_size,
+    }
+    if config_media_type is not None:
+        config["mediaType"] = config_media_type
+    document: dict[str, object] = {
+        "schemaVersion": 2,
+        "mediaType": "application/vnd.oci.image.manifest.v1+json",
+        "config": config,
+        "layers": [
+            {"digest": sha256_digest(b"layer"), "size": layer_size}
+        ],
+    }
+    if annotation is not None:
+        document["annotations"] = {"org.example.revision": annotation}
     return json.dumps(
-        {
-            "schemaVersion": 2,
-            "mediaType": "application/vnd.oci.image.manifest.v1+json",
-            "config": {"digest": sha256_digest(b"config"), "size": config_size},
-            "layers": [
-                {"digest": sha256_digest(b"layer"), "size": layer_size}
-            ],
-        },
+        document,
         separators=(",", ":"),
         sort_keys=True,
     ).encode()
@@ -78,11 +94,17 @@ def fixture(
     quota_limit: int | None,
     upstream: FakeUpstream,
     metrics: CofferMetrics | None = None,
+    immutable_tags: bool = False,
 ):
     database = f"sqlite:///{tmp_path / 'quota.sqlite'}"
     repositories = RepositoryStore(database, bootstrap_schema=True)
-    repositories.create(PROJECT, "demo")
+    repository = repositories.create(
+        PROJECT,
+        "demo",
+        immutable_tags=immutable_tags,
+    )
     quotas = QuotaStore(database, bootstrap_schema=True)
+    artifacts = ArtifactStore(database, bootstrap_schema=True)
     if quota_limit is not None:
         quotas.set_limit(PROJECT, quota_limit)
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -109,17 +131,26 @@ def fixture(
     )
     application = build_manifest_admission_application(
         verifier,
-        ManifestAdmissionService(repositories, quotas),
+        ManifestAdmissionService(repositories, quotas, artifacts),
         upstream,
         token_realm="https://registry.example/auth/token",
         metrics=metrics,
     )
-    return testing.TestClient(application), quotas, token
+    client = testing.TestClient(application)
+    client.artifact_store = artifacts
+    client.repository_id = repository.id
+    return client, quotas, token
 
 
-def put(client: testing.TestClient, token: str, body: bytes):
+def put(
+    client: testing.TestClient,
+    token: str,
+    body: bytes,
+    *,
+    reference: str = "latest",
+):
     return client.simulate_put(
-        f"/v2/{CANONICAL_REPOSITORY}/manifests/latest",
+        f"/v2/{CANONICAL_REPOSITORY}/manifests/{reference}",
         headers={
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/vnd.oci.image.manifest.v1+json",
@@ -143,6 +174,66 @@ def test_manifest_is_forwarded_byte_for_byte_and_committed(tmp_path: Path) -> No
     assert quotas.usage(PROJECT).used_bytes > 0
     assert quotas.usage(PROJECT).reserved_bytes == 0
     assert result.headers["docker-content-digest"] == sha256_digest(body)
+    page = client.artifact_store.list_page(  # type: ignore[attr-defined]
+        PROJECT,
+        client.repository_id,  # type: ignore[attr-defined]
+        limit=10,
+    )
+    assert page.artifacts[0].digest == sha256_digest(body)
+    assert page.artifacts[0].tags == ("latest",)
+    assert page.artifacts[0].kind == "image"
+    assert page.artifacts[0].size_bytes > len(body)
+
+
+def test_manifest_projection_classifies_non_image_oci_artifact(tmp_path: Path) -> None:
+    upstream = FakeUpstream()
+    client, _quotas, token = fixture(
+        tmp_path,
+        quota_limit=10_000,
+        upstream=upstream,
+    )
+    body = manifest(
+        config_media_type="application/vnd.cncf.helm.config.v1+json"
+    )
+
+    assert put(client, token, body, reference="chart-1.0.0").status_code == 201
+
+    artifact = client.artifact_store.list_page(  # type: ignore[attr-defined]
+        PROJECT,
+        client.repository_id,  # type: ignore[attr-defined]
+        limit=10,
+    ).artifacts[0]
+    assert artifact.kind == "artifact"
+    assert artifact.artifact_type == "application/vnd.cncf.helm.config.v1+json"
+    assert artifact.tags == ("chart-1.0.0",)
+
+
+def test_immutable_tag_conflict_is_rejected_before_distribution(
+    tmp_path: Path,
+) -> None:
+    upstream = FakeUpstream()
+    client, _quotas, token = fixture(
+        tmp_path,
+        quota_limit=10_000,
+        upstream=upstream,
+        immutable_tags=True,
+    )
+    first = manifest(annotation="first")
+    second = manifest(annotation="second")
+
+    assert put(client, token, first, reference="stable").status_code == 201
+    conflict = put(client, token, second, reference="stable")
+
+    assert conflict.status_code == 409
+    assert conflict.json == {
+        "errors": [
+            {
+                "code": "TAG_INVALID",
+                "message": "tag replacement is disabled for this repository",
+            }
+        ]
+    }
+    assert upstream.bodies == [first]
 
 
 def test_quota_denial_is_distribution_compatible_and_does_not_forward(

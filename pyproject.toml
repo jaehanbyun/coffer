@@ -43,6 +43,8 @@ registry = "cofferclient.osc.plugin"
 
 [project.entry-points."openstack.registry.v1"]
 registry_endpoint_show = "cofferclient.osc.commands:ShowEndpoint"
+registry_artifact_list = "cofferclient.osc.commands:ListArtifacts"
+registry_artifact_show = "cofferclient.osc.commands:ShowArtifact"
 registry_login = "cofferclient.osc.commands:Login"
 registry_quota_show = "cofferclient.osc.commands:ShowQuota"
 registry_repository_create = "cofferclient.osc.commands:CreateRepository"

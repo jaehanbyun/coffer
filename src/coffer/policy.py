@@ -34,6 +34,32 @@ RULES = [
         scope_types=["project"],
     ),
     policy.DocumentedRuleDefault(
+        name="artifact:list",
+        check_str="role:reader or role:member or role:admin",
+        description="List artifacts in a scoped project repository.",
+        operations=[
+            {
+                "path": "/v1/repositories/{repository_id}/artifacts",
+                "method": "GET",
+            }
+        ],
+        scope_types=["project"],
+    ),
+    policy.DocumentedRuleDefault(
+        name="artifact:get",
+        check_str="role:reader or role:member or role:admin",
+        description="Read one artifact in a scoped project repository.",
+        operations=[
+            {
+                "path": (
+                    "/v1/repositories/{repository_id}/artifacts/{digest}"
+                ),
+                "method": "GET",
+            }
+        ],
+        scope_types=["project"],
+    ),
+    policy.DocumentedRuleDefault(
         name="quota:get",
         check_str="role:reader or role:member or role:admin",
         description="Read registry quota usage for the scoped project.",

@@ -8,6 +8,7 @@ import os
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from coffer.artifacts import artifact_metadata
 from coffer.db import metadata as repository_metadata
 from coffer.quota import quota_metadata
 
@@ -20,7 +21,7 @@ environment_url = os.environ.get("COFFER_DATABASE_URL")
 if environment_url:
     config.set_main_option("sqlalchemy.url", environment_url.replace("%", "%%"))
 
-target_metadata = [repository_metadata, quota_metadata]
+target_metadata = [repository_metadata, quota_metadata, artifact_metadata]
 
 
 def run_migrations_offline() -> None:

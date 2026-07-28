@@ -12,6 +12,13 @@ import jwt
 from oslo_db import exception as db_exception
 from sqlalchemy import exc as sa_exception
 
+from coffer.artifacts import (
+    ArtifactStore,
+    TagClaim,
+    TagClaimConflict,
+    TagClaimNotFound,
+    TagImmutable,
+)
 from coffer.db import RepositoryStore
 from coffer.quota import (
     Descriptor,
@@ -71,7 +78,14 @@ class UpstreamResponse:
 @dataclass(frozen=True, slots=True)
 class PreparedManifest:
     repository_id: str
+    immutable_tags: bool
     parsed: ParsedManifest
+
+
+@dataclass(frozen=True, slots=True)
+class ReservedManifest:
+    quota: Reservation
+    logical_size: int
 
 
 class ManifestUpstream(Protocol):
@@ -225,9 +239,15 @@ class RegistryTokenVerifier:
 
 
 class ManifestAdmissionService:
-    def __init__(self, repositories: RepositoryStore, quotas: QuotaStore) -> None:
+    def __init__(
+        self,
+        repositories: RepositoryStore,
+        quotas: QuotaStore,
+        artifacts: ArtifactStore | None = None,
+    ) -> None:
         self._repositories = repositories
         self._quotas = quotas
+        self._artifacts = artifacts
 
     def prepare(
         self,
@@ -247,7 +267,11 @@ class ManifestAdmissionService:
         parsed = parse_manifest(body, media_type=media_type)
         if reference.startswith("sha256:") and reference != parsed.digest:
             raise InvalidManifest("manifest path digest does not match its body")
-        return PreparedManifest(repository.id, parsed)
+        return PreparedManifest(
+            repository.id,
+            repository.immutable_tags,
+            parsed,
+        )
 
     def ensure_quota_authority(self, principal: VerifiedRegistryPrincipal) -> None:
         self._quotas.usage(principal.project_id)
@@ -258,7 +282,7 @@ class ManifestAdmissionService:
         *,
         prepared: PreparedManifest,
         request_id: str,
-    ) -> Reservation:
+    ) -> ReservedManifest:
         parsed = prepared.parsed
         graph: dict[str, Descriptor] = {
             descriptor.digest: descriptor for descriptor in parsed.descriptors
@@ -284,12 +308,18 @@ class ManifestAdmissionService:
                         "resolved descriptor graph exceeds the maximum"
                     )
 
-        return self._quotas.reserve(
+        quota = self._quotas.reserve(
             project_id=principal.project_id,
             repository_id=prepared.repository_id,
             manifest_digest=parsed.digest,
             request_id=request_id,
-            descriptors=tuple(sorted(graph.values(), key=lambda item: item.digest)),
+            descriptors=tuple(
+                sorted(graph.values(), key=lambda item: item.digest)
+            ),
+        )
+        return ReservedManifest(
+            quota=quota,
+            logical_size=sum(item.size for item in graph.values()),
         )
 
     def commit(self, reservation_id: str) -> Reservation:
@@ -300,6 +330,52 @@ class ManifestAdmissionService:
 
     def release_absent(self, reservation_id: str) -> Reservation:
         return self._quotas.reconcile_absent(reservation_id)
+
+    def claim_tag(
+        self,
+        principal: VerifiedRegistryPrincipal,
+        *,
+        prepared: PreparedManifest,
+        reference: str,
+        request_id: str,
+    ) -> TagClaim | None:
+        if self._artifacts is None:
+            return None
+        return self._artifacts.claim_tag(
+            project_id=principal.project_id,
+            repository_id=prepared.repository_id,
+            reference=reference,
+            digest=prepared.parsed.digest,
+            request_id=request_id,
+            immutable=prepared.immutable_tags,
+        )
+
+    def release_tag_claim(self, claim: TagClaim | None) -> bool:
+        if self._artifacts is None:
+            return False
+        return self._artifacts.release_tag_claim(claim)
+
+    def commit_artifact(
+        self,
+        principal: VerifiedRegistryPrincipal,
+        *,
+        prepared: PreparedManifest,
+        reserved: ReservedManifest,
+        claim: TagClaim | None,
+    ) -> None:
+        if self._artifacts is None:
+            return
+        parsed = prepared.parsed
+        self._artifacts.commit_artifact(
+            project_id=principal.project_id,
+            repository_id=prepared.repository_id,
+            digest=parsed.digest,
+            media_type=parsed.media_type,
+            artifact_type=parsed.artifact_type,
+            kind=parsed.kind,
+            size_bytes=reserved.logical_size,
+            claim=claim,
+        )
 
 
 def _distribution_error(
@@ -498,18 +574,57 @@ class ManifestAdmissionResource:
                 )
                 return
 
+            tag_claim = None
             try:
-                reservation = self._admission.reserve(
+                tag_claim = self._admission.claim_tag(
+                    principal,
+                    prepared=prepared,
+                    reference=reference,
+                    request_id=request_id,
+                )
+            except TagImmutable:
+                _distribution_error(
+                    resp,
+                    falcon.HTTP_409,
+                    "TAG_INVALID",
+                    "tag replacement is disabled for this repository",
+                )
+                return
+            except TagClaimConflict:
+                _set_admission_result(req, "internal_error")
+                _distribution_error(
+                    resp,
+                    falcon.HTTP_503,
+                    "UNAVAILABLE",
+                    "another tag update is being resolved",
+                    retry_after="1",
+                )
+                return
+            except DATABASE_ERRORS:
+                _set_admission_result(req, "internal_error")
+                _distribution_error(
+                    resp,
+                    falcon.HTTP_503,
+                    "UNAVAILABLE",
+                    "artifact metadata authority unavailable",
+                    retry_after="5",
+                )
+                return
+
+            try:
+                reserved = self._admission.reserve(
                     principal,
                     prepared=prepared,
                     request_id=request_id,
                 )
             except InvalidManifest as exc:
+                self._admission.release_tag_claim(tag_claim)
                 _distribution_error(
                     resp, falcon.HTTP_400, "MANIFEST_INVALID", str(exc)
                 )
                 return
             except QuotaExceeded:
+                self._admission.release_tag_claim(tag_claim)
                 _distribution_error(
                     resp,
                     falcon.HTTP_429,
@@ -519,6 +634,7 @@ class ManifestAdmissionResource:
                 )
                 return
             except QuotaNotConfigured:
+                self._admission.release_tag_claim(tag_claim)
                 _set_admission_result(req, "missing_quota")
                 _distribution_error(
                     resp,
@@ -529,6 +645,10 @@ class ManifestAdmissionResource:
                 )
                 return
             except DATABASE_ERRORS:
+                try:
+                    self._admission.release_tag_claim(tag_claim)
+                except DATABASE_ERRORS:
+                    pass
                 _set_admission_result(req, "internal_error")
                 _distribution_error(
                     resp,
@@ -538,6 +658,7 @@ class ManifestAdmissionResource:
                     retry_after="5",
                 )
                 return
+            reservation = reserved.quota
 
             try:
                 upstream = self._upstream.put_manifest(
@@ -581,9 +702,27 @@ class ManifestAdmissionResource:
                     retry_after="5",
                 )
                 return
+            try:
+                self._admission.commit_artifact(
+                    principal,
+                    prepared=prepared,
+                    reserved=reserved,
+                    claim=tag_claim,
+                )
+            except (DATABASE_ERRORS, TagClaimNotFound, ValueError):
+                _set_admission_result(req, "internal_error")
+                _distribution_error(
+                    resp,
+                    falcon.HTTP_503,
+                    "UNAVAILABLE",
+                    "artifact metadata commit is indeterminate",
+                    retry_after="5",
+                )
+                return
         elif 400 <= upstream.status < 500 and reservation.state == "pending":
             try:
                 self._admission.release_absent(reservation.id)
+                self._admission.release_tag_claim(tag_claim)
             except DATABASE_ERRORS:
                 _set_admission_result(req, "internal_error")
                 _distribution_error(

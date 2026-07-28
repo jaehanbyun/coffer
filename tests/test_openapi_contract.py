@@ -9,7 +9,16 @@ import falcon
 from falcon import testing
 from sqlalchemy.exc import SQLAlchemyError
 
+from coffer.artifacts import (
+    Artifact,
+    MAX_ARTIFACT_PAGE,
+    MAX_ARTIFACT_QUERY_LENGTH,
+    MAX_TAGS_PER_ARTIFACT,
+    TAG_NAME,
+)
 from coffer.api import (
+    ArtifactCollectionResource,
+    ArtifactResource,
     EndpointResource,
     MAX_REPOSITORY_LIMIT,
     MAX_REPOSITORY_NAME_LENGTH,
@@ -36,6 +45,14 @@ EXPECTED_OPERATIONS = {
     ("/v1/repositories", "GET"): "repository:list",
     ("/v1/repositories", "POST"): "repository:create",
     ("/v1/repositories/{repository_id}", "GET"): "repository:get",
+    (
+        "/v1/repositories/{repository_id}/artifacts",
+        "GET",
+    ): "artifact:list",
+    (
+        "/v1/repositories/{repository_id}/artifacts/{digest}",
+        "GET",
+    ): "artifact:get",
     ("/v1/quota", "GET"): "quota:get",
 }
 EXPECTED_RESPONSES = {
@@ -44,6 +61,22 @@ EXPECTED_RESPONSES = {
     ("/repositories", "post"): {"201", "400", "401", "403", "409", "503"},
     ("/repositories/{repository_id}", "get"): {
         "200",
+        "401",
+        "403",
+        "404",
+        "503",
+    },
+    ("/repositories/{repository_id}/artifacts", "get"): {
+        "200",
+        "400",
+        "401",
+        "403",
+        "404",
+        "503",
+    },
+    ("/repositories/{repository_id}/artifacts/{digest}", "get"): {
+        "200",
+        "400",
         "401",
         "403",
         "404",
@@ -142,6 +175,16 @@ def test_openapi_methods_match_the_falcon_resource_callbacks() -> None:
             for name in vars(RepositoryResource)
             if name.startswith("on_")
         },
+        "/v1/repositories/{repository_id}/artifacts": {
+            name.removeprefix("on_").upper()
+            for name in vars(ArtifactCollectionResource)
+            if name.startswith("on_")
+        },
+        "/v1/repositories/{repository_id}/artifacts/{digest}": {
+            name.removeprefix("on_").upper()
+            for name in vars(ArtifactResource)
+            if name.startswith("on_")
+        },
         "/v1/quota": {
             name.removeprefix("on_").upper()
             for name in vars(QuotaResource)
@@ -208,8 +251,23 @@ def test_openapi_repository_and_quota_schemas_match_runtime_values() -> None:
         used_bytes=50,
         reserved_bytes=10,
     )
+    artifact = Artifact(
+        project_id="project",
+        repository_id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        digest=f"sha256:{'a' * 64}",
+        media_type="application/vnd.oci.image.manifest.v1+json",
+        artifact_type="application/vnd.oci.image.config.v1+json",
+        kind="image",
+        size_bytes=4096,
+        pushed_at=datetime(2026, 7, 28),
+        updated_at=datetime(2026, 7, 28),
+        tags=("latest",),
+        tag_count=1,
+        tags_truncated=False,
+    )
     assert set(schemas["Repository"]["required"]) == set(repository.to_dict())
     assert set(schemas["Quota"]["required"]) == set(quota.to_dict())
+    assert set(schemas["Artifact"]["required"]) == set(artifact.to_dict())
     assert schemas["Repository"]["properties"]["name"]["pattern"] == (
         REPOSITORY_NAME.pattern
     )
@@ -229,6 +287,19 @@ def test_openapi_repository_and_quota_schemas_match_runtime_values() -> None:
     }
     assert schemas["RepositoryPage"]["properties"]["repositories"]["maxItems"] == (
         MAX_REPOSITORY_LIMIT
+    )
+    assert parameters["ArtifactLimit"]["schema"]["maximum"] == MAX_ARTIFACT_PAGE
+    assert (
+        parameters["ArtifactQuery"]["schema"]["maxLength"]
+        == MAX_ARTIFACT_QUERY_LENGTH
+    )
+    assert (
+        schemas["Artifact"]["properties"]["tags"]["maxItems"]
+        == MAX_TAGS_PER_ARTIFACT
+    )
+    assert (
+        schemas["Artifact"]["properties"]["tags"]["items"]["pattern"]
+        == f"^{TAG_NAME.pattern}$"
     )
     for name in ("limit_bytes", "used_bytes", "reserved_bytes"):
         assert schemas["Quota"]["properties"][name]["maximum"] == MAX_LOGICAL_BYTES

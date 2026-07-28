@@ -7,7 +7,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 
-CURRENT_SCHEMA_REVISION = "0006_claim_version_binding"
+CURRENT_SCHEMA_REVISION = "0007_artifact_projection"
 
 
 class SchemaNotReady(Exception):

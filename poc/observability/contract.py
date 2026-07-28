@@ -27,6 +27,8 @@ ROUTES = frozenset(
         "/v1/quota",
         "/v1/repositories",
         "/v1/repositories/{repository_id}",
+        "/v1/repositories/{repository_id}/artifacts",
+        "/v1/repositories/{repository_id}/artifacts/{digest}",
         "edge-auth",
         "edge-blob",
         "edge-manifest",

@@ -9,6 +9,7 @@ import pytest
 from keystoneauth1 import fixture as keystone_fixture
 from keystonemiddleware.fixture import AuthTokenFixture
 
+from coffer.artifacts import ArtifactStore
 from coffer.config import new_config
 from coffer.api import PublicEndpoints
 from coffer.db import RepositoryStore
@@ -91,6 +92,9 @@ def client(tmp_path: Any, auth_fixture: AuthTokenFixture) -> testing.TestClient:
     quotas = QuotaStore(
         f"sqlite:///{tmp_path / 'coffer.sqlite'}", bootstrap_schema=True
     )
+    artifacts = ArtifactStore(
+        f"sqlite:///{tmp_path / 'coffer.sqlite'}", bootstrap_schema=True
+    )
     quotas.set_limit(PROJECT_A_ID, 10 * 1024 * 1024 * 1024)
     middleware = build_application(
         conf,
@@ -103,6 +107,7 @@ def client(tmp_path: Any, auth_fixture: AuthTokenFixture) -> testing.TestClient:
             "token_cache_time": "-1",
         },
         quota_store=quotas,
+        artifact_store=artifacts,
         metrics=CofferMetrics(),
         public_endpoints=PublicEndpoints(
             control="https://registry.invalid/v1",
@@ -116,4 +121,6 @@ def client(tmp_path: Any, auth_fixture: AuthTokenFixture) -> testing.TestClient:
     def wsgi_app(environ: dict[str, Any], start_response: Any) -> Any:
         return middleware(environ, start_response)
 
-    return testing.TestClient(wsgi_app)
+    result = testing.TestClient(wsgi_app)
+    result.artifact_store = artifacts
+    return result

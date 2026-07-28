@@ -58,6 +58,8 @@ DOCKER_IMAGE_MANIFEST = "application/vnd.docker.distribution.manifest.v2+json"
 DOCKER_MANIFEST_LIST = (
     "application/vnd.docker.distribution.manifest.list.v2+json"
 )
+OCI_IMAGE_CONFIG = "application/vnd.oci.image.config.v1+json"
+DOCKER_IMAGE_CONFIG = "application/vnd.docker.container.image.v1+json"
 IMAGE_MEDIA_TYPES = frozenset({OCI_IMAGE_MANIFEST, DOCKER_IMAGE_MANIFEST})
 INDEX_MEDIA_TYPES = frozenset({OCI_IMAGE_INDEX, DOCKER_MANIFEST_LIST})
 MAX_TRANSACTION_ATTEMPTS = 3
@@ -427,6 +429,9 @@ class ParsedManifest:
     size: int
     descriptors: tuple[Descriptor, ...]
     child_manifests: tuple[Descriptor, ...]
+    media_type: str
+    artifact_type: str | None
+    kind: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -685,6 +690,13 @@ def parse_manifest(body: bytes, *, media_type: str | None = None) -> ParsedManif
     digest = f"sha256:{hashlib.sha256(body).hexdigest()}"
     own = Descriptor(digest, len(body))
     child_manifests: tuple[Descriptor, ...] = ()
+    artifact_type = document.get("artifactType")
+    if artifact_type is not None and (
+        not isinstance(artifact_type, str)
+        or not artifact_type
+        or len(artifact_type) > 255
+    ):
+        raise InvalidManifest("manifest artifactType is invalid")
     if requested_media_type in INDEX_MEDIA_TYPES:
         if "config" in document or "layers" in document:
             raise InvalidManifest("index must not contain image-manifest fields")
@@ -695,16 +707,35 @@ def parse_manifest(body: bytes, *, media_type: str | None = None) -> ParsedManif
             raise InvalidManifest("manifest descriptor count exceeds the maximum")
         child_manifests = tuple(_descriptor(value) for value in raw_children)
         candidates = (own, *child_manifests)
+        kind = "image_index"
     else:
         if "manifests" in document:
             raise InvalidManifest("image manifest must not contain index fields")
-        config = _descriptor(document.get("config"))
+        raw_config = document.get("config")
+        config = _descriptor(raw_config)
+        config_media_type = (
+            raw_config.get("mediaType") if isinstance(raw_config, dict) else None
+        )
+        if config_media_type is not None and (
+            not isinstance(config_media_type, str)
+            or not config_media_type
+            or len(config_media_type) > 255
+        ):
+            raise InvalidManifest("manifest config mediaType is invalid")
+        if artifact_type is None:
+            artifact_type = config_media_type
         raw_layers = document.get("layers")
         if not isinstance(raw_layers, list):
             raise InvalidManifest("image manifests must contain a layer list")
         if len(raw_layers) + 2 > MAX_DESCRIPTOR_COUNT:
             raise InvalidManifest("manifest descriptor count exceeds the maximum")
         candidates = (own, config, *(_descriptor(value) for value in raw_layers))
+        kind = (
+            "artifact"
+            if config_media_type is not None
+            and config_media_type not in {OCI_IMAGE_CONFIG, DOCKER_IMAGE_CONFIG}
+            else "image"
+        )
 
     unique: dict[str, Descriptor] = {}
     for descriptor in candidates:
@@ -719,6 +750,9 @@ def parse_manifest(body: bytes, *, media_type: str | None = None) -> ParsedManif
         size=len(body),
         descriptors=tuple(sorted(unique.values(), key=lambda item: item.digest)),
         child_manifests=child_manifests,
+        media_type=requested_media_type,
+        artifact_type=artifact_type,
+        kind=kind,
     )
 
 

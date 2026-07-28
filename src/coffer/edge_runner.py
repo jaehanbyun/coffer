@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 
 from oslo_config import cfg
 
+from coffer.artifacts import ArtifactStore
 from coffer.config import parse_config, setup_logging
 from coffer.db import RepositoryStore
 from coffer.observability import (
@@ -147,6 +148,7 @@ def build_product_application(
     settings: EdgeSettings,
 ) -> Any:
     repositories = RepositoryStore(conf.database.connection)
+    artifacts = ArtifactStore(conf.database.connection)
     metrics = (
         CofferMetrics(component="edge")
         if conf.observability.metrics_enabled
@@ -165,7 +167,7 @@ def build_product_application(
             issuer=settings.issuer,
             service=settings.service,
         ),
-        ManifestAdmissionService(repositories, quotas),
+        ManifestAdmissionService(repositories, quotas, artifacts),
         registry,
         token_realm=settings.token_realm,
         metrics=metrics,

@@ -122,6 +122,7 @@ def test_topology_expansion_or_change_is_refused(field, value) -> None:
         ("route", "/v1/", None),
         ("route", "/v1/quota", None),
         ("route", "/v1/repositories/{repository_id}", None),
+        ("route", "/v1/repositories/{repository_id}/artifacts", None),
         ("method", "OTHER", None),
         ("status", "5xx", None),
         ("dependency", "kms", None),

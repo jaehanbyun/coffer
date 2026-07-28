@@ -68,6 +68,17 @@ def test_client_discovers_exact_catalog_origin_and_calls_control_resources() -> 
                 },
             ),
             Response(200, {"repository": {"id": "repository-id"}}),
+            Response(
+                200,
+                {
+                    "artifacts": [{"digest": f"sha256:{'a' * 64}"}],
+                    "next_marker": None,
+                },
+            ),
+            Response(
+                200,
+                {"artifact": {"digest": f"sha256:{'a' * 64}"}},
+            ),
             Response(200, {"quota": {"limit_bytes": 100}}),
         ]
     )
@@ -82,12 +93,29 @@ def test_client_discovers_exact_catalog_origin_and_calls_control_resources() -> 
         None,
     )
     assert client.repository("repository-id")["id"] == "repository-id"
+    digest = f"sha256:{'a' * 64}"
+    assert client.artifacts(
+        "repository-id",
+        limit=10,
+        query="latest",
+    ) == (({"digest": digest},), None)
+    assert client.artifact("repository-id", digest)["digest"] == digest
     assert client.quota()["limit_bytes"] == 100
     assert [request[:2] for request in session.requests] == [
         ("https://registry.example:18788/v1", "GET"),
         ("https://registry.example:18788/v1/repositories", "POST"),
         ("https://registry.example:18788/v1/repositories", "GET"),
         ("https://registry.example:18788/v1/repositories/repository-id", "GET"),
+        (
+            "https://registry.example:18788/v1/repositories/"
+            "repository-id/artifacts",
+            "GET",
+        ),
+        (
+            "https://registry.example:18788/v1/repositories/"
+            f"repository-id/artifacts/{digest}",
+            "GET",
+        ),
         ("https://registry.example:18788/v1/quota", "GET"),
     ]
     assert all(request[2]["authenticated"] is True for request in session.requests)
@@ -227,6 +255,8 @@ def test_project_metadata_declares_the_exact_openstackclient_commands() -> None:
     assert '[project.entry-points."openstack.cli.extension"]' in document
     for command_name in (
         "registry_endpoint_show",
+        "registry_artifact_list",
+        "registry_artifact_show",
         "registry_login",
         "registry_quota_show",
         "registry_repository_create",

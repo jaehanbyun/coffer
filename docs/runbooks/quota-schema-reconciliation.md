@@ -43,7 +43,7 @@ uv run alembic upgrade head
 unset COFFER_DATABASE_URL
 ```
 
-The current head is `0006_claim_version_binding`. A fresh database
+The current head is `0007_artifact_projection`. A fresh database
 receives repository and quota tables. A database containing the exact older PoC
 `repositories` table is migrated online: revision `0003` validates its five
 columns, primary key, string bounds, nullability, and named project/name
@@ -54,7 +54,10 @@ sessions bound to that marker and refuses downgrade while any session evidence
 is retained. Revision `0006` persists the reservation version captured by each
 reconciliation claim, backfills existing claims through their reservation
 foreign key, and refuses downgrade while any claim remains. Structural drift
-aborts before the relevant revision is recorded.
+aborts before the relevant revision is recorded. Revision `0007` adds the
+storage-independent registry artifact/tag projection and bounded tag claims
+used by the user-facing content browser; it refuses downgrade while projection
+or claim rows remain.
 Do not use `alembic stamp` to bypass validation.
 
 The conditional create-or-adopt decision cannot be made safely by offline `--sql` generation, so that path is rejected. Downgrade across revision `0003` deliberately retains repository rows; normal processes still reject the downgraded revision until re-upgrade validates and adopts them again. This is disposable recovery evidence, not a production rollback prescription.

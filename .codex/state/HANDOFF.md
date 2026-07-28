@@ -1,7 +1,8 @@
 # Coffer Handoff
 
 - Updated: 2026-07-28
-- Status: plan 0019 production promotion is active but remains fail-closed on
+- Status: plan 0029 artifact discovery and registry UX is active while plan
+  0019 production promotion remains fail-closed on
   official release inputs; plans 0027 and 0028 completed with a retained live
   preview; plan 0022 remains blocked externally; plans 0020, 0021, 0023,
   0024, 0025, and 0026 completed locally;
@@ -56,11 +57,23 @@
   `docs/exec-plans/0019-stage6-production-promotion.md` and
   `docs/exec-plans/0022-native-x86-ui-image-qualification.md`
 - Active execution plan:
-  `docs/exec-plans/0019-stage6-production-promotion.md`. The retained preview
-  baseline and user endpoint remain documented by completed plans 0027 and
-  0028 and are not production evidence.
+  `docs/exec-plans/0029-artifact-discovery-registry-ux.md`. Plan 0019 remains
+  blocked externally and its production gates are unchanged. The retained
+  preview baseline and user endpoint remain documented by completed plans 0027
+  and 0028 and are not production evidence.
 
 ## Current Objective
+
+Plan 0029 is the active independently testable work package. Its first atomic
+milestone adds migration 0007, a storage-independent digest-addressed
+artifact/tag projection, expiring concurrent tag claims, actual immutable-tag
+enforcement before Distribution, project-scoped artifact list/search/show
+APIs, OpenAPI, OpenStackClient commands, and bounded route metrics. Focused
+verification passes 107 checks; the corrected complete repository run passes
+1,867 tests after extending the intentionally versioned observability route
+allowlist. The exact next implementation action is the Horizon artifact
+adapter and its isolated tests. No retained preview container or production
+promotion state has changed.
 
 Complete every Stage 6 production promotion gate without weakening accepted
 release, security, storage, identity, data-protection, operability, or teardown
@@ -3518,13 +3531,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Refresh `work/production-promotion/release-readiness.json` only from signed
-official upstream metadata when the Distribution, Ceph Tentacle, or
-stable/2026.1 `oslo.messaging` release state changes. If and only if all three
-become `candidate-qualified`, begin the native amd64/arm64 immutable-artifact
-transaction. Do not create the production pilot, change the release-note
-promotion status, or stage operator-release evidence while release readiness
-remains blocked.
+Extend `ui/horizon/cofferdashboard/api/coffer.py` with exact artifact
+page/detail validation and endpoint discovery for safe connection-command
+generation, then add isolated adapter tests before changing Horizon views or
+templates. Plan 0019's release refresh remains event-driven and must not be
+weakened or relabeled by this UI work.
 
 ## After This Work Package
 

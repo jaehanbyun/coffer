@@ -10,6 +10,11 @@ from oslo_db import exception as db_exception
 from oslo_policy import policy
 from sqlalchemy.exc import SQLAlchemyError
 
+from coffer.artifacts import (
+    ArtifactStore,
+    InvalidArtifactMarker,
+    MAX_ARTIFACT_PAGE,
+)
 from coffer.db import (
     InvalidRepositoryMarker,
     RepositoryAlreadyExists,
@@ -203,6 +208,123 @@ class RepositoryResource:
         if repository is None:
             raise falcon.HTTPNotFound()
         resp.media = {"repository": repository.to_dict()}
+
+
+class ArtifactCollectionResource:
+    def __init__(
+        self,
+        artifacts: ArtifactStore,
+        repositories: RepositoryStore,
+        enforcer: policy.Enforcer,
+    ) -> None:
+        self._artifacts = artifacts
+        self._repositories = repositories
+        self._enforcer = enforcer
+
+    def on_get(
+        self,
+        req: falcon.Request,
+        resp: falcon.Response,
+        repository_id: str,
+    ) -> None:
+        identity = Identity.from_environ(req.env)
+        target = {
+            "project_id": identity.project_id,
+            "repository_id": repository_id,
+        }
+        _authorize(self._enforcer, "artifact:list", identity, target)
+        limit = req.get_param_as_int(
+            "limit",
+            required=False,
+            min_value=1,
+            max_value=MAX_ARTIFACT_PAGE,
+        )
+        marker = req.get_param("marker", required=False)
+        query = req.get_param("query", required=False)
+        try:
+            repository = self._repositories.get(
+                identity.project_id,
+                repository_id,
+            )
+            if repository is None:
+                raise falcon.HTTPNotFound()
+            page = self._artifacts.list_page(
+                identity.project_id,
+                repository_id,
+                limit=limit or MAX_ARTIFACT_PAGE,
+                marker=marker,
+                query=query,
+            )
+        except InvalidArtifactMarker as exc:
+            raise falcon.HTTPBadRequest(
+                title="Invalid artifact marker",
+                description=(
+                    "The marker must identify an artifact in the current "
+                    "repository and query."
+                ),
+            ) from exc
+        except ValueError as exc:
+            raise falcon.HTTPBadRequest(
+                title="Invalid artifact query",
+                description=(
+                    "Use a bounded tag or digest query and a canonical marker."
+                ),
+            ) from exc
+        except (db_exception.DBError, SQLAlchemyError) as exc:
+            raise _control_dependency_unavailable(exc) from exc
+        resp.media = {
+            "artifacts": [artifact.to_dict() for artifact in page.artifacts],
+            "next_marker": page.next_marker,
+        }
+
+
+class ArtifactResource:
+    def __init__(
+        self,
+        artifacts: ArtifactStore,
+        repositories: RepositoryStore,
+        enforcer: policy.Enforcer,
+    ) -> None:
+        self._artifacts = artifacts
+        self._repositories = repositories
+        self._enforcer = enforcer
+
+    def on_get(
+        self,
+        req: falcon.Request,
+        resp: falcon.Response,
+        repository_id: str,
+        digest: str,
+    ) -> None:
+        identity = Identity.from_environ(req.env)
+        target = {
+            "project_id": identity.project_id,
+            "repository_id": repository_id,
+            "digest": digest,
+        }
+        _authorize(self._enforcer, "artifact:get", identity, target)
+        try:
+            repository = self._repositories.get(
+                identity.project_id,
+                repository_id,
+            )
+            if repository is None:
+                raise falcon.HTTPNotFound()
+            artifact = self._artifacts.get(
+                identity.project_id,
+                repository_id,
+                digest,
+            )
+        except ValueError as exc:
+            raise falcon.HTTPBadRequest(
+                title="Invalid artifact digest",
+                description="The artifact digest must be canonical sha256.",
+            ) from exc
+        except (db_exception.DBError, SQLAlchemyError) as exc:
+            raise _control_dependency_unavailable(exc) from exc
+        if artifact is None:
+            raise falcon.HTTPNotFound()
+        resp.media = {"artifact": artifact.to_dict()}
 
 
 class QuotaResource:

@@ -36,6 +36,7 @@ def test_installed_migration_environment_is_package_local() -> None:
             "0004_inventory_import.py",
             "0005_maintenance_sessions.py",
             "0006_claim_version_binding.py",
+            "0007_artifact_projection.py",
         ]
 
 
@@ -61,6 +62,9 @@ def test_bootstrap_is_repeat_safe_and_validates_the_current_schema(
             "quota_reconciliation_claims",
             "quota_reservation_descriptors",
             "quota_reservations",
+            "registry_artifacts",
+            "registry_tag_claims",
+            "registry_tags",
             "repositories",
         }
         with engine.connect() as connection:
