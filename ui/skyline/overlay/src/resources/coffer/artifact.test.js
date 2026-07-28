@@ -62,7 +62,11 @@ describe('Coffer artifact presentation', () => {
     expect(commands.docker).toContain(
       'openstack registry login --client docker'
     );
-    expect(commands.helm).toContain(`"oci://${base}"`);
+    expect(commands.helm).toContain('openstack registry login --client helm');
+    expect(commands.helm).toContain('helm create "application"');
+    expect(commands.helm).toContain(
+      '"oci://registry.example.test:18788/p/project-id/team"'
+    );
     expect(commands.oras).toContain(`${base}:example`);
     expect(JSON.stringify(commands)).not.toContain('OS_PASSWORD');
     expect(JSON.stringify(commands)).not.toContain(

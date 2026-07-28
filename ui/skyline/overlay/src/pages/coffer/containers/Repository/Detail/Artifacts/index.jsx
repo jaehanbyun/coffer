@@ -259,7 +259,7 @@ export class Artifacts extends React.Component {
           {this.renderConnectionTab(
             'Helm',
             t(
-              "Helm uses Docker's registry credentials. Authenticate Docker before pushing the chart."
+              'Authenticate Helm, then create and push a chart whose name maps to this repository.'
             ),
             commands.helm
           )}

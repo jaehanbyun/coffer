@@ -55,27 +55,35 @@ export const artifactType = (kind) =>
     artifact: t('OCI Artifact'),
   }[kind] || t('OCI Artifact'));
 
-export const connectionCommands = (baseReference) => ({
-  docker: `export OS_APPLICATION_CREDENTIAL_ID="<finite-application-credential-id>"
+export const connectionCommands = (baseReference) => {
+  const lastSeparator = baseReference.lastIndexOf('/');
+  const chartName = baseReference.slice(lastSeparator + 1);
+  const chartNamespace = baseReference.slice(0, lastSeparator);
+
+  return {
+    docker: `export OS_APPLICATION_CREDENTIAL_ID="<finite-application-credential-id>"
 openstack registry login --client docker \\
   --application-credential-id "$OS_APPLICATION_CREDENTIAL_ID"
 docker pull hello-world
 docker tag hello-world "${baseReference}:latest"
 docker push "${baseReference}:latest"`,
-  podman: `export OS_APPLICATION_CREDENTIAL_ID="<finite-application-credential-id>"
+    podman: `export OS_APPLICATION_CREDENTIAL_ID="<finite-application-credential-id>"
 openstack registry login --client podman \\
   --application-credential-id "$OS_APPLICATION_CREDENTIAL_ID"
 podman pull docker.io/library/hello-world:latest
 podman tag docker.io/library/hello-world:latest "${baseReference}:latest"
 podman push "${baseReference}:latest"`,
-  helm: `export OS_APPLICATION_CREDENTIAL_ID="<finite-application-credential-id>"
-openstack registry login --client docker \\
+    helm: `export OS_APPLICATION_CREDENTIAL_ID="<finite-application-credential-id>"
+openstack registry login --client helm \\
   --application-credential-id "$OS_APPLICATION_CREDENTIAL_ID"
-helm package ./chart
-helm push ./chart-0.1.0.tgz "oci://${baseReference}"`,
-  oras: `export OS_APPLICATION_CREDENTIAL_ID="<finite-application-credential-id>"
+helm create "${chartName}"
+helm package "./${chartName}"
+helm push "./${chartName}-0.1.0.tgz" \\
+  "oci://${chartNamespace}"`,
+    oras: `export OS_APPLICATION_CREDENTIAL_ID="<finite-application-credential-id>"
 openstack registry login --client oras \\
   --application-credential-id "$OS_APPLICATION_CREDENTIAL_ID"
 oras push "${baseReference}:example" \\
   ./artifact.txt:application/octet-stream`,
-});
+  };
+};

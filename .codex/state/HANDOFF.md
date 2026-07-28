@@ -79,25 +79,34 @@ Skyline now provides the same artifact/search/copy surface and native
 Docker/Podman/Helm/ORAS dialog after strict artifact and same-origin HTTPS
 endpoint validation. The exact pinned Skyline Console source passes locale,
 focused ESLint, 45 tests, production Webpack bundle, versioned wheel and
-bundle/wheel verification. The exact next implementation action is extending
-the retained preview. Exact Horizon and Skyline wheels now have pinned
+bundle/wheel verification. Exact Horizon and Skyline wheels have pinned
 SHA-256 inputs, and independent bounded refresh transactions update only the
 selected dashboard's immutable image contract and companion global. Bash
-syntax, ShellCheck, and 40 focused Kolla/image contract tests pass. The exact
-next action is synchronizing the reviewed source and wheels to the retained
-guest, rebuilding Coffer and both dashboard images, and running migration 0007
-through companion `reconfigure`. That deployment is now active: Coffer and
-both dashboards are healthy on their exact new images, the public dashboard
-paths return 200, and the live schema reports `0007_artifact_projection`.
+syntax, ShellCheck, and focused Kolla/image contract tests pass. That
+deployment is active: Coffer and both dashboards are healthy on their exact
+new images, the public dashboard paths return 200, and the live schema reports
+`0007_artifact_projection`.
 Fresh Docker, Podman, and ORAS push/pull plus project isolation and
 primary-pair outage pass. Helm 4.2.3 exposed one standards-compatibility defect:
 it omits the top-level manifest JSON `mediaType` while supplying the supported
 OCI type in HTTP `Content-Type`; OCI image-spec defines the JSON property as
 SHOULD rather than REQUIRED. The local parser now accepts that unambiguous
 case while retaining all absence/type/mismatch/allowlist failures, and 34
-focused tests pass. The exact next action is committing and redeploying this
-correction, repeating real Helm push/pull, and querying the artifact API before
-browser QA. Plan 0019 remains unchanged.
+focused tests pass. The correction is committed and active; real Helm 4.2.3
+push and pull pass. The project-scoped artifact acceptance projects four
+digest rows with Docker, Podman, ORAS, failover, and Helm tags; search, detail,
+keyset pagination, Helm classification, and project-B 404 denial pass in a
+secret-free mode-0600 result.
+
+A final executable-guide correction is local: Helm now uses
+`openstack registry login --client helm`, creates a chart named after the
+repository's final path segment, and pushes to the parent OCI namespace so
+Helm's appended chart name resolves to the selected repository. Exact Horizon
+and Skyline tests and package builds pass with newly pinned wheel hashes. The
+corrected complete repository regression passes 1,872 tests. The next action
+is committing this milestone, refreshing only the two dashboard images, and
+verifying the deployed guide and artifact API before final browser QA. Plan
+0019 remains unchanged.
 
 Complete every Stage 6 production promotion gate without weakening accepted
 release, security, storage, identity, data-protection, operability, or teardown

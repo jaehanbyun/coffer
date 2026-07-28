@@ -215,6 +215,18 @@ they are never stored in this repository or printed by the deployment
 harness. Both dashboards expose **Project → Registry → Repositories** for
 project A. The retained proof repository is `preview-proof`.
 
+After fresh Docker, Podman, ORAS, and Helm content is present, verify the
+project-scoped artifact API without exporting an identity secret:
+
+```text
+sudo ./guest-artifact-api-acceptance.sh
+```
+
+The check covers required tags, Helm classification, tag search, keyset
+pagination, artifact detail, and project-B denial. Its secret-free result is
+stored mode 0600 at
+`/home/ubuntu/coffer-artifact-api-acceptance.json`.
+
 This preview proves one functional browser, control, token, OCI, and same-host
 replica integration. It does not clear the independent Distribution,
 Ceph/KMS, dependency, scanner, signing, publication, multi-failure-domain HA,

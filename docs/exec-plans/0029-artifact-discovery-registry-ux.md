@@ -17,22 +17,22 @@ Distribution, SQL, or the selected object-storage backend directly.
 
 ## Done Criteria
 
-- [ ] A versioned migration adds a durable, bounded artifact/tag projection
+- [x] A versioned migration adds a durable, bounded artifact/tag projection
       that is updated by manifest admission and reconciliation without changing
       the accepted quota accounting model.
-- [ ] Existing repository `immutable_tags` is enforced atomically before a tag
+- [x] Existing repository `immutable_tags` is enforced atomically before a tag
       can move to another digest; digest pushes and idempotent same-digest tag
       pushes remain valid.
-- [ ] Project-scoped APIs list and show repository artifacts with stable JSON,
+- [x] Project-scoped APIs list and show repository artifacts with stable JSON,
       keyset pagination, tag/digest search, media/artifact type, logical size,
       push time, tags, freshness, and safe 400/401/403/404/409/503 behavior.
-- [ ] The OpenAPI document, Python client, OpenStackClient commands, Horizon
+- [x] The OpenAPI document, Python client, OpenStackClient commands, Horizon
       adapter, and Skyline client validate the exact same public contract.
 - [x] Horizon and Skyline repository detail pages expose an `Images &
       Artifacts` surface with tag, pushed time, type, size, digest, copyable
       pull reference, search, loading, empty, permission, and dependency-error
       states.
-- [ ] Both dashboards expose a `How to connect` guide with Docker, Podman,
+- [x] Both dashboards expose a `How to connect` guide with Docker, Podman,
       Helm, and ORAS tabs. Commands are generated from the catalog endpoint,
       current project and selected repository, use application credentials
       through stdin or the existing `openstack registry login` command, and
@@ -92,7 +92,7 @@ Distribution, SQL, or the selected object-storage backend directly.
 
 ## Tasks
 
-- [ ] Specify and migrate the artifact/tag projection, including tag
+- [x] Specify and migrate the artifact/tag projection, including tag
       immutability and reconciliation behavior.
 - [x] Add API resources, policies, OpenAPI schemas, client methods, CLI
       commands, bounded metrics, and tests.
@@ -261,6 +261,30 @@ Distribution, SQL, or the selected object-storage backend directly.
   real Helm push/pull, then query the project-scoped artifact API before
   browser QA.
 
+### 2026-07-28 — Real artifact discovery and executable guides accepted
+
+- Completed: Redeployed the standards-compatible admission parser and passed
+  real Helm 4.2.3 push and pull. Added a bounded owner-only acceptance command
+  that acquires both project tokens through stdin, queries only the public
+  project-scoped API, and retains a secret-free mode-0600 result.
+- API evidence: The retained repository projects four digest rows and all
+  Docker, Podman, ORAS, failover, and Helm tags. Tag search, artifact detail,
+  keyset pagination, Helm media-type classification, and project-B 404 denial
+  pass.
+- Guide correction: Helm does not share the Docker command shape and appends
+  the chart name to the push target. `openstack registry login` now supports
+  `--client helm` through `helm registry login`; both dashboards create a chart
+  named after the repository's final path segment and push it to the parent
+  OCI namespace. This makes the displayed command resolve to the selected
+  Coffer repository instead of an unauthorized nested repository.
+- Packaging evidence: Horizon's exact 47-test baseline and wheel build pass.
+  Skyline's exact 45-test, ESLint, locale, production bundle, and wheel
+  verification pass. Both replacement wheels have new pinned SHA-256 inputs
+  in the bounded refresh transactions.
+- Next exact action: Commit and push the executable-guide milestone, stage only
+  the two pinned wheels on the retained guest, refresh Horizon and Skyline,
+  and verify the deployed bundles and artifact API before final regression.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -279,6 +303,9 @@ Distribution, SQL, or the selected object-storage backend directly.
 | Retained image/migration activation | Kolla reconfigure; image/asset/schema/HTTP checks | passed |
 | Fresh Docker/Podman/ORAS acceptance | retained endpoint v2 acceptance | passed |
 | Helm 4 compatibility regression | focused quota parser/admission suite | passed; 34 tests |
+| Retained artifact API acceptance | public API with project A/B application credentials | passed; 4 artifact rows, search/detail/keyset/Helm classification, project B 404 |
+| Executable connection guides | client unit tests; exact Horizon and Skyline package builds | passed; dedicated Helm login and correct repository path |
+| Corrected complete repository regression | `uv run --extra client pytest -q` | passed; 1,872 |
 | Full implementation and visual QA | pending | pending |
 
 ## Failures, Blockers, and Risks
@@ -290,8 +317,8 @@ Distribution, SQL, or the selected object-storage backend directly.
 - The artifact projection must remain repairable because Distribution accepts
   the manifest before Coffer can know the final commit outcome. Reconciliation
   must not present indeterminate writes as current content.
-- The existing `immutable_tags` option is now enforced by manifest admission.
-  The retained preview still runs the earlier image until plan 0029 deployment.
+- The existing `immutable_tags` option is enforced by manifest admission in
+  the retained preview.
 
 ## Handoff
 
@@ -299,8 +326,8 @@ Distribution, SQL, or the selected object-storage backend directly.
   API/OpenAPI/client and both Horizon and Skyline artifact
   browsers/connection guides and exact retained-preview image delivery
   transactions are complete locally.
-- Exact next action: Synchronize the reviewed source and verified wheels to the
-  retained preview, rebuild the three product images, and run the Kolla
-  companion `reconfigure` transaction.
-- First file or command: `ssh bb00 -- virsh domstate coffer-ui-preview-1`
+- Exact next action: Stage the two newly pinned dashboard wheels on the retained
+  guest, run the independent Horizon and Skyline refresh transactions, and
+  verify the deployed guide text and artifact API result.
+- First file or command: `gh auth status`
 - Questions requiring user input: None.

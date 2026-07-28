@@ -38,6 +38,12 @@ ARTIFACT_COLUMNS = (
     "size_bytes",
     "pushed_at",
 )
+LOGIN_SUBCOMMANDS = {
+    "docker": ("login",),
+    "helm": ("registry", "login"),
+    "oras": ("login",),
+    "podman": ("login",),
+}
 
 
 def _values(
@@ -88,13 +94,16 @@ def login(
         raise exceptions.CommandError(
             "A single-line application credential secret is required"
         )
+    subcommands = LOGIN_SUBCOMMANDS.get(executable)
+    if subcommands is None:
+        raise exceptions.CommandError("OCI client is not supported")
     program = shutil.which(executable)
     if program is None:
         raise exceptions.CommandError(f"{executable} is not installed")
     runner(
         [
             program,
-            "login",
+            *subcommands,
             "--username",
             application_credential_id,
             "--password-stdin",
@@ -308,7 +317,7 @@ class Login(command.Command):
         )
         parser.add_argument(
             "--client",
-            choices=("docker", "podman", "oras"),
+            choices=tuple(LOGIN_SUBCOMMANDS),
             default="docker",
         )
         return parser

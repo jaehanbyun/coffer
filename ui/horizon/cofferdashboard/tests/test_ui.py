@@ -390,11 +390,12 @@ class RepositoryPanelTests(SimpleTestCase):
         self.assertContains(response, "How to connect")
         self.assertContains(response, "--client docker")
         self.assertContains(response, "--client podman")
+        self.assertContains(response, "--client helm")
         self.assertContains(response, "--client oras")
+        self.assertContains(response, 'helm create "app"')
         self.assertContains(
             response,
-            'helm push nginx-19.0.1.tgz "oci://registry.example.test/'
-            'p/project-id/team/app"',
+            '"oci://registry.example.test/p/project-id/team"',
         )
         self.assertNotContains(response, "test-scoped-token")
         self.assertNotContains(response, "application-credential-secret")

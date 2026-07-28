@@ -147,6 +147,26 @@ def test_ui_preview_refreshes_each_dashboard_without_replacing_the_other() -> (
         assert "docker push" in script
 
 
+def test_artifact_api_acceptance_is_project_scoped_and_secret_free() -> None:
+    script = (
+        ROOT / "poc" / "ui-preview" / "guest-artifact-api-acceptance.sh"
+    ).read_text(encoding="utf-8")
+
+    assert 'test "$(id -u)" -eq 0' in script
+    assert "application_credential_token project_a" in script
+    assert "application_credential_token project_b" in script
+    assert "X-Auth-Token" in script
+    assert "application/vnd.cncf.helm.config.v1+json" in script
+    assert "keyset_pagination: true" in script
+    assert "project_b_denied: true" in script
+    assert 'test "${project_b_status}" = 404' in script
+    assert 'chmod 0600 "${temporary_evidence}"' in script
+    assert "--data-binary @-" in script
+    assert "--arg secret" not in script
+    assert "echo ${credential_secret}" not in script
+    assert "set -x" not in script
+
+
 def test_bb00_system_haproxy_preview_is_bounded_and_recoverable() -> None:
     snippet = (
         ROOT / "poc" / "ui-preview" / "bb00-system-haproxy.cfg"

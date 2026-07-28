@@ -361,13 +361,15 @@ podman push "{{ repository_reference }}:latest"</pre>
               role="tabpanel"
             >
               <p>
-                {% trans "Helm uses Docker's registry credentials. Authenticate Docker first, then push the chart to the OCI repository." %}
+                {% trans "Authenticate Helm, then create and push a chart whose name maps to this repository." %}
               </p>
               <pre id="coffer-helm-commands">export OS_APPLICATION_CREDENTIAL_ID="&lt;finite-application-credential-id&gt;"
-openstack registry login --client docker \
+openstack registry login --client helm \
   --application-credential-id "$OS_APPLICATION_CREDENTIAL_ID"
-helm pull oci://registry-1.docker.io/bitnamicharts/nginx --version 19.0.1
-helm push nginx-19.0.1.tgz "{{ repository_oci_url }}"</pre>
+helm create "{{ helm_chart_name }}"
+helm package "./{{ helm_chart_name }}"
+helm push "./{{ helm_chart_name }}-0.1.0.tgz" \
+  "{{ helm_oci_namespace }}"</pre>
               <button
                 type="button"
                 class="btn btn-default coffer-copy-button"

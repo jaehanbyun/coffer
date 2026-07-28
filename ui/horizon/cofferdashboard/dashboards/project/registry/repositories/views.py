@@ -138,6 +138,8 @@ class DetailView(views.HorizonTemplateView):
         repository_path = (
             f"p/{repository.project_id}/{repository.name}"
         )
+        helm_chart_name = repository.name.rsplit("/", 1)[-1]
+        helm_namespace_path = repository_path.rsplit("/", 1)[0]
         context.update(
             {
                 "repository": repository,
@@ -158,8 +160,9 @@ class DetailView(views.HorizonTemplateView):
                 "repository_reference": (
                     f"{registry_host}/{repository_path}"
                 ),
-                "repository_oci_url": (
-                    f"oci://{registry_host}/{repository_path}"
+                "helm_chart_name": helm_chart_name,
+                "helm_oci_namespace": (
+                    f"oci://{registry_host}/{helm_namespace_path}"
                 ),
             }
         )

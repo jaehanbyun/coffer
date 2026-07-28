@@ -226,6 +226,36 @@ def test_login_passes_secret_only_on_stdin_and_never_through_a_shell(
     assert "shell" not in kwargs
 
 
+def test_login_uses_helm_registry_subcommand(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+
+    monkeypatch.setattr(
+        "cofferclient.osc.commands.shutil.which",
+        lambda value: f"/usr/bin/{value}",
+    )
+    login(
+        registry_endpoint="https://registry.example:18788/v2/",
+        application_credential_id="app-credential-id",
+        secret="credential-secret-value",
+        executable="helm",
+        runner=lambda command, **_kwargs: calls.append(command),
+    )
+
+    assert calls == [
+        [
+            "/usr/bin/helm",
+            "registry",
+            "login",
+            "--username",
+            "app-credential-id",
+            "--password-stdin",
+            "registry.example:18788",
+        ]
+    ]
+
+
 def test_login_rejects_credentials_in_endpoint_and_multiline_secrets(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -239,6 +269,13 @@ def test_login_rejects_credentials_in_endpoint_and_multiline_secrets(
             application_credential_id="id",
             secret="secret",
             executable="oras",
+        )
+    with pytest.raises(exceptions.CommandError, match="not supported"):
+        login(
+            registry_endpoint="https://registry.example/v2/",
+            application_credential_id="id",
+            secret="secret",
+            executable="unknown",
         )
     with pytest.raises(exceptions.CommandError):
         login(
