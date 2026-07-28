@@ -176,6 +176,48 @@ artifact, and RGW/KMS evidence digests all match the same ledger transaction.
 The local fixture lifecycle is useful contract coverage but can never satisfy
 the required `non_synthetic=true`, `adapter=openstack` boundary by itself.
 
+The data-protection specialist command is:
+
+```text
+make -C poc/production-promotion data-protection-result
+```
+
+It validates the exact release, immutable-artifact, RGW/KMS, and maintenance
+identity specialist results before opening
+`work/production-promotion/data-protection-evidence.json`. The evidence must
+come from one non-synthetic, disposable OpenStack transaction and bind all
+four prerequisite digests plus the checked-in backup, inventory, import,
+quota, lifecycle, and topology sources. The current release block exits `3`
+before any missing backup, credential, endpoint, or runtime evidence is read.
+
+A qualified result requires:
+
+- writer exclusion with zero active uploads or unknown listeners, denied write
+  canaries, successful digest reads, and a stable source signature;
+- SQL and versioned SSE-KMS RGW backups restored into an isolated target, with
+  equal inventory and no incomplete multipart uploads;
+- `coffer.inventory/v3`, equal repeated scans, atomic import, idempotent replay,
+  conflicting-replay refusal, zero partial rows, and a closed pull-only private
+  TLS live-comparison session;
+- forced quota-edge cutover, closed direct Distribution access, tenant
+  isolation, accounted new writes, quota `429`, dependency `503`, restart
+  persistence, and reconciliation;
+- writer-fenced rollback and backup recovery that remove exactly the
+  post-cutover writes, retain the original digest, and repeat authenticated
+  comparison and admission checks;
+- all 22 fixed backup, RGW/KMS, import, maintenance, dependency, cutover,
+  rollback, and replica-loss failure cases;
+- a terminal 14-phase `torn-down` lifecycle, unchanged unrelated state, and
+  zero identity, credential, session, bucket, object-version, multipart,
+  database, container, file, volume, network, lock, or known-secret residue.
+
+The compact result intentionally omits invocation IDs, endpoints, resource
+identities, project/repository names, credentials, object keys, and secrets.
+The canonical ledger passes `data_protection` only when its prerequisite
+digests equal the same release, artifact, RGW/KMS, and maintenance-identity
+results already validated in that ledger transaction. The existing fixture
+or the retained UI preview cannot satisfy this live boundary.
+
 To refresh the accepted disposable filesystem GC specialist result first:
 
 ```text

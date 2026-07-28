@@ -2997,6 +2997,51 @@ operator-local release.
   v3 inventory, transactional import/comparison, admission cutover, rollback,
   recovery, unchanged-unrelated-state, and zero-residue transaction.
 
+### 2026-07-28 — Data-protection specialist contract completed
+
+- Ordered transaction boundary: Added
+  `coffer.production-promotion-data-protection-result/v1`. The CLI validates
+  candidate-qualified release readiness and the exact artifact, RGW/KMS, and
+  maintenance-identity specialist results before opening data-protection
+  evidence. The current release block exits `3` before any downstream result,
+  endpoint, credential, backup, or evidence path is read.
+- Non-synthetic proof: Only one disposable `adapter=openstack`,
+  `non_synthetic=true` transaction with all 14 ordered phases can qualify.
+  The evidence binds all four prerequisite digests and the current backup,
+  inventory, import, quota, lifecycle, topology, and maintenance-verifier
+  sources. Fixture and retained-preview observations are refused.
+- Data safety: The verifier requires exact writer exclusion, stable source
+  signatures, isolated SQL and versioned SSE-KMS RGW backup/restore, equal RGW
+  inventories, `coffer.inventory/v3`, equal repeated scans, atomic import,
+  idempotent replay, conflict refusal, private pull-only live comparison,
+  forced edge cutover, tenant isolation, quota/dependency failures, restart
+  persistence, reconciliation, exact rollback, and backup recovery.
+- Failure, retention, and ledger: All 22 fixed backup, RGW/KMS, import,
+  maintenance, dependency, cutover, rollback, and replica-loss cases must pass.
+  The transaction must leave unrelated state unchanged and reach `torn-down`
+  with zero resource, object-version, multipart, database, container, file,
+  volume, network, lock, or known-secret residue. The compact result omits
+  invocation, endpoint, project/repository, resource, object, and secret
+  identities. The ledger accepts it only when all prerequisite digests match
+  the same transaction.
+- Current live disposition: No specialist output was created. The owner-mode
+  0600 ledger SHA-256 is
+  `204f2cb0e127699a613d1aeea4bb65938f4d22e9f530957dcdc4dedb01c11f69`;
+  it remains one passed, one blocked, eight pending, and
+  `production_candidate=false`.
+- Verification: Fourteen data-protection specialist tests, twenty-nine
+  combined data-protection/ledger tests, all seventy-nine promotion-harness
+  tests, and all 1,749 repository tests pass. Focused Ruff E/F/I, compilation,
+  diff checks, live exit-3 refusal, result absence, and ledger mode/digest
+  inspection pass.
+- Changed files: Data-protection specialist compiler and tests, ledger and
+  Makefile integration, promotion README, this plan, and `HANDOFF.md`.
+- Next exact action: Add the production-observability specialist result
+  contract. It must bind the completed local observability sources to the
+  exact prior transaction and accept only non-synthetic direct-per-replica,
+  restart-correct metrics, protected scrape/aggregation, alert firing and
+  recovery, failure-budget, log/secret, and zero-residue evidence.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -3036,6 +3081,12 @@ operator-local release.
 | Promotion harness after maintenance integration | `make -C poc/production-promotion verify` | passed; 63 |
 | Canonical ledger after maintenance integration | `make -C poc/production-promotion ledger`; mode and SHA inspection | passed; 1 passed, 1 blocked, 8 pending, mode 0600, `production_candidate=false` |
 | Post-maintenance-contract full Python regression | `uv run pytest -q` | passed; 1733 |
+| Data-protection specialist contract | `uv run pytest -q tests/test_production_promotion_data_protection.py` | passed; 14 |
+| Data protection plus canonical ledger contract | `uv run pytest -q tests/test_production_promotion_data_protection.py tests/test_production_promotion_ledger.py` | passed; 29 |
+| Current data-protection runtime refusal | `make -C poc/production-promotion data-protection-result` with the live blocked readiness result and absent downstream paths | passed; exit 3 before downstream reads, no result created |
+| Promotion harness after data-protection integration | `make -C poc/production-promotion verify` | passed; 79 |
+| Canonical ledger after data-protection integration | `make -C poc/production-promotion ledger`; mode and SHA inspection | passed; 1 passed, 1 blocked, 8 pending, mode 0600, `production_candidate=false` |
+| Post-data-protection-contract full Python regression | `uv run pytest -q` | passed; 1749 |
 | Full Python regression | `uv run pytest -q` | passed; 310 |
 | Kolla companion-role regression | `make -C poc/kolla-ansible-role verify` | passed; 68 |
 | Maintenance identity code/config inventory | Focused inspection of live comparison, reconciliation runner/probe, WSGI, Kolla config, secrets, and Stage 5 inputs | passed |
@@ -3269,10 +3320,13 @@ operator-local release.
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
-- Exact next action: Wait for changed official stable release metadata, then
-  rerun `make -C poc/production-images check-upstream`. Do not invoke the live
-  pilot unless the exact pair reaches `candidate-qualified`. Independent
-  product/UI work continues under plan 0020.
+- Exact next action: Add
+  `poc/production-promotion/observability.py` as the source-bound specialist
+  result contract. It must validate all prior transaction digests before
+  accepting non-synthetic direct-per-replica restart-correct signals, protected
+  scrape/aggregation, alert firing and recovery, failure-budget, log/secret,
+  and zero-residue evidence. Do not invoke the live pilot while official
+  release readiness remains blocked.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

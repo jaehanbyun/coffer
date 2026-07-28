@@ -334,6 +334,129 @@ def maintenance_identity_result() -> dict[str, object]:
     }
 
 
+def data_protection_result() -> dict[str, object]:
+    return {
+        "backup_restore": {
+            "delete_marker_count": 1,
+            "isolated_restore": True,
+            "multipart_upload_count": 0,
+            "object_count": 4,
+            "rgw_inventory_equal": True,
+            "rgw_restored": True,
+            "sql_restored": True,
+            "sql_row_count": 12,
+            "sse_kms": True,
+            "version_count": 7,
+        },
+        "cutover": {
+            "dependency_503": True,
+            "direct_registry_closed": True,
+            "existing_pull": True,
+            "new_push_accounted": True,
+            "over_quota_429": True,
+            "project_isolation": True,
+            "quota_edge_forced": True,
+            "reconciliation": True,
+            "restart_persistence": True,
+        },
+        "evidence_sha256": {
+            name: f"sha256:{digit * 64}"
+            for name, digit in zip(
+                (
+                    "backup_restore_sha256",
+                    "cutover_sha256",
+                    "failure_matrix_sha256",
+                    "inventory_import_sha256",
+                    "lifecycle_sha256",
+                    "rollback_recovery_sha256",
+                    "teardown_sha256",
+                    "unrelated_state_sha256",
+                    "writer_exclusion_sha256",
+                ),
+                ("1", "2", "3", "4", "5", "6", "7", "8", "9"),
+                strict=True,
+            )
+        },
+        "execution": {
+            "adapter": "openstack",
+            "disposable": True,
+            "non_synthetic": True,
+            "phase_count": len(
+                ledger.DATA_PROTECTION_RESULT.STATE_MACHINE.EXPECTED_PHASES
+            ),
+        },
+        "failure_matrix": {
+            name: True
+            for name in (
+                ledger.DATA_PROTECTION_RESULT.STATE_MACHINE.EXPECTED_FAILURE_CASES
+            )
+        },
+        "input_evidence_sha256": f"sha256:{'a' * 64}",
+        "inventory_import": {
+            "conflicting_replay_refused": True,
+            "descriptor_count": 8,
+            "idempotent_replay": True,
+            "imported": True,
+            "inventory_schema": "coffer.inventory/v3",
+            "live_comparison_verified": True,
+            "manifest_count": 4,
+            "partial_rows": 0,
+            "private_tls_verified": True,
+            "pull_only": True,
+            "repository_count": 2,
+            "scans_equal": True,
+            "session_closed": True,
+        },
+        "lifecycle": {
+            "phase_evidence_sha256": f"sha256:{'b' * 64}",
+            "terminal_phase": "torn-down",
+        },
+        "prerequisites": {
+            "artifact_result_sha256": f"sha256:{'5' * 64}",
+            "maintenance_identity_result_sha256": f"sha256:{'f' * 64}",
+            "release_readiness_sha256": f"sha256:{'3' * 64}",
+            "rgw_kms_result_sha256": f"sha256:{'e' * 64}",
+        },
+        "production_candidate": True,
+        "residue": {
+            **{
+                name: 0
+                for name in (
+                    ledger.DATA_PROTECTION_RESULT.STATE_MACHINE.EXPECTED_RESIDUE_KEYS
+                )
+            },
+            "known_secret_matches": 0,
+            "total": 0,
+        },
+        "rollback_recovery": {
+            "active_uploads": 0,
+            "admission_checks": True,
+            "ambiguous_differences": 0,
+            "authenticated_comparison": True,
+            "backup_recovery": True,
+            "original_digest_readable": True,
+            "post_cutover_write_count": 3,
+            "pull_digest_match": True,
+            "removed_post_cutover_write_count": 3,
+            "writer_fence_reapplied": True,
+        },
+        "schema": ledger.DATA_PROTECTION_RESULT.SCHEMA,
+        "source": ledger.DATA_PROTECTION_RESULT.source_hashes(),
+        "unrelated_state": {
+            "sha256": f"sha256:{'c' * 64}",
+            "unchanged": True,
+        },
+        "writer_exclusion": {
+            "active_uploads": 0,
+            "canary_write_status": 405,
+            "digest_read_status": 200,
+            "source_stable": True,
+            "unknown_listeners": 0,
+            "writers_disabled": True,
+        },
+    }
+
+
 def test_blocked_release_and_passed_gc_are_reported_independently() -> None:
     result = ledger.compile_ledger(
         release_readiness=release(),
@@ -428,6 +551,36 @@ def test_valid_maintenance_identity_requires_and_passes_prerequisites() -> None:
         "status": "passed",
     }
     assert len(result["pending_gates"]) == 6
+
+
+def test_valid_data_protection_requires_and_passes_all_prerequisites() -> None:
+    result = ledger.compile_ledger(
+        release_readiness=release(),
+        release_digest=f"sha256:{'3' * 64}",
+        artifact_result=artifact_result(),
+        artifact_digest=f"sha256:{'5' * 64}",
+        rgw_kms_result=rgw_kms_result(),
+        rgw_kms_digest=f"sha256:{'e' * 64}",
+        maintenance_identity_result=maintenance_identity_result(),
+        maintenance_identity_digest=f"sha256:{'f' * 64}",
+        data_protection_result=data_protection_result(),
+        data_protection_digest=f"sha256:{'9' * 64}",
+        today=date(2026, 7, 28),
+    )
+    gates = {gate["id"]: gate for gate in result["gates"]}
+
+    assert result["status"] == "blocked"
+    assert result["passed_gate_count"] == 4
+    assert gates["data_protection"] == {
+        "evidence": {
+            "schema": ledger.DATA_PROTECTION_RESULT.SCHEMA,
+            "sha256": f"sha256:{'9' * 64}",
+        },
+        "id": "data_protection",
+        "reason": None,
+        "status": "passed",
+    }
+    assert len(result["pending_gates"]) == 5
 
 
 def test_qualified_release_still_cannot_self_promote_missing_gates() -> None:
@@ -632,6 +785,65 @@ def test_maintenance_identity_result_is_atomic_and_prerequisite_bound() -> None:
             **common,
             maintenance_identity_result=changed_binding,
             maintenance_identity_digest=f"sha256:{'f' * 64}",
+        )
+
+
+def test_data_protection_result_is_atomic_and_prerequisite_bound() -> None:
+    common = {
+        "artifact_digest": f"sha256:{'5' * 64}",
+        "artifact_result": artifact_result(),
+        "maintenance_identity_digest": f"sha256:{'f' * 64}",
+        "maintenance_identity_result": maintenance_identity_result(),
+        "release_digest": f"sha256:{'3' * 64}",
+        "release_readiness": release(),
+        "rgw_kms_digest": f"sha256:{'e' * 64}",
+        "rgw_kms_result": rgw_kms_result(),
+        "today": date(2026, 7, 28),
+    }
+    with pytest.raises(ledger.PromotionLedgerError, match="digest"):
+        ledger.compile_ledger(
+            **common,
+            data_protection_result=data_protection_result(),
+        )
+    with pytest.raises(ledger.PromotionLedgerError, match="no specialist"):
+        ledger.compile_ledger(
+            **common,
+            data_protection_digest=f"sha256:{'9' * 64}",
+        )
+    with pytest.raises(ledger.PromotionLedgerError, match="prerequisite"):
+        ledger.compile_ledger(
+            release_readiness=release(),
+            release_digest=f"sha256:{'3' * 64}",
+            data_protection_result=data_protection_result(),
+            data_protection_digest=f"sha256:{'9' * 64}",
+            today=date(2026, 7, 28),
+        )
+
+    changed = data_protection_result()
+    changed["residue"]["credentials"] = 1
+    changed["residue"]["total"] = 1
+    with pytest.raises(
+        ledger.PromotionLedgerError,
+        match="data-protection specialist",
+    ):
+        ledger.compile_ledger(
+            **common,
+            data_protection_result=changed,
+            data_protection_digest=f"sha256:{'9' * 64}",
+        )
+
+    changed_binding = data_protection_result()
+    changed_binding["prerequisites"][
+        "maintenance_identity_result_sha256"
+    ] = f"sha256:{'0' * 64}"
+    with pytest.raises(
+        ledger.PromotionLedgerError,
+        match="prerequisite binding",
+    ):
+        ledger.compile_ledger(
+            **common,
+            data_protection_result=changed_binding,
+            data_protection_digest=f"sha256:{'9' * 64}",
         )
 
 

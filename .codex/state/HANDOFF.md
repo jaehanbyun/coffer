@@ -116,19 +116,31 @@ operational residue. The existing fixture-only lifecycle cannot promote it.
 Its compact result retains no invocation, target, resource, certificate,
 project, user, credential, token, secret, endpoint, or log identity.
 
-The current live command exits `3` before absent artifact, RGW, or identity
-paths are read. No artifact, RGW, or maintenance specialist output exists, so
-all three gates remain pending. The ledger rejects every cross-release or
-cross-prerequisite result combination. Its current owner-mode-0600 SHA-256 is
-`fe17bffeec0443bf62bafbc106a3ebb277b930e4f2356e247b099fde79942385`;
+The data-protection specialist contract is now implemented. It validates all
+four prior transaction results before opening evidence and accepts only one
+non-synthetic disposable OpenStack transaction with exact writer exclusion,
+isolated SQL and versioned SSE-KMS RGW backup/restore, equal inventory,
+`coffer.inventory/v3`, atomic/idempotent import, private pull-only live
+comparison, forced edge cutover, isolation/quota/dependency checks, restart
+persistence, reconciliation, exact rollback/recovery, all 22 fixed failure
+cases, unchanged unrelated state, terminal 14-phase teardown, and zero
+operational or secret residue. Fixture and retained-preview evidence cannot
+promote it, and its compact result retains no invocation, endpoint,
+project/repository, resource, object, credential, or secret identity.
+
+The current data-protection command exits `3` before absent artifact, RGW,
+maintenance, backup, or evidence paths are read. No artifact, RGW, maintenance,
+or data-protection specialist output exists, so all four gates remain pending.
+The ledger rejects cross-release and cross-prerequisite combinations. Its
+current owner-mode-0600 SHA-256 is
+`204f2cb0e127699a613d1aeea4bb65938f4d22e9f530957dcdc4dedb01c11f69`;
 it remains one passed, one blocked, eight pending, and
-`production_candidate=false`. Fourteen maintenance specialist, twenty-seven
-combined maintenance/ledger, sixty-three promotion-harness, and all 1,733
-repository tests pass. The exact next action is to add the data-protection
-specialist contract bound to all prior results. It must accept only a
-writer-excluded disposable backup/restore, v3 inventory, transactional
-import/comparison, cutover, rollback, recovery, unchanged unrelated state, and
-zero-residue transaction.
+`production_candidate=false`. Fourteen data-protection specialist,
+twenty-nine combined data-protection/ledger, seventy-nine promotion-harness,
+and all 1,749 repository tests pass. The exact next action is the
+production-observability specialist result contract, bound to every prior
+transaction and requiring live restart-correct direct-per-replica signals,
+protected aggregation, alert/failure-budget proof, and zero residue.
 
 Plan 0028 is complete. The retained preview serves one owner-accessible
 `https://bb00.tail23b778.ts.net:18788` origin for `/v1`, `/auth/token`, and
@@ -3424,10 +3436,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Inspect the exact Kolla 2026.1 Horizon/Skyline port, image, and endpoint
-contracts, then add a collision-checked `coffer-ui-preview-1` provisioner that
-uses the `coffer-rgw` pool, autostart disabled, and SSH-tunnel-only access. Do
-not mutate `dev11-*`, host listeners, or a production image gate.
+Add `poc/production-promotion/observability.py` as the source-bound specialist
+result contract. Validate every prior promotion result before accepting
+non-synthetic direct-per-replica restart-correct metrics, protected
+scrape/aggregation, alert firing and recovery, failure-budget, log/secret, and
+zero-residue evidence. Do not invoke a live production pilot while official
+release readiness remains blocked.
 
 ## After This Work Package
 

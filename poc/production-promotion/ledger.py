@@ -20,6 +20,7 @@ GC_RESULT_SOURCE = ROOT / "poc" / "gc-retention" / "filesystem" / "result.py"
 ARTIFACT_RESULT_SOURCE = DIRECTORY / "artifacts.py"
 RGW_KMS_RESULT_SOURCE = DIRECTORY / "rgw_kms.py"
 MAINTENANCE_IDENTITY_RESULT_SOURCE = DIRECTORY / "maintenance_identity.py"
+DATA_PROTECTION_RESULT_SOURCE = DIRECTORY / "data_protection.py"
 
 SCHEMA = "coffer.production-promotion-ledger/v1"
 RELEASE_SCHEMA = "coffer.production-promotion-release-readiness/v1"
@@ -100,6 +101,10 @@ MAINTENANCE_IDENTITY_RESULT = _load_module(
     "coffer_production_promotion_maintenance_identity_result",
     MAINTENANCE_IDENTITY_RESULT_SOURCE,
 )
+DATA_PROTECTION_RESULT = _load_module(
+    "coffer_production_promotion_data_protection_result",
+    DATA_PROTECTION_RESULT_SOURCE,
+)
 
 
 def _sha256_bytes(payload: bytes) -> str:
@@ -116,6 +121,9 @@ def _sha256(path: Path) -> str:
 def source_hashes() -> dict[str, str]:
     return {
         "artifact_result_verifier_sha256": _sha256(ARTIFACT_RESULT_SOURCE),
+        "data_protection_result_verifier_sha256": _sha256(
+            DATA_PROTECTION_RESULT_SOURCE
+        ),
         "gc_result_verifier_sha256": _sha256(GC_RESULT_SOURCE),
         "ledger_sha256": _sha256(Path(__file__).resolve()),
         "maintenance_identity_result_verifier_sha256": _sha256(
@@ -267,6 +275,8 @@ def compile_ledger(
     rgw_kms_digest: str | None = None,
     maintenance_identity_result: object | None = None,
     maintenance_identity_digest: str | None = None,
+    data_protection_result: object | None = None,
+    data_protection_digest: str | None = None,
     today: date | None = None,
 ) -> dict[str, Any]:
     current = datetime.now(tz=UTC).date() if today is None else today
@@ -407,6 +417,61 @@ def compile_ledger(
             "status": "passed",
         }
 
+    if data_protection_result is None:
+        if data_protection_digest is not None:
+            raise PromotionLedgerError(
+                "data-protection digest has no specialist result"
+            )
+    else:
+        if data_protection_digest is None:
+            raise PromotionLedgerError(
+                "data-protection specialist result digest is required"
+            )
+        if (
+            artifact_result is None
+            or artifact_digest is None
+            or rgw_kms_result is None
+            or rgw_kms_digest is None
+            or maintenance_identity_result is None
+            or maintenance_identity_digest is None
+        ):
+            raise PromotionLedgerError(
+                "data-protection prerequisite results are absent"
+            )
+        try:
+            qualified_data_protection = (
+                DATA_PROTECTION_RESULT.validate_final_result(
+                    data_protection_result
+                )
+            )
+        except DATA_PROTECTION_RESULT.DataProtectionResultError as error:
+            raise PromotionLedgerError(
+                "data-protection specialist result is invalid"
+            ) from error
+        prerequisites = _mapping(
+            qualified_data_protection["prerequisites"],
+            "data-protection prerequisites",
+        )
+        if prerequisites != {
+            "artifact_result_sha256": artifact_digest,
+            "maintenance_identity_result_sha256": (
+                maintenance_identity_digest
+            ),
+            "release_readiness_sha256": release_digest,
+            "rgw_kms_result_sha256": rgw_kms_digest,
+        }:
+            raise PromotionLedgerError(
+                "data-protection prerequisite binding changed"
+            )
+        gates["data_protection"] = {
+            "evidence": _evidence(
+                qualified_data_protection["schema"],
+                data_protection_digest,
+            ),
+            "reason": None,
+            "status": "passed",
+        }
+
     if gc_result is None:
         if gc_digest is not None:
             raise PromotionLedgerError("GC digest has no specialist result")
@@ -528,6 +593,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--artifact-result", type=Path)
     parser.add_argument("--rgw-kms-result", type=Path)
     parser.add_argument("--maintenance-identity-result", type=Path)
+    parser.add_argument("--data-protection-result", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--require-qualified", action="store_true")
     arguments = parser.parse_args(argv)
@@ -544,6 +610,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         rgw_kms_digest: str | None = None
         maintenance_identity_value: dict[str, Any] | None = None
         maintenance_identity_digest: str | None = None
+        data_protection_value: dict[str, Any] | None = None
+        data_protection_digest: str | None = None
         if arguments.gc_result is not None:
             gc_value, gc_digest = _load_private(
                 arguments.gc_result,
@@ -566,6 +634,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "maintenance identity specialist result",
                 )
             )
+        if arguments.data_protection_result is not None:
+            data_protection_value, data_protection_digest = _load_private(
+                arguments.data_protection_result,
+                "data-protection specialist result",
+            )
         ledger = compile_ledger(
             release_readiness=release,
             release_digest=release_digest,
@@ -577,6 +650,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             rgw_kms_digest=rgw_kms_digest,
             maintenance_identity_result=maintenance_identity_value,
             maintenance_identity_digest=maintenance_identity_digest,
+            data_protection_result=data_protection_value,
+            data_protection_digest=data_protection_digest,
         )
         _write_owner_only(arguments.output, ledger)
         print(json.dumps(ledger, indent=2, sort_keys=True))
