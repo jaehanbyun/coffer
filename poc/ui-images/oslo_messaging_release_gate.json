@@ -17,7 +17,7 @@
     "source_probe": "ssl_enforce_hostname_verification"
   },
   "current_observation": {
-    "as_of": "2026-07-27",
+    "as_of": "2026-07-28",
     "fixed_stable_release": null,
     "pypi_latest": "18.2.0",
     "stable_releases": [

@@ -1,7 +1,7 @@
 ---
 title: "Stage 6 production promotion"
 status: blocked-external
-updated: 2026-07-26
+updated: 2026-07-28
 owner: primary-agent
 ---
 
@@ -119,6 +119,9 @@ operator-local release.
 - [x] Add a deterministic upstream-release readiness check that distinguishes
       signed stable artifacts from merged-but-unreleased fixes and feeds the
       existing fail-closed production-image and RGW/KMS harnesses.
+- [x] Combine Distribution, Ceph, and stable OpenStack UI dependency
+      readiness into one owner-only fail-closed Stage 6 preflight and document
+      the complete promotion order.
 - [x] Select and prove the production maintenance identity and owner-only
       secret-delivery lifecycle without creating a real credential.
 - [ ] Package and qualify the exact-release RGW inventory helper and complete
@@ -2768,6 +2771,37 @@ operator-local release.
   `poc/load-soak/pilot_run.py`; until then perform no remote Stage 6 pilot
   action.
 
+### 2026-07-28 — Production promotion reactivated with unified release preflight
+
+- Recovery: `main` and `origin/main` matched at `e868565` with a clean
+  worktree. The retained `coffer-ui-preview-1` and `coffer-rgw-poc` domains
+  remain running with autostart disabled; no remote mutation was made.
+- Official refresh: Distribution remains signed stable v3.1.1 at
+  `9a8d98b679740cd514aa7e7d84d23d442a5ef54c`. Ceph Tentacle remains v20.2.2
+  at `0fcffee29411e3a38036764817b6e1afc59741cc`, without the encrypted-copy
+  fix. PyPI contains only oslo.messaging 17.3.0 in the stable series and
+  OpenStack stable/2026.1 constraints still pin 17.3.0.
+- Unified preflight: `poc/production-promotion/readiness.py` now composes all
+  three independently accepted classifiers into one fail-closed
+  `coffer.production-promotion-release-readiness/v1` result, binds the exact
+  classifier/contract source hashes, rejects a UI observation older than one
+  day, and writes only an absolute owner-mode-0600 output.
+- Operator contract: `docs/runbooks/production-promotion.md` fixes the complete
+  dependency, image, RGW/KMS, identity, data-protection, observability, GC,
+  load, multinode, teardown, and release-review order. It explicitly refuses
+  a preview, fixture, unreleased branch, private dependency, or later-stage
+  evidence as compensation for an earlier failed gate.
+- Evidence: Thirty-three focused promotion/upstream/UI tests pass. The live
+  aggregate is valid and blocked with five exact reasons. Its output is mode
+  0600 and `require-qualified` fails closed before any image, credential, VM,
+  endpoint, OpenStack, S3, KMS, or remote action.
+- Changed files: unified preflight, Makefile, README, seven focused tests,
+  production-promotion runbook, refreshed UI observation date, this plan, and
+  `.codex/state/HANDOFF.md`.
+- Next exact action: Add a canonical final promotion ledger that consumes each
+  specialist verifier result without self-attestation, then bind the already
+  completed GC result and leave every absent live result explicitly pending.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2779,6 +2813,10 @@ operator-local release.
 | Plan/HANDOFF structure | Markdown inspection and local-link check | passed |
 | Upstream classifier fixtures | `uv run pytest -q tests/test_upstream_readiness.py` | passed; 10 |
 | Live upstream classifier | `make -C poc/production-images check-upstream` | passed; valid `blocked` result |
+| Unified release-readiness contracts | `uv run pytest -q tests/test_production_promotion_readiness.py tests/test_upstream_readiness.py tests/test_ui_oslo_messaging_release_gate.py` | passed; 33 |
+| Live unified release preflight | `make -C poc/production-promotion check`; owner-only file mode and JSON inspection | passed; valid `blocked` result, five exact blockers, mode 0600 |
+| Promotion pipeline refusal | `make -C poc/production-promotion require-qualified` | passed; failed closed before any runtime action |
+| Post-preflight full Python regression | `uv run pytest -q` | passed; 1673 |
 | Full Python regression | `uv run pytest -q` | passed; 310 |
 | Kolla companion-role regression | `make -C poc/kolla-ansible-role verify` | passed; 68 |
 | Maintenance identity code/config inventory | Focused inspection of live comparison, reconciliation runner/probe, WSGI, Kolla config, secrets, and Stage 5 inputs | passed |

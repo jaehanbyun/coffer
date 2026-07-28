@@ -1,7 +1,10 @@
 # Coffer Handoff
 
-- Updated: 2026-07-27
-- Status: plans 0027 and 0028 completed with a retained live preview; plans 0019 and 0022 blocked externally; plans 0020, 0021, 0023, 0024, 0025, and 0026 completed locally;
+- Updated: 2026-07-28
+- Status: plan 0019 production promotion is active but remains fail-closed on
+  official release inputs; plans 0027 and 0028 completed with a retained live
+  preview; plan 0022 remains blocked externally; plans 0020, 0021, 0023,
+  0024, 0025, and 0026 completed locally;
   native x86_64 UI parents and derivatives built and passed provenance/runtime
   collection, but standalone Docker Scout CVE evidence requires an unauthorized
   Docker login; the disposable VM, volumes, key, and runtime residue are absent;
@@ -52,10 +55,25 @@
 - Externally blocked execution plans:
   `docs/exec-plans/0019-stage6-production-promotion.md` and
   `docs/exec-plans/0022-native-x86-ui-image-qualification.md`
-- Active execution plan: none. The retained preview baseline and user endpoint
-  are documented by completed plans 0027 and 0028.
+- Active execution plan:
+  `docs/exec-plans/0019-stage6-production-promotion.md`. The retained preview
+  baseline and user endpoint remain documented by completed plans 0027 and
+  0028 and are not production evidence.
 
 ## Current Objective
+
+Complete every Stage 6 production promotion gate without weakening accepted
+release, security, storage, identity, data-protection, operability, or teardown
+criteria. The 2026-07-28 official refresh still reports Distribution v3.1.1,
+Ceph Tentacle v20.2.2 without the encrypted-copy fix, only oslo.messaging
+17.3.0 in the stable series, and stable/2026.1 constraints pinned to 17.3.0.
+The new unified release preflight records all five blockers in one owner-only
+mode-0600 result and fails before any runtime action unless all three
+components are `candidate-qualified`. Thirty-three focused tests pass. The
+full repository regression passes 1,673 tests. The
+exact next action is to add the canonical final promotion ledger consuming
+specialist verifier outputs, bind the completed GC proof, and keep missing
+live evidence pending without self-attestation.
 
 Plan 0028 is complete. The retained preview serves one owner-accessible
 `https://bb00.tail23b778.ts.net:18788` origin for `/v1`, `/auth/token`, and
