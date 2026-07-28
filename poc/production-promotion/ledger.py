@@ -19,6 +19,7 @@ READINESS_SOURCE = DIRECTORY / "readiness.py"
 GC_RESULT_SOURCE = ROOT / "poc" / "gc-retention" / "filesystem" / "result.py"
 ARTIFACT_RESULT_SOURCE = DIRECTORY / "artifacts.py"
 RGW_KMS_RESULT_SOURCE = DIRECTORY / "rgw_kms.py"
+MAINTENANCE_IDENTITY_RESULT_SOURCE = DIRECTORY / "maintenance_identity.py"
 
 SCHEMA = "coffer.production-promotion-ledger/v1"
 RELEASE_SCHEMA = "coffer.production-promotion-release-readiness/v1"
@@ -95,6 +96,10 @@ RGW_KMS_RESULT = _load_module(
     "coffer_production_promotion_rgw_kms_result",
     RGW_KMS_RESULT_SOURCE,
 )
+MAINTENANCE_IDENTITY_RESULT = _load_module(
+    "coffer_production_promotion_maintenance_identity_result",
+    MAINTENANCE_IDENTITY_RESULT_SOURCE,
+)
 
 
 def _sha256_bytes(payload: bytes) -> str:
@@ -113,6 +118,9 @@ def source_hashes() -> dict[str, str]:
         "artifact_result_verifier_sha256": _sha256(ARTIFACT_RESULT_SOURCE),
         "gc_result_verifier_sha256": _sha256(GC_RESULT_SOURCE),
         "ledger_sha256": _sha256(Path(__file__).resolve()),
+        "maintenance_identity_result_verifier_sha256": _sha256(
+            MAINTENANCE_IDENTITY_RESULT_SOURCE
+        ),
         "release_readiness_verifier_sha256": _sha256(READINESS_SOURCE),
         "rgw_kms_result_verifier_sha256": _sha256(RGW_KMS_RESULT_SOURCE),
     }
@@ -257,6 +265,8 @@ def compile_ledger(
     artifact_digest: str | None = None,
     rgw_kms_result: object | None = None,
     rgw_kms_digest: str | None = None,
+    maintenance_identity_result: object | None = None,
+    maintenance_identity_digest: str | None = None,
     today: date | None = None,
 ) -> dict[str, Any]:
     current = datetime.now(tz=UTC).date() if today is None else today
@@ -340,6 +350,58 @@ def compile_ledger(
             "evidence": _evidence(
                 qualified_rgw_kms["schema"],
                 rgw_kms_digest,
+            ),
+            "reason": None,
+            "status": "passed",
+        }
+
+    if maintenance_identity_result is None:
+        if maintenance_identity_digest is not None:
+            raise PromotionLedgerError(
+                "maintenance identity digest has no specialist result"
+            )
+    else:
+        if maintenance_identity_digest is None:
+            raise PromotionLedgerError(
+                "maintenance identity specialist result digest is required"
+            )
+        if (
+            artifact_result is None
+            or artifact_digest is None
+            or rgw_kms_result is None
+            or rgw_kms_digest is None
+        ):
+            raise PromotionLedgerError(
+                "maintenance identity prerequisite results are absent"
+            )
+        try:
+            qualified_identity = (
+                MAINTENANCE_IDENTITY_RESULT.validate_final_result(
+                    maintenance_identity_result
+                )
+            )
+        except (
+            MAINTENANCE_IDENTITY_RESULT.MaintenanceIdentityResultError
+        ) as error:
+            raise PromotionLedgerError(
+                "maintenance identity specialist result is invalid"
+            ) from error
+        prerequisites = _mapping(
+            qualified_identity["prerequisites"],
+            "maintenance identity prerequisites",
+        )
+        if prerequisites != {
+            "artifact_result_sha256": artifact_digest,
+            "release_readiness_sha256": release_digest,
+            "rgw_kms_result_sha256": rgw_kms_digest,
+        }:
+            raise PromotionLedgerError(
+                "maintenance identity prerequisite binding changed"
+            )
+        gates["maintenance_identity"] = {
+            "evidence": _evidence(
+                qualified_identity["schema"],
+                maintenance_identity_digest,
             ),
             "reason": None,
             "status": "passed",
@@ -465,6 +527,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--gc-result", type=Path)
     parser.add_argument("--artifact-result", type=Path)
     parser.add_argument("--rgw-kms-result", type=Path)
+    parser.add_argument("--maintenance-identity-result", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--require-qualified", action="store_true")
     arguments = parser.parse_args(argv)
@@ -479,6 +542,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         artifact_digest: str | None = None
         rgw_kms_value: dict[str, Any] | None = None
         rgw_kms_digest: str | None = None
+        maintenance_identity_value: dict[str, Any] | None = None
+        maintenance_identity_digest: str | None = None
         if arguments.gc_result is not None:
             gc_value, gc_digest = _load_private(
                 arguments.gc_result,
@@ -494,6 +559,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 arguments.rgw_kms_result,
                 "RGW/KMS specialist result",
             )
+        if arguments.maintenance_identity_result is not None:
+            maintenance_identity_value, maintenance_identity_digest = (
+                _load_private(
+                    arguments.maintenance_identity_result,
+                    "maintenance identity specialist result",
+                )
+            )
         ledger = compile_ledger(
             release_readiness=release,
             release_digest=release_digest,
@@ -503,6 +575,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             artifact_digest=artifact_digest,
             rgw_kms_result=rgw_kms_value,
             rgw_kms_digest=rgw_kms_digest,
+            maintenance_identity_result=maintenance_identity_value,
+            maintenance_identity_digest=maintenance_identity_digest,
         )
         _write_owner_only(arguments.output, ledger)
         print(json.dumps(ledger, indent=2, sort_keys=True))

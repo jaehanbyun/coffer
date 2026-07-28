@@ -136,6 +136,46 @@ Only their evidence hashes survive in
 specialist result to name the exact current release-readiness digest; a valid
 result from another release observation cannot pass the gate.
 
+The maintenance-identity specialist command is:
+
+```text
+make -C poc/production-promotion maintenance-identity-result
+```
+
+It validates release readiness, the immutable-artifact result, and the RGW/KMS
+result—in that order—before opening
+`work/production-promotion/maintenance-identity-evidence.json`. The current
+release block therefore exits `3` before any missing downstream result,
+endpoint, credential, certificate, Barbican secret, Kolla recipient, or
+identity evidence is read.
+
+After all prerequisites qualify, the evidence must be a non-synthetic
+OpenStack execution of the checked lifecycle contract. It binds the exact
+prerequisite digests and current lifecycle, token broker, SQL authority,
+private HAProxy, Kolla precheck, and reconciler sources. A result requires:
+
+- all three fixed workloads, both non-overwritten generations, exact roles and
+  access rule, restricted finite application credentials, disabled runtime
+  password, and pull-only server-authorized registry JWTs;
+- verified private mTLS plus denial of the public internal path, wrong
+  certificate, fingerprint, workload, method, and path;
+- overlap lasting at least the Keystone cache/registry-token bound, followed
+  by old credential, mapping, and secret revocation;
+- the bounded dependency, authority, certificate, replica, and Distribution
+  failure matrix;
+- a torn-down `coffer.maintenance-identity-evidence/v1` terminal state,
+  nonempty audit/log scans, zero unexpected errors and known-secret matches;
+  and
+- zero identity, credential, secret, mapping, materialization, session,
+  process, environment, and temporary-file residue.
+
+The compact specialist result omits invocation, target, immutable resource,
+certificate, project, user, credential, secret, token, endpoint, and log
+identities. The canonical ledger passes this gate only when the exact release,
+artifact, and RGW/KMS evidence digests all match the same ledger transaction.
+The local fixture lifecycle is useful contract coverage but can never satisfy
+the required `non_synthetic=true`, `adapter=openstack` boundary by itself.
+
 To refresh the accepted disposable filesystem GC specialist result first:
 
 ```text

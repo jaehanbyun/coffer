@@ -244,6 +244,96 @@ def rgw_kms_result() -> dict[str, object]:
     }
 
 
+def maintenance_identity_result() -> dict[str, object]:
+    return {
+        "audit": {
+            "audit_event_count": 100,
+            "known_secret_matches": 0,
+            "unexpected_errors": 0,
+        },
+        "authority": {
+            "access_rule_exact": True,
+            "application_credential_lifetime_seconds": 3600,
+            "application_credential_restricted": True,
+            "client_certificate_lifetime_seconds": 3600,
+            "pull_only_registry_jwt": True,
+            "registry_token_lifetime_seconds": 120,
+            "required_roles_exact": True,
+            "runtime_secret_retrieval_denied": True,
+            "server_side_sql_authority": True,
+            "service_project_scoped": True,
+            "user_password_disabled": True,
+        },
+        "evidence_sha256": {
+            name: f"sha256:{digit * 64}"
+            for name, digit in zip(
+                (
+                    "audit_sha256",
+                    "authority_sha256",
+                    "failure_matrix_sha256",
+                    "lifecycle_sha256",
+                    "rotation_sha256",
+                    "teardown_sha256",
+                    "transport_sha256",
+                ),
+                ("1", "2", "3", "4", "5", "6", "7"),
+                strict=True,
+            )
+        },
+        "execution": {
+            "adapter": "openstack",
+            "generation_count": 2,
+            "non_synthetic": True,
+            "selected_workload_count": 3,
+        },
+        "failure_matrix": {
+            name: True
+            for name in ledger.MAINTENANCE_IDENTITY_RESULT.FAILURE_CASES
+        },
+        "input_evidence_sha256": f"sha256:{'8' * 64}",
+        "lifecycle": {
+            "log_scan_count": 50,
+            "preexisting_role_count": 1,
+            "terminal_phase": "torn_down",
+        },
+        "prerequisites": {
+            "artifact_result_sha256": f"sha256:{'5' * 64}",
+            "release_readiness_sha256": f"sha256:{'3' * 64}",
+            "rgw_kms_result_sha256": f"sha256:{'e' * 64}",
+        },
+        "production_candidate": True,
+        "residue": {
+            **{
+                name: 0
+                for name in ledger.MAINTENANCE_IDENTITY_RESULT.RESIDUE_KEYS
+            },
+            "total": 0,
+        },
+        "rotation": {
+            "generation_count": 2,
+            "keystone_cache_seconds": 30,
+            "old_credential_revoked": True,
+            "old_mapping_removed": True,
+            "old_secret_removed": True,
+            "overlap_verified": True,
+            "registry_token_seconds": 120,
+            "rotation_elapsed_seconds": 120,
+        },
+        "schema": ledger.MAINTENANCE_IDENTITY_RESULT.SCHEMA,
+        "source": ledger.MAINTENANCE_IDENTITY_RESULT.source_hashes(),
+        "transport": {
+            "correct_workload_succeeded": True,
+            "private_mtls_verified": True,
+            "public_internal_path_denied": True,
+            "unknown_fingerprint_denied": True,
+            "wrong_client_certificate_denied": True,
+            "wrong_method_denied": True,
+            "wrong_path_denied": True,
+            "wrong_workload_denied": True,
+        },
+    }
+
+
 def test_blocked_release_and_passed_gc_are_reported_independently() -> None:
     result = ledger.compile_ledger(
         release_readiness=release(),
@@ -308,6 +398,36 @@ def test_valid_rgw_kms_specialist_passes_only_its_gate() -> None:
         "status": "passed",
     }
     assert len(result["pending_gates"]) == 8
+
+
+def test_valid_maintenance_identity_requires_and_passes_prerequisites() -> None:
+    result = ledger.compile_ledger(
+        release_readiness=release(),
+        release_digest=f"sha256:{'3' * 64}",
+        artifact_result=artifact_result(),
+        artifact_digest=f"sha256:{'5' * 64}",
+        rgw_kms_result=rgw_kms_result(),
+        rgw_kms_digest=f"sha256:{'e' * 64}",
+        maintenance_identity_result=maintenance_identity_result(),
+        maintenance_identity_digest=f"sha256:{'f' * 64}",
+        today=date(2026, 7, 28),
+    )
+    gates = {gate["id"]: gate for gate in result["gates"]}
+
+    assert result["status"] == "blocked"
+    assert result["passed_gate_count"] == 3
+    assert gates["immutable_artifacts"]["status"] == "passed"
+    assert gates["rgw_kms"]["status"] == "passed"
+    assert gates["maintenance_identity"] == {
+        "evidence": {
+            "schema": ledger.MAINTENANCE_IDENTITY_RESULT.SCHEMA,
+            "sha256": f"sha256:{'f' * 64}",
+        },
+        "id": "maintenance_identity",
+        "reason": None,
+        "status": "passed",
+    }
+    assert len(result["pending_gates"]) == 6
 
 
 def test_qualified_release_still_cannot_self_promote_missing_gates() -> None:
@@ -455,6 +575,63 @@ def test_rgw_kms_result_and_digest_are_atomic_and_validated() -> None:
             rgw_kms_result=changed_binding,
             rgw_kms_digest=f"sha256:{'e' * 64}",
             today=date(2026, 7, 28),
+        )
+
+
+def test_maintenance_identity_result_is_atomic_and_prerequisite_bound() -> None:
+    common = {
+        "artifact_digest": f"sha256:{'5' * 64}",
+        "artifact_result": artifact_result(),
+        "release_digest": f"sha256:{'3' * 64}",
+        "release_readiness": release(),
+        "rgw_kms_digest": f"sha256:{'e' * 64}",
+        "rgw_kms_result": rgw_kms_result(),
+        "today": date(2026, 7, 28),
+    }
+    with pytest.raises(ledger.PromotionLedgerError, match="digest"):
+        ledger.compile_ledger(
+            **common,
+            maintenance_identity_result=maintenance_identity_result(),
+        )
+    with pytest.raises(ledger.PromotionLedgerError, match="no specialist"):
+        ledger.compile_ledger(
+            **common,
+            maintenance_identity_digest=f"sha256:{'f' * 64}",
+        )
+    with pytest.raises(ledger.PromotionLedgerError, match="prerequisite"):
+        ledger.compile_ledger(
+            release_readiness=release(),
+            release_digest=f"sha256:{'3' * 64}",
+            maintenance_identity_result=maintenance_identity_result(),
+            maintenance_identity_digest=f"sha256:{'f' * 64}",
+            today=date(2026, 7, 28),
+        )
+
+    changed = maintenance_identity_result()
+    changed["residue"]["credentials"] = 1
+    changed["residue"]["total"] = 1
+    with pytest.raises(
+        ledger.PromotionLedgerError,
+        match="maintenance identity specialist",
+    ):
+        ledger.compile_ledger(
+            **common,
+            maintenance_identity_result=changed,
+            maintenance_identity_digest=f"sha256:{'f' * 64}",
+        )
+
+    changed_binding = maintenance_identity_result()
+    changed_binding["prerequisites"]["rgw_kms_result_sha256"] = (
+        f"sha256:{'0' * 64}"
+    )
+    with pytest.raises(
+        ledger.PromotionLedgerError,
+        match="prerequisite binding",
+    ):
+        ledger.compile_ledger(
+            **common,
+            maintenance_identity_result=changed_binding,
+            maintenance_identity_digest=f"sha256:{'f' * 64}",
         )
 
 

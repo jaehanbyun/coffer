@@ -2950,6 +2950,53 @@ operator-local release.
   credential residue, and keep the live gate pending until its prerequisites
   and a disposable non-synthetic execution qualify.
 
+### 2026-07-28 — Maintenance-identity specialist contract completed
+
+- Ordered prerequisite boundary: Added
+  `coffer.production-promotion-maintenance-identity-result/v1`. The CLI
+  validates release readiness, immutable artifacts, and RGW/KMS specialist
+  results before it opens maintenance identity evidence. The current release
+  block exits `3` before any missing artifact, RGW, endpoint, credential,
+  certificate, Barbican, Kolla recipient, or lifecycle path is read.
+- Non-synthetic lifecycle gate: A future evidence bundle must bind the exact
+  three prerequisite digests plus the current lifecycle/state machine,
+  topology, token broker, SQL authority, WSGI, reconciliation runner, private
+  HAProxy template, and Kolla precheck sources. The existing fixture adapter is
+  explicitly refused by the production contract; only
+  `non_synthetic=true`, `adapter=openstack` can qualify.
+- Authority and transport: The verifier requires all three fixed workloads,
+  two non-overwritten generations, exact finite restricted application
+  credentials, exact roles/access rule, disabled runtime password, pull-only
+  server-authorized JWTs, private mTLS, and denial of the public internal path,
+  unknown fingerprint, wrong certificate, workload, method, and path.
+- Rotation, failure, and teardown: Overlap must last at least the measured
+  Keystone cache and registry-token bound before old credential, mapping, and
+  secret revocation. Fourteen exact authority/dependency/certificate/replica/
+  Distribution failure cases, a terminal torn-down lifecycle, nonempty audit
+  and log scans, zero unexpected/secret findings, and zero identity,
+  credential, secret, mapping, materialization, session, process, environment,
+  and temporary-file residue are mandatory.
+- Retention and ledger: The compact result omits invocation, target, immutable
+  resource, certificate, project, user, credential, token, secret, endpoint,
+  and log identities. The ledger will pass the gate only when release,
+  artifact, and RGW result digests match the same transaction. No live result
+  exists, so the gate remains `pending`. The refreshed owner-mode-0600 ledger
+  SHA-256 is
+  `fe17bffeec0443bf62bafbc106a3ebb277b930e4f2356e247b099fde79942385`;
+  it still derives one passed, one blocked, eight pending, and
+  `production_candidate=false`.
+- Verification: Fourteen maintenance specialist tests, twenty-seven combined
+  maintenance/ledger tests, all sixty-three promotion-harness tests, and all
+  1,733 repository tests pass. Compilation, focused Ruff, live exit-3 refusal,
+  owner-mode-0600 ledger inspection, and diff checks pass.
+- Changed files: Maintenance specialist compiler and tests, ledger/Makefile
+  integration, promotion README and runbook, this plan, and `HANDOFF.md`.
+- Next exact action: Add the data-protection specialist result contract. It
+  must bind the exact release, artifact, RGW/KMS, and maintenance identity
+  prerequisites and accept only a writer-excluded disposable backup/restore,
+  v3 inventory, transactional import/comparison, admission cutover, rollback,
+  recovery, unchanged-unrelated-state, and zero-residue transaction.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2983,6 +3030,12 @@ operator-local release.
 | Promotion harness after RGW/KMS integration | `make -C poc/production-promotion verify` | passed; 47 |
 | Canonical ledger after RGW/KMS integration | `make -C poc/production-promotion ledger`; mode and SHA inspection | passed; 1 passed, 1 blocked, 8 pending, mode 0600, `production_candidate=false` |
 | Post-RGW/KMS-contract full Python regression | `uv run pytest -q` | passed; 1717 |
+| Maintenance identity specialist contract | `uv run pytest -q tests/test_production_promotion_maintenance_identity.py` | passed; 14 |
+| Maintenance identity plus canonical ledger contract | `uv run pytest -q tests/test_production_promotion_maintenance_identity.py tests/test_production_promotion_ledger.py` | passed; 27 |
+| Current maintenance identity refusal | direct `maintenance_identity.py` invocation with the live blocked readiness result and absent downstream paths | passed; exit 3 before artifact, RGW, or identity evidence read, no result created |
+| Promotion harness after maintenance integration | `make -C poc/production-promotion verify` | passed; 63 |
+| Canonical ledger after maintenance integration | `make -C poc/production-promotion ledger`; mode and SHA inspection | passed; 1 passed, 1 blocked, 8 pending, mode 0600, `production_candidate=false` |
+| Post-maintenance-contract full Python regression | `uv run pytest -q` | passed; 1733 |
 | Full Python regression | `uv run pytest -q` | passed; 310 |
 | Kolla companion-role regression | `make -C poc/kolla-ansible-role verify` | passed; 68 |
 | Maintenance identity code/config inventory | Focused inspection of live comparison, reconciliation runner/probe, WSGI, Kolla config, secrets, and Stage 5 inputs | passed |

@@ -161,6 +161,22 @@ credential, per-replica mTLS, private ingress, bounded SQL authority, rotation,
 revocation, audit, and teardown. Public ingress must not forward the
 maintenance path.
 
+Stage its redacted terminal evidence at
+`work/production-promotion/maintenance-identity-evidence.json`, then run:
+
+```text
+make -C poc/production-promotion maintenance-identity-result
+make -C poc/production-promotion ledger
+```
+
+The compiler refuses to open identity evidence until the exact release,
+multi-architecture artifact, and RGW/KMS specialist results qualify. It
+accepts only a non-synthetic OpenStack adapter execution covering all fixed
+workloads, exact finite authority, private-mTLS denials, two-generation
+overlap and revocation, the bounded failure matrix, audit/log scans, terminal
+teardown, and zero secret or operational residue. The fixture-only lifecycle
+model cannot promote this gate.
+
 On a representative disposable copy, then prove:
 
 - writer exclusion and no active upload;

@@ -106,18 +106,29 @@ Distribution/RGW restart persistence, real incomplete-multipart cleanup, and
 zero operational or secret residue. It retains no endpoint, credential, KMS
 key, bucket, object, upload, or error identity.
 
-The current v20.2.2 live command exits `3` before the absent RGW evidence path
-is read, and neither specialist output exists, so both gates remain pending.
-The ledger additionally rejects artifact or RGW results bound to a different
-release-readiness digest. Its current owner-mode-0600 SHA-256 is
-`534adf6dc7f15793cb87ca833e55fd31a7c5975fe78648d707e04df0f7c5a9e2`;
+The maintenance-identity specialist contract is also implemented. It validates
+release, artifact, and RGW/KMS results before opening identity evidence and
+requires a non-synthetic OpenStack lifecycle with all fixed workloads, exact
+finite authority, private mTLS, public/wrong-certificate/workload/method/path
+denials, two-generation overlap and old-generation revocation, fourteen
+bounded failure cases, audit/log scans, terminal teardown, and zero secret or
+operational residue. The existing fixture-only lifecycle cannot promote it.
+Its compact result retains no invocation, target, resource, certificate,
+project, user, credential, token, secret, endpoint, or log identity.
+
+The current live command exits `3` before absent artifact, RGW, or identity
+paths are read. No artifact, RGW, or maintenance specialist output exists, so
+all three gates remain pending. The ledger rejects every cross-release or
+cross-prerequisite result combination. Its current owner-mode-0600 SHA-256 is
+`fe17bffeec0443bf62bafbc106a3ebb277b930e4f2356e247b099fde79942385`;
 it remains one passed, one blocked, eight pending, and
-`production_candidate=false`. Fourteen RGW specialist, twenty-five combined
-RGW/ledger, forty-seven promotion-harness, and all 1,717 repository tests pass.
-The exact next action is to add the maintenance-identity specialist result
-contract bound to release and RGW/KMS prerequisites. It must prove expiration,
-overlap rotation, revocation, audit, private mTLS, least privilege, and zero
-credential residue from a disposable non-synthetic lifecycle.
+`production_candidate=false`. Fourteen maintenance specialist, twenty-seven
+combined maintenance/ledger, sixty-three promotion-harness, and all 1,733
+repository tests pass. The exact next action is to add the data-protection
+specialist contract bound to all prior results. It must accept only a
+writer-excluded disposable backup/restore, v3 inventory, transactional
+import/comparison, cutover, rollback, recovery, unchanged unrelated state, and
+zero-residue transaction.
 
 Plan 0028 is complete. The retained preview serves one owner-accessible
 `https://bb00.tail23b778.ts.net:18788` origin for `/v1`, `/auth/token`, and
