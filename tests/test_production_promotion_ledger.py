@@ -146,9 +146,101 @@ def artifact_result() -> dict[str, object]:
             },
         },
         "production_candidate": True,
-        "release_readiness_sha256": f"sha256:{'f' * 64}",
+        "release_readiness_sha256": f"sha256:{'3' * 64}",
         "schema": ledger.ARTIFACT_RESULT.SCHEMA,
         "source": ledger.ARTIFACT_RESULT.source_hashes(),
+    }
+
+
+def rgw_kms_result() -> dict[str, object]:
+    return {
+        "cleanup": {
+            "delete_markers_after": 0,
+            "delete_markers_before": 1,
+            "multipart_uploads_after": 0,
+            "multipart_uploads_before": 1,
+            "object_versions_after": 0,
+            "object_versions_before": 4,
+            "objects_after": 0,
+            "objects_before": 4,
+        },
+        "evidence_sha256": f"sha256:{'4' * 64}",
+        "execution": {
+            "cleanup_evidence_sha256": f"sha256:{'5' * 64}",
+            "least_privilege_evidence_sha256": f"sha256:{'6' * 64}",
+            "non_synthetic": True,
+            "phase_completion_sha256": {
+                "after": f"sha256:{'7' * 64}",
+                "before": f"sha256:{'8' * 64}",
+                "during": f"sha256:{'9' * 64}",
+            },
+            "phase_count": 3,
+            "restart_evidence_sha256": f"sha256:{'a' * 64}",
+            "rotation_evidence_sha256": f"sha256:{'b' * 64}",
+        },
+        "faults": {
+            "kms_outage": {
+                "evidence_sha256": f"sha256:{'c' * 64}",
+                "failed_closed": True,
+                "recovered": True,
+            },
+            "wrong_key": {
+                "evidence_sha256": f"sha256:{'d' * 64}",
+                "failed_closed": True,
+                "recovered": True,
+            },
+        },
+        "operations": {
+            name: True for name in ledger.RGW_KMS_RESULT.OPERATIONS
+        },
+        "production_candidate": True,
+        "release_inputs": {
+            "ceph": {"revision": "b" * 40, "version": "v20.2.2"},
+            "distribution": {
+                "revision": "a" * 40,
+                "version": "v3.1.1",
+            },
+        },
+        "release_readiness_sha256": f"sha256:{'3' * 64}",
+        "residue": {
+            "configuration_secrets": 0,
+            "credential_values": 0,
+            "delete_markers": 0,
+            "host_secrets": 0,
+            "key_material": 0,
+            "log_secrets": 0,
+            "multipart_uploads": 0,
+            "object_versions": 0,
+            "objects": 0,
+            "runtime_files": 0,
+            "selected_kms_keys": 0,
+            "total": 0,
+        },
+        "restart": {
+            "distribution_restart_count": 1,
+            "positive_object_persisted": True,
+            "rgw_restart_count": 1,
+            "zero_object_persisted": True,
+        },
+        "rotation": {
+            "generation_count": 2,
+            "new_key_write_read": True,
+            "old_key_readable_during_overlap": True,
+            "old_key_revoked_after_overlap": True,
+            "overlapping": True,
+        },
+        "schema": ledger.RGW_KMS_RESULT.SCHEMA,
+        "source": ledger.RGW_KMS_RESULT.source_hashes(),
+        "transport": {
+            "barbican_sse_kms": True,
+            "credential_policy_denials_verified": True,
+            "least_privilege_verified": True,
+            "private_tls_verified": True,
+            "s3_addressing_style": "path",
+            "s3_signature_version": "v4",
+            "versioning_enabled": True,
+        },
+        "unexpected_errors": {"kms": 0, "storage": 0},
     }
 
 
@@ -192,6 +284,30 @@ def test_valid_artifact_and_gc_specialists_pass_only_their_gates() -> None:
     assert gates["immutable_artifacts"]["status"] == "passed"
     assert gates["gc_retention"]["status"] == "passed"
     assert len(result["pending_gates"]) == 7
+
+
+def test_valid_rgw_kms_specialist_passes_only_its_gate() -> None:
+    result = ledger.compile_ledger(
+        release_readiness=release(),
+        release_digest=f"sha256:{'3' * 64}",
+        rgw_kms_result=rgw_kms_result(),
+        rgw_kms_digest=f"sha256:{'e' * 64}",
+        today=date(2026, 7, 28),
+    )
+    gates = {gate["id"]: gate for gate in result["gates"]}
+
+    assert result["status"] == "blocked"
+    assert result["passed_gate_count"] == 1
+    assert gates["rgw_kms"] == {
+        "evidence": {
+            "schema": ledger.RGW_KMS_RESULT.SCHEMA,
+            "sha256": f"sha256:{'e' * 64}",
+        },
+        "id": "rgw_kms",
+        "reason": None,
+        "status": "passed",
+    }
+    assert len(result["pending_gates"]) == 8
 
 
 def test_qualified_release_still_cannot_self_promote_missing_gates() -> None:
@@ -288,6 +404,56 @@ def test_artifact_result_and_digest_are_atomic_and_validated() -> None:
             release_digest=f"sha256:{'3' * 64}",
             artifact_result=changed,
             artifact_digest=f"sha256:{'5' * 64}",
+            today=date(2026, 7, 28),
+        )
+
+    changed_binding = artifact_result()
+    changed_binding["release_readiness_sha256"] = f"sha256:{'f' * 64}"
+    with pytest.raises(ledger.PromotionLedgerError, match="release binding"):
+        ledger.compile_ledger(
+            release_readiness=release(),
+            release_digest=f"sha256:{'3' * 64}",
+            artifact_result=changed_binding,
+            artifact_digest=f"sha256:{'5' * 64}",
+            today=date(2026, 7, 28),
+        )
+
+
+def test_rgw_kms_result_and_digest_are_atomic_and_validated() -> None:
+    with pytest.raises(ledger.PromotionLedgerError, match="digest"):
+        ledger.compile_ledger(
+            release_readiness=release(),
+            release_digest=f"sha256:{'3' * 64}",
+            rgw_kms_result=rgw_kms_result(),
+            today=date(2026, 7, 28),
+        )
+    with pytest.raises(ledger.PromotionLedgerError, match="no specialist"):
+        ledger.compile_ledger(
+            release_readiness=release(),
+            release_digest=f"sha256:{'3' * 64}",
+            rgw_kms_digest=f"sha256:{'e' * 64}",
+            today=date(2026, 7, 28),
+        )
+    changed = rgw_kms_result()
+    changed["residue"]["key_material"] = 1
+    changed["residue"]["total"] = 1
+    with pytest.raises(ledger.PromotionLedgerError, match="RGW/KMS specialist"):
+        ledger.compile_ledger(
+            release_readiness=release(),
+            release_digest=f"sha256:{'3' * 64}",
+            rgw_kms_result=changed,
+            rgw_kms_digest=f"sha256:{'e' * 64}",
+            today=date(2026, 7, 28),
+        )
+
+    changed_binding = rgw_kms_result()
+    changed_binding["release_readiness_sha256"] = f"sha256:{'f' * 64}"
+    with pytest.raises(ledger.PromotionLedgerError, match="release binding"):
+        ledger.compile_ledger(
+            release_readiness=release(),
+            release_digest=f"sha256:{'3' * 64}",
+            rgw_kms_result=changed_binding,
+            rgw_kms_digest=f"sha256:{'e' * 64}",
             today=date(2026, 7, 28),
         )
 

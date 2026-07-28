@@ -18,6 +18,7 @@ ROOT = DIRECTORY.parents[1]
 READINESS_SOURCE = DIRECTORY / "readiness.py"
 GC_RESULT_SOURCE = ROOT / "poc" / "gc-retention" / "filesystem" / "result.py"
 ARTIFACT_RESULT_SOURCE = DIRECTORY / "artifacts.py"
+RGW_KMS_RESULT_SOURCE = DIRECTORY / "rgw_kms.py"
 
 SCHEMA = "coffer.production-promotion-ledger/v1"
 RELEASE_SCHEMA = "coffer.production-promotion-release-readiness/v1"
@@ -90,6 +91,10 @@ ARTIFACT_RESULT = _load_module(
     "coffer_production_promotion_artifact_result",
     ARTIFACT_RESULT_SOURCE,
 )
+RGW_KMS_RESULT = _load_module(
+    "coffer_production_promotion_rgw_kms_result",
+    RGW_KMS_RESULT_SOURCE,
+)
 
 
 def _sha256_bytes(payload: bytes) -> str:
@@ -109,6 +114,7 @@ def source_hashes() -> dict[str, str]:
         "gc_result_verifier_sha256": _sha256(GC_RESULT_SOURCE),
         "ledger_sha256": _sha256(Path(__file__).resolve()),
         "release_readiness_verifier_sha256": _sha256(READINESS_SOURCE),
+        "rgw_kms_result_verifier_sha256": _sha256(RGW_KMS_RESULT_SOURCE),
     }
 
 
@@ -249,6 +255,8 @@ def compile_ledger(
     gc_digest: str | None = None,
     artifact_result: object | None = None,
     artifact_digest: str | None = None,
+    rgw_kms_result: object | None = None,
+    rgw_kms_digest: str | None = None,
     today: date | None = None,
 ) -> dict[str, Any]:
     current = datetime.now(tz=UTC).date() if today is None else today
@@ -293,10 +301,45 @@ def compile_ledger(
             raise PromotionLedgerError(
                 "artifact specialist result is invalid"
             ) from error
+        if qualified_artifact["release_readiness_sha256"] != release_digest:
+            raise PromotionLedgerError(
+                "artifact specialist release binding changed"
+            )
         gates["immutable_artifacts"] = {
             "evidence": _evidence(
                 qualified_artifact["schema"],
                 artifact_digest,
+            ),
+            "reason": None,
+            "status": "passed",
+        }
+
+    if rgw_kms_result is None:
+        if rgw_kms_digest is not None:
+            raise PromotionLedgerError(
+                "RGW/KMS digest has no specialist result"
+            )
+    else:
+        if rgw_kms_digest is None:
+            raise PromotionLedgerError(
+                "RGW/KMS specialist result digest is required"
+            )
+        try:
+            qualified_rgw_kms = RGW_KMS_RESULT.validate_final_result(
+                rgw_kms_result
+            )
+        except RGW_KMS_RESULT.RgwKmsResultError as error:
+            raise PromotionLedgerError(
+                "RGW/KMS specialist result is invalid"
+            ) from error
+        if qualified_rgw_kms["release_readiness_sha256"] != release_digest:
+            raise PromotionLedgerError(
+                "RGW/KMS specialist release binding changed"
+            )
+        gates["rgw_kms"] = {
+            "evidence": _evidence(
+                qualified_rgw_kms["schema"],
+                rgw_kms_digest,
             ),
             "reason": None,
             "status": "passed",
@@ -421,6 +464,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--release-readiness", type=Path, required=True)
     parser.add_argument("--gc-result", type=Path)
     parser.add_argument("--artifact-result", type=Path)
+    parser.add_argument("--rgw-kms-result", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--require-qualified", action="store_true")
     arguments = parser.parse_args(argv)
@@ -433,6 +477,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         gc_digest: str | None = None
         artifact_value: dict[str, Any] | None = None
         artifact_digest: str | None = None
+        rgw_kms_value: dict[str, Any] | None = None
+        rgw_kms_digest: str | None = None
         if arguments.gc_result is not None:
             gc_value, gc_digest = _load_private(
                 arguments.gc_result,
@@ -443,6 +489,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 arguments.artifact_result,
                 "artifact specialist result",
             )
+        if arguments.rgw_kms_result is not None:
+            rgw_kms_value, rgw_kms_digest = _load_private(
+                arguments.rgw_kms_result,
+                "RGW/KMS specialist result",
+            )
         ledger = compile_ledger(
             release_readiness=release,
             release_digest=release_digest,
@@ -450,6 +501,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             gc_digest=gc_digest,
             artifact_result=artifact_value,
             artifact_digest=artifact_digest,
+            rgw_kms_result=rgw_kms_value,
+            rgw_kms_digest=rgw_kms_digest,
         )
         _write_owner_only(arguments.output, ledger)
         print(json.dumps(ledger, indent=2, sort_keys=True))

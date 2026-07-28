@@ -2906,6 +2906,50 @@ operator-local release.
   credential, KMS, S3, or fault action and must keep the live gate pending
   while Tentacle v20.2.2 lacks the encrypted-copy fix.
 
+### 2026-07-28 — RGW/Barbican SSE-KMS specialist contract completed
+
+- Release-before-runtime ordering: Added
+  `coffer.production-promotion-rgw-kms-result/v1`. Its CLI loads and validates
+  the unified owner-only release-readiness result before it opens the expected
+  RGW evidence path. The current v20.2.2 result exits `3` with no evidence
+  file present and creates no output; no endpoint, credential, KMS, S3, or
+  fault input is read.
+- Live evidence contract: A future released candidate must bind exact
+  Distribution/Ceph versions and revisions, the release-readiness digest, and
+  current live adapter, collector, schedule, checkpoint executor,
+  fault-controller, and cleanup source hashes. It must prove verified private
+  TLS, S3 v4/path-style least privilege, Barbican SSE-KMS, positive and
+  zero-byte put/copy, wrong-key and KMS-outage fail-closed recovery,
+  overlapping key rotation, Distribution/RGW restart persistence, cleanup of
+  a real incomplete multipart upload, and zero object, version, delete-marker,
+  multipart, selected-key, credential, configuration, log, host, or runtime
+  residue.
+- Retention boundary: The compact result retains only release identity,
+  coverage facts, counts, and evidence/source digests. Endpoint, bucket,
+  object, version, upload, project, credential, certificate, KMS identifier,
+  error text, and secret values are outside the schema.
+- Ledger binding: The canonical ledger validates the specialist result with
+  its current verifier source and additionally requires its
+  `release_readiness_sha256` to equal the exact release observation used by
+  the ledger. The same cross-release protection was added to the immutable
+  artifact result. No RGW/KMS result exists today, so the live gate remains
+  `pending`. The refreshed mode-0600 ledger SHA-256 is
+  `534adf6dc7f15793cb87ca833e55fd31a7c5975fe78648d707e04df0f7c5a9e2`;
+  it still derives one passed, one blocked, eight pending, and
+  `production_candidate=false`.
+- Verification: Fourteen RGW/KMS specialist tests, twenty-five combined
+  RGW/KMS and ledger tests, all forty-seven promotion-harness tests, and all
+  1,717 repository tests pass. Compilation, focused Ruff, live exit-3 refusal,
+  owner-mode-0600 ledger inspection, and diff checks pass.
+- Changed files: RGW/KMS specialist compiler and tests, ledger/Makefile
+  integration, promotion README and runbook, this plan, and `HANDOFF.md`.
+- Next exact action: Add the maintenance-identity specialist result contract.
+  It must consume only the existing bounded lifecycle verifier output, bind
+  the exact release and RGW/KMS prerequisite evidence, prove expiration,
+  overlap rotation, revocation, audit, private mTLS, least privilege, and zero
+  credential residue, and keep the live gate pending until its prerequisites
+  and a disposable non-synthetic execution qualify.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2933,6 +2977,12 @@ operator-local release.
 | Immutable artifact specialist contract | `uv run pytest -q tests/test_production_promotion_artifacts.py` | passed; 7 |
 | Artifact plus canonical ledger contract | `uv run pytest -q tests/test_production_promotion_artifacts.py tests/test_production_promotion_ledger.py` | passed; 16 |
 | Post-artifact-contract full Python regression | `uv run pytest -q` | passed; 1701 |
+| RGW/KMS specialist contract | `uv run pytest -q tests/test_production_promotion_rgw_kms.py` | passed; 14 |
+| RGW/KMS plus canonical ledger contract | `uv run pytest -q tests/test_production_promotion_rgw_kms.py tests/test_production_promotion_ledger.py` | passed; 25 |
+| Current RGW/KMS runtime refusal | direct `rgw_kms.py` invocation with the live blocked readiness result and absent evidence path | passed; exit 3 before evidence read, no result created |
+| Promotion harness after RGW/KMS integration | `make -C poc/production-promotion verify` | passed; 47 |
+| Canonical ledger after RGW/KMS integration | `make -C poc/production-promotion ledger`; mode and SHA inspection | passed; 1 passed, 1 blocked, 8 pending, mode 0600, `production_candidate=false` |
+| Post-RGW/KMS-contract full Python regression | `uv run pytest -q` | passed; 1717 |
 | Full Python regression | `uv run pytest -q` | passed; 310 |
 | Kolla companion-role regression | `make -C poc/kolla-ansible-role verify` | passed; 68 |
 | Maintenance identity code/config inventory | Focused inspection of live comparison, reconciliation runner/probe, WSGI, Kolla config, secrets, and Stage 5 inputs | passed |

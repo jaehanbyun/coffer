@@ -94,6 +94,48 @@ match across architectures. Only then is the mode-0600
 blocked results and partial x86 UI transaction cannot be reused as qualified
 evidence.
 
+The RGW/Barbican specialist command is:
+
+```text
+make -C poc/production-promotion rgw-kms-result
+```
+
+It also validates candidate-qualified release readiness before opening its
+expected evidence file. With the current Ceph Tentacle v20.2.2 result, it exits
+`3` without reading an endpoint, credential, KMS key, S3 configuration, or
+`rgw-kms-evidence.json`, and it creates no output.
+
+Once an official Ceph release contains the encrypted-copy fix and all release
+inputs qualify, the non-synthetic disposable pilot must write one canonical
+mode-0600 evidence document at:
+
+```text
+work/production-promotion/rgw-kms-evidence.json
+```
+
+The document is bound to the exact release-readiness digest and to the checked
+in live-adapter, fault-controller, cleanup, schedule, executor, and collector
+sources. It must prove:
+
+- verified private TLS, S3 signature v4, path-style addressing, bucket
+  versioning, Barbican SSE-KMS, and denied over-privileged operations;
+- positive-size and zero-byte put/copy plus head/get;
+- wrong-key and KMS-outage fail-closed behavior followed by recovery;
+- zero unexpected KMS or storage errors across the bounded phase set;
+- overlapping two-generation key rotation and old-key retirement;
+- Distribution and RGW restart persistence for zero- and positive-size
+  objects;
+- cleanup of a real incomplete multipart upload, objects, versions, and delete
+  markers; and
+- zero retained object, multipart, selected-key, credential, configuration,
+  log, host, or runtime-file residue.
+
+Operational identities and secrets are not accepted by the result schema.
+Only their evidence hashes survive in
+`coffer.production-promotion-rgw-kms-result/v1`. The ledger also requires this
+specialist result to name the exact current release-readiness digest; a valid
+result from another release observation cannot pass the gate.
+
 To refresh the accepted disposable filesystem GC specialist result first:
 
 ```text

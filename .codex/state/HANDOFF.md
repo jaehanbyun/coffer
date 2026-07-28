@@ -91,19 +91,33 @@ and zero residue. The current ledger derives one passed gate
 (`gc_retention`), one blocked gate (`release_inputs`), eight pending gates, and
 `production_candidate=false`; `require-promotion` fails closed. Twenty-two
 promotion-ledger/readiness/GC-result tests and thirty-two focused GC compiler/
-adapter/parser tests and all 1,692 repository tests pass. The exact next action
-is now implemented as `coffer.production-promotion-artifacts/v1`. It validates
-candidate-qualified release readiness before opening any image evidence, then
-requires native amd64/arm64 core and UI results with runtime/provenance,
-immutable IDs, nonempty SBOMs, zero secrets, zero Critical/High, zero
-Distribution govulncheck findings, and exact cross-architecture source/wheel
-identity. Seven focused and sixteen combined artifact/ledger tests pass. No
-artifact result exists because the release inputs remain blocked, so the gate
-stays pending. All 1,701 repository tests pass. The exact next action is to add
-the RGW/Barbican SSE-KMS
-specialist contract with the same release-before-runtime ordering; it must
-perform no endpoint, credential, KMS, S3, or fault action while Tentacle
-v20.2.2 lacks the released encrypted-copy fix.
+adapter/parser tests and all 1,692 repository tests pass.
+
+The immutable-artifact and RGW/Barbican specialist result contracts are now
+implemented. Both validate candidate-qualified release readiness before
+opening runtime evidence. The artifact contract requires native amd64/arm64
+runtime/provenance, immutable images, nonempty SBOMs, zero secrets, zero
+Critical/High, zero Distribution govulncheck findings, and exact
+cross-architecture source/wheel identity. The RGW/KMS contract binds exact
+Distribution/Ceph releases and live pilot sources, then requires private TLS,
+S3 v4/path-style least privilege, Barbican SSE-KMS, positive and zero-byte
+put/copy, wrong-key and KMS-outage recovery, overlapping rotation,
+Distribution/RGW restart persistence, real incomplete-multipart cleanup, and
+zero operational or secret residue. It retains no endpoint, credential, KMS
+key, bucket, object, upload, or error identity.
+
+The current v20.2.2 live command exits `3` before the absent RGW evidence path
+is read, and neither specialist output exists, so both gates remain pending.
+The ledger additionally rejects artifact or RGW results bound to a different
+release-readiness digest. Its current owner-mode-0600 SHA-256 is
+`534adf6dc7f15793cb87ca833e55fd31a7c5975fe78648d707e04df0f7c5a9e2`;
+it remains one passed, one blocked, eight pending, and
+`production_candidate=false`. Fourteen RGW specialist, twenty-five combined
+RGW/ledger, forty-seven promotion-harness, and all 1,717 repository tests pass.
+The exact next action is to add the maintenance-identity specialist result
+contract bound to release and RGW/KMS prerequisites. It must prove expiration,
+overlap rotation, revocation, audit, private mTLS, least privilege, and zero
+credential residue from a disposable non-synthetic lifecycle.
 
 Plan 0028 is complete. The retained preview serves one owner-accessible
 `https://bb00.tail23b778.ts.net:18788` origin for `/v1`, `/auth/token`, and

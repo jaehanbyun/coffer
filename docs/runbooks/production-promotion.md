@@ -132,6 +132,28 @@ exact qualified Distribution image. Require:
 The merged Ceph source fix alone is not evidence. The selected official
 release must contain it and pass the live matrix.
 
+The specialist input is one canonical owner-mode-0600
+`work/production-promotion/rgw-kms-evidence.json`. It binds the exact release
+readiness digest, Distribution/Ceph versions and revisions, three live phase
+completions, fault, rotation, restart, least-privilege, and cleanup evidence
+hashes, plus the current pilot/runtime source hashes. It deliberately contains
+no endpoint, bucket, credential, KMS key ID, object, upload, or error text.
+
+Compile and bind it to the ledger with:
+
+```text
+make -C poc/production-promotion rgw-kms-result
+make -C poc/production-promotion ledger
+```
+
+The compiler validates release readiness before opening the evidence path. The
+current blocked release therefore exits before any endpoint, credential, KMS,
+S3, or fault input is read. A later result passes only if zero-byte copy,
+wrong-key and outage recovery, overlapping rotation, RGW and Distribution
+restart persistence, cleanup of at least one incomplete multipart upload, and
+zero operational or secret residue all validate against the same release
+observation consumed by the ledger.
+
 ## 4. Qualify maintenance identity and data protection
 
 Run the maintenance lifecycle with one expiring owner-controlled application
