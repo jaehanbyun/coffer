@@ -20,11 +20,11 @@ test "$(uname -m)" = x86_64
 test -s "${horizon_wheel}"
 test -s "${skyline_wheel}"
 printf '%s  %s\n' \
-    "a634543218a14731f50a291c9f38728fe3deab26da5ae8ef0a92a1d10805cdb2" \
+    "e018050e2938baf7368f550bbf73d9f161a46063e5308490857bf7d5a73aaeb3" \
     "${horizon_wheel}" |
     sha256sum --check --strict --status
 printf '%s  %s\n' \
-    "250013bb4ade737613d3c02d4c09a4b541a2803c86cc6aabea9f2583c54d480b" \
+    "191895123aa582fe2dbe727ea392f9c4a1bc72937dd2ff9ccadf740faafae816" \
     "${skyline_wheel}" |
     sha256sum --check --strict --status
 

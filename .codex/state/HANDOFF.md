@@ -80,9 +80,14 @@ Docker/Podman/Helm/ORAS dialog after strict artifact and same-origin HTTPS
 endpoint validation. The exact pinned Skyline Console source passes locale,
 focused ESLint, 45 tests, production Webpack bundle, versioned wheel and
 bundle/wheel verification. The exact next implementation action is extending
-the immutable dashboard images and Kolla companion-role verification for
-migration 0007 and the new UI assets. No retained preview container or
-production promotion state has changed.
+the retained preview. Exact Horizon and Skyline wheels now have pinned
+SHA-256 inputs, and independent bounded refresh transactions update only the
+selected dashboard's immutable image contract and companion global. Bash
+syntax, ShellCheck, and 40 focused Kolla/image contract tests pass. The exact
+next action is synchronizing the reviewed source and wheels to the retained
+guest, rebuilding Coffer and both dashboard images, and running migration 0007
+through companion `reconfigure`. No retained preview container or production
+promotion state has changed.
 
 Complete every Stage 6 production promotion gate without weakening accepted
 release, security, storage, identity, data-protection, operability, or teardown
@@ -3540,12 +3545,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Inspect `ui/images/` and
-`ansible/roles/coffer/tests/test_ui_image_contract.py`, then extend the
-immutable Horizon/Skyline image and Kolla companion-role contracts for
-migration 0007 and the new dashboard assets before changing the retained
-preview. Plan 0019's release refresh remains event-driven and must not be
-weakened or relabeled by this UI work.
+Run `ssh bb00 -- virsh domstate coffer-ui-preview-1`, synchronize the reviewed
+source and two verified wheels into the retained guest, rebuild Coffer and
+both immutable dashboard images, then run companion `reconfigure` so migration
+0007 and the new assets are active. Plan 0019's release refresh remains
+event-driven and must not be weakened or relabeled by this UI work.
 
 ## After This Work Package
 

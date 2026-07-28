@@ -5,11 +5,11 @@ set -Eeuo pipefail
 source_root="/home/ubuntu/coffer"
 state_root="/home/ubuntu/coffer-ui-preview"
 marker="${state_root}/images.complete"
-skyline_wheel="${source_root}/work/ui-image-qualification/wheels/skyline_console-8.0.0+coffer.1-py3-none-any.whl"
-skyline_wheel_sha256="191895123aa582fe2dbe727ea392f9c4a1bc72937dd2ff9ccadf740faafae816"
+horizon_wheel="${source_root}/work/ui-image-qualification/wheels/coffer_horizon-0.1.0-py3-none-any.whl"
+horizon_wheel_sha256="e018050e2938baf7368f550bbf73d9f161a46063e5308490857bf7d5a73aaeb3"
 contract_root="/etc/kolla/config/coffer/ui"
 image_globals="/etc/kolla/coffer-ui-images.yml"
-image_tag="localhost:5000/coffer-skyline-console:ui-preview"
+image_tag="localhost:5000/coffer-horizon:ui-preview"
 python_binary="${state_root}/venv/bin/python3"
 
 test "$(id -u)" -eq 0
@@ -17,12 +17,12 @@ test "$(hostname)" = "coffer-ui-preview-1"
 test "$(uname -m)" = x86_64
 test "$(cat "${marker}")" = "coffer-ui-preview-images-v1"
 test -x "${python_binary}"
-test -s "${skyline_wheel}"
+test -s "${horizon_wheel}"
 test -s "${image_globals}"
-printf '%s  %s\n' "${skyline_wheel_sha256}" "${skyline_wheel}" |
+printf '%s  %s\n' "${horizon_wheel_sha256}" "${horizon_wheel}" |
     sha256sum --check --strict --status
 
-skyline_base="$(
+horizon_base="$(
     "${python_binary}" - "${image_globals}" <<'PY'
 from pathlib import Path
 import re
@@ -31,46 +31,48 @@ import sys
 import yaml
 
 document = yaml.safe_load(Path(sys.argv[1]).read_text(encoding="utf-8"))
-value = document.get("coffer_skyline_console_fallback_image_full", "")
+value = document.get("coffer_horizon_fallback_image_full", "")
 if not re.fullmatch(
     r"[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[0-9a-f]{64}",
     value,
 ):
-    raise SystemExit("invalid Skyline fallback image in preview globals")
+    raise SystemExit("invalid Horizon fallback image in preview globals")
 print(value)
 PY
 )"
 
-temporary_directory="$(mktemp -d /home/ubuntu/coffer-ui-skyline.XXXXXX)"
+temporary_directory="$(mktemp -d /home/ubuntu/coffer-ui-horizon.XXXXXX)"
 cleanup() {
     rm -rf -- "${temporary_directory}"
 }
 trap cleanup EXIT
-install -m 0644 "${skyline_wheel}" \
-    "${temporary_directory}/skyline_console-8.0.0+coffer.1-py3-none-any.whl"
+install -m 0644 "${horizon_wheel}" \
+    "${temporary_directory}/coffer_horizon-0.1.0-py3-none-any.whl"
+install -m 0644 "${source_root}/ui/images/install_horizon.py" \
+    "${temporary_directory}/install_horizon.py"
 docker build \
     --network host \
-    --build-arg "BASE_IMAGE=${skyline_base}" \
-    --file "${source_root}/ui/images/skyline-console.Containerfile" \
+    --build-arg "BASE_IMAGE=${horizon_base}" \
+    --file "${source_root}/ui/images/horizon.Containerfile" \
     --tag "${image_tag}" \
     "${temporary_directory}"
 docker push "${image_tag}" >/dev/null
 
-mapfile -t skyline_images < <(
+mapfile -t horizon_images < <(
     docker image inspect \
         --format '{{join .RepoDigests "\n"}}' \
         "${image_tag}" |
-        grep -E '^localhost:5000/coffer-skyline-console@sha256:[0-9a-f]{64}$' |
+        grep -E '^localhost:5000/coffer-horizon@sha256:[0-9a-f]{64}$' |
         sort -u
 )
-test "${#skyline_images[@]}" -eq 1
-skyline_image="${skyline_images[0]}"
-docker pull "${skyline_image}" >/dev/null
+test "${#horizon_images[@]}" -eq 1
+horizon_image="${horizon_images[0]}"
+docker pull "${horizon_image}" >/dev/null
 
 contract_stage_directory="$(
-    mktemp -d "${contract_root}/.skyline-contract.XXXXXX"
+    mktemp -d "${contract_root}/.horizon-contract.XXXXXX"
 )"
-temporary_contract="${contract_stage_directory}/skyline-image.json"
+temporary_contract="${contract_stage_directory}/horizon-image.json"
 temporary_globals="$(mktemp /etc/kolla/.coffer-ui-images.XXXXXX)"
 cleanup_all() {
     rm -f -- "${temporary_contract}" "${temporary_globals}"
@@ -79,16 +81,16 @@ cleanup_all() {
 }
 trap cleanup_all EXIT
 "${python_binary}" "${source_root}/ui/images/write_contract.py" \
-    --surface skyline \
-    --artifact "${skyline_wheel}" \
-    --image "${skyline_image}" \
-    --base-image "${skyline_base}" \
+    --surface horizon \
+    --artifact "${horizon_wheel}" \
+    --image "${horizon_image}" \
+    --base-image "${horizon_base}" \
     --output "${temporary_contract}"
 chown root:root "${temporary_contract}"
 chmod 0640 "${temporary_contract}"
 
 "${python_binary}" - \
-    "${image_globals}" "${temporary_globals}" "${skyline_image}" <<'PY'
+    "${image_globals}" "${temporary_globals}" "${horizon_image}" <<'PY'
 from pathlib import Path
 import sys
 
@@ -106,18 +108,18 @@ expected = {
 }
 if set(document) != expected:
     raise SystemExit("unexpected preview image globals keys")
-document["coffer_skyline_console_image_full"] = image
+document["coffer_horizon_image_full"] = image
 target.write_text(
     yaml.safe_dump(document, sort_keys=False),
     encoding="utf-8",
 )
 PY
 chmod 0644 "${temporary_globals}"
-mv "${temporary_contract}" "${contract_root}/skyline-image.json"
+mv "${temporary_contract}" "${contract_root}/horizon-image.json"
 rmdir -- "${contract_stage_directory}"
 mv "${temporary_globals}" "${image_globals}"
 trap cleanup EXIT
 cleanup
 trap - EXIT
 
-printf 'Coffer Skyline preview image refreshed image=%s\n' "${skyline_image}"
+printf 'Coffer Horizon preview image refreshed image=%s\n' "${horizon_image}"

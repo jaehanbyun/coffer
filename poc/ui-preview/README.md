@@ -46,9 +46,10 @@ the Kolla external TLS listener at port 443. Skyline Console uses port 9999
 and proxies Skyline API and OpenStack service calls through its own Nginx
 origin. Coffer's sole public ingress is port 8788.
 
-After rebuilding the pinned Skyline wheel, `guest-refresh-skyline.sh` replaces
-only the exact Skyline preview image, image contract, and corresponding
-companion global. It preserves Horizon and all Coffer runtime images.
+After rebuilding the pinned dashboard wheels,
+`guest-refresh-horizon.sh` and `guest-refresh-skyline.sh` each replace only
+their exact preview image, image contract, and corresponding companion global.
+They preserve the other dashboard and all Coffer runtime images.
 
 From the user's Mac, create local-only tunnels without opening a host port:
 

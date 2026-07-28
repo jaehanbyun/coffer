@@ -98,7 +98,7 @@ Distribution, SQL, or the selected object-storage backend directly.
 - [x] Extend Horizon's server-side adapter and repository detail UI.
 - [x] Extend Skyline's source overlay, stores, routes/components, locales, and
       tests.
-- [ ] Extend immutable UI images and Kolla artifact/config verification.
+- [x] Extend immutable UI images and Kolla artifact/config verification.
 - [ ] Run local visual/interaction QA at desktop and narrow viewports and close
       all P0/P1/P2 findings.
 - [ ] Deploy to the retained preview, run the real-client and two-project
@@ -212,6 +212,26 @@ Distribution, SQL, or the selected object-storage backend directly.
   Kolla companion-role contracts for the plan 0029 API migration and dashboard
   assets before changing the retained preview.
 
+### 2026-07-28 — Immutable preview delivery contracts completed
+
+- Completed: Rebuilt the exact Horizon and Skyline wheels, pinned their new
+  SHA-256 values in the retained-preview bootstrap contract, and added an
+  independent Horizon refresh transaction matching the existing Skyline
+  transaction. Each refresh verifies its wheel, builds and pushes only its
+  dashboard image, writes an immutable image contract, and atomically updates
+  only its own companion global while preserving the other dashboard and all
+  Coffer runtime images.
+- Evidence: Both wheel digests were calculated from the locally verified
+  outputs. Bash syntax, warning-or-higher ShellCheck, 40 focused Kolla runtime,
+  image-contract, and runtime-collector tests, and diff checks pass.
+- Changed files: Retained-preview image bootstrap and dashboard refresh
+  scripts, preview runbook, Kolla runtime contract tests, this plan, and
+  handoff.
+- Next exact action: Synchronize commit `5ac6c90` plus the new delivery
+  transaction to the retained guest, stage only the two verified wheels,
+  rebuild Coffer/Horizon/Skyline images, run migration 0007 through companion
+  `reconfigure`, and verify service health before pushing fresh OCI content.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -226,6 +246,7 @@ Distribution, SQL, or the selected object-storage backend directly.
 | Horizon focused JS/diff checks | `node --check .../registry-detail.js`; `git diff --check` | passed |
 | Skyline exact source and focused suite | clean materialization; locale; ESLint; focused Jest | passed; 45 tests |
 | Skyline production package | Webpack build; wheel build; `ui/skyline/verify_build.py` | passed |
+| Preview image delivery contracts | Bash syntax; ShellCheck; focused Kolla/image tests | passed; 40 tests |
 | Full implementation and visual QA | pending | pending |
 
 ## Failures, Blockers, and Risks
@@ -244,9 +265,10 @@ Distribution, SQL, or the selected object-storage backend directly.
 
 - Current state: Active; artifact projection, admission enforcement, public
   API/OpenAPI/client and both Horizon and Skyline artifact
-  browsers/connection guides are complete locally.
-- Exact next action: Extend the immutable dashboard images and Kolla
-  companion-role verification for migration 0007 and the new UI assets.
-- First file or command: inspect `ui/images/` and
-  `ansible/roles/coffer/tests/test_ui_image_contract.py`.
+  browsers/connection guides and exact retained-preview image delivery
+  transactions are complete locally.
+- Exact next action: Synchronize the reviewed source and verified wheels to the
+  retained preview, rebuild the three product images, and run the Kolla
+  companion `reconfigure` transaction.
+- First file or command: `ssh bb00 -- virsh domstate coffer-ui-preview-1`
 - Questions requiring user input: None.

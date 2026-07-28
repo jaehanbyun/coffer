@@ -125,6 +125,28 @@ def test_skyline_integration_owns_the_same_origin_coffer_proxy() -> None:
     assert "192.168." not in proxy
 
 
+def test_ui_preview_refreshes_each_dashboard_without_replacing_the_other() -> (
+    None
+):
+    preview_root = ROOT / "poc" / "ui-preview"
+    horizon = (preview_root / "guest-refresh-horizon.sh").read_text(
+        encoding="utf-8"
+    )
+    skyline = (preview_root / "guest-refresh-skyline.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'document["coffer_horizon_image_full"] = image' in horizon
+    assert 'document["coffer_skyline_console_image_full"] = image' not in horizon
+    assert 'document["coffer_skyline_console_image_full"] = image' in skyline
+    assert 'document["coffer_horizon_image_full"] = image' not in skyline
+    for script in (horizon, skyline):
+        assert "sha256sum --check --strict --status" in script
+        assert "write_contract.py" in script
+        assert "unexpected preview image globals keys" in script
+        assert "docker push" in script
+
+
 def test_bb00_system_haproxy_preview_is_bounded_and_recoverable() -> None:
     snippet = (
         ROOT / "poc" / "ui-preview" / "bb00-system-haproxy.cfg"
