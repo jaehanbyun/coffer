@@ -1,6 +1,6 @@
 # ADR 0017: Coordinate Upstream Garbage Collection
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-07-25
 - Decision owners: Coffer maintainers and deployment operators
 - Related plan: `docs/exec-plans/0019-stage6-production-promotion.md`
@@ -30,7 +30,7 @@ versions and delete markers. Distribution reclamation, RGW lifecycle
 expiration, Ceph internal GC, and experimental orphan cleanup therefore have
 different owners and safety contracts.
 
-## Proposed Decision
+## Decision
 
 1. Use only the exact qualified Distribution release's upstream
    `registry garbage-collect` command as reachability authority. Coffer
@@ -168,6 +168,17 @@ This local result accepts the stop-the-world filesystem mechanism but does not
 yet accept this ADR for a production RGW target. Versioned S3 object behavior,
 Ceph physical reclamation, released encrypted-copy support, and the full
 private-TLS Kolla maintenance transaction remain separate open gates.
+
+## 2026-07-28 Decision Status Review
+
+The coordinated upstream stop-the-world GC procedure is accepted. The pure
+state model, exact-release parser, two equal dry runs, single-use
+authorization, real disposable collection, survivor proof, isolated restore,
+and zero-residue teardown close the mechanism decision. The production
+promotion wrapper still requires the exact qualified Distribution artifact,
+and the live RGW/KMS, data-protection, load, and fresh Kolla transactions must
+prove versioned-object behavior and physical-cleanup ownership before an
+operator may execute it outside a disposable target.
 
 ## Primary References
 

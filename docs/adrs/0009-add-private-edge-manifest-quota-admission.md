@@ -1,6 +1,6 @@
 # ADR 0009: Add Private-Edge Manifest Admission for Bounded Project Quotas
 
-- Status: accepted for PoC validation
+- Status: accepted
 - Date: 2026-07-22
 - Decision owners: Coffer maintainers
 - Related plans: `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`
@@ -75,3 +75,12 @@ Completed in the local PoC:
 Production promotion still requires an operator-owned backup/maintenance/import/comparison/cutover/rollback procedure for existing data, representative-scale transaction and Galera evidence, TLS and service authentication on the private reconciliation path, production scheduler/lease/clock/deadlock and metric-aggregation policy, reconciliation in the integrated Distribution/RGW deployment, multi-replica non-bypassable ingress, load/failure testing, and the remaining client matrix such as containerd/nerdctl and ORAS. Proposed ADRs 0011 and 0012 prove non-mutating tagged/digest-only filesystem inventory plus disposable atomic SQL import, but not RGW qualification, production authorization, post-import comparison, or admission cutover. The disposable PostgreSQL/MariaDB and filesystem-backed Distribution fixtures are not a production deployment recommendation.
 
 The user accepted this seam as the quota PoC implementation target on 2026-07-22. The bounded local validation passed, but the remaining production gates above prevent treating it as a final deployable architecture claim.
+
+## 2026-07-28 Decision Status Review
+
+The private-edge logical-quota architecture is accepted. Shared-SQL
+admission, claim fencing, authenticated reconciliation, non-bypassable Kolla
+routing contracts, live preview isolation, and the source-bound Stage 6
+specialist verifiers now cover the decision surface. This status accepts the
+design; it does not pass the separate release, artifact, live RGW/KMS,
+data-protection, load, or multinode promotion gates.

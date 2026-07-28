@@ -1,6 +1,6 @@
 # ADR 0012: Import One Verified Baseline into an Empty Quota Ledger
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-07-23
 - Decision owners: Coffer maintainers
 - Related plans: `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`
@@ -149,3 +149,13 @@ Before accepting this ADR for a production candidate, maintainers still need:
   resurrect released content; and
 - explicit authorization for production credentials, data access, SQL writes,
   maintenance, admission enablement, and any later destructive reclamation.
+
+## 2026-07-28 Decision Status Review
+
+The singleton atomic baseline-import and exact read-only comparison contract
+are accepted. SQLite, PostgreSQL, MariaDB, failure rollback, concurrent replay,
+over-limit honesty, restored-ledger comparison, and inventory v3 compatibility
+cover the decision itself. The Stage 6 data-protection verifier continues to
+require the separate release-bound writer fence, backup/restore, Galera-scale,
+authenticated live comparison, cutover, rollback, recovery, and teardown
+evidence before production use.

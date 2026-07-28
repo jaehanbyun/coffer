@@ -366,9 +366,49 @@ Only bounded counts, booleans, revisions, and evidence hashes survive in
 `coffer.production-promotion-kolla-multinode-result/v1`. No endpoint, host,
 project, repository, credential, certificate, bucket, object, VM, or log
 identity is retained. The current operator role still deliberately refuses an
-enabled reconciler until the accepted maintenance-token client is wired into
-the periodic runner; therefore the verifier contract can be completed now,
-but real Kolla promotion evidence cannot be produced by bypassing that guard.
+enabled reconciler unless its exact maintenance identity, per-host private
+TLS material, broker mapping, and bounded lease are configured. This is an
+opt-in production contract, not a default that a pilot may bypass.
+
+The final operator-release specialist command is:
+
+```text
+make -C poc/production-promotion operator-release-result
+```
+
+It validates all first nine specialist results before opening
+`work/production-promotion/operator-release-evidence.json`. The evidence must
+bind those nine exact digests and deterministic hashes of the application,
+deployment, promotion, test, ADR, runbook, architecture, execution-plan,
+handoff, dependency-lock, and project metadata sources.
+
+A qualified independent review requires:
+
+- at least two reviewers, including at least one independent reviewer, with no
+  waiver and a clean source tree at the immutable release revision and tag;
+- every ADR in a final `accepted`, `rejected`, or `superseded` state, with no
+  provisional or PoC-only disposition;
+- complete installation, configuration, upgrade, rollback, backup/restore,
+  existing-data, identity-rotation, GC, observability, SLO, disaster-recovery,
+  security, known-limitations, uninstall, API, CLI, and UI documentation;
+- signed and verified immutable source and image artifacts, SBOM,
+  provenance, vulnerability attestations, native architecture evidence,
+  reproducible builds, official upstream inputs, no private fork, and zero
+  unresolved reachable Critical/High findings;
+- full repository, promotion-harness, Kolla lifecycle, documentation,
+  compilation, diff, and secret-scan checks; and
+- an approved go/no-go review, verified rollback ownership and procedure,
+  accurate support/upgrade boundaries, complete release notes, and zero
+  credential, secret, staging, temporary, or runtime residue.
+
+Only bounded counts, booleans, revisions, and evidence hashes survive in
+`coffer.production-promotion-operator-release-result/v1`. Reviewer identities,
+paths, credentials, endpoints, logs, and release-staging contents are not
+retained. Any future provisional or PoC-only ADR status invalidates the bound
+source review and prevents a qualified operator-release result. The checked-in
+`docs/release-notes/v0.1.0.md` digest is also bound directly and its promotion
+status must be `production-candidate`; it remains honestly `blocked` until the
+first nine gates qualify.
 
 The final enforcement target is:
 

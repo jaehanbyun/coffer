@@ -1,6 +1,6 @@
 # ADR 0010: Adopt Repository Metadata into the Alembic Control Schema
 
-- Status: accepted for PoC validation
+- Status: accepted
 - Date: 2026-07-23
 - Decision owners: Coffer maintainers
 - Related plan: `docs/exec-plans/0007-unified-control-schema.md`
@@ -34,3 +34,12 @@ Unconditionally adding `op.create_table("repositories")` would fail on those dat
 SQLite tests cover fresh creation, exact legacy adoption, incompatible columns/primary-key/uniqueness rejection, offline rejection, repeat upgrade, non-destructive downgrade, and re-adoption. The pinned PostgreSQL 17.10 and MariaDB 11.4.12 harnesses preserve one legacy repository row through adoption and downgrade/re-upgrade while also rerunning quota concurrency, process abandonment, lease recovery, and fencing.
 
 Production promotion still requires a restorable backup, least-privilege migration/runtime roles, maintenance and rollback ownership, real data-volume timing, Galera behavior where applicable, and a write-stopped OCI inventory/import rehearsal before quota admission becomes authoritative.
+
+## 2026-07-28 Decision Status Review
+
+The single Alembic authority and data-preserving repository adoption contract
+are accepted. The migration chain, exact drift refusal, repeat-safe bootstrap,
+shared-SQL adoption, and downgrade/re-upgrade preservation are covered by the
+repository regression suite. Live migration authorization, representative
+scale, backup, rollback, and Galera evidence remain promotion gates rather
+than reasons to leave the schema decision provisional.

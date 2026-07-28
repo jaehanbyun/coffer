@@ -226,6 +226,19 @@ as this pilot.
 
 ## 7. Close the release
 
+Stage the redacted independent-review evidence at
+`work/production-promotion/operator-release-evidence.json`, then run:
+
+```text
+make -C poc/production-promotion operator-release-result
+make -C poc/production-promotion require-promotion
+```
+
+The compiler validates all first nine result files before it opens the review
+evidence. It also recomputes the source-tree, operator-documentation, plan,
+handoff, dependency-lock, and ADR hashes. Any source or documentation change
+after review invalidates the result and requires a new review transaction.
+
 The final reviewer must match every checked Stage 6 criterion to its canonical
 evidence and verify:
 
@@ -236,6 +249,14 @@ evidence and verify:
 - no external or disposable residue remains; and
 - `HANDOFF.md`, ADRs, release notes, install/upgrade/rollback/backup/restore/GC
   procedures, known limitations, and SLOs match the evidence.
+
+All ADRs must have a final `accepted`, `rejected`, or `superseded`
+disposition. `proposed`, `accepted for PoC validation`, or another qualified
+status is unresolved and fails the gate. The compact result must contain no
+reviewer identity, local path, credential, endpoint, log, or staged-artifact
+content. The source-bound `docs/release-notes/v0.1.0.md` promotion status must
+remain `blocked` until the first nine results qualify; the final review changes
+it to `production-candidate` and binds that exact digest into the tenth result.
 
 Only then may the plan status become `completed` and the result set
 `production_candidate=true`. Official Kolla/OpenStack upstream inclusion is a

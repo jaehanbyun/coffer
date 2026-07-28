@@ -183,14 +183,34 @@ process with per-host credentials/certificates, exact private frontend
 mapping, bounded lease, direct metrics, and lifecycle coverage; both production
 defaults remain false.
 
+The tenth operator-release and supply-chain specialist contract is now
+implemented. It consumes the exact first nine result digests and binds the
+application, deployment, promotion, test, ADR, architecture, runbook, active
+plan, handoff, dependency lock, project metadata, and release-note sources.
+Qualification requires final ADR dispositions, two reviewers including one
+independent reviewer, no waiver, complete operator documentation, signed
+immutable source/images, SBOM/provenance/vulnerability evidence, official
+upstream inputs, repository/Kolla/promotion regression, secret scanning,
+accurate release boundaries, rollback ownership, and zero residue. All
+seventeen ADRs now have reviewed final `accepted` dispositions; each formerly
+provisional decision explicitly separates design acceptance from unpassed live
+promotion evidence. The checked-in 0.1.0 release note remains honestly
+`Promotion status: blocked` and is source-bound; the compiler requires
+`production-candidate` only after the first nine gates qualify.
+
 The current-source owner-mode-0600 ledger SHA-256 is
-`39de57c74b966112eb59ccb86b541b09044846fff5d10af8a5f6635f8372535b`;
+`f465b5093bb1eb6c4010e34d8382518f593afb0f2aff18611e7fd5bc86a7b13e`;
 it now remains zero passed, one blocked, nine pending, and
-`production_candidate=false`. Eighty-eight focused runtime/config tests, the
-107-check Kolla lifecycle, all 134 promotion-harness tests, and all 1,823
-repository tests pass. No real identity, secret, certificate, endpoint, Kolla
-deployment, or retained preview state changed. The exact next action is the
-tenth operator-release and supply-chain specialist verifier.
+`production_candidate=false`. All ten specialist verifier contracts now exist.
+The 150-check promotion harness and all 1,839 repository tests pass; focused
+Ruff E/F/I, Python compilation, diff checks, 117 Markdown files, 58 local
+links, all final ADR dispositions, and the staged approximately 80-KB Gitleaks scan pass
+with zero leaks.
+No real identity, secret, certificate, endpoint, Kolla deployment, or retained
+preview state changed. The exact next action is an official release-readiness
+refresh when signed upstream metadata changes; only a
+`candidate-qualified` result permits the native amd64/arm64 artifact
+transaction.
 
 Plan 0028 is complete. The retained preview serves one owner-accessible
 `https://bb00.tail23b778.ts.net:18788` origin for `/v1`, `/auth/token`, and
@@ -3488,13 +3508,13 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/production-promotion/operator_release.py` as the tenth source-bound
-specialist result with focused tests. It must validate the exact first nine
-transaction digests, accepted/rejected ADR disposition, operator/runbook and
-release documentation, immutable supply-chain evidence, repository regression,
-secret scans, teardown record, and honest production boundary. Integrate it
-into the canonical ledger, Makefile, and promotion documentation. Do not create
-the live production pilot while official release readiness remains blocked.
+Refresh `work/production-promotion/release-readiness.json` only from signed
+official upstream metadata when the Distribution, Ceph Tentacle, or
+stable/2026.1 `oslo.messaging` release state changes. If and only if all three
+become `candidate-qualified`, begin the native amd64/arm64 immutable-artifact
+transaction. Do not create the production pilot, change the release-note
+promotion status, or stage operator-release evidence while release readiness
+remains blocked.
 
 ## After This Work Package
 

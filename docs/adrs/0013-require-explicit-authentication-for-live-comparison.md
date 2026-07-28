@@ -1,6 +1,6 @@
 # ADR 0013: Require Explicit Authentication for Live Baseline Comparison
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-07-23
 - Decision owners: Coffer maintainers and deployment operators
 - Related plan: `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`
@@ -39,7 +39,7 @@ Primary contracts:
   defines repository resources, `pull` actions, subject/audience binding, and
   multiple requested resource scopes.
 
-## Proposed Decision
+## Decision
 
 1. The live-comparison core first verifies the exact imported ledger and resolves
    repository UUID/project/name routes in one read-only repeatable SQL snapshot.
@@ -144,3 +144,14 @@ Before accepting this ADR for a production candidate, maintainers still need:
   service restoration; and
 - obtain explicit authorization for production credentials, data, maintenance,
   comparison, and any later admission enablement.
+
+## 2026-07-28 Decision Status Review
+
+The explicit-authentication and aggregate-only comparison boundary is
+accepted. ADR 0015 resolved the provider choice to an expiring dedicated
+maintenance identity, private mTLS broker, finite SQL authority, and
+repository-scoped pull token. The installed worker and Kolla opt-in now
+implement that contract and fail closed across credential, TLS, broker,
+registry, rotation, and stale-claim failures. Real identity creation,
+materialization, rotation, multi-project comparison, and teardown remain
+live promotion evidence, not unresolved architecture.

@@ -1,6 +1,6 @@
 # ADR 0006 Candidate: Gate the Production Distribution Release
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-07-21
 - Decision owners: Coffer maintainers
 - Related plans: `docs/exec-plans/0002-thin-vertical-poc.md`,
@@ -14,7 +14,7 @@ ADR 0001 selects an unmodified Distribution v3 data plane but leaves the exact p
 
 Using a known-bad production pin would turn a temporary PoC convenience into an implicit architecture decision. Forking Distribution to repair these gaps would contradict the accepted composition baseline and transfer a large security maintenance burden to Coffer.
 
-## Proposed Decision
+## Decision
 
 Keep Distribution v3.1.1 pinned only for isolated local PoC work. Do not promote it to a production baseline.
 
@@ -28,6 +28,14 @@ A production candidate must satisfy all of these gates:
 6. Pass the real Ceph RGW TLS, least-privilege, SSE-KMS, persistence, and coordinated GC gates before production use.
 
 M1 and M2 development may continue against the loopback v3.1.1 fixture because those milestones validate Coffer control and auth contracts rather than approve a production image.
+
+## 2026-07-28 Decision Status Review
+
+This release policy is accepted. The deterministic release-readiness,
+multi-architecture artifact, RGW/KMS, and canonical promotion-ledger
+verifiers enforce it without a waiver path. Acceptance of the policy does not
+qualify Distribution v3.1.1 or any later release; the current release input
+remains blocked until the exact signed stable artifact passes every gate above.
 
 ## 2026-07-24 Qualification Result
 

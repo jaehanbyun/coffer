@@ -15,10 +15,12 @@ LOAD_SOAK_OUTPUT := $(REPO_ROOT)/work/production-promotion/load-soak-result.json
 LOAD_SOAK_EVIDENCE := $(REPO_ROOT)/work/production-promotion/load-soak-evidence.json
 KOLLA_MULTINODE_OUTPUT := $(REPO_ROOT)/work/production-promotion/kolla-multinode-result.json
 KOLLA_MULTINODE_EVIDENCE := $(REPO_ROOT)/work/production-promotion/kolla-multinode-evidence.json
+OPERATOR_RELEASE_OUTPUT := $(REPO_ROOT)/work/production-promotion/operator-release-result.json
+OPERATOR_RELEASE_EVIDENCE := $(REPO_ROOT)/work/production-promotion/operator-release-evidence.json
 LEDGER_OUTPUT := $(REPO_ROOT)/work/production-promotion/promotion-ledger.json
 ARTIFACT_INPUTS := $(REPO_ROOT)/work/production-promotion/artifacts
 
-.PHONY: artifact-result check data-protection-result gc-retention-result kolla-multinode-result ledger load-soak-result maintenance-identity-result observability-result require-promotion require-qualified rgw-kms-result verify
+.PHONY: artifact-result check data-protection-result gc-retention-result kolla-multinode-result ledger load-soak-result maintenance-identity-result observability-result operator-release-result require-promotion require-qualified rgw-kms-result verify
 
 check:
 	cd "$(REPO_ROOT)" && uv run python \
@@ -111,6 +113,21 @@ kolla-multinode-result: check
 		--evidence "$(KOLLA_MULTINODE_EVIDENCE)" \
 		--output "$(KOLLA_MULTINODE_OUTPUT)"
 
+operator-release-result: check
+	cd "$(REPO_ROOT)" && uv run python \
+		poc/production-promotion/operator_release.py \
+		--release-readiness "$(OUTPUT)" \
+		--artifact-result "$(ARTIFACT_OUTPUT)" \
+		--rgw-kms-result "$(RGW_KMS_OUTPUT)" \
+		--maintenance-identity-result "$(MAINTENANCE_OUTPUT)" \
+		--data-protection-result "$(DATA_PROTECTION_OUTPUT)" \
+		--observability-result "$(OBSERVABILITY_OUTPUT)" \
+		--gc-retention-result "$(GC_OUTPUT)" \
+		--load-soak-result "$(LOAD_SOAK_OUTPUT)" \
+		--kolla-multinode-result "$(KOLLA_MULTINODE_OUTPUT)" \
+		--evidence "$(OPERATOR_RELEASE_EVIDENCE)" \
+		--output "$(OPERATOR_RELEASE_OUTPUT)"
+
 ledger: check
 	cd "$(REPO_ROOT)" && set -- \
 		--release-readiness "$(OUTPUT)" \
@@ -138,6 +155,9 @@ ledger: check
 	fi; \
 	if test -f "$(KOLLA_MULTINODE_OUTPUT)"; then \
 		set -- "$$@" --kolla-multinode-result "$(KOLLA_MULTINODE_OUTPUT)"; \
+	fi; \
+	if test -f "$(OPERATOR_RELEASE_OUTPUT)"; then \
+		set -- "$$@" --operator-release-result "$(OPERATOR_RELEASE_OUTPUT)"; \
 	fi; \
 	uv run python poc/production-promotion/ledger.py "$$@"
 
@@ -170,6 +190,9 @@ require-promotion: check
 	if test -f "$(KOLLA_MULTINODE_OUTPUT)"; then \
 		set -- "$$@" --kolla-multinode-result "$(KOLLA_MULTINODE_OUTPUT)"; \
 	fi; \
+	if test -f "$(OPERATOR_RELEASE_OUTPUT)"; then \
+		set -- "$$@" --operator-release-result "$(OPERATOR_RELEASE_OUTPUT)"; \
+	fi; \
 	uv run python poc/production-promotion/ledger.py "$$@"
 
 verify:
@@ -184,4 +207,5 @@ verify:
 		tests/test_production_promotion_gc_retention.py \
 		tests/test_production_promotion_load_soak.py \
 		tests/test_production_promotion_kolla_multinode.py \
+		tests/test_production_promotion_operator_release.py \
 		tests/test_gc_filesystem_result.py

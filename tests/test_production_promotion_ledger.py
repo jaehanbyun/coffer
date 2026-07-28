@@ -551,6 +551,81 @@ def kolla_multinode_result() -> dict[str, object]:
     return result
 
 
+def operator_release_result() -> dict[str, object]:
+    verifier = ledger.OPERATOR_RELEASE_RESULT
+    return {
+        "adr_review": {
+            "dispositions_sha256": f"sha256:{'1' * 64}",
+            "evidence_sha256": f"sha256:{'2' * 64}",
+            "reviewed_count": 17,
+            "unresolved_count": 0,
+        },
+        "documentation": {
+            "check_count": len(verifier.DOCUMENTATION_CHECKS),
+            "evidence_sha256": f"sha256:{'3' * 64}",
+            "release_notes_sha256": f"sha256:{'4' * 64}",
+            "reviewed_document_count": verifier.reviewed_document_count(),
+        },
+        "evidence_sha256": {
+            name: f"sha256:{index:064x}"
+            for index, name in enumerate(
+                verifier.EVIDENCE_HASH_NAMES, start=1
+            )
+        },
+        "execution": {
+            "adapter": "independent-review",
+            "independent_reviewer_count": 1,
+            "release_revision": "c" * 40,
+            "review_duration_seconds": 3_600,
+            "reviewer_count": 2,
+            "tag": f"v{verifier.project_version()}",
+            "version": verifier.project_version(),
+        },
+        "input_evidence_sha256": f"sha256:{'5' * 64}",
+        "prerequisites": {
+            "artifact_result_sha256": f"sha256:{'5' * 64}",
+            "data_protection_result_sha256": f"sha256:{'9' * 64}",
+            "gc_retention_result_sha256": f"sha256:{'4' * 64}",
+            "kolla_multinode_result_sha256": f"sha256:{'6' * 64}",
+            "load_soak_result_sha256": f"sha256:{'7' * 64}",
+            "maintenance_identity_result_sha256": f"sha256:{'f' * 64}",
+            "observability_result_sha256": f"sha256:{'8' * 64}",
+            "release_readiness_sha256": f"sha256:{'3' * 64}",
+            "rgw_kms_result_sha256": f"sha256:{'e' * 64}",
+        },
+        "production_candidate": True,
+        "release_review": {
+            "check_count": len(verifier.RELEASE_REVIEW_CHECKS),
+            "evidence_sha256": f"sha256:{'6' * 64}",
+        },
+        "repository_verification": {
+            "check_count": len(verifier.REPOSITORY_CHECKS),
+            "evidence_sha256": f"sha256:{'7' * 64}",
+            "full_regression_count": 1_823,
+            "kolla_lifecycle_count": 107,
+            "promotion_harness_count": 150,
+            "secret_scan_count": 10_000,
+        },
+        "residue": {
+            **{name: 0 for name in verifier.RESIDUE_KEYS},
+            "total": 0,
+        },
+        "schema": verifier.SCHEMA,
+        "source": verifier.source_hashes(),
+        "supply_chain": {
+            "check_count": len(verifier.SUPPLY_CHAIN_CHECKS),
+            "critical_findings": 0,
+            "evidence_sha256": f"sha256:{'8' * 64}",
+            "high_findings": 0,
+            "image_signature_bundle_sha256": f"sha256:{'9' * 64}",
+            "provenance_bundle_sha256": f"sha256:{'a' * 64}",
+            "sbom_bundle_sha256": f"sha256:{'b' * 64}",
+            "source_archive_sha256": f"sha256:{'c' * 64}",
+            "vulnerability_bundle_sha256": f"sha256:{'d' * 64}",
+        },
+    }
+
+
 def test_blocked_release_and_release_bound_gc_are_reported_independently() -> None:
     result = ledger.compile_ledger(
         release_readiness=release(),
@@ -786,6 +861,48 @@ def test_valid_kolla_multinode_passes_only_after_first_eight_gates() -> None:
         "status": "passed",
     }
     assert result["pending_gates"] == ["operator_release"]
+
+
+def test_operator_release_qualifies_all_ten_gates() -> None:
+    result = ledger.compile_ledger(
+        release_readiness=release("candidate-qualified"),
+        release_digest=f"sha256:{'3' * 64}",
+        artifact_result=artifact_result(),
+        artifact_digest=f"sha256:{'5' * 64}",
+        rgw_kms_result=rgw_kms_result(),
+        rgw_kms_digest=f"sha256:{'e' * 64}",
+        maintenance_identity_result=maintenance_identity_result(),
+        maintenance_identity_digest=f"sha256:{'f' * 64}",
+        data_protection_result=data_protection_result(),
+        data_protection_digest=f"sha256:{'9' * 64}",
+        observability_result=observability_result(),
+        observability_digest=f"sha256:{'8' * 64}",
+        gc_result=gc_result(),
+        gc_digest=f"sha256:{'4' * 64}",
+        load_soak_result=load_soak_result(),
+        load_soak_digest=f"sha256:{'7' * 64}",
+        kolla_multinode_result=kolla_multinode_result(),
+        kolla_multinode_digest=f"sha256:{'6' * 64}",
+        operator_release_result=operator_release_result(),
+        operator_release_digest=f"sha256:{'a' * 64}",
+        today=date(2026, 7, 28),
+    )
+    gates = {gate["id"]: gate for gate in result["gates"]}
+
+    assert result["status"] == "qualified"
+    assert result["production_candidate"] is True
+    assert result["passed_gate_count"] == 10
+    assert result["blocked_gates"] == []
+    assert result["pending_gates"] == []
+    assert gates["operator_release"] == {
+        "evidence": {
+            "schema": ledger.OPERATOR_RELEASE_RESULT.SCHEMA,
+            "sha256": f"sha256:{'a' * 64}",
+        },
+        "id": "operator_release",
+        "reason": None,
+        "status": "passed",
+    }
 
 
 def test_qualified_release_still_cannot_self_promote_missing_gates() -> None:
@@ -1260,6 +1377,74 @@ def test_kolla_multinode_result_is_atomic_and_prerequisite_bound() -> None:
             **common,
             kolla_multinode_result=changed_binding,
             kolla_multinode_digest=f"sha256:{'6' * 64}",
+        )
+
+
+def test_operator_release_result_is_atomic_and_prerequisite_bound() -> None:
+    common = {
+        "artifact_digest": f"sha256:{'5' * 64}",
+        "artifact_result": artifact_result(),
+        "data_protection_digest": f"sha256:{'9' * 64}",
+        "data_protection_result": data_protection_result(),
+        "gc_digest": f"sha256:{'4' * 64}",
+        "gc_result": gc_result(),
+        "kolla_multinode_digest": f"sha256:{'6' * 64}",
+        "kolla_multinode_result": kolla_multinode_result(),
+        "load_soak_digest": f"sha256:{'7' * 64}",
+        "load_soak_result": load_soak_result(),
+        "maintenance_identity_digest": f"sha256:{'f' * 64}",
+        "maintenance_identity_result": maintenance_identity_result(),
+        "observability_digest": f"sha256:{'8' * 64}",
+        "observability_result": observability_result(),
+        "release_digest": f"sha256:{'3' * 64}",
+        "release_readiness": release("candidate-qualified"),
+        "rgw_kms_digest": f"sha256:{'e' * 64}",
+        "rgw_kms_result": rgw_kms_result(),
+        "today": date(2026, 7, 28),
+    }
+    with pytest.raises(ledger.PromotionLedgerError, match="digest"):
+        ledger.compile_ledger(
+            **common,
+            operator_release_result=operator_release_result(),
+        )
+    with pytest.raises(ledger.PromotionLedgerError, match="no specialist"):
+        ledger.compile_ledger(
+            **common,
+            operator_release_digest=f"sha256:{'a' * 64}",
+        )
+    with pytest.raises(ledger.PromotionLedgerError, match="prerequisite"):
+        ledger.compile_ledger(
+            release_readiness=release("candidate-qualified"),
+            release_digest=f"sha256:{'3' * 64}",
+            operator_release_result=operator_release_result(),
+            operator_release_digest=f"sha256:{'a' * 64}",
+            today=date(2026, 7, 28),
+        )
+
+    changed = operator_release_result()
+    changed["documentation"]["check_count"] = 14
+    with pytest.raises(
+        ledger.PromotionLedgerError,
+        match="operator release specialist",
+    ):
+        ledger.compile_ledger(
+            **common,
+            operator_release_result=changed,
+            operator_release_digest=f"sha256:{'a' * 64}",
+        )
+
+    changed_binding = operator_release_result()
+    changed_binding["prerequisites"][
+        "kolla_multinode_result_sha256"
+    ] = f"sha256:{'0' * 64}"
+    with pytest.raises(
+        ledger.PromotionLedgerError,
+        match="prerequisite binding",
+    ):
+        ledger.compile_ledger(
+            **common,
+            operator_release_result=changed_binding,
+            operator_release_digest=f"sha256:{'a' * 64}",
         )
 
 

@@ -1,6 +1,6 @@
 # ADR 0011: Use a Pinned Distribution Storage Enumerator for Cutover Inventory
 
-- Status: proposed; disposable PoC evidence passed
+- Status: accepted
 - Date: 2026-07-23
 - Decision owners: Coffer maintainers
 - Related plan: `docs/exec-plans/0008-existing-content-inventory.md`
@@ -26,7 +26,7 @@ of tags, then loads each manifest and its references. Its dry-run output is
 human-oriented and coupled to global mark/sweep analysis. Direct parsing of
 filesystem or RGW keys would bind Coffer to unchecked storage-layout details.
 
-## Proposed Decision
+## Decision
 
 For the PoC cutover-evidence seam:
 
@@ -146,3 +146,13 @@ still provide:
   procedure; and
 - explicit approval for production credentials, data access, SQL writes, and
   the maintenance window.
+
+## 2026-07-28 Decision Status Review
+
+The exact-release, read-only Distribution enumerator is accepted as Coffer's
+inventory mechanism. Filesystem, S3 configuration, provenance, v3 media-type
+alias handling, atomic import, and independent verification evidence close
+the implementation choice. A specific helper artifact still cannot be used
+for cutover until the release-bound data-protection transaction proves writer
+exclusion, backup/restore, representative RGW scale, authenticated comparison,
+rollback, and zero residue.

@@ -24,6 +24,7 @@ DATA_PROTECTION_RESULT_SOURCE = DIRECTORY / "data_protection.py"
 OBSERVABILITY_RESULT_SOURCE = DIRECTORY / "observability.py"
 LOAD_SOAK_RESULT_SOURCE = DIRECTORY / "load_soak.py"
 KOLLA_MULTINODE_RESULT_SOURCE = DIRECTORY / "kolla_multinode.py"
+OPERATOR_RELEASE_RESULT_SOURCE = DIRECTORY / "operator_release.py"
 
 SCHEMA = "coffer.production-promotion-ledger/v1"
 RELEASE_SCHEMA = "coffer.production-promotion-release-readiness/v1"
@@ -120,6 +121,10 @@ KOLLA_MULTINODE_RESULT = _load_module(
     "coffer_production_promotion_kolla_multinode_result",
     KOLLA_MULTINODE_RESULT_SOURCE,
 )
+OPERATOR_RELEASE_RESULT = _load_module(
+    "coffer_production_promotion_operator_release_result",
+    OPERATOR_RELEASE_RESULT_SOURCE,
+)
 
 
 def _sha256_bytes(payload: bytes) -> str:
@@ -152,6 +157,9 @@ def source_hashes() -> dict[str, str]:
         ),
         "observability_result_verifier_sha256": _sha256(
             OBSERVABILITY_RESULT_SOURCE
+        ),
+        "operator_release_result_verifier_sha256": _sha256(
+            OPERATOR_RELEASE_RESULT_SOURCE
         ),
         "release_readiness_verifier_sha256": _sha256(READINESS_SOURCE),
         "rgw_kms_result_verifier_sha256": _sha256(RGW_KMS_RESULT_SOURCE),
@@ -307,6 +315,8 @@ def compile_ledger(
     load_soak_digest: str | None = None,
     kolla_multinode_result: object | None = None,
     kolla_multinode_digest: str | None = None,
+    operator_release_result: object | None = None,
+    operator_release_digest: str | None = None,
     today: date | None = None,
 ) -> dict[str, Any]:
     current = datetime.now(tz=UTC).date() if today is None else today
@@ -727,6 +737,76 @@ def compile_ledger(
             "status": "passed",
         }
 
+    if operator_release_result is None:
+        if operator_release_digest is not None:
+            raise PromotionLedgerError(
+                "operator release digest has no specialist result"
+            )
+    else:
+        if operator_release_digest is None:
+            raise PromotionLedgerError(
+                "operator release specialist result digest is required"
+            )
+        if (
+            artifact_result is None
+            or artifact_digest is None
+            or rgw_kms_result is None
+            or rgw_kms_digest is None
+            or maintenance_identity_result is None
+            or maintenance_identity_digest is None
+            or data_protection_result is None
+            or data_protection_digest is None
+            or observability_result is None
+            or observability_digest is None
+            or gc_result is None
+            or gc_digest is None
+            or load_soak_result is None
+            or load_soak_digest is None
+            or kolla_multinode_result is None
+            or kolla_multinode_digest is None
+        ):
+            raise PromotionLedgerError(
+                "operator release prerequisite results are absent"
+            )
+        try:
+            qualified_operator = (
+                OPERATOR_RELEASE_RESULT.validate_final_result(
+                    operator_release_result
+                )
+            )
+        except OPERATOR_RELEASE_RESULT.OperatorReleaseResultError as error:
+            raise PromotionLedgerError(
+                "operator release specialist result is invalid"
+            ) from error
+        prerequisites = _mapping(
+            qualified_operator["prerequisites"],
+            "operator release prerequisites",
+        )
+        if prerequisites != {
+            "artifact_result_sha256": artifact_digest,
+            "data_protection_result_sha256": data_protection_digest,
+            "gc_retention_result_sha256": gc_digest,
+            "kolla_multinode_result_sha256": kolla_multinode_digest,
+            "load_soak_result_sha256": load_soak_digest,
+            "maintenance_identity_result_sha256": (
+                maintenance_identity_digest
+            ),
+            "observability_result_sha256": observability_digest,
+            "release_readiness_sha256": release_digest,
+            "rgw_kms_result_sha256": rgw_kms_digest,
+        }:
+            raise PromotionLedgerError(
+                "operator release prerequisite binding changed"
+            )
+        gates["operator_release"] = {
+            "evidence": _evidence(
+                qualified_operator["schema"],
+                operator_release_digest,
+            ),
+            "reason": None,
+            "status": "passed",
+        }
+
     ordered_gates = [
         {"id": gate_id, **gates[gate_id]}
         for gate_id in GATE_ORDER
@@ -829,6 +909,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--observability-result", type=Path)
     parser.add_argument("--load-soak-result", type=Path)
     parser.add_argument("--kolla-multinode-result", type=Path)
+    parser.add_argument("--operator-release-result", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--require-qualified", action="store_true")
     arguments = parser.parse_args(argv)
@@ -853,6 +934,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         load_soak_digest: str | None = None
         kolla_multinode_value: dict[str, Any] | None = None
         kolla_multinode_digest: str | None = None
+        operator_release_value: dict[str, Any] | None = None
+        operator_release_digest: str | None = None
         if arguments.gc_result is not None:
             gc_value, gc_digest = _load_private(
                 arguments.gc_result,
@@ -895,6 +978,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 arguments.kolla_multinode_result,
                 "Kolla multinode specialist result",
             )
+        if arguments.operator_release_result is not None:
+            operator_release_value, operator_release_digest = _load_private(
+                arguments.operator_release_result,
+                "operator release specialist result",
+            )
         ledger = compile_ledger(
             release_readiness=release,
             release_digest=release_digest,
@@ -914,6 +1002,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             load_soak_digest=load_soak_digest,
             kolla_multinode_result=kolla_multinode_value,
             kolla_multinode_digest=kolla_multinode_digest,
+            operator_release_result=operator_release_value,
+            operator_release_digest=operator_release_digest,
         )
         _write_owner_only(arguments.output, ledger)
         print(json.dumps(ledger, indent=2, sort_keys=True))

@@ -3267,6 +3267,47 @@ operator-local release.
   regression, secret scanning, and honest production boundary before the
   canonical ledger can pass `operator_release`.
 
+### 2026-07-28 — Operator release and supply-chain gate completed locally
+
+- Final specialist: Added
+  `coffer.production-promotion-operator-release-result/v1`. It validates the
+  candidate-qualified release and exact first nine specialist results before
+  opening review evidence. Its compact output retains only bounded counts,
+  release revision/version/tag, and evidence hashes.
+- Source and review boundary: The evidence binds deterministic hashes of
+  application, deployment, promotion, test, ADR, architecture, runbook,
+  active-plan, handoff, dependency-lock, project metadata, and release-note
+  sources. At least two reviewers including one independent reviewer, a clean
+  source tree, no waiver, complete documentation, signed immutable artifacts,
+  SBOM/provenance/vulnerability evidence, official upstream inputs, repository
+  regression, Kolla lifecycle, secret scanning, and zero residue are required.
+- ADR closure: Reviewed all seventeen ADRs. The seven former `proposed` or
+  PoC-only decisions are now `accepted` with explicit status-review notes that
+  separate an accepted architecture decision from unpassed live promotion
+  evidence. Any future non-final ADR status invalidates the operator review.
+- Honest release note: Added source-bound
+  `docs/release-notes/v0.1.0.md` with `Promotion status: blocked`. The
+  operator compiler additionally requires the checked-in status to be
+  `production-candidate`, so release notes cannot be self-attested by an
+  unrelated external digest. That change is permitted only after the first
+  nine gates qualify and triggers a fresh source-bound review.
+- Ledger and CLI: The canonical ledger now accepts the tenth result only when
+  all nine prerequisite digests match the same transaction. The Makefile
+  exposes `operator-release-result`, conditionally supplies it to `ledger` and
+  `require-promotion`, and includes its focused suite. A blocked official
+  release exits `3` before any missing downstream evidence path is read and
+  creates no operator result.
+- Current disposition: All ten specialist verifier contracts now exist, but no
+  production gate is claimed from local fixtures. Official release readiness
+  remains blocked; the ledger therefore remains zero passed, one blocked,
+  nine pending, and `production_candidate=false`. No credential, endpoint,
+  service, VM, image, registry, retained preview, or external system changed.
+- Next exact action: Refresh official release readiness when signed upstream
+  metadata changes. Do not build promotion artifacts or create the disposable
+  Kolla pilot until `release-readiness.json` is
+  `candidate-qualified`; the first permitted live action after that transition
+  is the native amd64/arm64 immutable-artifact transaction.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -3340,6 +3381,15 @@ operator-local release.
 | Authenticated Kolla opt-in lifecycle | `make -C poc/kolla-ansible-role verify` | passed; 107 |
 | Promotion harness after authenticated reconciliation | `make -C poc/production-promotion verify` | passed; 134 |
 | Post-authenticated-reconciliation full Python regression | `uv run pytest -q` | passed; 1823 |
+| Operator-release specialist and ledger contract | `uv run pytest -q tests/test_production_promotion_operator_release.py tests/test_production_promotion_ledger.py` | passed; 37 |
+| Current operator-release refusal | direct `operator_release.py` invocation with the same-day blocked readiness result and missing downstream paths | passed; exit 3 before downstream reads, no result created |
+| Promotion harness after operator integration | `make -C poc/production-promotion verify` | passed; 150 |
+| Canonical ledger after operator integration | direct `ledger.py` compilation from the owner-only release result; mode and SHA inspection | passed; 0 passed, 1 blocked, 9 pending, `production_candidate=false` |
+| Final ADR disposition audit | exact `Status` parse across `docs/adrs/*.md` | passed; 17 accepted, 0 unresolved |
+| Final documentation audit | tracked Markdown fence and local-link verifier | passed; 117 files, 58 local links, 0 unbalanced fences, 0 broken links |
+| Final changed-file Ruff | `uvx ruff check --select E,F,I` on operator/ledger implementation and tests | passed |
+| Final repository secret scan | staged `gitleaks git --pre-commit --staged --redact --no-banner` | passed; about 80 KB, 0 leaks |
+| Post-operator-contract full Python regression | `uv run pytest -q` | passed; 1839 |
 | Full Python regression | `uv run pytest -q` | passed; 310 |
 | Kolla companion-role regression | `make -C poc/kolla-ansible-role verify` | passed; 68 |
 | Maintenance identity code/config inventory | Focused inspection of live comparison, reconciliation runner/probe, WSGI, Kolla config, secrets, and Stage 5 inputs | passed |
@@ -3572,14 +3622,14 @@ operator-local release.
   through the owner-only collector for a complete local three-window TLS
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
-  certificate, endpoint, or remote state changed.
-- Exact next action: Add
-  `poc/production-promotion/operator_release.py` and its source-bound tests,
-  then integrate the tenth result into `ledger.py`, the Makefile, and operator
-  documentation. It must consume the exact first nine digests and validate
-  ADR, documentation, immutable release/supply-chain, regression, secret-scan,
-  and honest-boundary evidence. Do not create the live pilot while official
-  release readiness remains blocked.
+  certificate, endpoint, or remote state changed. All ten specialist verifier
+  contracts now exist; the final operator contract binds all prior digests,
+  source, final ADR dispositions, release notes, documentation, supply chain,
+  regression, secret scans, independent review, and residue.
+- Exact next action: Refresh official release readiness only from signed
+  upstream metadata. If and only if it becomes `candidate-qualified`, begin
+  the native amd64/arm64 immutable-artifact transaction. Do not create the live
+  pilot while official release readiness remains blocked.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates
