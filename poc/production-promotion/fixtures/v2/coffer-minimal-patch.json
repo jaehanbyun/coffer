@@ -1,0 +1,83 @@
+{
+  "artifacts": {
+    "architectures": [
+      {
+        "artifact_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "image_sha256": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "name": "amd64",
+        "sbom_sha256": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      {
+        "artifact_sha256": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "image_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "name": "arm64",
+        "sbom_sha256": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      }
+    ],
+    "base_image_sha256": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+    "build_recipe_sha256": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+    "source_bundle_sha256": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+    "toolchain_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "coffer_maintenance": {
+    "changed_tree_sha256": "sha256:1212121212121212121212121212121212121212121212121212121212121212",
+    "owner_key_id": "fixture-patch-owner",
+    "released_on": "2026-07-28",
+    "scope_checks": {
+      "feature_expansion": false,
+      "protocol_extension": false,
+      "referrers_reimplementation": false,
+      "schema_change": false,
+      "storage_format_change": false,
+      "unrelated_dependency_refresh": false
+    }
+  },
+  "component": "distribution",
+  "fixture_only": true,
+  "input_class": "coffer-minimal-patch",
+  "patches": [
+    {
+      "blocker_id": "distribution-malformed-reference-status",
+      "changed_paths_sha256": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "id": "distribution-malformed-reference",
+      "kind": "correctness",
+      "scope": "minimal",
+      "sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "upstream_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "upstream_url": "https://github.com/distribution/distribution/pull/9999"
+    }
+  ],
+  "provider": null,
+  "release": {
+    "repository": "https://github.com/jaehanbyun/coffer",
+    "revision": "dddddddddddddddddddddddddddddddddddddddd",
+    "source_sha256": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+    "tag": "v3.1.1-coffer.1",
+    "version": "v3.1.1-coffer.1"
+  },
+  "schema": "coffer.production-input-lineage/v2",
+  "support": {
+    "coffer_release_ends_on": "2027-01-31",
+    "declared_ends_on": "2027-01-31",
+    "starts_on": "2026-07-28"
+  },
+  "upstream": {
+    "repository": "https://github.com/distribution/distribution",
+    "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "source_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "support_ends_on": "2027-12-31",
+    "tag": "v3.1.1",
+    "version": "v3.1.1"
+  },
+  "upstream_submission": {
+    "items": [
+      {
+        "patch_id": "distribution-malformed-reference",
+        "revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "open",
+        "url": "https://github.com/distribution/distribution/pull/9999"
+      }
+    ],
+    "required": true
+  }
+}

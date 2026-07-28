@@ -1,0 +1,89 @@
+{
+  "attestation_max_age_days": 7,
+  "authorities": [],
+  "blockers": {
+    "ceph-rgw-zero-byte-sse-kms-move": {
+      "component": "ceph",
+      "kind": "correctness",
+      "upstream_repository": "https://github.com/ceph/ceph"
+    },
+    "distribution-malformed-reference-status": {
+      "component": "distribution",
+      "kind": "correctness",
+      "upstream_repository": "https://github.com/distribution/distribution"
+    },
+    "oslo-messaging-cve-2026-44393": {
+      "component": "oslo_messaging",
+      "kind": "security",
+      "upstream_repository": "https://opendev.org/openstack/oslo.messaging"
+    }
+  },
+  "checkpoint_revocations": [],
+  "coffer": {
+    "builder_operator_ids": [],
+    "maximum_patch_support_months": 12,
+    "patch_releases": {},
+    "release_ends_on": "2027-01-31",
+    "release_signing_identities": [],
+    "replacement_grace_days": 90,
+    "repository": "https://github.com/jaehanbyun/coffer"
+  },
+  "components": {
+    "ceph": {
+      "accepted_patch_bases": {},
+      "latest_supported_patch_base": null,
+      "official_releases": {},
+      "release_signing_identities": [],
+      "tag_pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(?:[.-][0-9A-Za-z.-]+)?$",
+      "upstream_repositories": [
+        "https://github.com/ceph/ceph"
+      ]
+    },
+    "distribution": {
+      "accepted_patch_bases": {},
+      "latest_supported_patch_base": null,
+      "official_releases": {},
+      "release_signing_identities": [],
+      "tag_pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(?:[.-][0-9A-Za-z.-]+)?$",
+      "upstream_repositories": [
+        "https://github.com/distribution/distribution"
+      ]
+    },
+    "oslo_messaging": {
+      "accepted_patch_bases": {},
+      "latest_supported_patch_base": null,
+      "official_releases": {},
+      "release_signing_identities": [],
+      "tag_pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[.-][0-9A-Za-z.-]+)?$",
+      "upstream_repositories": [
+        "https://opendev.org/openstack/oslo.messaging"
+      ]
+    }
+  },
+  "environment": "production",
+  "input_evidence_adapters": {},
+  "lifecycle_observation_adapters": {},
+  "policy_id": "coffer-2026.1-production-inputs",
+  "predicate_types": {
+    "builder": "https://coffer.invalid/attestations/reproducible-build/v2",
+    "input_evidence": "https://coffer.invalid/attestations/input-evidence/v2",
+    "input_qualification": "https://coffer.invalid/attestations/production-input/v2",
+    "lifecycle_observation": "https://coffer.invalid/attestations/lifecycle-observation/v2",
+    "migration_checkpoint": "https://coffer.invalid/attestations/migration-checkpoint/v2",
+    "release_verification": "https://coffer.invalid/attestations/release-verification/v2",
+    "rollback_authorization": "https://coffer.invalid/attestations/rollback-authorization/v2",
+    "scope_evidence": "https://coffer.invalid/attestations/scope-evidence/v2",
+    "scope_qualification": "https://coffer.invalid/attestations/production-scope/v2",
+    "storage_provider": "https://coffer.invalid/attestations/storage-provider/v2",
+    "vex": "https://openvex.dev/ns/v0.2.0",
+    "writer_fence": "https://coffer.invalid/attestations/writer-fence/v2"
+  },
+  "release_verification_adapters": {},
+  "schema": "coffer.production-trust-policy/v2",
+  "scope_evidence_adapters": {},
+  "storage_backends": {},
+  "valid_from": "2026-07-28",
+  "valid_until": "2027-01-31",
+  "vendors": [],
+  "writer_fence_adapters": {}
+}

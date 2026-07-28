@@ -1,0 +1,13 @@
+{
+  "bundle_id": "coffer.checkpoint-verifier.v2.0.0",
+  "dependencies": {
+    "cryptography": "49.0.0"
+  },
+  "entry_point": "checkpoint_v2_0.verifier:verify_checkpoint_record",
+  "files": {
+    "__init__.py": "sha256:89e4b9ba52f6a7ebecdff1b00ce3b5e529061d20131b770c489551e8233354f9",
+    "verifier.py": "sha256:8084800587916ba881ee740037fb3794d92dd848e4e6d576cc62bf8b20e24b60"
+  },
+  "python_requires": ">=3.11",
+  "schema": "coffer.checkpoint-verifier-bundle/v2"
+}

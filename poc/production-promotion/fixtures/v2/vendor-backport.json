@@ -1,0 +1,76 @@
+{
+  "artifacts": {
+    "architectures": [
+      {
+        "artifact_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "image_sha256": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "name": "amd64",
+        "sbom_sha256": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      {
+        "artifact_sha256": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "image_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "name": "arm64",
+        "sbom_sha256": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      }
+    ],
+    "base_image_sha256": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+    "build_recipe_sha256": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+    "source_bundle_sha256": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+    "toolchain_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "coffer_maintenance": null,
+  "component": "ceph",
+  "fixture_only": true,
+  "input_class": "approved-vendor-backport",
+  "patches": [
+    {
+      "blocker_id": "ceph-rgw-zero-byte-sse-kms-move",
+      "changed_paths_sha256": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "id": "vendor-rgw-copy-backport",
+      "kind": "correctness",
+      "scope": "minimal",
+      "sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "upstream_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "upstream_url": "https://github.com/ceph/ceph/pull/69277"
+    }
+  ],
+  "provider": {
+    "advisory_url": "https://vendor.example/advisories/rgw-copy",
+    "provider_id": "example-vendor",
+    "repository": "https://vendor.example/source/ceph",
+    "support_ends_on": "2027-12-31"
+  },
+  "release": {
+    "repository": "https://vendor.example/source/ceph",
+    "revision": "dddddddddddddddddddddddddddddddddddddddd",
+    "source_sha256": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+    "tag": "v20.2.2-vendor.1",
+    "version": "v20.2.2-vendor.1"
+  },
+  "schema": "coffer.production-input-lineage/v2",
+  "support": {
+    "coffer_release_ends_on": "2027-01-31",
+    "declared_ends_on": "2027-01-31",
+    "starts_on": "2026-07-01"
+  },
+  "upstream": {
+    "repository": "https://github.com/ceph/ceph",
+    "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "source_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "support_ends_on": "2027-12-31",
+    "tag": "v20.2.2",
+    "version": "v20.2.2"
+  },
+  "upstream_submission": {
+    "items": [
+      {
+        "patch_id": "vendor-rgw-copy-backport",
+        "revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "merged",
+        "url": "https://github.com/ceph/ceph/pull/69277"
+      }
+    ],
+    "required": true
+  }
+}

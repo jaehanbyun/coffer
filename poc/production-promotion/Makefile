@@ -18,9 +18,23 @@ KOLLA_MULTINODE_EVIDENCE := $(REPO_ROOT)/work/production-promotion/kolla-multino
 OPERATOR_RELEASE_OUTPUT := $(REPO_ROOT)/work/production-promotion/operator-release-result.json
 OPERATOR_RELEASE_EVIDENCE := $(REPO_ROOT)/work/production-promotion/operator-release-evidence.json
 LEDGER_OUTPUT := $(REPO_ROOT)/work/production-promotion/promotion-ledger.json
+MIGRATION_V2_OUTPUT := $(REPO_ROOT)/work/production-promotion/migration-v2.json
+PROVIDER_INPUTS_V2_OUTPUT := $(REPO_ROOT)/work/production-promotion/provider-inputs-v2.json
+LEDGER_V2_OUTPUT := $(REPO_ROOT)/work/production-promotion/promotion-ledger-v2.json
+MIGRATION_V2_CHECKPOINT ?=
+MIGRATION_V2_CHECKPOINT_POLICY ?=
+CEPH_INPUT_V2 ?=
+DISTRIBUTION_INPUT_V2 ?=
+OSLO_MESSAGING_INPUT_V2 ?=
+REGISTRY_CORE_SCOPE_V2 ?=
+STORAGE_BACKEND_SCOPE_V2 ?=
+RGW_BARBICAN_KMS_SCOPE_V2 ?=
+HORIZON_SCOPE_V2 ?=
+SKYLINE_SCOPE_V2 ?=
+REFERRERS_SCOPE_V2 ?=
 ARTIFACT_INPUTS := $(REPO_ROOT)/work/production-promotion/artifacts
 
-.PHONY: artifact-result check data-protection-result gc-retention-result kolla-multinode-result ledger load-soak-result maintenance-identity-result observability-result operator-release-result require-promotion require-qualified rgw-kms-result verify
+.PHONY: artifact-result check data-protection-result gc-retention-result kolla-multinode-result ledger ledger-v2 load-soak-result maintenance-identity-result migration-v2 observability-result operator-release-result provider-inputs-v2 require-promotion require-qualified rgw-kms-result verify
 
 check:
 	cd "$(REPO_ROOT)" && uv run python \
@@ -195,6 +209,36 @@ require-promotion: check
 	fi; \
 	uv run python poc/production-promotion/ledger.py "$$@"
 
+migration-v2:
+	cd "$(REPO_ROOT)" && uv run python \
+		poc/production-promotion/migration.py \
+		--v1-ledger "$(LEDGER_OUTPUT)" \
+		--release-readiness "$(OUTPUT)" \
+		$(if $(strip $(MIGRATION_V2_CHECKPOINT)),--checkpoint "$(MIGRATION_V2_CHECKPOINT)") \
+		$(if $(strip $(MIGRATION_V2_CHECKPOINT_POLICY)),--checkpoint-policy "$(MIGRATION_V2_CHECKPOINT_POLICY)") \
+		--output "$(MIGRATION_V2_OUTPUT)"
+
+provider-inputs-v2:
+	cd "$(REPO_ROOT)" && uv run python \
+		poc/production-promotion/provider_inputs.py \
+		--migration "$(MIGRATION_V2_OUTPUT)" \
+		$(if $(strip $(CEPH_INPUT_V2)),--ceph-input "$(CEPH_INPUT_V2)") \
+		$(if $(strip $(DISTRIBUTION_INPUT_V2)),--distribution-input "$(DISTRIBUTION_INPUT_V2)") \
+		$(if $(strip $(OSLO_MESSAGING_INPUT_V2)),--oslo-messaging-input "$(OSLO_MESSAGING_INPUT_V2)") \
+		--output "$(PROVIDER_INPUTS_V2_OUTPUT)"
+
+ledger-v2:
+	cd "$(REPO_ROOT)" && uv run python \
+		poc/production-promotion/ledger_v2.py \
+		--provider-inputs "$(PROVIDER_INPUTS_V2_OUTPUT)" \
+		$(if $(strip $(REGISTRY_CORE_SCOPE_V2)),--registry-core "$(REGISTRY_CORE_SCOPE_V2)") \
+		$(if $(strip $(STORAGE_BACKEND_SCOPE_V2)),--storage-backend "$(STORAGE_BACKEND_SCOPE_V2)") \
+		$(if $(strip $(RGW_BARBICAN_KMS_SCOPE_V2)),--rgw-barbican-kms "$(RGW_BARBICAN_KMS_SCOPE_V2)") \
+		$(if $(strip $(HORIZON_SCOPE_V2)),--horizon "$(HORIZON_SCOPE_V2)") \
+		$(if $(strip $(SKYLINE_SCOPE_V2)),--skyline "$(SKYLINE_SCOPE_V2)") \
+		$(if $(strip $(REFERRERS_SCOPE_V2)),--referrers "$(REFERRERS_SCOPE_V2)") \
+		--output "$(LEDGER_V2_OUTPUT)"
+
 verify:
 	cd "$(REPO_ROOT)" && uv run pytest -q \
 		tests/test_production_promotion_readiness.py \
@@ -208,4 +252,11 @@ verify:
 		tests/test_production_promotion_load_soak.py \
 		tests/test_production_promotion_kolla_multinode.py \
 		tests/test_production_promotion_operator_release.py \
+		tests/test_production_promotion_trust_policy.py \
+		tests/test_production_promotion_input_lineage.py \
+		tests/test_production_promotion_scope_evidence.py \
+		tests/test_production_promotion_migration.py \
+		tests/test_production_promotion_provider_inputs.py \
+		tests/test_production_promotion_ledger_v2.py \
+		tests/test_production_promotion_rollback.py \
 		tests/test_gc_filesystem_result.py
