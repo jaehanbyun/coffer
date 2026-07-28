@@ -92,11 +92,18 @@ and zero residue. The current ledger derives one passed gate
 `production_candidate=false`; `require-promotion` fails closed. Twenty-two
 promotion-ledger/readiness/GC-result tests and thirty-two focused GC compiler/
 adapter/parser tests and all 1,692 repository tests pass. The exact next action
-is to add the
-immutable-artifact specialist result contract that consumes existing native
-architecture qualification outputs but refuses blocked Distribution and
-oslo.messaging inputs; keep that gate pending until an official qualified
-release can produce complete current evidence.
+is now implemented as `coffer.production-promotion-artifacts/v1`. It validates
+candidate-qualified release readiness before opening any image evidence, then
+requires native amd64/arm64 core and UI results with runtime/provenance,
+immutable IDs, nonempty SBOMs, zero secrets, zero Critical/High, zero
+Distribution govulncheck findings, and exact cross-architecture source/wheel
+identity. Seven focused and sixteen combined artifact/ledger tests pass. No
+artifact result exists because the release inputs remain blocked, so the gate
+stays pending. All 1,701 repository tests pass. The exact next action is to add
+the RGW/Barbican SSE-KMS
+specialist contract with the same release-before-runtime ordering; it must
+perform no endpoint, credential, KMS, S3, or fault action while Tentacle
+v20.2.2 lacks the released encrypted-copy fix.
 
 Plan 0028 is complete. The retained preview serves one owner-accessible
 `https://bb00.tail23b778.ts.net:18788` origin for `/v1`, `/auth/token`, and

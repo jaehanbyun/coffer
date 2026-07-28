@@ -101,6 +101,22 @@ For the exact released versions and revisions in the readiness result:
 Never combine evidence from different image names, architectures, source
 revisions, archives, SBOM identities, or scanner database transactions.
 
+After both native transactions finish, stage only owner-mode-0600 specialist
+inputs under `work/production-promotion/artifacts/` as documented in
+`poc/production-promotion/README.md`, then run:
+
+```text
+make -C poc/production-promotion artifact-result
+make -C poc/production-promotion ledger
+```
+
+The artifact compiler checks release readiness before it opens an image result.
+It refuses the current blocked release input without reading stale ARM-only or
+partial x86 evidence. A final result requires exact amd64/arm64 core and UI
+qualification, zero Critical/High and secret findings, zero Distribution
+govulncheck findings, immutable image IDs, and equal cross-architecture
+source/wheel identities.
+
 ## 3. Qualify RGW and Barbican SSE-KMS
 
 Use a disposable released Ceph/RGW target with verified private TLS and the

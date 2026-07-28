@@ -66,6 +66,34 @@ Absent live evidence remains `pending`; failed release readiness remains
 `blocked`. Local fixtures, preview observations, a plan checkbox, or a manually
 authored `passed` value cannot promote another gate.
 
+The immutable-artifact specialist command is:
+
+```text
+make -C poc/production-promotion artifact-result
+```
+
+It validates release readiness before opening any image evidence. The current
+blocked Distribution, Ceph, or oslo.messaging result therefore exits `3`
+without reading the expected artifact paths or writing an output. After
+release qualification, the command requires owner-mode-0600 core and UI
+qualification results for native Linux amd64 and arm64 under:
+
+```text
+work/production-promotion/artifacts/
+  amd64/core/{qualification.json,images.json}
+  amd64/ui-qualification.json
+  arm64/core/{qualification.json,images.json}
+  arm64/ui-qualification.json
+```
+
+Both architectures must independently have runtime/provenance, immutable image
+IDs, SBOMs, zero secrets, zero Critical/High findings, and zero Distribution
+govulncheck findings. Kolla/Horizon/Skyline revisions and UI wheel hashes must
+match across architectures. Only then is the mode-0600
+`artifact-result.json` created and eligible for the ledger. The older ARM-only
+blocked results and partial x86 UI transaction cannot be reused as qualified
+evidence.
+
 To refresh the accepted disposable filesystem GC specialist result first:
 
 ```text

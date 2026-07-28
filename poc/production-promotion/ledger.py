@@ -17,6 +17,7 @@ DIRECTORY = Path(__file__).resolve().parent
 ROOT = DIRECTORY.parents[1]
 READINESS_SOURCE = DIRECTORY / "readiness.py"
 GC_RESULT_SOURCE = ROOT / "poc" / "gc-retention" / "filesystem" / "result.py"
+ARTIFACT_RESULT_SOURCE = DIRECTORY / "artifacts.py"
 
 SCHEMA = "coffer.production-promotion-ledger/v1"
 RELEASE_SCHEMA = "coffer.production-promotion-release-readiness/v1"
@@ -85,6 +86,10 @@ def _load_module(name: str, path: Path) -> Any:
 
 
 GC_RESULT = _load_module("coffer_production_promotion_gc_result", GC_RESULT_SOURCE)
+ARTIFACT_RESULT = _load_module(
+    "coffer_production_promotion_artifact_result",
+    ARTIFACT_RESULT_SOURCE,
+)
 
 
 def _sha256_bytes(payload: bytes) -> str:
@@ -100,6 +105,7 @@ def _sha256(path: Path) -> str:
 
 def source_hashes() -> dict[str, str]:
     return {
+        "artifact_result_verifier_sha256": _sha256(ARTIFACT_RESULT_SOURCE),
         "gc_result_verifier_sha256": _sha256(GC_RESULT_SOURCE),
         "ledger_sha256": _sha256(Path(__file__).resolve()),
         "release_readiness_verifier_sha256": _sha256(READINESS_SOURCE),
@@ -241,6 +247,8 @@ def compile_ledger(
     release_digest: str,
     gc_result: object | None = None,
     gc_digest: str | None = None,
+    artifact_result: object | None = None,
+    artifact_digest: str | None = None,
     today: date | None = None,
 ) -> dict[str, Any]:
     current = datetime.now(tz=UTC).date() if today is None else today
@@ -265,6 +273,33 @@ def compile_ledger(
             "evidence": None,
             "reason": reason,
             "status": "pending",
+        }
+
+    if artifact_result is None:
+        if artifact_digest is not None:
+            raise PromotionLedgerError(
+                "artifact digest has no specialist result"
+            )
+    else:
+        if artifact_digest is None:
+            raise PromotionLedgerError(
+                "artifact specialist result digest is required"
+            )
+        try:
+            qualified_artifact = ARTIFACT_RESULT.validate_final_result(
+                artifact_result
+            )
+        except ARTIFACT_RESULT.ArtifactResultError as error:
+            raise PromotionLedgerError(
+                "artifact specialist result is invalid"
+            ) from error
+        gates["immutable_artifacts"] = {
+            "evidence": _evidence(
+                qualified_artifact["schema"],
+                artifact_digest,
+            ),
+            "reason": None,
+            "status": "passed",
         }
 
     if gc_result is None:
@@ -385,6 +420,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--release-readiness", type=Path, required=True)
     parser.add_argument("--gc-result", type=Path)
+    parser.add_argument("--artifact-result", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--require-qualified", action="store_true")
     arguments = parser.parse_args(argv)
@@ -395,16 +431,25 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         gc_value: dict[str, Any] | None = None
         gc_digest: str | None = None
+        artifact_value: dict[str, Any] | None = None
+        artifact_digest: str | None = None
         if arguments.gc_result is not None:
             gc_value, gc_digest = _load_private(
                 arguments.gc_result,
                 "GC specialist result",
+            )
+        if arguments.artifact_result is not None:
+            artifact_value, artifact_digest = _load_private(
+                arguments.artifact_result,
+                "artifact specialist result",
             )
         ledger = compile_ledger(
             release_readiness=release,
             release_digest=release_digest,
             gc_result=gc_value,
             gc_digest=gc_digest,
+            artifact_result=artifact_value,
+            artifact_digest=artifact_digest,
         )
         _write_owner_only(arguments.output, ledger)
         print(json.dumps(ledger, indent=2, sort_keys=True))

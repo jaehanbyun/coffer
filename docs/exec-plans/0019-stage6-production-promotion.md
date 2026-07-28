@@ -2848,7 +2848,8 @@ operator-local release.
   Its SHA-256 is
   `67c97975e620f9d58ae403834f3b5aec163553a4a4ceeda13c88342dd47d88cc`.
 - Current canonical state: The mode-0600 ledger has SHA-256
-  `0308653eab2a8f079e9846cc64ea547ada55dbcaf7fbcdd1ecb638aa85811b6c`.
+  `87a2c6d390510c7b3929a27c5a56a8a79c396c83fd87de80a07250f98201072f`
+  after binding the immutable-artifact specialist verifier source.
   `gc_retention` is the only passed gate; `release_inputs` is blocked by the
   five current official-release reasons; immutable artifacts, RGW/KMS,
   maintenance identity, data protection, observability, load/soak, fresh Kolla
@@ -2871,6 +2872,39 @@ operator-local release.
   refuses the blocked Distribution and oslo.messaging inputs. Keep the gate
   pending until a qualified official release can produce a complete current
   result.
+
+### 2026-07-28 — Immutable multi-architecture specialist contract completed
+
+- Gate ordering: Added `coffer.production-promotion-artifacts/v1`. The CLI
+  loads and validates the owner-only release readiness result before it opens
+  any image evidence path. A blocked Distribution, Ceph, or oslo.messaging
+  component exits `3` without producing or replacing an artifact result.
+- Required evidence: After release qualification, both native Linux amd64 and
+  arm64 must provide core qualification plus exact image inspection and UI
+  qualification. Each architecture requires runtime and provenance success,
+  immutable image IDs, nonempty SBOMs, zero secrets, zero Critical/High in
+  Scout and Trivy, and zero source/binary Distribution govulncheck findings.
+- Cross-architecture gate: The core Kolla revision, UI Kolla/Horizon/Skyline
+  revisions, and Horizon/Skyline wheel hashes must match exactly. The result
+  binds the release-readiness, core qualification, core image, UI
+  qualification, and verifier source SHA-256 values. A missing architecture,
+  source/artifact drift, caller status, legacy ARM-only result, or partial x86
+  transaction fails closed.
+- Ledger integration: The canonical ledger accepts
+  `immutable_artifacts=passed` only when this specialist result validates with
+  its current source hash. No result exists today; the gate remains `pending`.
+  The current official release block is evaluated before the expected artifact
+  paths.
+- Verification: Seven artifact compiler tests and sixteen combined artifact/
+  ledger tests pass. The current live ledger still derives one passed, one
+  blocked, eight pending, and `production_candidate=false`. All 1,701
+  repository tests, compilation, focused Ruff, and diff checks pass.
+- Changed files: Artifact specialist compiler, focused tests, ledger and
+  Makefile integration, promotion README/runbook, this plan, and `HANDOFF.md`.
+- Next exact action: Add the RGW/Barbican SSE-KMS specialist result contract.
+  It must require candidate-qualified released Ceph before any endpoint,
+  credential, KMS, S3, or fault action and must keep the live gate pending
+  while Tentacle v20.2.2 lacks the encrypted-copy fix.
 
 ## Verification
 
@@ -2896,6 +2930,9 @@ operator-local release.
 | Canonical promotion ledger | `make -C poc/production-promotion ledger` | passed; 1 passed, 1 blocked, 8 pending, `production_candidate=false`, mode 0600 |
 | Final promotion refusal | `make -C poc/production-promotion require-promotion` | passed; failed closed while ledger is not qualified |
 | Post-ledger full Python regression | `uv run pytest -q` | passed; 1692 |
+| Immutable artifact specialist contract | `uv run pytest -q tests/test_production_promotion_artifacts.py` | passed; 7 |
+| Artifact plus canonical ledger contract | `uv run pytest -q tests/test_production_promotion_artifacts.py tests/test_production_promotion_ledger.py` | passed; 16 |
+| Post-artifact-contract full Python regression | `uv run pytest -q` | passed; 1701 |
 | Full Python regression | `uv run pytest -q` | passed; 310 |
 | Kolla companion-role regression | `make -C poc/kolla-ansible-role verify` | passed; 68 |
 | Maintenance identity code/config inventory | Focused inspection of live comparison, reconciliation runner/probe, WSGI, Kolla config, secrets, and Stage 5 inputs | passed |

@@ -112,6 +112,46 @@ def gc_result() -> dict[str, object]:
     }
 
 
+def artifact_result() -> dict[str, object]:
+    architectures = []
+    for architecture, digit in (("amd64", "5"), ("arm64", "6")):
+        architectures.append(
+            {
+                "architecture": architecture,
+                "core_images": {
+                    "coffer": f"sha256:{digit * 64}",
+                    "registry": f"sha256:{str(int(digit) + 1) * 64}",
+                },
+                "core_images_sha256": f"sha256:{'7' * 64}",
+                "core_qualification_sha256": f"sha256:{'8' * 64}",
+                "ui_images": {
+                    "horizon": f"sha256:{'9' * 64}",
+                    "skyline": f"sha256:{'a' * 64}",
+                },
+                "ui_qualification_sha256": f"sha256:{'b' * 64}",
+            }
+        )
+    return {
+        "architectures": architectures,
+        "cross_architecture": {
+            "core_revision": "c" * 40,
+            "ui_artifacts": {
+                "horizon": f"sha256:{'d' * 64}",
+                "skyline": f"sha256:{'e' * 64}",
+            },
+            "ui_sources": {
+                "horizon": "d" * 40,
+                "kolla": "c" * 40,
+                "skyline": "e" * 40,
+            },
+        },
+        "production_candidate": True,
+        "release_readiness_sha256": f"sha256:{'f' * 64}",
+        "schema": ledger.ARTIFACT_RESULT.SCHEMA,
+        "source": ledger.ARTIFACT_RESULT.source_hashes(),
+    }
+
+
 def test_blocked_release_and_passed_gc_are_reported_independently() -> None:
     result = ledger.compile_ledger(
         release_readiness=release(),
@@ -133,6 +173,25 @@ def test_blocked_release_and_passed_gc_are_reported_independently() -> None:
         "sha256": f"sha256:{'4' * 64}",
     }
     assert len(result["pending_gates"]) == 8
+
+
+def test_valid_artifact_and_gc_specialists_pass_only_their_gates() -> None:
+    result = ledger.compile_ledger(
+        release_readiness=release(),
+        release_digest=f"sha256:{'3' * 64}",
+        gc_result=gc_result(),
+        gc_digest=f"sha256:{'4' * 64}",
+        artifact_result=artifact_result(),
+        artifact_digest=f"sha256:{'5' * 64}",
+        today=date(2026, 7, 28),
+    )
+    gates = {gate["id"]: gate for gate in result["gates"]}
+
+    assert result["status"] == "blocked"
+    assert result["passed_gate_count"] == 2
+    assert gates["immutable_artifacts"]["status"] == "passed"
+    assert gates["gc_retention"]["status"] == "passed"
+    assert len(result["pending_gates"]) == 7
 
 
 def test_qualified_release_still_cannot_self_promote_missing_gates() -> None:
@@ -202,6 +261,33 @@ def test_gc_result_and_digest_are_atomic_inputs() -> None:
             release_readiness=release(),
             release_digest=f"sha256:{'3' * 64}",
             gc_digest=f"sha256:{'4' * 64}",
+            today=date(2026, 7, 28),
+        )
+
+
+def test_artifact_result_and_digest_are_atomic_and_validated() -> None:
+    with pytest.raises(ledger.PromotionLedgerError, match="digest"):
+        ledger.compile_ledger(
+            release_readiness=release(),
+            release_digest=f"sha256:{'3' * 64}",
+            artifact_result=artifact_result(),
+            today=date(2026, 7, 28),
+        )
+    with pytest.raises(ledger.PromotionLedgerError, match="no specialist"):
+        ledger.compile_ledger(
+            release_readiness=release(),
+            release_digest=f"sha256:{'3' * 64}",
+            artifact_digest=f"sha256:{'5' * 64}",
+            today=date(2026, 7, 28),
+        )
+    changed = artifact_result()
+    changed["source"]["core_verifier_sha256"] = f"sha256:{'0' * 64}"
+    with pytest.raises(ledger.PromotionLedgerError, match="artifact specialist"):
+        ledger.compile_ledger(
+            release_readiness=release(),
+            release_digest=f"sha256:{'3' * 64}",
+            artifact_result=changed,
+            artifact_digest=f"sha256:{'5' * 64}",
             today=date(2026, 7, 28),
         )
 
