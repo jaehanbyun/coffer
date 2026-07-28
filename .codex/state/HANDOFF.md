@@ -87,11 +87,12 @@ gates and consumes only source-bound specialist verifier results. The
 disposable filesystem GC fixture reran successfully and its mode-0600 result
 binds two equal dry runs, one consumed authorization, five candidates, nine
 survivor classes, 613 reclaimed bytes, isolated restore, exact source hashes,
-and zero residue. The current ledger derives one passed gate
-(`gc_retention`), one blocked gate (`release_inputs`), eight pending gates, and
-`production_candidate=false`; `require-promotion` fails closed. Twenty-two
-promotion-ledger/readiness/GC-result tests and thirty-two focused GC compiler/
-adapter/parser tests and all 1,692 repository tests pass.
+and zero residue. It is now explicitly local evidence: the production ledger
+accepts only an exact-release/artifact-bound GC wrapper, so the v3.1.1 result
+cannot survive a future Distribution release transition as passed evidence.
+The current ledger derives zero passed gates, one blocked gate
+(`release_inputs`), nine pending gates, and `production_candidate=false`;
+`require-promotion` fails closed.
 
 The immutable-artifact and RGW/Barbican specialist result contracts are now
 implemented. Both validate candidate-qualified release readiness before
@@ -139,20 +140,23 @@ dependency correlation, failure-budget behavior, audit/log scans, and zero
 monitoring/runtime or secret residue can qualify. Local fixtures and the
 retained preview cannot promote it.
 
-The current observability command exits `3` before absent artifact, RGW,
-maintenance, data-protection, target, or evidence paths are read. No live
-specialist output exists, so the affected gates remain pending. GitHub's
+The GC production wrapper is now implemented. It validates qualified release
+readiness and the exact artifact result before reading raw GC evidence, then
+requires its Distribution version/revision to equal the release transaction.
+The ledger checks both prerequisite digests and no longer consumes
+`gc-filesystem-result.json` directly. Current release blocking exits `3`
+before missing artifact or GC paths and creates no wrapper output. GitHub's
 unauthenticated API rate limit returned 403 on a redundant official refresh;
-the same-day owner-only release result still passed the direct ordering check.
+the same-day owner-only release result still passed all direct ordering checks.
+
 The current-source owner-mode-0600 ledger SHA-256 is
-`20503ddbb463198daaf76dc637285ea6208647075e11234b2737fa84e5cbb382`;
-it remains one passed, one blocked, eight pending, and
-`production_candidate=false`. Fifteen observability specialist, thirty-two
-combined observability/ledger, ninety-six promotion-harness, and all 1,766
-repository tests pass. The exact next action is to bind `gc_retention` to the
-exact qualified Distribution release/result transaction before building the
-load/soak specialist; the current v3.1.1 filesystem proof must not survive a
-future release transition as production evidence.
+`8e24eb36a6119ba9ee83d61a5ee783a8af88f4dcd155fb34aa0c36c775d375a6`;
+it now remains zero passed, one blocked, nine pending, and
+`production_candidate=false`. Six production GC, twenty-three combined
+GC/ledger, 102 promotion-harness, and all 1,772 repository tests pass. The
+exact next action is the load/soak/fault specialist contract bound to release,
+artifacts, RGW/KMS, maintenance, data protection, observability, and
+exact-release GC.
 
 Plan 0028 is complete. The retained preview serves one owner-accessible
 `https://bb00.tail23b778.ts.net:18788` origin for `/v1`, `/auth/token`, and
@@ -3448,11 +3452,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add an exact-release production wrapper around the existing filesystem GC
-specialist result and bind it into the canonical ledger. The current v3.1.1
-fixture must not remain a passed `gc_retention` gate after a future
-Distribution release transition. Do not invoke a live production pilot while
-official release readiness remains blocked.
+Add `poc/production-promotion/load_soak.py` as the source-bound specialist
+result. Validate release, artifact, RGW/KMS, maintenance identity, data
+protection, observability, and exact-release GC digests before accepting the
+non-synthetic private-TLS/shared-SQL/RGW client, quota/Galera/fencing,
+dependency-fault, saturation, recovery, and teardown matrix. Do not invoke a
+live production pilot while official release readiness remains blocked.
 
 ## After This Work Package
 

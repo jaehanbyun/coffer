@@ -1,6 +1,7 @@
 REPO_ROOT := $(abspath $(CURDIR)/../..)
 OUTPUT := $(REPO_ROOT)/work/production-promotion/release-readiness.json
-GC_OUTPUT := $(REPO_ROOT)/work/production-promotion/gc-filesystem-result.json
+GC_FIXTURE_OUTPUT := $(REPO_ROOT)/work/production-promotion/gc-filesystem-result.json
+GC_OUTPUT := $(REPO_ROOT)/work/production-promotion/gc-retention-result.json
 ARTIFACT_OUTPUT := $(REPO_ROOT)/work/production-promotion/artifact-result.json
 RGW_KMS_OUTPUT := $(REPO_ROOT)/work/production-promotion/rgw-kms-result.json
 RGW_KMS_EVIDENCE := $(REPO_ROOT)/work/production-promotion/rgw-kms-evidence.json
@@ -13,7 +14,7 @@ OBSERVABILITY_EVIDENCE := $(REPO_ROOT)/work/production-promotion/observability-e
 LEDGER_OUTPUT := $(REPO_ROOT)/work/production-promotion/promotion-ledger.json
 ARTIFACT_INPUTS := $(REPO_ROOT)/work/production-promotion/artifacts
 
-.PHONY: artifact-result check data-protection-result ledger maintenance-identity-result observability-result require-promotion require-qualified rgw-kms-result verify
+.PHONY: artifact-result check data-protection-result gc-retention-result ledger maintenance-identity-result observability-result require-promotion require-qualified rgw-kms-result verify
 
 check:
 	cd "$(REPO_ROOT)" && uv run python \
@@ -70,6 +71,14 @@ observability-result: check
 		--data-protection-result "$(DATA_PROTECTION_OUTPUT)" \
 		--evidence "$(OBSERVABILITY_EVIDENCE)" \
 		--output "$(OBSERVABILITY_OUTPUT)"
+
+gc-retention-result: check
+	cd "$(REPO_ROOT)" && uv run python \
+		poc/production-promotion/gc_retention.py \
+		--release-readiness "$(OUTPUT)" \
+		--artifact-result "$(ARTIFACT_OUTPUT)" \
+		--gc-result "$(GC_FIXTURE_OUTPUT)" \
+		--output "$(GC_OUTPUT)"
 
 ledger: check
 	cd "$(REPO_ROOT)" && set -- \
@@ -129,4 +138,5 @@ verify:
 		tests/test_production_promotion_maintenance_identity.py \
 		tests/test_production_promotion_data_protection.py \
 		tests/test_production_promotion_observability.py \
+		tests/test_production_promotion_gc_retention.py \
 		tests/test_gc_filesystem_result.py

@@ -258,11 +258,28 @@ credentials, tokens, and log contents do not. The local observability fixtures
 and retained same-host preview prove implementation contracts only and cannot
 produce this `adapter=openstack`, `non_synthetic=true` specialist result.
 
-To refresh the accepted disposable filesystem GC specialist result first:
+The disposable filesystem harness remains the first GC step:
 
 ```text
 make -C poc/gc-retention/filesystem promotion-evidence
 ```
+
+That mode-0600 result is deliberately fixed to its exact Distribution version,
+revision, image, collector, authorization, survivor, restore, and teardown
+sources. It is not consumed directly by the promotion ledger. Bind it to the
+candidate-qualified release and immutable-artifact transaction with:
+
+```text
+make -C poc/production-promotion gc-retention-result
+```
+
+The wrapper exits `3` before reading missing artifact or GC paths while release
+readiness is blocked. It also refuses a perfectly valid older filesystem
+result when its Distribution version or revision differs from the qualified
+release. This prevents the currently accepted v3.1.1 fixture from remaining a
+passed production gate after a future Distribution release transition. The
+filesystem harness and its exact pin must be updated and rerun for that release
+before `gc_retention` can pass again.
 
 The final enforcement target is:
 

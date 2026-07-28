@@ -99,20 +99,26 @@ def release(status: str = "blocked") -> dict[str, object]:
 def gc_result() -> dict[str, object]:
     return {
         "authorization_consumed": True,
-        "candidate_count": ledger.GC_RESULT.EXPECTED_CANDIDATES,
+        "candidate_count": ledger.GC_RESULT.GC_RESULT.EXPECTED_CANDIDATES,
         "candidate_set_hash": f"sha256:{'1' * 64}",
         "cleanup_verified": True,
         "delete_untagged": False,
         "distribution": {
-            "image": ledger.GC_RESULT.IMAGE,
-            "revision": ledger.GC_RESULT.REVISION,
-            "version": ledger.GC_RESULT.VERSION,
+            "image": ledger.GC_RESULT.GC_RESULT.IMAGE,
+            "revision": ledger.GC_RESULT.GC_RESULT.REVISION,
+            "version": ledger.GC_RESULT.GC_RESULT.VERSION,
         },
         "dry_run_count": 2,
+        "input_gc_result_sha256": f"sha256:{'2' * 64}",
         "logical_bytes_reclaimed": (
-            ledger.GC_RESULT.EXPECTED_RECLAIMED_BYTES
+            ledger.GC_RESULT.GC_RESULT.EXPECTED_RECLAIMED_BYTES
         ),
         "physical_backend": "filesystem",
+        "prerequisites": {
+            "artifact_result_sha256": f"sha256:{'5' * 64}",
+            "release_readiness_sha256": f"sha256:{'3' * 64}",
+        },
+        "production_candidate": True,
         "residue": {
             "containers": 0,
             "networks": 0,
@@ -122,8 +128,10 @@ def gc_result() -> dict[str, object]:
         "restore_verified": True,
         "schema": ledger.GC_RESULT.SCHEMA,
         "source": ledger.GC_RESULT.source_hashes(),
-        "survivor_class_count": ledger.GC_RESULT.EXPECTED_SURVIVORS,
-        "survivor_classes_hash": f"sha256:{'2' * 64}",
+        "survivor_class_count": (
+            ledger.GC_RESULT.GC_RESULT.EXPECTED_SURVIVORS
+        ),
+        "survivor_classes_hash": f"sha256:{'3' * 64}",
     }
 
 
@@ -486,10 +494,12 @@ def observability_result() -> dict[str, object]:
     return result
 
 
-def test_blocked_release_and_passed_gc_are_reported_independently() -> None:
+def test_blocked_release_and_release_bound_gc_are_reported_independently() -> None:
     result = ledger.compile_ledger(
         release_readiness=release(),
         release_digest=f"sha256:{'3' * 64}",
+        artifact_result=artifact_result(),
+        artifact_digest=f"sha256:{'5' * 64}",
         gc_result=gc_result(),
         gc_digest=f"sha256:{'4' * 64}",
         today=date(2026, 7, 28),
@@ -499,14 +509,14 @@ def test_blocked_release_and_passed_gc_are_reported_independently() -> None:
     assert result["status"] == "blocked"
     assert result["production_candidate"] is False
     assert result["blocked_gates"] == ["release_inputs"]
-    assert result["passed_gate_count"] == 1
+    assert result["passed_gate_count"] == 2
     assert gates["release_inputs"]["status"] == "blocked"
     assert gates["gc_retention"]["status"] == "passed"
     assert gates["gc_retention"]["evidence"] == {
         "schema": ledger.GC_RESULT.SCHEMA,
         "sha256": f"sha256:{'4' * 64}",
     }
-    assert len(result["pending_gates"]) == 8
+    assert len(result["pending_gates"]) == 7
 
 
 def test_valid_artifact_and_gc_specialists_pass_only_their_gates() -> None:
@@ -692,6 +702,8 @@ def test_stale_release_or_invalid_gc_result_fails_closed() -> None:
         ledger.compile_ledger(
             release_readiness=release(),
             release_digest=f"sha256:{'3' * 64}",
+            artifact_result=artifact_result(),
+            artifact_digest=f"sha256:{'5' * 64}",
             gc_result=changed_gc,
             gc_digest=f"sha256:{'4' * 64}",
             today=date(2026, 7, 28),
@@ -710,6 +722,24 @@ def test_gc_result_and_digest_are_atomic_inputs() -> None:
         ledger.compile_ledger(
             release_readiness=release(),
             release_digest=f"sha256:{'3' * 64}",
+            gc_digest=f"sha256:{'4' * 64}",
+            today=date(2026, 7, 28),
+        )
+
+    changed_binding = gc_result()
+    changed_binding["prerequisites"]["release_readiness_sha256"] = (
+        f"sha256:{'0' * 64}"
+    )
+    with pytest.raises(
+        ledger.PromotionLedgerError,
+        match="prerequisite binding",
+    ):
+        ledger.compile_ledger(
+            release_readiness=release(),
+            release_digest=f"sha256:{'3' * 64}",
+            artifact_result=artifact_result(),
+            artifact_digest=f"sha256:{'5' * 64}",
+            gc_result=changed_binding,
             gc_digest=f"sha256:{'4' * 64}",
             today=date(2026, 7, 28),
         )

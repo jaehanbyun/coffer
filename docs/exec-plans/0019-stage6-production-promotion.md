@@ -3087,6 +3087,42 @@ operator-local release.
   Distribution release/result transaction instead of allowing the current
   v3.1.1 filesystem proof to survive a future release transition.
 
+### 2026-07-28 — GC promotion result bound to the exact release
+
+- Gap closed: The canonical ledger previously accepted the source-bound
+  v3.1.1 filesystem GC result directly. That proof is valid for its fixture,
+  but it had no release-readiness or immutable-artifact digest and could have
+  remained passed after a future Distribution release transition.
+- Production wrapper: Added
+  `coffer.production-promotion-gc-retention-result/v1`. It validates
+  candidate-qualified release readiness and the exact artifact result before
+  opening the filesystem specialist result, then requires the GC version and
+  revision to equal that qualified Distribution release. A valid older result
+  now fails closed even when its cleanup, restore, authorization, survivors,
+  and residue are otherwise perfect.
+- Ledger/CLI boundary: `gc_retention` now accepts only the wrapper and checks
+  its release/artifact prerequisite digests. The raw
+  `gc-filesystem-result.json` is never consumed directly. The Makefile exposes
+  `gc-retention-result`; current release blocking exits `3` before the missing
+  artifact or raw GC path is read and creates no wrapper output.
+- Honest current disposition: The retained v3.1.1 filesystem fixture remains
+  useful local evidence but no longer passes the production gate. The
+  current-source owner-mode-0600 ledger SHA-256 is
+  `8e24eb36a6119ba9ee83d61a5ee783a8af88f4dcd155fb34aa0c36c775d375a6`;
+  it now derives zero passed, one blocked, nine pending, and
+  `production_candidate=false`.
+- Verification: Six production GC wrapper tests, twenty-three combined
+  wrapper/ledger tests, all 102 promotion-harness tests, and all 1,772
+  repository tests pass. Focused Ruff E/F/I, compilation, diff checks, direct
+  exit-3 refusal, output absence, and ledger mode/digest inspection pass.
+- Changed files: Production GC compiler and tests, ledger and Makefile
+  integration, promotion README, this plan, and `HANDOFF.md`.
+- Next exact action: Add the representative load/soak/fault specialist result.
+  It must bind release, artifacts, RGW/KMS, maintenance identity, data
+  protection, observability, and exact-release GC, then accept only the
+  non-synthetic private-TLS/shared-SQL/RGW client, upload, quota-contention,
+  Galera, fencing, dependency-fault, saturation, recovery, and teardown matrix.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -3138,6 +3174,12 @@ operator-local release.
 | Promotion harness after observability integration | `make -C poc/production-promotion verify` | passed; 96 |
 | Canonical ledger after observability integration | direct `ledger.py` compilation from owner-only release and GC results after GitHub API rate limit; mode and SHA inspection | passed; 1 passed, 1 blocked, 8 pending, mode 0600, `production_candidate=false` |
 | Post-observability-contract full Python regression | `uv run pytest -q` | passed; 1766 |
+| Exact-release production GC wrapper | `uv run pytest -q tests/test_production_promotion_gc_retention.py` | passed; 6 |
+| Production GC plus canonical ledger contract | `uv run pytest -q tests/test_production_promotion_gc_retention.py tests/test_production_promotion_ledger.py` | passed; 23 |
+| Current production GC refusal | direct `gc_retention.py` invocation with the same-day blocked readiness result and missing artifact path | passed; exit 3 before downstream reads, no result created |
+| Promotion harness after GC release binding | `make -C poc/production-promotion verify` | passed; 102 |
+| Canonical ledger after GC release binding | direct `ledger.py` compilation from the owner-only release result; mode and SHA inspection | passed; 0 passed, 1 blocked, 9 pending, mode 0600, `production_candidate=false` |
+| Post-GC-release-binding full Python regression | `uv run pytest -q` | passed; 1772 |
 | Full Python regression | `uv run pytest -q` | passed; 310 |
 | Kolla companion-role regression | `make -C poc/kolla-ansible-role verify` | passed; 68 |
 | Maintenance identity code/config inventory | Focused inspection of live comparison, reconciliation runner/probe, WSGI, Kolla config, secrets, and Stage 5 inputs | passed |
@@ -3371,11 +3413,13 @@ operator-local release.
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
-- Exact next action: Add an exact-release production wrapper around the
-  existing filesystem GC specialist result and bind it into the canonical
-  ledger. The current v3.1.1 fixture must not remain a passed
-  `gc_retention` gate after a future Distribution release transition. Do not
-  invoke the live pilot while official release readiness remains blocked.
+- Exact next action: Add
+  `poc/production-promotion/load_soak.py` as the source-bound specialist result.
+  It must validate release, artifact, RGW/KMS, maintenance identity, data
+  protection, observability, and exact-release GC digests before accepting the
+  non-synthetic private-TLS/shared-SQL/RGW client, quota/Galera/fencing,
+  dependency-fault, saturation, recovery, and teardown matrix. Do not invoke
+  the live pilot while official release readiness remains blocked.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

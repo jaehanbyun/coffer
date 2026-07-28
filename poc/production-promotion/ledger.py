@@ -16,7 +16,7 @@ from typing import Any
 DIRECTORY = Path(__file__).resolve().parent
 ROOT = DIRECTORY.parents[1]
 READINESS_SOURCE = DIRECTORY / "readiness.py"
-GC_RESULT_SOURCE = ROOT / "poc" / "gc-retention" / "filesystem" / "result.py"
+GC_RESULT_SOURCE = DIRECTORY / "gc_retention.py"
 ARTIFACT_RESULT_SOURCE = DIRECTORY / "artifacts.py"
 RGW_KMS_RESULT_SOURCE = DIRECTORY / "rgw_kms.py"
 MAINTENANCE_IDENTITY_RESULT_SOURCE = DIRECTORY / "maintenance_identity.py"
@@ -551,12 +551,27 @@ def compile_ledger(
     else:
         if gc_digest is None:
             raise PromotionLedgerError("GC specialist result digest is required")
+        if artifact_result is None or artifact_digest is None:
+            raise PromotionLedgerError(
+                "GC prerequisite artifact result is absent"
+            )
         try:
             qualified_gc = GC_RESULT.validate_final_result(gc_result)
-        except GC_RESULT.GCResultError as error:
+        except GC_RESULT.ProductionGCResultError as error:
             raise PromotionLedgerError(
                 "GC specialist result is invalid"
             ) from error
+        prerequisites = _mapping(
+            qualified_gc["prerequisites"],
+            "GC prerequisites",
+        )
+        if prerequisites != {
+            "artifact_result_sha256": artifact_digest,
+            "release_readiness_sha256": release_digest,
+        }:
+            raise PromotionLedgerError(
+                "GC prerequisite binding changed"
+            )
         gates["gc_retention"] = {
             "evidence": _evidence(qualified_gc["schema"], gc_digest),
             "reason": None,
