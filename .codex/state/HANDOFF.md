@@ -104,9 +104,20 @@ repository's final path segment, and pushes to the parent OCI namespace so
 Helm's appended chart name resolves to the selected repository. Exact Horizon
 and Skyline tests and package builds pass with newly pinned wheel hashes. The
 corrected complete repository regression passes 1,872 tests. The next action
-is committing this milestone, refreshing only the two dashboard images, and
-verifying the deployed guide and artifact API before final browser QA. Plan
-0019 remains unchanged.
+was committing this milestone and refreshing only the two dashboard images.
+Commit `33ae727` is pushed. The Kolla companion reconfigure completed with
+`ok=117`, `changed=9`, and zero failed. Horizon is healthy on
+`sha256:528c6fe5443624660297f0f7f160f307070ea3820aaa0f01adfd0da4a82b24a5`;
+Skyline is healthy on
+`sha256:5e2519a8ac51f9b301ba3c38c3c2bb4232a4bd549b34e4405eef96d5210b2082`.
+Both deployed assets contain the corrected Helm guide, and the four-row
+project-scoped artifact acceptance reran successfully after replacement.
+
+No credential was entered into browser automation. Plan 0029 remains active
+only for an authenticated owner-session desktop/narrow visual comparison
+against the supplied reference. Implementation, packages, deployed assets,
+runtime health, API data, client execution, isolation, and regression are
+verified. Plan 0019 remains unchanged.
 
 Complete every Stage 6 production promotion gate without weakening accepted
 release, security, storage, identity, data-protection, operability, or teardown

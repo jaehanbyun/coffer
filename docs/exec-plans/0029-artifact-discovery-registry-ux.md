@@ -102,9 +102,9 @@ Distribution, SQL, or the selected object-storage backend directly.
 - [x] Extend immutable UI images and Kolla artifact/config verification.
 - [ ] Run local visual/interaction QA at desktop and narrow viewports and close
       all P0/P1/P2 findings.
-- [ ] Deploy to the retained preview, run the real-client and two-project
+- [x] Deploy to the retained preview, run the real-client and two-project
       acceptance matrix, and inspect both dashboards.
-- [ ] Run final regression and security checks; update this plan and
+- [x] Run final regression and security checks; update this plan and
       `HANDOFF.md`; commit and push atomic milestones.
 
 ## Progress Log
@@ -285,6 +285,30 @@ Distribution, SQL, or the selected object-storage backend directly.
   the two pinned wheels on the retained guest, refresh Horizon and Skyline,
   and verify the deployed bundles and artifact API before final regression.
 
+### 2026-07-28 — Corrected dashboard images deployed
+
+- Completed: Pushed commit `33ae727`, staged only the two hash-pinned wheels,
+  independently refreshed Horizon and Skyline, and ran the Kolla companion
+  reconfigure transaction. It completed with `ok=117`, `changed=9`, zero
+  unreachable and zero failed.
+- Runtime evidence: Horizon is healthy on
+  `sha256:528c6fe5443624660297f0f7f160f307070ea3820aaa0f01adfd0da4a82b24a5`;
+  Skyline is healthy on
+  `sha256:5e2519a8ac51f9b301ba3c38c3c2bb4232a4bd549b34e4405eef96d5210b2082`.
+  The public Horizon login redirect, Skyline page, and registry authentication
+  challenge return their expected 302, 200, and 401 responses.
+- Deployed-content evidence: The Horizon template and Skyline production
+  bundle contain the dedicated Helm login and corrected chart commands. The
+  project-scoped artifact acceptance reran after replacement and again passed
+  with four rows and project-B denial.
+- Boundary: No credential was moved into a browser automation session. Live
+  authenticated visual comparison remains an owner-session QA item; exact
+  adapters, interaction tests, packages, deployed assets, runtime health, and
+  API data are verified.
+- Next exact action: Have the owner inspect the retained authenticated desktop
+  and narrow states against the supplied reference; record any visible P0/P1/P2
+  discrepancy before closing plan 0029.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -306,7 +330,8 @@ Distribution, SQL, or the selected object-storage backend directly.
 | Retained artifact API acceptance | public API with project A/B application credentials | passed; 4 artifact rows, search/detail/keyset/Helm classification, project B 404 |
 | Executable connection guides | client unit tests; exact Horizon and Skyline package builds | passed; dedicated Helm login and correct repository path |
 | Corrected complete repository regression | `uv run --extra client pytest -q` | passed; 1,872 |
-| Full implementation and visual QA | pending | pending |
+| Corrected retained dashboard rollout | bounded wheel refresh; Kolla companion reconfigure; runtime and asset probes | passed; `ok=117`, `changed=9`, zero failed; both dashboards healthy |
+| Authenticated desktop/narrow visual comparison | owner browser session | pending; no credential entered into automation |
 
 ## Failures, Blockers, and Risks
 
@@ -322,12 +347,14 @@ Distribution, SQL, or the selected object-storage backend directly.
 
 ## Handoff
 
-- Current state: Active; artifact projection, admission enforcement, public
-  API/OpenAPI/client and both Horizon and Skyline artifact
-  browsers/connection guides and exact retained-preview image delivery
-  transactions are complete locally.
-- Exact next action: Stage the two newly pinned dashboard wheels on the retained
-  guest, run the independent Horizon and Skyline refresh transactions, and
-  verify the deployed guide text and artifact API result.
-- First file or command: `gh auth status`
+- Current state: Active only for authenticated desktop/narrow visual
+  comparison. Artifact projection, admission enforcement, public
+  API/OpenAPI/client, both Horizon and Skyline artifact browsers and executable
+  connection guides, exact image delivery, retained deployment, real-client
+  acceptance, and final repository regression are complete.
+- Exact next action: Inspect the retained repository detail and connection
+  dialog in the owner's authenticated browser session at desktop and narrow
+  widths, recording only actionable P0/P1/P2 discrepancies.
+- First file or command: Open the retained Horizon or Skyline address and
+  select **Project → Registry → Repositories → preview-proof**.
 - Questions requiring user input: None.
