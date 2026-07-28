@@ -236,14 +236,22 @@ Only owner-readable evidence remains; trial images, archives, contexts, wheels,
 scanner caches, and the harness-started Podman machine are absent.
 
 `check-oslo-messaging` validates the separate stable-release gate. The
-checked-in observation records that the `stable/2026.1` fix is merged but PyPI
-still has only `17.3.0` in the `17.3` series and the official upper constraint
-remains `oslo.messaging===17.3.0`. A future release must be at least `17.3.1`,
-contain the stable patch and hostname-verification source probe, publish
-non-yanked wheel and sdist artifacts, and update the stable constraint. It
-then remains only `candidate-released` until exact artifacts and both Horizon
-and Skyline runtime/scanner evidence qualify it. Even
-`candidate-qualified` keeps the independent production gates closed.
+checked-in observation records the reviewed baseline, while the production
+preflight and the standalone check refresh `current_observation` in memory
+from the exact official PyPI JSON and OpenDev `stable/2026.1` upper constraints
+on every invocation. They never rewrite the checked-in contract. Direct CLI
+inspection may use `--offline-contract` only to validate the reviewed baseline;
+that mode is not current release evidence.
+
+A future release must be at least `17.3.1`, be selected by the exact stable
+constraint, publish one non-yanked universal wheel and one sdist with SHA-256
+digests, resolve through the official OpenDev tag to a full commit, contain
+the exact stable patch in the bounded source history, and retain the
+hostname-verification source probe. Official payloads are HTTPS-only,
+size-bounded, redirect-refused, and exact-schema parsed. The result then
+remains only `candidate-released` until exact artifacts and both Horizon and
+Skyline runtime/scanner evidence qualify it. Even `candidate-qualified` keeps
+the independent production gates closed.
 
 Both `trivy` and `scout` keys are mandatory;
 each scanner may have an empty expected set, but their union must be nonempty,

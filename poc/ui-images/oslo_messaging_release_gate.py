@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
-from collections.abc import Mapping
+import urllib.error
+import urllib.request
+from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass
+from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+from urllib.parse import quote
 
 from collect_python_trial import CollectionError, atomic_json
 
@@ -38,6 +44,25 @@ SHA1 = re.compile(r"^[0-9a-f]{40}$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 VERSION = re.compile(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$")
 DATE = re.compile(r"^20[0-9]{2}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])$")
+PYPI_METADATA_URL = "https://pypi.org/pypi/oslo.messaging/json"
+UPPER_CONSTRAINTS_URL = (
+    "https://opendev.org/openstack/requirements/raw/branch/"
+    "stable/2026.1/upper-constraints.txt"
+)
+SOURCE_TEMPLATE = (
+    "https://opendev.org/openstack/oslo.messaging/raw/tag/"
+    "{version}/oslo_messaging/_drivers/impl_rabbit.py"
+)
+COMMIT_SOURCE_TEMPLATE = (
+    "https://opendev.org/openstack/oslo.messaging/raw/commit/"
+    "{revision}/oslo_messaging/_drivers/impl_rabbit.py"
+)
+OPENDEV_API = (
+    "https://opendev.org/api/v1/repos/openstack/oslo.messaging"
+)
+SOURCE_PATH = "oslo_messaging/_drivers/impl_rabbit.py"
+SOURCE_PROBE = b"ssl_enforce_hostname_verification"
+MAX_OFFICIAL_METADATA_BYTES = 8 * 1024 * 1024
 
 
 class ReleaseGateError(RuntimeError):
@@ -84,6 +109,232 @@ def _revision(value: object, pattern: re.Pattern[str], label: str) -> str:
     if not isinstance(value, str) or pattern.fullmatch(value) is None:
         raise ReleaseGateError(f"{label} is invalid")
     return value
+
+
+def _official_bytes(url: str) -> bytes:
+    if not url.startswith("https://"):
+        raise ReleaseGateError("official metadata URL is invalid")
+    request = urllib.request.Request(
+        url,
+        headers={"User-Agent": "coffer-oslo-messaging-release-observer"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            if response.geturl() != url:
+                raise ReleaseGateError(
+                    "official metadata redirect is not accepted"
+                )
+            payload = response.read(MAX_OFFICIAL_METADATA_BYTES + 1)
+    except ReleaseGateError:
+        raise
+    except (OSError, urllib.error.URLError) as error:
+        raise ReleaseGateError(
+            "official release metadata is unavailable"
+        ) from error
+    if not payload or len(payload) > MAX_OFFICIAL_METADATA_BYTES:
+        raise ReleaseGateError("official release metadata size is invalid")
+    return payload
+
+
+def _official_json(url: str) -> object:
+    payload = _official_bytes(url)
+    try:
+        return json.loads(payload)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ReleaseGateError(
+            "official release metadata JSON is invalid"
+        ) from error
+
+
+def _payload_bytes(value: object, label: str) -> bytes:
+    if (
+        not isinstance(value, bytes)
+        or not value
+        or len(value) > MAX_OFFICIAL_METADATA_BYTES
+    ):
+        raise ReleaseGateError(f"{label} is invalid")
+    return value
+
+
+def _metadata_json(
+    reader: Callable[[str], object],
+    url: str,
+    label: str,
+) -> object:
+    try:
+        return reader(url)
+    except ReleaseGateError:
+        raise
+    except Exception as error:
+        raise ReleaseGateError(f"{label} is unavailable") from error
+
+
+def _metadata_bytes(
+    reader: Callable[[str], bytes],
+    url: str,
+    label: str,
+) -> bytes:
+    try:
+        return _payload_bytes(reader(url), label)
+    except ReleaseGateError:
+        raise
+    except Exception as error:
+        raise ReleaseGateError(f"{label} is unavailable") from error
+
+
+def _tag_revision(
+    version: str,
+    reader: Callable[[str], object],
+) -> str:
+    reference_url = f"{OPENDEV_API}/git/refs/tags/{version}"
+    raw_references = _metadata_json(
+        reader,
+        reference_url,
+        "OpenDev tag reference",
+    )
+    if not isinstance(raw_references, list) or len(raw_references) != 1:
+        raise ReleaseGateError("OpenDev tag reference is invalid")
+    reference = _exact_keys(
+        raw_references[0],
+        {"object", "ref", "url"},
+        "OpenDev tag reference",
+    )
+    if reference.get("ref") != f"refs/tags/{version}":
+        raise ReleaseGateError("OpenDev tag reference is invalid")
+    target = _exact_keys(
+        reference.get("object"),
+        {"sha", "type", "url"},
+        "OpenDev tag target",
+    )
+    target_sha = _revision(
+        target.get("sha"),
+        SHA1,
+        "OpenDev tag target revision",
+    )
+    if target.get("type") == "commit":
+        return target_sha
+    if target.get("type") != "tag":
+        raise ReleaseGateError("OpenDev tag target is invalid")
+
+    tag_url = f"{OPENDEV_API}/git/tags/{target_sha}"
+    tag = _exact_keys(
+        _metadata_json(reader, tag_url, "OpenDev annotated tag"),
+        {
+            "message",
+            "object",
+            "sha",
+            "tag",
+            "tagger",
+            "url",
+            "verification",
+        },
+        "OpenDev annotated tag",
+    )
+    if tag.get("sha") != target_sha or tag.get("tag") != version:
+        raise ReleaseGateError("OpenDev annotated tag is invalid")
+    commit = _exact_keys(
+        tag.get("object"),
+        {"sha", "type", "url"},
+        "OpenDev annotated tag target",
+    )
+    if commit.get("type") != "commit":
+        raise ReleaseGateError("OpenDev annotated tag target is invalid")
+    return _revision(
+        commit.get("sha"),
+        SHA1,
+        "OpenDev release revision",
+    )
+
+
+def _contains_stable_patch(
+    revision: str,
+    reader: Callable[[str], object],
+) -> bool:
+    history_url = (
+        f"{OPENDEV_API}/commits?sha={revision}&path="
+        f"{quote(SOURCE_PATH, safe='')}&limit=50"
+    )
+    history = _metadata_json(
+        reader,
+        history_url,
+        "OpenDev release source history",
+    )
+    if not isinstance(history, list) or not history or len(history) > 50:
+        raise ReleaseGateError("OpenDev release source history is invalid")
+    revisions = []
+    for raw in history:
+        commit = _mapping(raw, "OpenDev release source commit")
+        revisions.append(
+            _revision(
+                commit.get("sha"),
+                SHA1,
+                "OpenDev release source revision",
+            )
+        )
+    return STABLE_PATCH_REVISION in revisions
+
+
+def _constraint(payload: bytes) -> tuple[str, Version]:
+    try:
+        lines = payload.decode("utf-8").splitlines()
+    except UnicodeDecodeError as error:
+        raise ReleaseGateError(
+            "stable upper constraints are invalid"
+        ) from error
+    matches = [
+        line.strip()
+        for line in lines
+        if line.strip().startswith("oslo.messaging===")
+    ]
+    if len(matches) != 1:
+        raise ReleaseGateError(
+            "stable upper constraint is missing or ambiguous"
+        )
+    value = matches[0].removeprefix("oslo.messaging===")
+    return matches[0], Version.parse(value)
+
+
+def _pypi_artifacts(
+    releases: Mapping[str, Any],
+    version: str,
+) -> list[dict[str, Any]]:
+    raw_files = releases.get(version)
+    if not isinstance(raw_files, list):
+        raise ReleaseGateError("fixed stable release artifacts are invalid")
+    by_type: dict[str, dict[str, Any]] = {}
+    expected_names = {
+        "bdist_wheel": f"oslo_messaging-{version}-py3-none-any.whl",
+        "sdist": f"oslo_messaging-{version}.tar.gz",
+    }
+    for raw in raw_files:
+        file = _mapping(raw, "PyPI release artifact")
+        package_type = file.get("packagetype")
+        if package_type not in expected_names:
+            continue
+        if (
+            file.get("filename") != expected_names[package_type]
+            or package_type in by_type
+        ):
+            raise ReleaseGateError(
+                "fixed stable release artifacts are ambiguous"
+            )
+        digests = _mapping(
+            file.get("digests"),
+            "PyPI release artifact digests",
+        )
+        by_type[package_type] = {
+            "filename": expected_names[package_type],
+            "packagetype": package_type,
+            "sha256": _revision(
+                digests.get("sha256"),
+                SHA256,
+                "PyPI release artifact SHA-256",
+            ),
+            "yanked": file.get("yanked"),
+        }
+    if set(by_type) != set(expected_names):
+        raise ReleaseGateError("fixed stable release artifacts are incomplete")
+    return [by_type["bdist_wheel"], by_type["sdist"]]
 
 
 def _release_artifacts(value: object, version: str) -> tuple[dict[str, Any], ...]:
@@ -225,6 +476,140 @@ def _qualification(
     }
 
 
+def refresh_current_observation(
+    value: object,
+    *,
+    read_json: Callable[[str], object] = _official_json,
+    read_bytes: Callable[[str], bytes] = _official_bytes,
+    observed_on: date | None = None,
+) -> dict[str, Any]:
+    contract = deepcopy(dict(_mapping(value, "oslo.messaging release gate")))
+    metadata = _mapping(
+        contract.get("upstream_metadata"),
+        "oslo.messaging upstream metadata",
+    )
+    stable = _mapping(
+        contract.get("stable_series"),
+        "oslo.messaging stable series",
+    )
+    policy = _mapping(
+        contract.get("candidate_policy"),
+        "oslo.messaging candidate policy",
+    )
+    if (
+        metadata.get("pypi") != PYPI_METADATA_URL
+        or metadata.get("source_template") != SOURCE_TEMPLATE
+        or stable.get("upper_constraints") != UPPER_CONSTRAINTS_URL
+        or policy.get("series") != "17.3"
+        or policy.get("minimum_version") != "17.3.1"
+        or policy.get("source_probe") != SOURCE_PROBE.decode("ascii")
+    ):
+        raise ReleaseGateError(
+            "oslo.messaging observer policy is invalid"
+        )
+
+    pypi = _mapping(
+        _metadata_json(
+            read_json,
+            PYPI_METADATA_URL,
+            "PyPI oslo.messaging metadata",
+        ),
+        "PyPI oslo.messaging metadata",
+    )
+    info = _mapping(
+        pypi.get("info"),
+        "PyPI oslo.messaging package information",
+    )
+    latest = Version.parse(info.get("version"))
+    releases = _mapping(
+        pypi.get("releases"),
+        "PyPI oslo.messaging releases",
+    )
+    stable_versions: list[Version] = []
+    for raw_version in releases:
+        try:
+            parsed = Version.parse(raw_version)
+        except ReleaseGateError:
+            continue
+        if (parsed.major, parsed.minor) == (17, 3):
+            stable_versions.append(parsed)
+    stable_versions = sorted(set(stable_versions))
+    if not stable_versions:
+        raise ReleaseGateError(
+            "PyPI has no oslo.messaging 17.3 stable release"
+        )
+
+    constraint_payload = _metadata_bytes(
+        read_bytes,
+        UPPER_CONSTRAINTS_URL,
+        "stable upper constraints",
+    )
+    constraint_line, constraint_version = _constraint(
+        constraint_payload
+    )
+    if (constraint_version.major, constraint_version.minor) != (17, 3):
+        raise ReleaseGateError(
+            "stable upper constraint is outside the 17.3 series"
+        )
+    if constraint_version not in stable_versions:
+        raise ReleaseGateError(
+            "stable upper constraint release is absent from PyPI"
+        )
+
+    minimum = Version.parse(policy.get("minimum_version"))
+    fixed_release: dict[str, Any] | None = None
+    if constraint_version >= minimum:
+        version_text = str(constraint_version)
+        tag_revision = _tag_revision(
+            version_text,
+            read_json,
+        )
+        source_url = COMMIT_SOURCE_TEMPLATE.format(
+            revision=tag_revision,
+        )
+        source = _metadata_bytes(
+            read_bytes,
+            source_url,
+            "fixed stable release source",
+        )
+        contains_patch = _contains_stable_patch(
+            tag_revision,
+            read_json,
+        )
+        source_probe_present = SOURCE_PROBE in source
+        if not contains_patch or not source_probe_present:
+            raise ReleaseGateError(
+                "fixed stable release lacks the accepted stable patch"
+            )
+        fixed_release = {
+            "artifacts": _pypi_artifacts(
+                releases,
+                version_text,
+            ),
+            "contains_stable_patch": True,
+            "source_probe_present": True,
+            "source_sha256": hashlib.sha256(source).hexdigest(),
+            "tag_revision": tag_revision,
+            "version": version_text,
+        }
+
+    current = (
+        datetime.now(tz=UTC).date()
+        if observed_on is None
+        else observed_on
+    )
+    contract["current_observation"] = {
+        "as_of": current.isoformat(),
+        "fixed_stable_release": fixed_release,
+        "pypi_latest": str(latest),
+        "stable_releases": [
+            str(version) for version in stable_versions
+        ],
+        "upper_constraint": constraint_line,
+    }
+    return contract
+
+
 def classify(value: object) -> dict[str, Any]:
     contract = _exact_keys(
         value,
@@ -304,8 +689,7 @@ def classify(value: object) -> dict[str, Any]:
         or stable.get("patch_revision") != STABLE_PATCH_REVISION
         or stable.get("release_notes")
         != "https://docs.openstack.org/releasenotes/oslo.messaging/2026.1.html"
-        or stable.get("upper_constraints")
-        != "https://opendev.org/openstack/requirements/raw/branch/stable/2026.1/upper-constraints.txt"
+        or stable.get("upper_constraints") != UPPER_CONSTRAINTS_URL
     ):
         raise ReleaseGateError("oslo.messaging stable series is invalid")
 
@@ -385,18 +769,31 @@ def classify(value: object) -> dict[str, Any]:
         "oslo.messaging upstream metadata",
     )
     if (
-        metadata.get("pypi") != "https://pypi.org/pypi/oslo.messaging/json"
-        or metadata.get("source_template")
-        != "https://opendev.org/openstack/oslo.messaging/raw/tag/{version}/oslo_messaging/_drivers/impl_rabbit.py"
+        metadata.get("pypi") != PYPI_METADATA_URL
+        or metadata.get("source_template") != SOURCE_TEMPLATE
     ):
         raise ReleaseGateError("oslo.messaging upstream metadata is invalid")
 
     qualification = _qualification(contract.get("qualification"), release)
     status = "blocked"
-    reasons = [
-        "stable/2026.1 has no official fixed oslo.messaging release",
-        "stable/2026.1 upper constraints remain at oslo.messaging 17.3.0",
+    candidate_releases = [
+        version for version in parsed_releases if version >= minimum
     ]
+    reasons: list[str] = []
+    if not candidate_releases:
+        reasons.append(
+            "stable/2026.1 has no official fixed oslo.messaging release"
+        )
+    if observation.get("upper_constraint") == "oslo.messaging===17.3.0":
+        reasons.append(
+            "stable/2026.1 upper constraints remain at "
+            "oslo.messaging 17.3.0"
+        )
+    elif release is None:
+        reasons.append(
+            "stable/2026.1 upper constraints do not select an accepted "
+            "fixed release"
+        )
     if release is not None:
         status = "candidate-released"
         reasons = ["fixed release still requires exact two-surface image qualification"]
@@ -436,7 +833,7 @@ def load_contract(path: Path) -> dict[str, Any]:
     return dict(_mapping(value, "oslo.messaging release gate"))
 
 
-def main() -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--contract",
@@ -448,10 +845,21 @@ def main() -> int:
         action="store_true",
         help="return success after validating a blocked fail-closed result",
     )
+    parser.add_argument(
+        "--offline-contract",
+        action="store_true",
+        help=(
+            "classify only the checked-in observation; default behavior "
+            "refreshes official PyPI and OpenDev metadata in memory"
+        ),
+    )
     parser.add_argument("--output", type=Path)
-    arguments = parser.parse_args()
+    arguments = parser.parse_args(argv)
     try:
-        report = classify(load_contract(arguments.contract))
+        contract = load_contract(arguments.contract)
+        if not arguments.offline_contract:
+            contract = refresh_current_observation(contract)
+        report = classify(contract)
         if arguments.output is not None:
             atomic_json(arguments.output, report)
     except (CollectionError, ReleaseGateError) as error:

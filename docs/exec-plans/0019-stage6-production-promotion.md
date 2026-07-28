@@ -3308,6 +3308,39 @@ operator-local release.
   `candidate-qualified`; the first permitted live action after that transition
   is the native amd64/arm64 immutable-artifact transaction.
 
+### 2026-07-28 — Live oslo.messaging release observer completed
+
+- Gap closed: Distribution and Ceph readiness already read current official
+  metadata, but the `oslo.messaging` path reused a dated checked-in
+  observation. After one day the unified preflight would fail stale before it
+  could detect a new stable release or constraint.
+- Official observer: The UI release gate now refreshes
+  `current_observation` in memory on every standalone and unified invocation.
+  It reads only the exact official PyPI JSON plus OpenDev stable constraints,
+  tag, source, and bounded path history endpoints. It never rewrites the
+  checked-in policy/baseline contract.
+- Fail-closed evidence: HTTPS redirects, empty/oversized/malformed payloads,
+  missing or ambiguous constraints, a selected version absent from PyPI,
+  incomplete or ambiguous wheel/sdist artifacts, invalid tag resolution,
+  missing exact stable-patch ancestry, and a missing hostname-verification
+  source probe are refused. A fixed release records exact artifact and source
+  SHA-256 plus the dereferenced OpenDev commit.
+- Transition behavior: A PyPI release remains blocked while stable/2026.1
+  constraints select 17.3.0. Once the exact fixed release is selected and
+  source-qualified it becomes only `candidate-released`; both Horizon and
+  Skyline artifact/runtime qualification are still required for
+  `candidate-qualified`.
+- Current live result: The refreshed official observation still finds only
+  oslo.messaging 17.3.0 in the stable series and the exact 17.3.0 constraint.
+  Distribution v3.1.1 and Ceph v20.2.2 remain unchanged. The source-bound
+  owner-only ledger remains zero passed, one blocked, nine pending, and
+  `production_candidate=false`. Its current-source mode-0600 SHA-256 is
+  `e59fd5342d1d92f233cf9377e85c101d4781c60dd339795044ed3bc681bdf0ff`.
+- Next exact action: Rerun the now-live preflight when official metadata
+  changes. Only `candidate-qualified` permits the native amd64/arm64 immutable
+  artifact transaction; no pilot or release-note promotion is permitted
+  before that transition.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -3319,8 +3352,13 @@ operator-local release.
 | Plan/HANDOFF structure | Markdown inspection and local-link check | passed |
 | Upstream classifier fixtures | `uv run pytest -q tests/test_upstream_readiness.py` | passed; 10 |
 | Live upstream classifier | `make -C poc/production-images check-upstream` | passed; valid `blocked` result |
-| Unified release-readiness contracts | `uv run pytest -q tests/test_production_promotion_readiness.py tests/test_upstream_readiness.py tests/test_ui_oslo_messaging_release_gate.py` | passed; 33 |
+| Unified release-readiness contracts | `uv run pytest -q tests/test_production_promotion_readiness.py tests/test_upstream_readiness.py tests/test_ui_oslo_messaging_release_gate.py` | passed; 44 |
+| Live official UI release observer | `make -C poc/ui-images check-oslo-messaging` | passed; current PyPI/OpenDev result is valid and blocked |
+| Live OpenDev tag/commit/source path | exact 17.3.0 tag dereference, commit-bound source, bounded path history, and source probe | passed; revision `3035e816b364d6ec79263316c15adebcc2c3559a`, accepted patch/probe both absent |
 | Live unified release preflight | `make -C poc/production-promotion check`; owner-only file mode and JSON inspection | passed; valid `blocked` result, five exact blockers, mode 0600 |
+| Canonical ledger after live observer | `make -C poc/production-promotion ledger`; mode, gate count, and SHA inspection | passed; 0 passed, 1 blocked, 9 pending, mode 0600, SHA-256 `e59fd5342d1d92f233cf9377e85c101d4781c60dd339795044ed3bc681bdf0ff` |
+| Promotion harness after live observer | `make -C poc/production-promotion verify` | passed; 151 |
+| Post-live-observer full Python regression | `uv run pytest -q` | passed; 1850 |
 | Promotion pipeline refusal | `make -C poc/production-promotion require-qualified` | passed; failed closed before any runtime action |
 | Post-preflight full Python regression | `uv run pytest -q` | passed; 1673 |
 | Retained-preview exact-release RGW inventory | read-only helper over verified TLS; local v3 import, replay, and independent verification | passed as anticipatory evidence; 1 project, 1 repository, 5 manifests, 9 descriptors, 2 blob alias sets, 2,214,809 logical bytes; zero remote transient residue |

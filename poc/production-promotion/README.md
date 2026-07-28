@@ -25,10 +25,13 @@ already passed its specialist qualification; `make` reports that nonzero gate
 as a failed target. It does not build an image, contact the retained preview,
 create a credential, start a VM, or mutate an OpenStack service.
 
-The UI observation is deliberately allowed to be at most one day old. Refresh
-the checked-in observation only from official PyPI and OpenStack
-`stable/2026.1` constraints metadata. An old observation fails as invalid
-evidence instead of silently reporting the last known state.
+The UI observation is deliberately allowed to be at most one day old.
+`readiness.py` now refreshes it in memory on every invocation from the exact
+official PyPI and OpenDev `stable/2026.1` constraints, tag, source, and bounded
+history endpoints; it does not rewrite the checked-in policy/baseline
+contract. An unavailable, redirected, oversized, malformed, or inconsistent
+official response fails as invalid evidence instead of silently reporting the
+last known state.
 
 `release_inputs_qualified=true` is only permission to begin the remaining
 Stage 6 sequence. The aggregate always keeps `production_candidate=false`;

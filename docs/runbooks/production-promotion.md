@@ -83,6 +83,14 @@ an unmet gate). The owner-only result is:
 work/production-promotion/release-readiness.json
 ```
 
+Every invocation reads current official Distribution/Ceph GitHub metadata,
+PyPI `oslo.messaging` release files, and OpenDev stable constraints, tag,
+source, and bounded history data. It rejects redirects, oversized or malformed
+payloads, an ambiguous constraint/artifact set, a tag that does not resolve to
+one commit, or a selected release lacking the exact stable patch and source
+probe. The checked-in UI JSON remains the reviewed policy and baseline; live
+observation happens in memory and is bound into the owner-only result.
+
 Do not continue with an unreleased branch, private wheel, mutable image tag,
 unreviewed VEX, or a result whose UI metadata is older than one day.
 

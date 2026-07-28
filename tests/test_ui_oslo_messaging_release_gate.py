@@ -3,7 +3,9 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+from datetime import date
 from pathlib import Path
+from urllib.parse import quote
 
 import pytest
 
@@ -86,6 +88,117 @@ def qualification() -> dict[str, object]:
     }
 
 
+def pypi_artifact(
+    version: str,
+    package_type: str,
+    digest: str,
+) -> dict[str, object]:
+    filename = {
+        "bdist_wheel": f"oslo_messaging-{version}-py3-none-any.whl",
+        "sdist": f"oslo_messaging-{version}.tar.gz",
+    }[package_type]
+    return {
+        "digests": {"sha256": digest},
+        "filename": filename,
+        "packagetype": package_type,
+        "yanked": False,
+    }
+
+
+def observer_metadata(
+    *,
+    candidate: bool,
+    constraint: str | None = None,
+    include_patch: bool = True,
+    include_probe: bool = True,
+) -> tuple[dict[str, object], dict[str, bytes]]:
+    releases: dict[str, object] = {
+        "17.3.0": [
+            pypi_artifact("17.3.0", "bdist_wheel", "1" * 64),
+            pypi_artifact("17.3.0", "sdist", "2" * 64),
+        ],
+        "18.2.0": [],
+    }
+    json_values: dict[str, object] = {}
+    byte_values: dict[str, bytes] = {}
+    if candidate:
+        releases["17.3.1"] = [
+            pypi_artifact("17.3.1", "bdist_wheel", "a" * 64),
+            pypi_artifact("17.3.1", "sdist", "b" * 64),
+        ]
+    json_values[MODULE.PYPI_METADATA_URL] = {
+        "info": {"version": "18.2.0"},
+        "releases": releases,
+    }
+    selected = constraint or (
+        "oslo.messaging===17.3.1"
+        if candidate
+        else "oslo.messaging===17.3.0"
+    )
+    byte_values[MODULE.UPPER_CONSTRAINTS_URL] = (
+        f"alembic===1.18.5\n{selected}\nSQLAlchemy===2.0.51\n".encode()
+    )
+    if candidate and selected == "oslo.messaging===17.3.1":
+        source_url = MODULE.COMMIT_SOURCE_TEMPLATE.format(
+            revision="d" * 40
+        )
+        source = b"ssl = config\n"
+        if include_probe:
+            source += MODULE.SOURCE_PROBE + b" = True\n"
+        byte_values[source_url] = source
+        history_url = (
+            f"{MODULE.OPENDEV_API}/commits?sha={'d' * 40}&path="
+            f"{quote(MODULE.SOURCE_PATH, safe='')}&limit=50"
+        )
+        history = [{"sha": "9" * 40}]
+        if include_patch:
+            history.insert(0, {"sha": MODULE.STABLE_PATCH_REVISION})
+        json_values[history_url] = history
+        reference_url = (
+            f"{MODULE.OPENDEV_API}/git/refs/tags/17.3.1"
+        )
+        json_values[reference_url] = [
+            {
+                "object": {
+                    "sha": "e" * 40,
+                    "type": "tag",
+                    "url": "ignored",
+                },
+                "ref": "refs/tags/17.3.1",
+                "url": reference_url,
+            }
+        ]
+        tag_url = f"{MODULE.OPENDEV_API}/git/tags/{'e' * 40}"
+        json_values[tag_url] = {
+            "message": "oslo.messaging 17.3.1 release",
+            "object": {
+                "sha": "d" * 40,
+                "type": "commit",
+                "url": "ignored",
+            },
+            "sha": "e" * 40,
+            "tag": "17.3.1",
+            "tagger": {},
+            "url": tag_url,
+            "verification": {},
+        }
+    return json_values, byte_values
+
+
+def refresh_with(
+    json_values: dict[str, object],
+    byte_values: dict[str, bytes],
+    *,
+    observed_on: date = date(2026, 7, 29),
+) -> dict[str, object]:
+    return MODULE.refresh_current_observation(
+        contract_fixture(),
+        read_json=lambda url: json_values[url],
+        read_bytes=lambda url: byte_values[url],
+        observed_on=observed_on,
+    )
+
+
 def test_current_official_stable_release_state_is_blocked() -> None:
     result = MODULE.classify(contract_fixture())
 
@@ -102,6 +215,144 @@ def test_current_official_stable_release_state_is_blocked() -> None:
         "stable/2026.1 has no official fixed oslo.messaging release",
         "stable/2026.1 upper constraints remain at oslo.messaging 17.3.0",
     ]
+
+
+def test_official_observer_refreshes_blocked_state_without_source_probe() -> None:
+    json_values, byte_values = observer_metadata(candidate=False)
+    original = contract_fixture()
+
+    refreshed = refresh_with(json_values, byte_values)
+
+    assert original["current_observation"]["as_of"] == "2026-07-28"
+    assert refreshed["current_observation"] == {
+        "as_of": "2026-07-29",
+        "fixed_stable_release": None,
+        "pypi_latest": "18.2.0",
+        "stable_releases": ["17.3.0"],
+        "upper_constraint": "oslo.messaging===17.3.0",
+    }
+    assert MODULE.classify(refreshed)["status"] == "blocked"
+
+
+def test_official_observer_builds_exact_candidate_release() -> None:
+    json_values, byte_values = observer_metadata(candidate=True)
+
+    refreshed = refresh_with(json_values, byte_values)
+    release = refreshed["current_observation"]["fixed_stable_release"]
+
+    assert release == {
+        "artifacts": [
+            {
+                "filename": "oslo_messaging-17.3.1-py3-none-any.whl",
+                "packagetype": "bdist_wheel",
+                "sha256": "a" * 64,
+                "yanked": False,
+            },
+            {
+                "filename": "oslo_messaging-17.3.1.tar.gz",
+                "packagetype": "sdist",
+                "sha256": "b" * 64,
+                "yanked": False,
+            },
+        ],
+        "contains_stable_patch": True,
+        "source_probe_present": True,
+        "source_sha256": MODULE.hashlib.sha256(
+            byte_values[
+                MODULE.COMMIT_SOURCE_TEMPLATE.format(
+                    revision="d" * 40
+                )
+            ]
+        ).hexdigest(),
+        "tag_revision": "d" * 40,
+        "version": "17.3.1",
+    }
+    assert MODULE.classify(refreshed)["status"] == "candidate-released"
+
+
+def test_released_candidate_stays_blocked_until_constraints_select_it() -> None:
+    json_values, byte_values = observer_metadata(
+        candidate=True,
+        constraint="oslo.messaging===17.3.0",
+    )
+
+    result = MODULE.classify(refresh_with(json_values, byte_values))
+
+    assert result["fixed_stable_release"] is None
+    assert result["reasons"] == [
+        "stable/2026.1 upper constraints remain at oslo.messaging 17.3.0"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("include_patch", "include_probe"),
+    [(False, True), (True, False)],
+)
+def test_observer_refuses_candidate_without_exact_fix(
+    include_patch: bool,
+    include_probe: bool,
+) -> None:
+    json_values, byte_values = observer_metadata(
+        candidate=True,
+        include_patch=include_patch,
+        include_probe=include_probe,
+    )
+
+    with pytest.raises(MODULE.ReleaseGateError, match="stable patch"):
+        refresh_with(json_values, byte_values)
+
+
+def test_observer_refuses_missing_or_ambiguous_constraint() -> None:
+    json_values, byte_values = observer_metadata(candidate=False)
+    byte_values[MODULE.UPPER_CONSTRAINTS_URL] = (
+        b"oslo.messaging===17.3.0\noslo.messaging===17.3.1\n"
+    )
+
+    with pytest.raises(MODULE.ReleaseGateError, match="ambiguous"):
+        refresh_with(json_values, byte_values)
+
+
+def test_observer_refuses_constraint_release_absent_from_pypi() -> None:
+    json_values, byte_values = observer_metadata(candidate=False)
+    byte_values[MODULE.UPPER_CONSTRAINTS_URL] = (
+        b"oslo.messaging===17.3.1\n"
+    )
+
+    with pytest.raises(MODULE.ReleaseGateError, match="absent from PyPI"):
+        refresh_with(json_values, byte_values)
+
+
+def test_observer_refuses_ambiguous_candidate_artifacts() -> None:
+    json_values, byte_values = observer_metadata(candidate=True)
+    releases = json_values[MODULE.PYPI_METADATA_URL]["releases"]
+    releases["17.3.1"].append(
+        pypi_artifact("17.3.1", "bdist_wheel", "c" * 64)
+    )
+
+    with pytest.raises(MODULE.ReleaseGateError, match="ambiguous"):
+        refresh_with(json_values, byte_values)
+
+
+def test_tag_resolver_accepts_one_exact_lightweight_tag() -> None:
+    reference_url = f"{MODULE.OPENDEV_API}/git/refs/tags/17.3.1"
+    values = {
+        reference_url: [
+            {
+                "object": {
+                    "sha": "d" * 40,
+                    "type": "commit",
+                    "url": "ignored",
+                },
+                "ref": "refs/tags/17.3.1",
+                "url": reference_url,
+            }
+        ]
+    }
+
+    assert MODULE._tag_revision(
+        "17.3.1",
+        lambda url: values[url],
+    ) == "d" * 40
 
 
 def test_official_release_is_only_a_candidate_until_both_surfaces_qualify() -> None:
@@ -242,3 +493,14 @@ def test_checked_in_contract_is_canonical_and_classifiable() -> None:
         json.dumps(document, indent=2, sort_keys=True) + "\n"
     )
     assert MODULE.classify(document)["status"] == "blocked"
+
+
+def test_cli_offline_mode_validates_checked_in_baseline(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    result = MODULE.main(
+        ["--offline-contract", "--allow-blocked"]
+    )
+
+    assert result == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "blocked"

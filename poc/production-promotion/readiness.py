@@ -222,6 +222,7 @@ def live_result() -> dict[str, Any]:
     try:
         upstream = loaded.upstream.classify(loaded.upstream.live_fixture())
         contract = loaded.ui.load_contract(UI_CONTRACT)
+        contract = loaded.ui.refresh_current_observation(contract)
         ui = loaded.ui.classify(contract)
         observation = _mapping(
             contract.get("current_observation"),

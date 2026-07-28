@@ -69,7 +69,17 @@ Ceph Tentacle v20.2.2 without the encrypted-copy fix, only oslo.messaging
 17.3.0 in the stable series, and stable/2026.1 constraints pinned to 17.3.0.
 The new unified release preflight records all five blockers in one owner-only
 mode-0600 result and fails before any runtime action unless all three
-components are `candidate-qualified`. Thirty-three focused tests pass.
+components are `candidate-qualified`. Forty-four focused tests pass.
+
+The preflight no longer depends on a manually dated
+`oslo.messaging` observation. Every standalone UI and unified readiness run
+refreshes the observation in memory from the exact official PyPI JSON and
+OpenDev stable constraint, tag, source, and bounded path-history endpoints.
+The checked-in JSON remains the reviewed policy/baseline and is never
+rewritten. Redirected, oversized, malformed, missing, ambiguous, inconsistent,
+unpatched, or source-probe-free metadata fails closed. A released fixed
+version remains only `candidate-released` until both Horizon and Skyline
+qualification results match it.
 
 The exact-release helper also ran read-only against the retained preview RGW
 over verified TLS and left zero remote transient residue. Its one-project,
@@ -199,12 +209,12 @@ promotion evidence. The checked-in 0.1.0 release note remains honestly
 `production-candidate` only after the first nine gates qualify.
 
 The current-source owner-mode-0600 ledger SHA-256 is
-`f465b5093bb1eb6c4010e34d8382518f593afb0f2aff18611e7fd5bc86a7b13e`;
+`e59fd5342d1d92f233cf9377e85c101d4781c60dd339795044ed3bc681bdf0ff`;
 it now remains zero passed, one blocked, nine pending, and
 `production_candidate=false`. All ten specialist verifier contracts now exist.
-The 150-check promotion harness and all 1,839 repository tests pass; focused
+The 151-check promotion harness and all 1,850 repository tests pass; focused
 Ruff E/F/I, Python compilation, diff checks, 117 Markdown files, 58 local
-links, all final ADR dispositions, and the staged approximately 80-KB Gitleaks scan pass
+links, all final ADR dispositions, and the staged approximately 30-KB Gitleaks scan pass
 with zero leaks.
 No real identity, secret, certificate, endpoint, Kolla deployment, or retained
 preview state changed. The exact next action is an official release-readiness

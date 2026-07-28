@@ -137,10 +137,71 @@ def test_output_is_owner_only_and_canonical(tmp_path: Path) -> None:
     assert json.loads(output.read_text(encoding="utf-8")) == result
 
 
-def test_relative_output_is_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_relative_output_is_refused(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.chdir(tmp_path)
     with pytest.raises(
         readiness.PromotionReadinessError,
         match="absolute",
     ):
         readiness._write_owner_only(Path("result.json"), {})
+
+
+def test_live_result_refreshes_official_ui_observation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    class Upstream:
+        @staticmethod
+        def live_fixture() -> dict[str, object]:
+            calls.append("upstream-live")
+            return {}
+
+        @staticmethod
+        def classify(value: object) -> dict[str, object]:
+            assert value == {}
+            calls.append("upstream-classify")
+            return upstream()
+
+    class UI:
+        @staticmethod
+        def load_contract(path: Path) -> dict[str, object]:
+            assert path == readiness.UI_CONTRACT
+            calls.append("ui-load")
+            return {"current_observation": {"as_of": "stale"}}
+
+        @staticmethod
+        def refresh_current_observation(
+            value: object,
+        ) -> dict[str, object]:
+            assert value == {"current_observation": {"as_of": "stale"}}
+            calls.append("ui-refresh")
+            return {"current_observation": {"as_of": "2026-07-28"}}
+
+        @staticmethod
+        def classify(value: object) -> dict[str, object]:
+            assert value == {
+                "current_observation": {"as_of": "2026-07-28"}
+            }
+            calls.append("ui-classify")
+            return ui()
+
+    monkeypatch.setattr(
+        readiness,
+        "modules",
+        lambda: readiness.Modules(upstream=Upstream, ui=UI),
+    )
+
+    result = readiness.live_result()
+
+    assert result["status"] == "blocked"
+    assert calls == [
+        "upstream-live",
+        "upstream-classify",
+        "ui-load",
+        "ui-refresh",
+        "ui-classify",
+    ]
