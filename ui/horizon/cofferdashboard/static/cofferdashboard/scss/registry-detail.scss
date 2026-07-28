@@ -1,0 +1,117 @@
+.coffer-repository-detail {
+  .coffer-repository-heading,
+  .coffer-artifact-toolbar {
+    align-items: flex-start;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+  }
+
+  .coffer-repository-heading {
+    margin-bottom: 1.5rem;
+
+    h2 {
+      margin: 0.25rem 0;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  .tab-content {
+    padding-top: 1.5rem;
+  }
+
+  .coffer-artifact-toolbar {
+    margin-bottom: 1rem;
+
+    h3 {
+      margin-top: 0;
+    }
+  }
+
+  .coffer-artifact-search {
+    flex: 0 1 24rem;
+
+    .input-group {
+      width: 100%;
+    }
+  }
+
+  .coffer-artifact-table {
+    margin-bottom: 0;
+
+    td {
+      max-width: 24rem;
+      vertical-align: middle;
+    }
+  }
+
+  .coffer-tag {
+    display: inline-block;
+    margin: 0.125rem 0.25rem 0.125rem 0;
+    white-space: nowrap;
+  }
+
+  .coffer-media-type {
+    display: block;
+    margin-top: 0.25rem;
+    overflow-wrap: anywhere;
+  }
+
+  .coffer-copy-field {
+    align-items: center;
+    display: flex;
+    gap: 0.25rem;
+
+    code {
+      display: block;
+      max-width: 20rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  .coffer-artifact-pagination {
+    margin-top: 1rem;
+    text-align: right;
+  }
+
+  .coffer-empty-state {
+    padding: 3rem 1rem;
+  }
+
+  #coffer-details dd {
+    overflow-wrap: anywhere;
+  }
+}
+
+.coffer-connect-content {
+  padding-top: 1rem;
+
+  pre {
+    max-height: 20rem;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+}
+
+.coffer-copy-status {
+  min-height: 1.5rem;
+  padding-top: 1rem;
+}
+
+@media (max-width: 767px) {
+  .coffer-repository-detail {
+    .coffer-repository-heading,
+    .coffer-artifact-toolbar {
+      display: block;
+    }
+
+    .coffer-repository-heading .btn,
+    .coffer-artifact-search {
+      margin-top: 1rem;
+      width: 100%;
+    }
+  }
+}

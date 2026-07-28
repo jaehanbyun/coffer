@@ -10,6 +10,8 @@ PROJECT_ID = "11111111-1111-4111-8111-111111111111"
 REPOSITORY_ID = "22222222-2222-4222-8222-222222222222"
 NEXT_ID = "33333333-3333-4333-8333-333333333333"
 ENDPOINT = "https://registry.example.test/v1"
+DIGEST = f"sha256:{'a' * 64}"
+NEXT_DIGEST = f"sha256:{'b' * 64}"
 
 
 def request() -> SimpleNamespace:
@@ -33,6 +35,30 @@ def repository(
         "name": name,
         "immutable_tags": True,
         "created_at": "2026-07-26T00:00:00Z",
+    }
+
+
+def artifact(
+    *,
+    digest: str = DIGEST,
+    project_id: str = PROJECT_ID,
+    repository_id: str = REPOSITORY_ID,
+    tags: list[str] | None = None,
+) -> dict[str, object]:
+    actual_tags = ["latest", "stable"] if tags is None else tags
+    return {
+        "project_id": project_id,
+        "repository_id": repository_id,
+        "digest": digest,
+        "media_type": "application/vnd.oci.image.manifest.v1+json",
+        "artifact_type": "application/vnd.oci.image.config.v1+json",
+        "kind": "image",
+        "size_bytes": 4170,
+        "pushed_at": "2026-07-28T00:00:00Z",
+        "updated_at": "2026-07-28T00:01:00Z",
+        "tags": actual_tags,
+        "tag_count": len(actual_tags),
+        "tags_truncated": False,
     }
 
 
@@ -131,12 +157,111 @@ def test_create_get_and_quota_validate_current_project(
         coffer.get_repository(request(), REPOSITORY_ID)
 
 
+def test_artifact_list_show_and_registry_host_are_catalog_native(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = install_client(
+        monkeypatch,
+        {"artifacts": [artifact()], "next_marker": DIGEST},
+    )
+
+    page = coffer.list_artifacts(
+        request(),
+        REPOSITORY_ID,
+        limit=1,
+        query="latest",
+    )
+
+    assert page.artifacts[0].primary_tag == "latest"
+    assert page.artifacts[0].display_type == "Container image"
+    assert page.next_marker == DIGEST
+    assert client.calls[-1][0] == (
+        f"{ENDPOINT}/repositories/{REPOSITORY_ID}/artifacts"
+    )
+    assert client.calls[-1][2]["params"] == {
+        "limit": 1,
+        "query": "latest",
+    }
+
+    client.payload = {"artifact": artifact()}
+    shown = coffer.get_artifact(request(), REPOSITORY_ID, DIGEST)
+    assert shown == page.artifacts[0]
+    assert client.calls[-1][0].endswith(f"/artifacts/{DIGEST}")
+    assert coffer.registry_host(request()) == "registry.example.test"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"artifacts": [artifact(project_id="other")], "next_marker": None},
+        {"artifacts": [artifact(repository_id=NEXT_ID)], "next_marker": None},
+        {
+            "artifacts": [
+                {
+                    **artifact(),
+                    "digest": "sha256:invalid",
+                }
+            ],
+            "next_marker": None,
+        },
+        {
+            "artifacts": [
+                {
+                    **artifact(),
+                    "tags": ["latest"],
+                    "tag_count": 2,
+                    "tags_truncated": False,
+                }
+            ],
+            "next_marker": None,
+        },
+        {"artifacts": [artifact()], "next_marker": NEXT_DIGEST},
+    ],
+)
+def test_artifact_list_rejects_malformed_projection(
+    monkeypatch: pytest.MonkeyPatch,
+    payload: object,
+) -> None:
+    install_client(monkeypatch, payload)
+
+    with pytest.raises(coffer.CofferAPIError, match="invalid_response"):
+        coffer.list_artifacts(request(), REPOSITORY_ID)
+
+
+def test_artifact_inputs_fail_before_an_adapter_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[object] = []
+    monkeypatch.setattr(
+        coffer,
+        "_new_adapter",
+        lambda *_args: calls.append(object()),
+    )
+
+    with pytest.raises(ValueError, match="artifact limit"):
+        coffer.list_artifacts(request(), REPOSITORY_ID, limit=0)
+    with pytest.raises(ValueError, match="artifact marker"):
+        coffer.list_artifacts(
+            request(),
+            REPOSITORY_ID,
+            marker="sha256:invalid",
+        )
+    with pytest.raises(ValueError, match="artifact query"):
+        coffer.list_artifacts(request(), REPOSITORY_ID, query=" leading")
+    with pytest.raises(ValueError, match="artifact digest"):
+        coffer.get_artifact(request(), REPOSITORY_ID, "sha256:invalid")
+
+    assert calls == []
+
+
 @pytest.mark.parametrize(
     "endpoint",
     [
         "https://registry.example.test",
         "https://registry.example.test/v1?token=value",
         "https://user@example.test/v1",
+        "https://registry.example.test:99999/v1",
+        'https://registry.example.test"><script>/v1',
         "ftp://registry.example.test/v1",
         "/v1",
     ],

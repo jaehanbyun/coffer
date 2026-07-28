@@ -95,7 +95,7 @@ Distribution, SQL, or the selected object-storage backend directly.
       immutability and reconciliation behavior.
 - [x] Add API resources, policies, OpenAPI schemas, client methods, CLI
       commands, bounded metrics, and tests.
-- [ ] Extend Horizon's server-side adapter and repository detail UI.
+- [x] Extend Horizon's server-side adapter and repository detail UI.
 - [ ] Extend Skyline's source overlay, stores, routes/components, locales, and
       tests.
 - [ ] Extend immutable UI images and Kolla artifact/config verification.
@@ -154,6 +154,35 @@ Distribution, SQL, or the selected object-storage backend directly.
   exact artifact page/detail and endpoint validation, then add adapter tests
   before changing views or templates.
 
+### 2026-07-28 — Horizon artifact browser and connection guide completed
+
+- Completed: Extended the Horizon server-side adapter with strict
+  project/repository artifact validation, bounded tag/digest search and
+  pagination, artifact detail, and a credential-free catalog-derived registry
+  host. The repository detail page now provides native `Images & Artifacts`
+  and `Details` tabs, metadata rows, search, empty/dependency/permission states,
+  long-value overflow, pull-reference and digest copy actions, and a responsive
+  layout.
+- Connection UX: Added one accessible native modal with Docker, Podman, Helm,
+  and ORAS tabs. Every example is generated from the current catalog,
+  project, and repository. Login uses the existing `openstack registry login`
+  hidden-secret prompt and never renders a token, password, or application
+  credential secret. Helm deliberately reuses Docker's registry credential
+  store.
+- Packaging: Registered the focused JS/SCSS assets through Horizon's standard
+  pluggable-panel settings and included them in the independently installable
+  wheel. Added artifact policy metadata and updated the plugin boundary
+  documentation.
+- Evidence: The exact Horizon 25.7.3 baseline and all 47 plugin tests pass;
+  Python compilation, JS syntax, diff checks, a clean wheel build, and exact
+  static/template wheel membership pass.
+- Changed files: Horizon adapter, view/template, policy metadata, native
+  JS/SCSS, package configuration, tests, README, this plan, and handoff.
+- Next exact action: Extend
+  `ui/skyline/overlay/src/client/coffer/index.js` with the exact artifact
+  contract, then add Skyline store methods before changing the repository
+  detail page.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -163,6 +192,9 @@ Distribution, SQL, or the selected object-storage backend directly.
 | Current dashboard boundary | Plan 0020 and Horizon/Skyline source inspection | passed; repository/quota only |
 | Reference flow inventory | Supplied Nebius screenshots and accessibility tree | passed; images table, search, connection dialog, Docker/Helm examples |
 | Artifact/API complete regression | `uv run --extra client pytest -q` | passed; 1,867 |
+| Horizon exact baseline and plugin suite | `make -C ui/horizon verify` | passed; Horizon 25.7.3 and 47 tests |
+| Horizon package assets | `uv build --project ui/horizon --out-dir work/horizon-dist`; wheel membership inspection | passed |
+| Horizon focused JS/diff checks | `node --check .../registry-detail.js`; `git diff --check` | passed |
 | Full implementation and visual QA | pending | pending |
 
 ## Failures, Blockers, and Risks
@@ -180,7 +212,9 @@ Distribution, SQL, or the selected object-storage backend directly.
 ## Handoff
 
 - Current state: Active; artifact projection, admission enforcement, public
-  API, OpenAPI, client, and focused verification complete locally.
-- Exact next action: Implement and test the Horizon artifact adapter contract.
-- First file or command: `ui/horizon/cofferdashboard/api/coffer.py`
+  API/OpenAPI/client and Horizon artifact browser/connection guide are
+  complete locally.
+- Exact next action: Implement and test the Skyline artifact client and store
+  contract.
+- First file or command: `ui/skyline/overlay/src/client/coffer/index.js`
 - Questions requiring user input: None.

@@ -31,6 +31,8 @@ include = ["cofferdashboard*"]
 cofferdashboard = [
   "conf/**/*.yaml",
   "local_settings.d/*.py",
+  "static/**/*.js",
+  "static/**/*.scss",
   "templates/**/*.html",
 ]
 

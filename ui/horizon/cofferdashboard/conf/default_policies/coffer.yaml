@@ -13,6 +13,16 @@
   description: Inspect a repository in the scoped project.
   scope_types:
     - project
+- name: artifact:list
+  check_str: role:reader or role:member or role:admin
+  description: List artifacts in a repository in the scoped project.
+  scope_types:
+    - project
+- name: artifact:get
+  check_str: role:reader or role:member or role:admin
+  description: Inspect an artifact in a repository in the scoped project.
+  scope_types:
+    - project
 - name: quota:get
   check_str: role:reader or role:member or role:admin
   description: Read Registry quota for the scoped project.

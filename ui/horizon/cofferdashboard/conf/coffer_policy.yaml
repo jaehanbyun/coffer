@@ -1,4 +1,6 @@
 "repository:create": "role:member or role:admin"
 "repository:list": "role:reader or role:member or role:admin"
 "repository:get": "role:reader or role:member or role:admin"
+"artifact:list": "role:reader or role:member or role:admin"
+"artifact:get": "role:reader or role:member or role:admin"
 "quota:get": "role:reader or role:member or role:admin"

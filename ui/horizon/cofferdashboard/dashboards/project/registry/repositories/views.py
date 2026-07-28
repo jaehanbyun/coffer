@@ -99,7 +99,68 @@ class DetailView(views.HorizonTemplateView):
                 _("Unable to retrieve the repository."),
             )
 
+    @memoized.memoized_method
+    def _get_artifacts(self):
+        marker = self.request.GET.get("artifact_marker") or None
+        query = self.request.GET.get("query") or None
+        try:
+            page = coffer.list_artifacts(
+                self.request,
+                self.kwargs["repository_id"],
+                marker=marker,
+                query=query,
+                limit=coffer.MAX_ARTIFACT_PAGE_LIMIT,
+            )
+        except (coffer.CofferAPIError, ValueError) as error:
+            if isinstance(error, coffer.CofferAPIError):
+                _raise_if_authentication_failure(error)
+                if error.result == "forbidden":
+                    messages.warning(
+                        self.request,
+                        _(
+                            "You are not allowed to view artifacts in this "
+                            "repository."
+                        ),
+                    )
+                    return "forbidden", None
+            messages.warning(
+                self.request,
+                _("Artifact information is temporarily unavailable."),
+            )
+            return "unavailable", None
+        return "available", page
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["repository"] = self._get_repository()
+        repository = self._get_repository()
+        artifact_state, artifact_page = self._get_artifacts()
+        registry_host = coffer.registry_host(self.request)
+        repository_path = (
+            f"p/{repository.project_id}/{repository.name}"
+        )
+        context.update(
+            {
+                "repository": repository,
+                "artifact_state": artifact_state,
+                "artifacts": (
+                    artifact_page.artifacts
+                    if artifact_page is not None
+                    else ()
+                ),
+                "artifact_next_marker": (
+                    artifact_page.next_marker
+                    if artifact_page is not None
+                    else None
+                ),
+                "artifact_query": self.request.GET.get("query", ""),
+                "registry_host": registry_host,
+                "repository_path": repository_path,
+                "repository_reference": (
+                    f"{registry_host}/{repository_path}"
+                ),
+                "repository_oci_url": (
+                    f"oci://{registry_host}/{repository_path}"
+                ),
+            }
+        )
         return context

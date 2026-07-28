@@ -25,6 +25,7 @@ from cofferdashboard.dashboards.project.registry.repositories import (
 PROJECT_ID = "project-id"
 REPOSITORY_ID = str(uuid.UUID("11111111-1111-4111-8111-111111111111"))
 SECOND_REPOSITORY_ID = str(uuid.UUID("22222222-2222-4222-8222-222222222222"))
+DIGEST = f"sha256:{'a' * 64}"
 CATALOG_SERVICE = {
     "type": "oci-registry",
     "name": "coffer",
@@ -70,6 +71,23 @@ def quota() -> coffer.Quota:
         limit_bytes=10_000,
         used_bytes=4_000,
         reserved_bytes=1_000,
+    )
+
+
+def artifact() -> coffer.Artifact:
+    return coffer.Artifact(
+        project_id=PROJECT_ID,
+        repository_id=REPOSITORY_ID,
+        digest=DIGEST,
+        media_type="application/vnd.oci.image.manifest.v1+json",
+        artifact_type="application/vnd.oci.image.config.v1+json",
+        kind="image",
+        size_bytes=4170,
+        pushed_at="2026-07-28T05:00:00+00:00",
+        updated_at="2026-07-28T05:01:00+00:00",
+        tags=("latest",),
+        tag_count=1,
+        tags_truncated=False,
     )
 
 
@@ -334,13 +352,19 @@ class RepositoryPanelTests(SimpleTestCase):
             [str(forms.REPOSITORY_NAME_ERROR)],
         )
 
+    @mock.patch("cofferdashboard.api.coffer.list_artifacts")
     @mock.patch("cofferdashboard.api.coffer.get_repository")
-    def test_detail_renders_only_public_repository_fields(
+    def test_detail_renders_artifacts_and_safe_connection_guide(
         self,
         get_repository,
+        list_artifacts,
     ):
         item = repository()
         get_repository.return_value = item
+        list_artifacts.return_value = coffer.ArtifactPage(
+            artifacts=(artifact(),),
+            next_marker=DIGEST,
+        )
         url = reverse(
             "horizon:project:repositories:detail",
             kwargs={"repository_id": item.id},
@@ -356,12 +380,39 @@ class RepositoryPanelTests(SimpleTestCase):
         self.assertContains(response, item.name)
         self.assertContains(response, item.id)
         self.assertContains(response, item.project_id)
+        self.assertContains(response, "Images &amp; Artifacts")
+        self.assertContains(response, "latest")
+        self.assertContains(response, DIGEST)
+        self.assertContains(
+            response,
+            "registry.example.test/p/project-id/team/app:latest",
+        )
+        self.assertContains(response, "How to connect")
+        self.assertContains(response, "--client docker")
+        self.assertContains(response, "--client podman")
+        self.assertContains(response, "--client oras")
+        self.assertContains(
+            response,
+            'helm push nginx-19.0.1.tgz "oci://registry.example.test/'
+            'p/project-id/team/app"',
+        )
+        self.assertNotContains(response, "test-scoped-token")
+        self.assertNotContains(response, "application-credential-secret")
         get_repository.assert_called_once_with(mock.ANY, item.id)
+        list_artifacts.assert_called_once_with(
+            mock.ANY,
+            item.id,
+            marker=None,
+            query=None,
+            limit=coffer.MAX_ARTIFACT_PAGE_LIMIT,
+        )
 
+    @mock.patch("cofferdashboard.api.coffer.list_artifacts")
     @mock.patch("cofferdashboard.api.coffer.get_repository")
     def test_detail_not_found_uses_fixed_redirect(
         self,
         get_repository,
+        list_artifacts,
     ):
         get_repository.side_effect = coffer.CofferAPIError("not_found")
         url = reverse(
@@ -382,11 +433,14 @@ class RepositoryPanelTests(SimpleTestCase):
             str(failure.exception.message),
             "The repository was not found.",
         )
+        list_artifacts.assert_not_called()
 
+    @mock.patch("cofferdashboard.api.coffer.list_artifacts")
     @mock.patch("cofferdashboard.api.coffer.get_repository")
     def test_detail_unavailable_uses_fixed_redirect(
         self,
         get_repository,
+        list_artifacts,
     ):
         get_repository.side_effect = coffer.CofferAPIError("unavailable")
         url = reverse(
@@ -405,6 +459,40 @@ class RepositoryPanelTests(SimpleTestCase):
             str(failure.exception.message),
             "Unable to retrieve the repository.",
         )
+        list_artifacts.assert_not_called()
+
+    @mock.patch("cofferdashboard.api.coffer.list_artifacts")
+    @mock.patch("cofferdashboard.api.coffer.get_repository")
+    def test_detail_keeps_repository_usable_when_artifacts_are_unavailable(
+        self,
+        get_repository,
+        list_artifacts,
+    ):
+        item = repository()
+        get_repository.return_value = item
+        list_artifacts.side_effect = coffer.CofferAPIError("unavailable")
+        url = reverse(
+            "horizon:project:repositories:detail",
+            kwargs={"repository_id": item.id},
+        )
+
+        response = self.render(
+            views.DetailView.as_view()(
+                self.request(
+                    path=url,
+                    data={"query": "latest"},
+                ),
+                repository_id=item.id,
+            )
+        )
+
+        self.assertContains(response, item.name)
+        self.assertContains(
+            response,
+            "Artifact information is temporarily unavailable.",
+            count=2,
+        )
+        self.assertContains(response, "How to connect")
 
     def test_table_exposes_no_destructive_action(self):
         self.assertEqual(
@@ -423,6 +511,8 @@ def test_policy_mirror_is_bounded_to_the_ui_operations():
         "repository:create": "role:member or role:admin",
         "repository:list": "role:reader or role:member or role:admin",
         "repository:get": "role:reader or role:member or role:admin",
+        "artifact:list": "role:reader or role:member or role:admin",
+        "artifact:get": "role:reader or role:member or role:admin",
         "quota:get": "role:reader or role:member or role:admin",
     }
 

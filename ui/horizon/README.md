@@ -12,11 +12,15 @@ MVP control surface only:
 
 - repository list with forward pagination;
 - repository creation and immutable-tag selection;
-- repository detail;
+- repository detail with project-scoped image and OCI artifact discovery;
+- tag/digest search, safe metadata, pull-reference copy, and bounded pagination;
+- credential-safe Docker, Podman, Helm, and ORAS connection guidance;
 - current-project quota usage.
 
-It intentionally has no delete, manifest, tag, signer, scanner, storage,
-maintenance, or administrator quota surface.
+It intentionally has no delete, tag mutation, signer, scanner, storage,
+maintenance, or administrator quota surface. The dashboard reads Coffer's
+artifact projection through the control API; it does not query Distribution
+or the object-storage backend.
 
 ## Development verification
 
@@ -52,7 +56,9 @@ cofferdashboard/conf/default_policies/coffer.yaml
 ```
 
 Kolla's existing Horizon startup regenerates static/compressed assets when its
-settings change. The panel remains invisible when the current scoped service
+settings change. The plugin registers one native SCSS file and one small
+copy-to-clipboard script through the standard pluggable-panel configuration.
+The panel remains invisible when the current scoped service
 catalog does not contain an `oci-registry` endpoint. The endpoint must be an
 HTTP(S) URL ending in `/v1`; the current scoped token is used only by the
 server-side keystoneauth session.

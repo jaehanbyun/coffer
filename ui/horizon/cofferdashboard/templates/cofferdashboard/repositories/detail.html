@@ -1,25 +1,416 @@
 {% extends "base.html" %}
 {% load i18n parse_date %}
 
-{% block title %}{{ page_title }}{% endblock %}
+{% block title %}{{ repository.name|default:page_title }}{% endblock %}
 
 {% block page_header %}
   {% include "horizon/common/_detail_header.html" %}
 {% endblock %}
 
 {% block main %}
-  <div class="detail">
-    <dl class="dl-horizontal">
-      <dt>{% trans "Name" %}</dt>
-      <dd>{{ repository.name }}</dd>
-      <dt>{% trans "Repository ID" %}</dt>
-      <dd>{{ repository.id }}</dd>
-      <dt>{% trans "Project ID" %}</dt>
-      <dd>{{ repository.project_id }}</dd>
-      <dt>{% trans "Immutable Tags" %}</dt>
-      <dd>{{ repository.immutable_tags|yesno:_("Yes,No") }}</dd>
-      <dt>{% trans "Created" %}</dt>
-      <dd>{{ repository.created_at|parse_isotime }}</dd>
-    </dl>
+  <div class="coffer-repository-detail">
+    <div class="coffer-repository-heading">
+      <div>
+        <p class="text-muted">{% trans "OCI Registry repository" %}</p>
+        <h2>{{ repository.name }}</h2>
+        <p class="text-muted">
+          {% blocktrans with repository_id=repository.id %}
+            Repository ID: {{ repository_id }}
+          {% endblocktrans %}
+        </p>
+      </div>
+      <button
+        type="button"
+        class="btn btn-default"
+        data-toggle="modal"
+        data-target="#coffer-connect-dialog"
+        aria-haspopup="dialog"
+      >
+        <span class="fa fa-plug" aria-hidden="true"></span>
+        {% trans "How to connect" %}
+      </button>
+    </div>
+
+    <ul class="nav nav-tabs" role="tablist">
+      <li class="active" role="presentation">
+        <a
+          href="#coffer-artifacts"
+          id="coffer-artifacts-tab"
+          aria-controls="coffer-artifacts"
+          role="tab"
+          data-toggle="tab"
+        >
+          {% trans "Images" %} &amp; {% trans "Artifacts" %}
+        </a>
+      </li>
+      <li role="presentation">
+        <a
+          href="#coffer-details"
+          id="coffer-details-tab"
+          aria-controls="coffer-details"
+          role="tab"
+          data-toggle="tab"
+        >
+          {% trans "Details" %}
+        </a>
+      </li>
+    </ul>
+
+    <div class="tab-content">
+      <section
+        class="tab-pane active"
+        id="coffer-artifacts"
+        role="tabpanel"
+        aria-labelledby="coffer-artifacts-tab"
+      >
+        <div class="coffer-artifact-toolbar">
+          <div>
+            <h3>{% trans "Images" %} &amp; {% trans "Artifacts" %}</h3>
+            <p class="text-muted">
+              {% trans "Digest-addressed content admitted through this repository." %}
+            </p>
+          </div>
+          <form method="get" class="form-inline coffer-artifact-search" role="search">
+            <label class="sr-only" for="coffer-artifact-query">
+              {% trans "Search by tag or digest" %}
+            </label>
+            <div class="input-group">
+              <input
+                type="search"
+                id="coffer-artifact-query"
+                name="query"
+                class="form-control"
+                value="{{ artifact_query }}"
+                maxlength="128"
+                placeholder="{% trans 'Search by tag or digest' %}"
+              >
+              <span class="input-group-btn">
+                <button type="submit" class="btn btn-default">
+                  <span class="fa fa-search" aria-hidden="true"></span>
+                  <span class="sr-only">{% trans "Search" %}</span>
+                </button>
+              </span>
+            </div>
+          </form>
+        </div>
+
+        {% if artifact_state == "available" %}
+          {% if artifacts %}
+            <div class="table-responsive">
+              <table class="table table-striped table-hover coffer-artifact-table">
+                <caption class="sr-only">
+                  {% trans "Images and OCI artifacts in this repository" %}
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">{% trans "Tags" %}</th>
+                    <th scope="col">{% trans "Pushed" %}</th>
+                    <th scope="col">{% trans "Type" %}</th>
+                    <th scope="col">{% trans "Size" %}</th>
+                    <th scope="col">{% trans "Digest" %}</th>
+                    <th scope="col">{% trans "Pull reference" %}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for artifact in artifacts %}
+                    <tr>
+                      <td>
+                        {% for tag in artifact.tags %}
+                          <code class="coffer-tag">{{ tag }}</code>
+                        {% empty %}
+                          <span class="text-muted">{% trans "Untagged" %}</span>
+                        {% endfor %}
+                        {% if artifact.tags_truncated %}
+                          <span class="text-muted">
+                            {% blocktrans with count=artifact.tag_count %}
+                              {{ count }} tags total
+                            {% endblocktrans %}
+                          </span>
+                        {% endif %}
+                      </td>
+                      <td>{{ artifact.pushed_at|parse_isotime }}</td>
+                      <td>
+                        <strong>{{ artifact.display_type }}</strong>
+                        <small class="text-muted coffer-media-type">
+                          {{ artifact.artifact_type|default:artifact.media_type }}
+                        </small>
+                      </td>
+                      <td>{{ artifact.size_bytes|filesizeformat }}</td>
+                      <td>
+                        <div class="coffer-copy-field">
+                          <code
+                            id="coffer-digest-{{ forloop.counter }}"
+                            title="{{ artifact.digest }}"
+                          >{{ artifact.digest }}</code>
+                          <button
+                            type="button"
+                            class="btn btn-link btn-xs coffer-copy-button"
+                            data-copy-target="coffer-digest-{{ forloop.counter }}"
+                            aria-label="{% trans 'Copy digest' %}"
+                            title="{% trans 'Copy digest' %}"
+                          >
+                            <span class="fa fa-copy" aria-hidden="true"></span>
+                          </button>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="coffer-copy-field">
+                          <code id="coffer-reference-{{ forloop.counter }}">
+                            {{ repository_reference }}{% if artifact.primary_tag %}:{{ artifact.primary_tag }}{% else %}@{{ artifact.digest }}{% endif %}
+                          </code>
+                          <button
+                            type="button"
+                            class="btn btn-link btn-xs coffer-copy-button"
+                            data-copy-target="coffer-reference-{{ forloop.counter }}"
+                            aria-label="{% trans 'Copy pull reference' %}"
+                            title="{% trans 'Copy pull reference' %}"
+                          >
+                            <span class="fa fa-copy" aria-hidden="true"></span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% if artifact_next_marker %}
+              <nav class="coffer-artifact-pagination" aria-label="{% trans 'Artifact pagination' %}">
+                <a
+                  class="btn btn-default"
+                  href="?artifact_marker={{ artifact_next_marker|urlencode }}{% if artifact_query %}&amp;query={{ artifact_query|urlencode }}{% endif %}"
+                  rel="next"
+                >
+                  {% trans "Next" %}
+                  <span class="fa fa-angle-right" aria-hidden="true"></span>
+                </a>
+              </nav>
+            {% endif %}
+          {% else %}
+            <div class="well text-center coffer-empty-state">
+              <span class="fa fa-cube fa-2x text-muted" aria-hidden="true"></span>
+              {% if artifact_query %}
+                <h4>{% trans "No matching images or artifacts" %}</h4>
+                <p class="text-muted">
+                  {% trans "Try another tag or digest." %}
+                </p>
+                <a class="btn btn-default" href="?">
+                  {% trans "Clear search" %}
+                </a>
+              {% else %}
+                <h4>{% trans "No images or artifacts yet" %}</h4>
+                <p class="text-muted">
+                  {% trans "Open the connection guide to push a container image or Helm chart." %}
+                </p>
+                <button
+                  type="button"
+                  class="btn btn-primary"
+                  data-toggle="modal"
+                  data-target="#coffer-connect-dialog"
+                >
+                  {% trans "How to connect" %}
+                </button>
+              {% endif %}
+            </div>
+          {% endif %}
+        {% else %}
+          <div class="alert alert-warning" role="status">
+            {% if artifact_state == "forbidden" %}
+              {% trans "You do not have permission to view artifacts in this repository." %}
+            {% else %}
+              {% trans "Artifact information is temporarily unavailable. Repository details remain available." %}
+            {% endif %}
+          </div>
+        {% endif %}
+      </section>
+
+      <section
+        class="tab-pane"
+        id="coffer-details"
+        role="tabpanel"
+        aria-labelledby="coffer-details-tab"
+      >
+        <h3>{% trans "Repository details" %}</h3>
+        <dl class="dl-horizontal">
+          <dt>{% trans "Name" %}</dt>
+          <dd>{{ repository.name }}</dd>
+          <dt>{% trans "Repository ID" %}</dt>
+          <dd><code>{{ repository.id }}</code></dd>
+          <dt>{% trans "Project ID" %}</dt>
+          <dd><code>{{ repository.project_id }}</code></dd>
+          <dt>{% trans "Immutable Tags" %}</dt>
+          <dd>{{ repository.immutable_tags|yesno:_("Yes,No") }}</dd>
+          <dt>{% trans "Created" %}</dt>
+          <dd>{{ repository.created_at|parse_isotime }}</dd>
+          <dt>{% trans "Registry host" %}</dt>
+          <dd><code>{{ registry_host }}</code></dd>
+        </dl>
+      </section>
+    </div>
+    <p
+      class="coffer-copy-status"
+      role="status"
+      aria-live="polite"
+    ></p>
+  </div>
+
+  <div
+    class="modal fade"
+    id="coffer-connect-dialog"
+    tabindex="-1"
+    role="dialog"
+    aria-labelledby="coffer-connect-title"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-lg" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button
+            type="button"
+            class="close"
+            data-dismiss="modal"
+            aria-label="{% trans 'Close' %}"
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
+          <h3 class="modal-title" id="coffer-connect-title">
+            {% blocktrans with name=repository.name %}
+              Connect to {{ name }}
+            {% endblocktrans %}
+          </h3>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info">
+            {% trans "Use a finite project-scoped application credential. Its secret is requested in a hidden prompt and is never displayed by this dashboard." %}
+          </div>
+          <p>
+            {% trans "Install the OpenStackClient Coffer plugin and configure an operating-system credential store for your OCI client before logging in." %}
+          </p>
+
+          <ul class="nav nav-tabs" role="tablist">
+            <li class="active" role="presentation">
+              <a href="#coffer-connect-docker" role="tab" data-toggle="tab">
+                Docker
+              </a>
+            </li>
+            <li role="presentation">
+              <a href="#coffer-connect-podman" role="tab" data-toggle="tab">
+                Podman
+              </a>
+            </li>
+            <li role="presentation">
+              <a href="#coffer-connect-helm" role="tab" data-toggle="tab">
+                Helm
+              </a>
+            </li>
+            <li role="presentation">
+              <a href="#coffer-connect-oras" role="tab" data-toggle="tab">
+                ORAS
+              </a>
+            </li>
+          </ul>
+
+          <div class="tab-content coffer-connect-content">
+            <section
+              class="tab-pane active"
+              id="coffer-connect-docker"
+              role="tabpanel"
+            >
+              <p>{% trans "Authenticate Docker, then tag and push an image." %}</p>
+              <pre id="coffer-docker-commands">export OS_APPLICATION_CREDENTIAL_ID="&lt;finite-application-credential-id&gt;"
+openstack registry login --client docker \
+  --application-credential-id "$OS_APPLICATION_CREDENTIAL_ID"
+docker pull hello-world
+docker tag hello-world "{{ repository_reference }}:latest"
+docker push "{{ repository_reference }}:latest"</pre>
+              <button
+                type="button"
+                class="btn btn-default coffer-copy-button"
+                data-copy-target="coffer-docker-commands"
+              >
+                <span class="fa fa-copy" aria-hidden="true"></span>
+                {% trans "Copy commands" %}
+              </button>
+            </section>
+
+            <section
+              class="tab-pane"
+              id="coffer-connect-podman"
+              role="tabpanel"
+            >
+              <p>{% trans "Authenticate Podman, then push an image." %}</p>
+              <pre id="coffer-podman-commands">export OS_APPLICATION_CREDENTIAL_ID="&lt;finite-application-credential-id&gt;"
+openstack registry login --client podman \
+  --application-credential-id "$OS_APPLICATION_CREDENTIAL_ID"
+podman pull docker.io/library/hello-world:latest
+podman tag docker.io/library/hello-world:latest "{{ repository_reference }}:latest"
+podman push "{{ repository_reference }}:latest"</pre>
+              <button
+                type="button"
+                class="btn btn-default coffer-copy-button"
+                data-copy-target="coffer-podman-commands"
+              >
+                <span class="fa fa-copy" aria-hidden="true"></span>
+                {% trans "Copy commands" %}
+              </button>
+            </section>
+
+            <section
+              class="tab-pane"
+              id="coffer-connect-helm"
+              role="tabpanel"
+            >
+              <p>
+                {% trans "Helm uses Docker's registry credentials. Authenticate Docker first, then push the chart to the OCI repository." %}
+              </p>
+              <pre id="coffer-helm-commands">export OS_APPLICATION_CREDENTIAL_ID="&lt;finite-application-credential-id&gt;"
+openstack registry login --client docker \
+  --application-credential-id "$OS_APPLICATION_CREDENTIAL_ID"
+helm pull oci://registry-1.docker.io/bitnamicharts/nginx --version 19.0.1
+helm push nginx-19.0.1.tgz "{{ repository_oci_url }}"</pre>
+              <button
+                type="button"
+                class="btn btn-default coffer-copy-button"
+                data-copy-target="coffer-helm-commands"
+              >
+                <span class="fa fa-copy" aria-hidden="true"></span>
+                {% trans "Copy commands" %}
+              </button>
+            </section>
+
+            <section
+              class="tab-pane"
+              id="coffer-connect-oras"
+              role="tabpanel"
+            >
+              <p>{% trans "Authenticate ORAS, then push any OCI artifact." %}</p>
+              <pre id="coffer-oras-commands">export OS_APPLICATION_CREDENTIAL_ID="&lt;finite-application-credential-id&gt;"
+openstack registry login --client oras \
+  --application-credential-id "$OS_APPLICATION_CREDENTIAL_ID"
+oras push "{{ repository_reference }}:example" \
+  ./artifact.txt:application/octet-stream</pre>
+              <button
+                type="button"
+                class="btn btn-default coffer-copy-button"
+                data-copy-target="coffer-oras-commands"
+              >
+                <span class="fa fa-copy" aria-hidden="true"></span>
+                {% trans "Copy commands" %}
+              </button>
+            </section>
+          </div>
+          <p
+            class="text-success coffer-copy-status"
+            role="status"
+            aria-live="polite"
+          ></p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">
+            {% trans "Close" %}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 {% endblock %}

@@ -64,16 +64,19 @@
 
 ## Current Objective
 
-Plan 0029 is the active independently testable work package. Its first atomic
-milestone adds migration 0007, a storage-independent digest-addressed
-artifact/tag projection, expiring concurrent tag claims, actual immutable-tag
-enforcement before Distribution, project-scoped artifact list/search/show
-APIs, OpenAPI, OpenStackClient commands, and bounded route metrics. Focused
-verification passes 107 checks; the corrected complete repository run passes
-1,867 tests after extending the intentionally versioned observability route
-allowlist. The exact next implementation action is the Horizon artifact
-adapter and its isolated tests. No retained preview container or production
-promotion state has changed.
+Plan 0029 is the active independently testable work package. Migration 0007,
+the storage-independent digest-addressed artifact/tag projection, concurrent
+tag claims, immutable-tag enforcement, project-scoped artifact APIs, OpenAPI,
+OpenStackClient commands, and bounded route metrics are complete. Horizon now
+adds strict artifact adapter validation, tag/digest search, metadata and
+pull-reference browsing, responsive empty/error states, and an accessible
+Docker/Podman/Helm/ORAS connection guide that uses the catalog and hidden
+application-credential prompt without rendering a secret. The corrected full
+repository run passes 1,867 tests; the exact Horizon 25.7.3 baseline and all 47
+plugin tests, JS syntax, wheel static membership, and diff checks pass. The
+exact next implementation action is the Skyline artifact client/store
+contract. No retained preview container or production promotion state has
+changed.
 
 Complete every Stage 6 production promotion gate without weakening accepted
 release, security, storage, identity, data-protection, operability, or teardown
@@ -3531,11 +3534,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Extend `ui/horizon/cofferdashboard/api/coffer.py` with exact artifact
-page/detail validation and endpoint discovery for safe connection-command
-generation, then add isolated adapter tests before changing Horizon views or
-templates. Plan 0019's release refresh remains event-driven and must not be
-weakened or relabeled by this UI work.
+Extend `ui/skyline/overlay/src/client/coffer/index.js` with the exact artifact
+page/detail validation and endpoint-derived registry host contract, then add
+Skyline store methods before changing the repository detail page. Plan 0019's
+release refresh remains event-driven and must not be weakened or relabeled by
+this UI work.
 
 ## After This Work Package
 
