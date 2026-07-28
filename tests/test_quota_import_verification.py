@@ -1,14 +1,25 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
 import hashlib
 import json
-from pathlib import Path
 import threading
 import uuid
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from sqlalchemy import event, insert, select, update
+from test_quota_import import (
+    ARTIFACT_DIGEST,
+    CHILD_DIGEST,
+    PROJECT_ID,
+    REPOSITORY_ID,
+    artifact,
+    canonical_bytes,
+    multi_media_artifact,
+    parsed_artifact,
+    prepared_database,
+)
 
 from coffer.db import repositories as repository_table
 from coffer.quota import (
@@ -20,23 +31,16 @@ from coffer.quota import (
     quota_reservation_descriptors,
     quota_reservations,
 )
-from coffer.quota_import import import_inventory, load_inventory_artifact
+from coffer.quota_import import (
+    import_inventory,
+    load_inventory_artifact,
+    parse_inventory_artifact,
+)
 from coffer.quota_import_verification import (
     InventoryVerificationFailed,
     main,
     verify_inventory_import,
 )
-from test_quota_import import (
-    ARTIFACT_DIGEST,
-    CHILD_DIGEST,
-    PROJECT_ID,
-    REPOSITORY_ID,
-    artifact,
-    canonical_bytes,
-    parsed_artifact,
-    prepared_database,
-)
-
 
 IMPORTED_AT = datetime(2026, 7, 23, 1, 2, 3, tzinfo=UTC)
 OTHER_PROJECT_ID = "22222222-2222-4222-8222-222222222222"
@@ -87,6 +91,31 @@ def test_verifies_complete_imported_ledger_without_dml(tmp_path: Path) -> None:
         "status": "verified",
     }
     assert not {"DELETE", "INSERT", "UPDATE"}.intersection(statements)
+
+
+def test_verifies_multi_media_import_without_counting_aliases_twice(
+    tmp_path: Path,
+) -> None:
+    _, store = prepared_database(tmp_path)
+    parsed = parse_inventory_artifact(
+        multi_media_artifact(),
+        artifact_digest=ARTIFACT_DIGEST,
+    )
+    import_inventory(store, parsed, imported_at=IMPORTED_AT)
+
+    result = verify_inventory_import(store, parsed)
+
+    assert result.to_dict() == {
+        "descriptor_count": 5,
+        "inventory_digest": ARTIFACT_DIGEST,
+        "manifest_count": 3,
+        "over_limit_project_count": 0,
+        "project_count": 1,
+        "repository_count": 1,
+        "reservation_descriptor_count": 8,
+        "status": "verified",
+    }
+    assert store.usage(PROJECT_ID).used_bytes == 303
 
 
 def test_marker_replay_is_not_ledger_verification(tmp_path: Path) -> None:

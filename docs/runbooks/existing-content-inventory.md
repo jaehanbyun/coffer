@@ -1,7 +1,7 @@
 # Existing OCI Content Inventory Boundary
 
-- Status: verified filesystem PoC plus local exact-release S3/provenance
-  contract; not a production import procedure
+- Status: verified filesystem PoC plus an anticipatory read-only exact-release
+  RGW scan/import; not a production import procedure
 - Related ADRs: `docs/adrs/0011-use-pinned-distribution-storage-enumerator-for-inventory.md`, `docs/adrs/0012-import-existing-content-into-empty-quota-ledger.md`, `docs/adrs/0013-require-explicit-authentication-for-live-comparison.md`
 - Related plans: `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`
 
@@ -36,12 +36,16 @@ prints to stdout. Unknown fields are rejected so an accidental credential,
 token, URL, or payload cannot be copied into the final artifact.
 
 Successful output is canonical compact JSON with schema `coffer.inventory/v1`
-for filesystem input or `coffer.inventory/v2` for S3 input. It contains:
+for filesystem input or `coffer.inventory/v2` for S3 input when every digest
+has one observed media type. When one project legitimately references the same
+blob digest and size through multiple compatible Docker/OCI media-type aliases,
+the output is `coffer.inventory/v3`. It contains:
 
 - exact Distribution release and enumerator identity;
 - immutable project and repository IDs;
 - manifest digest, media type, byte size, and immediate descriptor edges;
-- project-unique descriptor digest, media type, and size facts; and
+- project-unique descriptor digest, media type or sorted unique media-type
+  aliases, and size facts; and
 - fixed aggregate project/repository/manifest/descriptor counts and logical
   bytes.
 
@@ -49,6 +53,13 @@ S3 v2 also contains only non-secret exact provenance: the pinned Distribution
 source revision plus SHA-256 values for the canonical module graph, helper
 executable, owner-only configuration, endpoint, bucket, and root. Those values
 are part of the canonical inventory digest validated by the importer.
+
+Inventory v3 preserves the same source provenance and repository-level exact
+manifest/reference facts. It changes only the project-unique descriptor
+summary: every descriptor uses a sorted, duplicate-free `media_types` array.
+Quota accounting still deduplicates by digest and size. Size disagreements and
+any alias involving a manifest or index media type fail closed. Inputs without
+aliases remain byte-compatible v1/v2 artifacts.
 
 It intentionally omits repository names and backend paths after authority
 resolution, mutable tag evidence, manifest bodies, storage locations, URLs,
@@ -68,8 +79,8 @@ The verifier fails without output when any of the following occurs:
 - noncanonical repository/project/repository UUID, duplicate authority, or a
   backend repository with no exact control row;
 - non-SHA-256 or link/content digest mismatch, zero/oversized manifest, invalid
-  media type, duplicate reference, conflicting descriptor size/media type, or
-  unsupported manifest shape; or
+  media type, duplicate reference, conflicting descriptor size, invalid
+  manifest/index media-type alias, or unsupported manifest shape; or
 - index child absent from the same repository or disagreeing with its descriptor.
 
 An empty control repository may have no backend path and is not an error. A
@@ -107,12 +118,23 @@ The following is a design checklist, not an executable production procedure:
    retention policy and restore writers through a controlled rollout.
 
 The checked-in helper now has an exact-release S3 configuration adapter and
-provenance-bound verifier/importer contract, but it has not been run against
-RGW. `coffer-import-inventory` and `coffer-verify-inventory-import` implement
-the disposable SQL import/comparison semantics for step 8, but neither
-establishes writer exclusion, backup/restore, production authorization,
-representative capacity, authenticated live content availability, rollback
-readiness, or permission to enable admission. Those remain explicit gates.
+provenance-bound verifier/importer contract. On 2026-07-28 it ran read-only
+against the retained preview RGW using verified TLS and owner-only transient
+configuration. The scan found one project, one repository, five manifests,
+nine project-unique descriptors, and two compatible Docker/OCI blob media-type
+alias sets. The resulting v3 artifact imported once into disposable SQLite,
+replayed as `already_imported`, and passed the independent read-only ledger
+verifier without double-counting either alias. Remote helper, authority, and
+configuration residue was zero.
+
+That run is anticipatory evidence only: writers were not excluded, the source
+was not a restored disposable backup, and the signed Distribution/Ceph release
+gate is still blocked. `coffer-import-inventory` and
+`coffer-verify-inventory-import` implement the disposable SQL
+import/comparison semantics for step 8, but neither establishes writer
+exclusion, backup/restore, production authorization, representative capacity,
+authenticated live content availability, rollback readiness, or permission to
+enable admission. Those remain explicit gates.
 
 The plan 0011 library adds the read-only live-comparison algorithm but no
 installed production command. It verifies the SQL baseline and resolves exact
@@ -212,6 +234,6 @@ qualified target.
   re-baseline resurrection.
 - Add large-inventory memory/time bounds and evidence chunk storage/retention.
 
-Until those gates pass, `coffer.inventory/v1` and v2 are verified local
-contracts only and must not be represented as a production-imported or
-production-authoritative quota ledger.
+Until those gates pass, `coffer.inventory/v1`, v2, and v3 are verified
+non-production contracts only and must not be represented as a
+production-imported or production-authoritative quota ledger.

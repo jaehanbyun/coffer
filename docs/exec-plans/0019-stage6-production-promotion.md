@@ -2802,6 +2802,37 @@ operator-local release.
   specialist verifier result without self-attestation, then bind the already
   completed GC result and leave every absent live result explicitly pending.
 
+### 2026-07-28 — Retained-preview RGW inventory compatibility proven
+
+- Scope: Ran the exact-release helper read-only against the retained preview
+  RGW over its existing verified-TLS configuration. The registry remained
+  online, no remote service or data was changed, and helper, configuration,
+  authority, and output staging were removed from the guest after collection.
+- Finding and correction: The same project legitimately referenced two blob
+  digests through Docker and OCI config/layer media-type aliases with identical
+  sizes. The v2 project summary treated that as a conflict. Added
+  `coffer.inventory/v3`, which preserves sorted unique compatible blob
+  `media_types`, continues to deduplicate quota by digest and size, and still
+  rejects size conflicts and manifest/index media-type aliases. Single-media
+  filesystem v1 and S3 v2 artifacts remain byte-compatible.
+- Evidence: The owner-only mode-0600 artifact contains one project, one
+  repository, five manifests, nine unique descriptors, two alias sets, and
+  2,214,809 logical bytes. It imported once into disposable SQLite, exact
+  replay returned `already_imported`, and independent read-only verification
+  returned `verified` with nine descriptors, five manifests, and fifteen
+  reservation edges. Seventy focused inventory/import tests and all 1,677
+  repository tests pass.
+- Boundary: This is anticipatory evidence only. Writers were not excluded, the
+  source was not a restored disposable backup, and the selected
+  Distribution/Ceph releases remain blocked. It does not satisfy the Stage 6
+  data-protection gate.
+- Changed files: `src/coffer/inventory.py`,
+  `src/coffer/quota_import.py`, inventory/import regression tests, ADR 0011,
+  the inventory and data-protection runbooks, this plan, and `HANDOFF.md`.
+- Next exact action: Add a canonical final promotion ledger that consumes each
+  specialist verifier result without self-attestation, bind the completed GC
+  proof, and leave every missing live result explicitly pending.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2817,6 +2848,9 @@ operator-local release.
 | Live unified release preflight | `make -C poc/production-promotion check`; owner-only file mode and JSON inspection | passed; valid `blocked` result, five exact blockers, mode 0600 |
 | Promotion pipeline refusal | `make -C poc/production-promotion require-qualified` | passed; failed closed before any runtime action |
 | Post-preflight full Python regression | `uv run pytest -q` | passed; 1673 |
+| Retained-preview exact-release RGW inventory | read-only helper over verified TLS; local v3 import, replay, and independent verification | passed as anticipatory evidence; 1 project, 1 repository, 5 manifests, 9 descriptors, 2 blob alias sets, 2,214,809 logical bytes; zero remote transient residue |
+| Multi-media inventory/import regression | `uv run pytest -q tests/test_inventory.py tests/test_quota_import.py tests/test_quota_import_verification.py` | passed; 70 |
+| Post-v3 full Python regression | `uv run pytest -q` | passed; 1677 |
 | Full Python regression | `uv run pytest -q` | passed; 310 |
 | Kolla companion-role regression | `make -C poc/kolla-ansible-role verify` | passed; 68 |
 | Maintenance identity code/config inventory | Focused inspection of live comparison, reconciliation runner/probe, WSGI, Kolla config, secrets, and Stage 5 inputs | passed |

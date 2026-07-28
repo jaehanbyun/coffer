@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import sys
 import tempfile
 import uuid
+from dataclasses import dataclass
+from pathlib import Path
 
 from coffer.quota import (
     IMAGE_MEDIA_TYPES,
@@ -21,12 +21,12 @@ from coffer.quota import (
 )
 from coffer.tokens import PROJECT_ID, REPOSITORY_NAME, REPOSITORY_SUFFIX
 
-
 EVIDENCE_SCHEMA = "coffer.distribution-storage-scan/v1"
 S3_EVIDENCE_SCHEMA = "coffer.distribution-storage-scan/v2"
 AUTHORITY_SCHEMA = "coffer.repository-authority/v1"
 INVENTORY_SCHEMA = "coffer.inventory/v1"
 S3_INVENTORY_SCHEMA = "coffer.inventory/v2"
+MULTI_MEDIA_INVENTORY_SCHEMA = "coffer.inventory/v3"
 PINNED_DISTRIBUTION_VERSION = "v3.1.1"
 PINNED_DISTRIBUTION_REVISION = (
     "9a8d98b679740cd514aa7e7d84d23d442a5ef54c"
@@ -521,7 +521,7 @@ def parse_authority(value: object) -> dict[str, RepositoryAuthority]:
 
 
 def _descriptor(
-    descriptors: dict[str, tuple[str, int]],
+    descriptors: dict[str, tuple[frozenset[str], int]],
     *,
     digest: str,
     media_type: str,
@@ -529,11 +529,47 @@ def _descriptor(
     project_id: str,
 ) -> None:
     existing = descriptors.get(digest)
-    if existing is not None and existing != (media_type, size):
+    media_types = frozenset({media_type})
+    if existing is not None:
+        existing_media_types, existing_size = existing
+        media_types = existing_media_types | media_types
+        if existing_size != size or (
+            len(media_types) > 1
+            and any(
+                item in IMAGE_MEDIA_TYPES | INDEX_MEDIA_TYPES
+                for item in media_types
+            )
+        ):
+            raise _fail(
+                f"project {project_id} has conflicting facts for descriptor {digest}"
+            )
+    descriptors[digest] = (media_types, size)
+
+
+def _project_descriptor(
+    digest: str,
+    media_types: frozenset[str],
+    size: int,
+    *,
+    multi_media: bool,
+) -> dict[str, object]:
+    if not media_types:
         raise _fail(
-            f"project {project_id} has conflicting facts for descriptor {digest}"
+            f"descriptor {digest} has no observed media type"
         )
-    descriptors[digest] = (media_type, size)
+    if multi_media:
+        return {
+            "digest": digest,
+            "media_types": sorted(media_types),
+            "size": size,
+        }
+    if len(media_types) != 1:
+        raise _fail(f"descriptor {digest} requires inventory v3")
+    return {
+        "digest": digest,
+        "media_type": next(iter(media_types)),
+        "size": size,
+    }
 
 
 def build_inventory(evidence: object, authority: object) -> dict[str, object]:
@@ -550,7 +586,10 @@ def build_inventory(evidence: object, authority: object) -> dict[str, object]:
         by_repository[record.repository].append(record)
 
     records_by_key = {record.key: record for record in records}
-    project_descriptors: dict[str, dict[str, tuple[str, int]]] = {}
+    project_descriptors: dict[
+        str,
+        dict[str, tuple[frozenset[str], int]],
+    ] = {}
     final_repositories: list[dict[str, object]] = []
     for canonical_name in sorted(by_repository):
         authority_record = authority_by_name[canonical_name]
@@ -573,7 +612,9 @@ def build_inventory(evidence: object, authority: object) -> dict[str, object]:
                         f"{canonical_name}@{reference.digest}"
                     )
                     if child is None:
-                        raise _fail("index child is not an enumerated repository manifest")
+                        raise _fail(
+                            "index child is not an enumerated repository manifest"
+                        )
                     if (
                         child.media_type != reference.media_type
                         or child.size != reference.size
@@ -609,15 +650,21 @@ def build_inventory(evidence: object, authority: object) -> dict[str, object]:
         )
     )
 
+    multi_media = any(
+        len(media_types) > 1
+        for descriptors in project_descriptors.values()
+        for media_types, _ in descriptors.values()
+    )
     projects = []
     for project_id in sorted(project_descriptors):
         descriptors = project_descriptors[project_id]
         descriptor_facts = [
-            {
-                "digest": digest,
-                "media_type": facts[0],
-                "size": facts[1],
-            }
+            _project_descriptor(
+                digest,
+                facts[0],
+                facts[1],
+                multi_media=multi_media,
+            )
             for digest, facts in sorted(descriptors.items())
         ]
         logical_bytes = sum(item["size"] for item in descriptor_facts)
@@ -641,6 +688,8 @@ def build_inventory(evidence: object, authority: object) -> dict[str, object]:
     if snapshot.backend is not None:
         source["backend"] = snapshot.backend
         schema = S3_INVENTORY_SCHEMA
+    if multi_media:
+        schema = MULTI_MEDIA_INVENTORY_SCHEMA
 
     return {
         "projects": projects,

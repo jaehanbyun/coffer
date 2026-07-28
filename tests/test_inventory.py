@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from copy import deepcopy
 import hashlib
 import json
-from pathlib import Path
 import stat
+from copy import deepcopy
+from pathlib import Path
 
 import pytest
 
 from coffer.inventory import (
     AUTHORITY_SCHEMA,
     EVIDENCE_SCHEMA,
+    MULTI_MEDIA_INVENTORY_SCHEMA,
     PINNED_DISTRIBUTION_REVISION,
     PINNED_DISTRIBUTION_VERSION,
     PINNED_ENUMERATOR,
@@ -21,8 +22,11 @@ from coffer.inventory import (
     inventory_bytes,
     main,
 )
-from coffer.quota import OCI_IMAGE_INDEX, OCI_IMAGE_MANIFEST
-
+from coffer.quota import (
+    DOCKER_IMAGE_MANIFEST,
+    OCI_IMAGE_INDEX,
+    OCI_IMAGE_MANIFEST,
+)
 
 PROJECT_ID = "11111111-1111-4111-8111-111111111111"
 REPOSITORY_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
@@ -218,6 +222,63 @@ def test_s3_evidence_preserves_exact_hashed_provenance() -> None:
         "rgw.example.invalid",
     ):
         assert excluded not in serialized
+
+
+def test_s3_inventory_preserves_blob_media_type_aliases() -> None:
+    alias_digest = f"sha256:{'5' * 64}"
+    alias = {
+        "content_digest": alias_digest,
+        "enumerated_digest": alias_digest,
+        "media_type": DOCKER_IMAGE_MANIFEST,
+        "references": [
+            reference(
+                CONFIG_DIGEST,
+                17,
+                "application/vnd.docker.container.image.v1+json",
+            ),
+            reference(
+                LAYER_DIGEST,
+                23,
+                "application/vnd.docker.image.rootfs.diff.tar.gzip",
+            ),
+        ],
+        "repository": REPOSITORY,
+        "size": 83,
+        "tagged": True,
+    }
+    values = [*records(), alias]
+    value = {
+        "backend": s3_backend(),
+        "distribution_version": PINNED_DISTRIBUTION_VERSION,
+        "enumerator": PINNED_ENUMERATOR,
+        "page_size": 1,
+        "scans": [scan("start", values), scan("end", deepcopy(values))],
+        "schema": S3_EVIDENCE_SCHEMA,
+    }
+
+    inventory = build_inventory(value, authority())
+
+    assert inventory["schema"] == MULTI_MEDIA_INVENTORY_SCHEMA
+    descriptors = {
+        item["digest"]: item
+        for item in inventory["projects"][0]["descriptors"]
+    }
+    assert descriptors[CONFIG_DIGEST] == {
+        "digest": CONFIG_DIGEST,
+        "media_types": [
+            "application/vnd.docker.container.image.v1+json",
+            "application/vnd.oci.image.config.v1+json",
+        ],
+        "size": 17,
+    }
+    assert descriptors[LAYER_DIGEST] == {
+        "digest": LAYER_DIGEST,
+        "media_types": [
+            "application/vnd.docker.image.rootfs.diff.tar.gzip",
+            "application/vnd.oci.image.layer.v1.tar+gzip",
+        ],
+        "size": 23,
+    }
 
 
 @pytest.mark.parametrize(

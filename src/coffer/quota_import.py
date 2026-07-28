@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import argparse
-from collections import Counter
-from dataclasses import dataclass
-from datetime import UTC, datetime
 import hashlib
 import json
 import os
-from pathlib import Path
 import sys
 import uuid
+from collections import Counter
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
 
 from sqlalchemy import func, insert, or_, select, update
 from sqlalchemy.exc import ArgumentError, IntegrityError, SQLAlchemyError
@@ -21,6 +21,7 @@ from coffer.inventory import (
     MAX_MEDIA_TYPE_BYTES,
     MAX_RECORD_COUNT,
     MEDIA_TYPE,
+    MULTI_MEDIA_INVENTORY_SCHEMA,
     PINNED_DISTRIBUTION_REVISION,
     PINNED_DISTRIBUTION_VERSION,
     PINNED_ENUMERATOR,
@@ -28,7 +29,6 @@ from coffer.inventory import (
     S3_INVENTORY_SCHEMA,
 )
 from coffer.quota import (
-    Descriptor,
     IMAGE_MEDIA_TYPES,
     INDEX_MEDIA_TYPES,
     MAX_DESCRIPTOR_COUNT,
@@ -36,8 +36,10 @@ from coffer.quota import (
     MAX_MANIFEST_BYTES,
     MAX_TRANSACTION_ATTEMPTS,
     SHA256_DIGEST,
+    Descriptor,
     QuotaSchemaNotReady,
     QuotaStore,
+    _retryable_transaction_error,
     project_quotas,
     quota_descriptors,
     quota_inventory_imports,
@@ -45,7 +47,6 @@ from coffer.quota import (
     quota_reconciliation_claims,
     quota_reservation_descriptors,
     quota_reservations,
-    _retryable_transaction_error,
 )
 from coffer.tokens import PROJECT_ID
 
@@ -74,6 +75,13 @@ class InventoryDescriptor:
 
 
 @dataclass(frozen=True, slots=True)
+class InventoryProjectDescriptor:
+    digest: str
+    media_types: tuple[str, ...]
+    size: int
+
+
+@dataclass(frozen=True, slots=True)
 class InventoryManifest:
     digest: str
     media_type: str
@@ -91,7 +99,7 @@ class InventoryRepository:
 @dataclass(frozen=True, slots=True)
 class InventoryProject:
     project_id: str
-    descriptors: tuple[InventoryDescriptor, ...]
+    descriptors: tuple[InventoryProjectDescriptor, ...]
     logical_bytes: int
 
 
@@ -328,7 +336,48 @@ def _parse_repository(value: object, label: str) -> InventoryRepository:
     )
 
 
-def _parse_project(value: object, label: str) -> InventoryProject:
+def _parse_project_descriptor(
+    value: object,
+    label: str,
+    *,
+    multi_media: bool,
+) -> InventoryProjectDescriptor:
+    raw = _object(value, label)
+    if multi_media:
+        _exact_keys(raw, {"digest", "media_types", "size"}, label)
+        raw_media_types = _array(raw["media_types"], f"{label}.media_types")
+        media_types = tuple(
+            _media_type(item, f"{label}.media_types[{index}]")
+            for index, item in enumerate(raw_media_types)
+        )
+        if (
+            not media_types
+            or media_types != tuple(sorted(set(media_types)))
+            or (
+                len(media_types) > 1
+                and any(
+                    item in IMAGE_MEDIA_TYPES | INDEX_MEDIA_TYPES
+                    for item in media_types
+                )
+            )
+        ):
+            raise _fail(f"{label}.media_types are invalid")
+    else:
+        descriptor = _parse_descriptor(raw, label)
+        media_types = (descriptor.media_type,)
+    return InventoryProjectDescriptor(
+        digest=_digest(raw["digest"], f"{label}.digest"),
+        media_types=media_types,
+        size=_integer(raw["size"], f"{label}.size"),
+    )
+
+
+def _parse_project(
+    value: object,
+    label: str,
+    *,
+    multi_media: bool,
+) -> InventoryProject:
     raw = _object(value, label)
     _exact_keys(
         raw,
@@ -337,7 +386,11 @@ def _parse_project(value: object, label: str) -> InventoryProject:
     )
     descriptors_raw = _array(raw["descriptors"], f"{label}.descriptors")
     descriptors = tuple(
-        _parse_descriptor(descriptor, f"{label}.descriptors[{index}]")
+        _parse_project_descriptor(
+            descriptor,
+            f"{label}.descriptors[{index}]",
+            multi_media=multi_media,
+        )
         for index, descriptor in enumerate(descriptors_raw)
     )
     if tuple(descriptor.digest for descriptor in descriptors) != tuple(
@@ -425,7 +478,11 @@ def parse_inventory_artifact(
         "inventory",
     )
     schema = raw["schema"]
-    if schema not in {INVENTORY_SCHEMA, S3_INVENTORY_SCHEMA}:
+    if schema not in {
+        INVENTORY_SCHEMA,
+        S3_INVENTORY_SCHEMA,
+        MULTI_MEDIA_INVENTORY_SCHEMA,
+    }:
         raise _fail("inventory schema is unsupported")
     source = _object(raw["source"], "inventory.source")
     if schema == INVENTORY_SCHEMA:
@@ -434,7 +491,7 @@ def parse_inventory_artifact(
             {"distribution_version", "enumerator", "snapshot_scans"},
             "inventory.source",
         )
-    else:
+    elif schema == S3_INVENTORY_SCHEMA:
         _exact_keys(
             source,
             {
@@ -446,6 +503,25 @@ def parse_inventory_artifact(
             "inventory.source",
         )
         _parse_inventory_backend(source["backend"])
+    else:
+        if "backend" in source:
+            _exact_keys(
+                source,
+                {
+                    "backend",
+                    "distribution_version",
+                    "enumerator",
+                    "snapshot_scans",
+                },
+                "inventory.source",
+            )
+            _parse_inventory_backend(source["backend"])
+        else:
+            _exact_keys(
+                source,
+                {"distribution_version", "enumerator", "snapshot_scans"},
+                "inventory.source",
+            )
     if source["distribution_version"] != PINNED_DISTRIBUTION_VERSION:
         raise _fail("inventory Distribution version is not pinned")
     if source["enumerator"] != PINNED_ENUMERATOR:
@@ -458,7 +534,11 @@ def parse_inventory_artifact(
     if len(projects_raw) > MAX_RECORD_COUNT or len(repositories_raw) > MAX_RECORD_COUNT:
         raise _fail("inventory contains too many projects or repositories")
     projects = tuple(
-        _parse_project(project, f"inventory.projects[{index}]")
+        _parse_project(
+            project,
+            f"inventory.projects[{index}]",
+            multi_media=schema == MULTI_MEDIA_INVENTORY_SCHEMA,
+        )
         for index, project in enumerate(projects_raw)
     )
     if tuple(project.project_id for project in projects) != tuple(
@@ -483,7 +563,7 @@ def parse_inventory_artifact(
     }:
         raise _fail("inventory project summaries must match repository projects")
 
-    recomputed: dict[str, dict[str, InventoryDescriptor]] = {
+    recomputed: dict[str, dict[str, InventoryProjectDescriptor]] = {
         project.project_id: {} for project in projects
     }
     for repository in repositories:
@@ -498,14 +578,33 @@ def parse_inventory_artifact(
                 *manifest.references,
             ):
                 existing = descriptors.get(descriptor.digest)
-                if existing is not None and existing != descriptor:
-                    raise _fail("inventory has conflicting project descriptor facts")
-                descriptors[descriptor.digest] = descriptor
+                media_types = {descriptor.media_type}
+                if existing is not None:
+                    media_types.update(existing.media_types)
+                    if existing.size != descriptor.size or (
+                        len(media_types) > 1
+                        and any(
+                            item in IMAGE_MEDIA_TYPES | INDEX_MEDIA_TYPES
+                            for item in media_types
+                        )
+                    ):
+                        raise _fail(
+                            "inventory has conflicting project descriptor facts"
+                        )
+                descriptors[descriptor.digest] = InventoryProjectDescriptor(
+                    digest=descriptor.digest,
+                    media_types=tuple(sorted(media_types)),
+                    size=descriptor.size,
+                )
     for project in projects:
         expected = tuple(
             descriptor
             for _, descriptor in sorted(recomputed[project.project_id].items())
         )
+        if schema != MULTI_MEDIA_INVENTORY_SCHEMA and any(
+            len(descriptor.media_types) != 1 for descriptor in expected
+        ):
+            raise _fail("inventory v1/v2 cannot contain media type aliases")
         if project.descriptors != expected:
             raise _fail("inventory project descriptors do not match repositories")
 

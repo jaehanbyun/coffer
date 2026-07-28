@@ -1,30 +1,32 @@
 from __future__ import annotations
 
-from copy import deepcopy
-from concurrent.futures import ThreadPoolExecutor
-from dataclasses import replace
-from datetime import UTC, datetime
 import hashlib
 import json
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
+from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
 from alembic import command
 from alembic.config import Config
-import pytest
 from sqlalchemy import create_engine, func, insert, select, text
 
 from coffer.db import repositories as repository_table
 from coffer.inventory import (
     INVENTORY_SCHEMA,
+    MULTI_MEDIA_INVENTORY_SCHEMA,
     PINNED_DISTRIBUTION_REVISION,
     PINNED_DISTRIBUTION_VERSION,
     PINNED_ENUMERATOR,
     S3_INVENTORY_SCHEMA,
 )
 from coffer.quota import (
-    Descriptor,
+    DOCKER_IMAGE_MANIFEST,
     OCI_IMAGE_INDEX,
     OCI_IMAGE_MANIFEST,
+    Descriptor,
     QuotaExceeded,
     QuotaStore,
     project_quotas,
@@ -45,7 +47,6 @@ from coffer.quota_import import (
     main,
     parse_inventory_artifact,
 )
-
 
 PROJECT_ID = "11111111-1111-4111-8111-111111111111"
 REPOSITORY_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
@@ -152,6 +153,61 @@ def s3_artifact() -> dict[str, object]:
     return value
 
 
+def multi_media_artifact() -> dict[str, object]:
+    value = s3_artifact()
+    value["schema"] = MULTI_MEDIA_INVENTORY_SCHEMA
+    project = value["projects"][0]  # type: ignore[index]
+    descriptors = project["descriptors"]  # type: ignore[index]
+    for descriptor_value in descriptors:
+        descriptor_value["media_types"] = [descriptor_value.pop("media_type")]
+    for descriptor_value in descriptors:
+        if descriptor_value["digest"] == CONFIG_DIGEST:
+            descriptor_value["media_types"].insert(  # type: ignore[index]
+                0,
+                "application/vnd.docker.container.image.v1+json",
+            )
+        if descriptor_value["digest"] == LAYER_DIGEST:
+            descriptor_value["media_types"].insert(  # type: ignore[index]
+                0,
+                "application/vnd.docker.image.rootfs.diff.tar.gzip",
+            )
+    alias_digest = f"sha256:{'5' * 64}"
+    descriptors.append(
+        {
+            "digest": alias_digest,
+            "media_types": [DOCKER_IMAGE_MANIFEST],
+            "size": 83,
+        }
+    )
+    descriptors.sort(key=lambda item: item["digest"])
+    project["descriptor_count"] = 5  # type: ignore[index]
+    project["logical_bytes"] = 303  # type: ignore[index]
+    manifests = value["repositories"][0]["manifests"]  # type: ignore[index]
+    manifests.append(
+        {
+            "digest": alias_digest,
+            "media_type": DOCKER_IMAGE_MANIFEST,
+            "references": [
+                descriptor(
+                    CONFIG_DIGEST,
+                    "application/vnd.docker.container.image.v1+json",
+                    17,
+                ),
+                descriptor(
+                    LAYER_DIGEST,
+                    "application/vnd.docker.image.rootfs.diff.tar.gzip",
+                    23,
+                ),
+            ],
+            "size": 83,
+        }
+    )
+    value["summary"]["descriptor_count"] = 5  # type: ignore[index]
+    value["summary"]["logical_bytes"] = 303  # type: ignore[index]
+    value["summary"]["manifest_count"] = 3  # type: ignore[index]
+    return value
+
+
 def canonical_bytes(value: object) -> bytes:
     return (json.dumps(value, separators=(",", ":"), sort_keys=True) + "\n").encode()
 
@@ -234,6 +290,26 @@ def test_parses_provenance_bound_s3_inventory() -> None:
 
     assert parsed.digest == ARTIFACT_DIGEST
     assert parsed.summary.logical_bytes == 220
+
+
+def test_parses_multi_media_descriptor_inventory() -> None:
+    parsed = parse_inventory_artifact(
+        multi_media_artifact(),
+        artifact_digest=ARTIFACT_DIGEST,
+    )
+
+    assert parsed.summary.logical_bytes == 303
+    descriptors = {
+        item.digest: item for item in parsed.projects[0].descriptors
+    }
+    assert descriptors[CONFIG_DIGEST].media_types == (
+        "application/vnd.docker.container.image.v1+json",
+        "application/vnd.oci.image.config.v1+json",
+    )
+    assert descriptors[LAYER_DIGEST].media_types == (
+        "application/vnd.docker.image.rootfs.diff.tar.gzip",
+        "application/vnd.oci.image.layer.v1.tar+gzip",
+    )
 
 
 @pytest.mark.parametrize(
@@ -395,6 +471,45 @@ def test_imports_committed_graph_atomically_and_replays_as_noop(
             quota_descriptors,
         )
     } == before
+
+
+def test_imports_multi_media_inventory_once_without_double_counting(
+    tmp_path: Path,
+) -> None:
+    database_url, store = prepared_database(tmp_path)
+    parsed = parse_inventory_artifact(
+        multi_media_artifact(),
+        artifact_digest=ARTIFACT_DIGEST,
+    )
+
+    first = import_inventory(store, parsed)
+
+    assert first.to_dict() == {
+        "descriptor_count": 5,
+        "inventory_digest": ARTIFACT_DIGEST,
+        "manifest_count": 3,
+        "over_limit_project_count": 0,
+        "project_count": 1,
+        "repository_count": 1,
+        "status": "imported",
+    }
+    assert store.usage(PROJECT_ID).used_bytes == 303
+    assert store.usage(PROJECT_ID).reserved_bytes == 0
+    assert table_count(database_url, quota_inventory_imports) == 1
+    assert table_count(database_url, quota_reservations) == 3
+    assert table_count(database_url, quota_reservation_descriptors) == 8
+    assert table_count(database_url, quota_manifests) == 3
+    assert table_count(database_url, quota_descriptors) == 5
+
+    replay = import_inventory(store, parsed)
+
+    assert replay.status == "already_imported"
+    assert store.usage(PROJECT_ID).used_bytes == 303
+    assert table_count(database_url, quota_inventory_imports) == 1
+    assert table_count(database_url, quota_reservations) == 3
+    assert table_count(database_url, quota_reservation_descriptors) == 8
+    assert table_count(database_url, quota_manifests) == 3
+    assert table_count(database_url, quota_descriptors) == 5
 
 
 def test_rejects_different_baseline_after_commit(tmp_path: Path) -> None:

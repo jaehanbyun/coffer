@@ -69,8 +69,18 @@ Ceph Tentacle v20.2.2 without the encrypted-copy fix, only oslo.messaging
 17.3.0 in the stable series, and stable/2026.1 constraints pinned to 17.3.0.
 The new unified release preflight records all five blockers in one owner-only
 mode-0600 result and fails before any runtime action unless all three
-components are `candidate-qualified`. Thirty-three focused tests pass. The
-full repository regression passes 1,673 tests. The
+components are `candidate-qualified`. Thirty-three focused tests pass.
+
+The exact-release helper also ran read-only against the retained preview RGW
+over verified TLS and left zero remote transient residue. Its one-project,
+one-repository snapshot exposed compatible Docker/OCI blob media-type aliases.
+`coffer.inventory/v3` now preserves those aliases while quota still deduplicates
+by digest and size; v1/v2 remain byte-compatible and manifest/index aliases or
+size conflicts fail closed. The owner-only artifact imported once into
+disposable SQLite, replayed as `already_imported`, and independently verified.
+This remains anticipatory evidence because writers were not excluded, no
+restored backup was used, and the release pair remains blocked. Seventy focused
+inventory/import tests and all 1,677 repository tests pass. The
 exact next action is to add the canonical final promotion ledger consuming
 specialist verifier outputs, bind the completed GC proof, and keep missing
 live evidence pending without self-attestation.

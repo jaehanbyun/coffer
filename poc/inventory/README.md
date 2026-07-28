@@ -39,17 +39,23 @@ application, upload purger, events, health checks, cache, or delete/GC
 behavior. S3/driver failures are reported as fixed categories without
 configuration or backend detail.
 
-The checked-in fixture still exercises only filesystem storage. S3 scans use
+The checked-in repeatable fixture still exercises only filesystem storage. S3 scans use
 `coffer.distribution-storage-scan/v2` and bind the pinned Distribution source
 revision, canonical runtime module graph, helper executable, exact
 configuration, storage type, endpoint, bucket, and root through non-secret
 SHA-256 evidence. `coffer-inventory-verify` preserves that binding in
-`coffer.inventory/v2`, and `coffer-import-inventory` validates it before the
-artifact digest can authorize a baseline import. Filesystem v1 evidence and
-inventory remain byte-compatible.
+`coffer.inventory/v2`, or v3 when compatible Docker/OCI blob media-type aliases
+exist, and `coffer-import-inventory` validates it before the artifact digest can
+authorize a baseline import. Filesystem v1 and single-media S3 v2 inventory
+remain byte-compatible.
 
-The S3 adapter has not connected to RGW. The immutable scratch image has been
-built and inspected locally on ARM64, but it is not a signed production
-artifact and the pinned Distribution release remains blocked by ADR 0006. The
+On 2026-07-28 the helper ran read-only against the retained preview RGW over
+verified TLS. It emitted an owner-only v3 artifact, preserved two compatible
+Docker/OCI blob media-type alias sets, imported once into disposable SQLite,
+replayed as a no-op, passed independent ledger verification, and left zero
+remote transient residue. Writers were not excluded and no backup/restore or
+admission cutover occurred, so this is anticipatory evidence rather than a
+production rehearsal. The immutable scratch image is not a signed production
+artifact and the pinned Distribution/Ceph release pair remains blocked. The
 helper therefore does not qualify RGW credentials, authorize a production
 cutover, or become an upstream-supported Distribution API.

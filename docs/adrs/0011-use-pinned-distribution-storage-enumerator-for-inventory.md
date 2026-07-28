@@ -62,9 +62,19 @@ For the PoC cutover-evidence seam:
 The helper now supports a locally verified exact-release S3 configuration
 adapter in addition to the read-only filesystem fixture. S3 evidence binds
 hashed helper/module/config/backend provenance and is preserved through the
-inventory/import artifact. It has not connected to RGW, and the unsigned local
-image plus blocked Distribution release do not make it a deployable cutover
-tool.
+inventory/import artifact. A 2026-07-28 anticipatory read-only run connected it
+to the retained preview RGW and removed all remote transient material. The
+unsigned local helper, absent writer exclusion/backup, and blocked Distribution
+and Ceph releases still do not make it a deployable cutover tool.
+
+That run also exposed a valid cross-format case: a project can reference one
+config or layer digest and identical size through both Docker and OCI blob media
+types. Inventory v1/v2 remain byte-compatible for single-media observations.
+When compatible aliases occur, the verifier emits `coffer.inventory/v3` with a
+sorted unique `media_types` array in the project descriptor summary while
+preserving each repository manifest/reference media type. Quota import
+deduplicates by digest and size. A size conflict or any manifest/index
+media-type alias remains a hard failure.
 
 ## Consequences
 
@@ -110,6 +120,13 @@ forced partial failure, converge concurrent exact replay to one write plus one
 no-op, and retain honest over-limit usage. That downstream evidence does not
 qualify the filesystem helper for production RGW or complete the operator
 cutover sequence.
+
+The 2026-07-28 preview scan produced one repository with five manifests, nine
+project-unique descriptors, and two compatible blob alias sets. Its v3
+artifact imported atomically into disposable SQLite, exact replay was a no-op,
+and the independent ledger verifier passed. This closes the observed
+cross-format compatibility defect, but it is not representative-scale,
+writer-excluded, backup-derived, or release-qualified evidence.
 
 Before this ADR can be accepted for a production candidate, maintainers must
 still provide:

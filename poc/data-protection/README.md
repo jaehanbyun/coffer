@@ -308,7 +308,13 @@ S3, parses the selected Distribution configuration, constructs only the
 registered S3 driver/namespace, refuses the prohibited configuration and
 ambient credential paths, and bounds both scans with one context. Seven Go
 configuration tests, Go vet, the existing filesystem Podman fixture, and its
-zero-residue cleanup pass. No RGW connection was attempted.
+zero-residue cleanup pass. That original milestone made no RGW connection.
+On 2026-07-28 a later anticipatory read-only invocation connected the same
+helper to the retained preview RGW over verified TLS, produced equal scans,
+preserved compatible Docker/OCI blob aliases in inventory v3, passed
+disposable SQLite import/replay/verification, and removed all remote transient
+material. It did not exclude writers or exercise backup, restore, cutover, or
+rollback.
 
 The provenance/image milestone is also complete locally. S3 evidence v2 binds
 the exact Distribution revision, canonical module graph, helper binary,
@@ -385,8 +391,8 @@ module imports no network, subprocess, S3, SQL, or HTTP runtime. The lifecycle
 now reaches `backups-verified` only through this ordered adapter and the
 canonical verifier.
 
-Live MariaDB/RGW adapters and the disposable rehearsal remain deferred until
-an explicit target contract and acceptable released dependency inputs can be
-bound to a fresh isolated pilot. The next independent Stage 6 workstream is
-restart-correct observability; this data-protection boundary must not be
-weakened when live clients are added.
+Live MariaDB and RGW backup/restore adapters and the full disposable rehearsal
+remain deferred until an explicit target contract and acceptable released
+dependency inputs can be bound to a fresh isolated pilot. The read-only preview
+inventory observation is not a substitute for that rehearsal. This
+data-protection boundary must not be weakened when live clients are added.
