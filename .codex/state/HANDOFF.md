@@ -35,8 +35,9 @@
   REST/OpenAPI UI contract, Kolla 2026.1 Horizon 25.7.3 baseline, and
   server-side Horizon adapter and independently packaged Project Registry
   dashboard complete locally; exact-revision Skyline source-overlay baseline
-  accepted; equivalent Skyline Registry pages/routes/menu/quota surface,
-  production bundle, and versioned wheel complete locally with 31 tests;
+  accepted; equivalent Skyline Registry pages/routes/menu/quota/artifact
+  surface, production bundle, and versioned wheel complete locally with 45
+  focused tests;
   disabled-by-default immutable Horizon/Skyline image contracts and exact
   fallback lifecycle complete locally with 108 role checks; four desktop/narrow
   UI fixture screenshots visually inspected; current UI remediation suite
@@ -73,10 +74,15 @@ pull-reference browsing, responsive empty/error states, and an accessible
 Docker/Podman/Helm/ORAS connection guide that uses the catalog and hidden
 application-credential prompt without rendering a secret. The corrected full
 repository run passes 1,867 tests; the exact Horizon 25.7.3 baseline and all 47
-plugin tests, JS syntax, wheel static membership, and diff checks pass. The
-exact next implementation action is the Skyline artifact client/store
-contract. No retained preview container or production promotion state has
-changed.
+plugin tests, JS syntax, wheel static membership, and diff checks pass.
+Skyline now provides the same artifact/search/copy surface and native
+Docker/Podman/Helm/ORAS dialog after strict artifact and same-origin HTTPS
+endpoint validation. The exact pinned Skyline Console source passes locale,
+focused ESLint, 45 tests, production Webpack bundle, versioned wheel and
+bundle/wheel verification. The exact next implementation action is extending
+the immutable dashboard images and Kolla companion-role verification for
+migration 0007 and the new UI assets. No retained preview container or
+production promotion state has changed.
 
 Complete every Stage 6 production promotion gate without weakening accepted
 release, security, storage, identity, data-protection, operability, or teardown
@@ -3534,11 +3540,12 @@ release contains it yet.
 
 ## Exact Next Action
 
-Extend `ui/skyline/overlay/src/client/coffer/index.js` with the exact artifact
-page/detail validation and endpoint-derived registry host contract, then add
-Skyline store methods before changing the repository detail page. Plan 0019's
-release refresh remains event-driven and must not be weakened or relabeled by
-this UI work.
+Inspect `ui/images/` and
+`ansible/roles/coffer/tests/test_ui_image_contract.py`, then extend the
+immutable Horizon/Skyline image and Kolla companion-role contracts for
+migration 0007 and the new dashboard assets before changing the retained
+preview. Plan 0019's release refresh remains event-driven and must not be
+weakened or relabeled by this UI work.
 
 ## After This Work Package
 

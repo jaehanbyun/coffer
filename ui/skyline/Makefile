@@ -18,6 +18,7 @@ dependencies:
 test-core:
 	cd "$(BUILD_DIR)" && yarn test:unit --runInBand \
 		src/client/coffer/index.test.js \
+		src/resources/coffer/artifact.test.js \
 		src/resources/coffer/repository.test.js \
 		src/stores/coffer/stores.test.js \
 		src/pages/coffer/containers/Repository/QuotaSummary.test.js \

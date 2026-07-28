@@ -3,6 +3,7 @@
 import { inject, observer } from 'mobx-react';
 import Base from 'containers/TabDetail';
 import { RepositoryStore } from 'stores/coffer/repositories';
+import Artifacts from './Artifacts';
 import BaseDetail from './BaseDetail';
 
 export class RepositoryDetail extends Base {
@@ -43,6 +44,11 @@ export class RepositoryDetail extends Base {
 
   get tabs() {
     return [
+      {
+        title: t('Images & Artifacts'),
+        key: 'artifacts',
+        component: Artifacts,
+      },
       {
         title: t('Detail Info'),
         key: 'detail_info',

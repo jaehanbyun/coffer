@@ -11,6 +11,8 @@ from zipfile import ZipFile
 ROOT = Path(__file__).resolve().parent
 EXPECTED_VERSION = "8.0.0+coffer.1"
 REQUIRED_TRANSLATIONS = {
+    "How to connect",
+    "Images & Artifacts",
     "Create Repository",
     "Immutable Tags",
     "Repositories",
@@ -18,6 +20,7 @@ REQUIRED_TRANSLATIONS = {
     "Repository Name",
     "Registry",
     "Registry Quota",
+    "Search by tag or digest",
 }
 
 
@@ -57,6 +60,21 @@ def _verify_source(tree: Path) -> None:
         and "return 'repositories';" in repositories,
         "repository list response envelope is not explicitly pluralized",
     )
+    artifacts = _read(tree / "src/stores/coffer/artifacts.js")
+    artifact_page = _read(
+        tree
+        / "src/pages/coffer/containers/Repository/Detail/Artifacts/index.jsx"
+    )
+    _require(
+        "client.artifacts.list" in artifacts
+        and "client.endpoint" in artifacts,
+        "artifact and endpoint store contracts are missing",
+    )
+    _require(
+        "Search by tag or digest" in artifact_page
+        and "How to connect" in artifact_page,
+        "artifact discovery UX is missing",
+    )
 
     locale = json.loads(_read(tree / "src/locales/en.json"))
     for key in REQUIRED_TRANSLATIONS:
@@ -91,6 +109,14 @@ def _verify_static(tree: Path) -> Path:
     bundle = _read(bundles[0])
     _require("Registry Quota" in bundle, "Coffer bundle lacks the quota surface")
     _require("cofferRepository" in bundle, "Coffer bundle lacks repository routes")
+    _require(
+        "Images & Artifacts" in bundle,
+        "Coffer bundle lacks artifact discovery",
+    )
+    _require(
+        "How to connect" in bundle,
+        "Coffer bundle lacks registry connection guidance",
+    )
     _require((static / "index.html").is_file(), "Skyline index is missing")
     return bundles[0]
 

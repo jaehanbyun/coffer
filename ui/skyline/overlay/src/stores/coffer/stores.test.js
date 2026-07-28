@@ -1,8 +1,14 @@
 import client from 'client/coffer';
+import { ArtifactStore } from './artifacts';
 import { QuotaStore } from './quota';
 import { RepositoryStore } from './repositories';
 
 jest.mock('client/coffer', () => ({
+  artifacts: {
+    list: jest.fn(),
+    show: jest.fn(),
+  },
+  endpoint: jest.fn(),
   repositories: {
     responseKey: 'repository',
     list: jest.fn(),
@@ -11,6 +17,74 @@ jest.mock('client/coffer', () => ({
   },
   quota: jest.fn(),
 }));
+
+describe('ArtifactStore', () => {
+  const repositoryId = '11111111-1111-4111-8111-111111111111';
+  const digest = `sha256:${'a'.repeat(64)}`;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('retains only the validated artifact page and continuation marker', async () => {
+    const item = { digest, tags: ['latest'] };
+    client.artifacts.list.mockResolvedValueOnce({
+      artifacts: [item],
+      next_marker: digest,
+    });
+    const store = new ArtifactStore();
+
+    await expect(
+      store.fetch(repositoryId, { limit: 20, query: 'latest' })
+    ).resolves.toEqual({
+      artifacts: [item],
+      next_marker: digest,
+    });
+
+    expect(client.artifacts.list).toHaveBeenCalledWith(repositoryId, {
+      limit: 20,
+      query: 'latest',
+    });
+    expect(store.items).toEqual([item]);
+    expect(store.nextMarker).toBe(digest);
+    expect(store.errorStatus).toBe(0);
+    expect(store.isLoading).toBe(false);
+  });
+
+  it('retains only bounded failure state when artifact loading fails', async () => {
+    const failure = new Error('remote detail');
+    failure.response = { status: 403, data: '' };
+    client.artifacts.list.mockRejectedValueOnce(failure);
+    const store = new ArtifactStore();
+
+    await expect(store.fetch(repositoryId, { limit: 20 })).rejects.toThrow(
+      'remote detail'
+    );
+
+    expect(store.items).toEqual([]);
+    expect(store.nextMarker).toBeNull();
+    expect(store.errorStatus).toBe(403);
+    expect(store.isLoading).toBe(false);
+  });
+
+  it('retains only the validated public endpoint values', async () => {
+    const endpoints = {
+      control: 'control',
+      registry: 'registry',
+      token: 'token',
+    };
+    client.endpoint.mockResolvedValueOnce({
+      version: { endpoints },
+    });
+    const store = new ArtifactStore();
+
+    await expect(store.fetchEndpoint()).resolves.toEqual(endpoints);
+
+    expect(store.endpoint).toEqual(endpoints);
+    expect(store.endpointErrorStatus).toBe(0);
+    expect(store.isEndpointLoading).toBe(false);
+  });
+});
 
 describe('RepositoryStore', () => {
   beforeEach(() => {

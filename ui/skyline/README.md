@@ -25,6 +25,14 @@ upstream linter over every Coffer-owned file and every central file changed by
 the overlay, plus the focused tests and production build. It does not hide or
 reclassify the unrelated upstream baseline failures as Coffer results.
 
+The repository detail overlay includes a native Ant Design image and OCI
+artifact browser with bounded tag/digest search, forward/back navigation,
+safe metadata and copyable pull references. Its Docker, Podman, Helm, and ORAS
+connection dialog derives the host from authenticated Coffer discovery and
+uses the existing hidden-secret OpenStackClient login flow. Skyline never
+queries Distribution or object storage directly and never renders a registry
+token or application-credential secret.
+
 `ui/images/skyline-console.Containerfile` installs the verified wheel over an
 exact digest-pinned Kolla Skyline Console base. The companion role selects that
 custom image only when explicitly enabled, records the exact stock fallback,

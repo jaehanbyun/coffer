@@ -1,0 +1,70 @@
+.main {
+  min-width: 0;
+  padding: 16px;
+}
+
+.toolbar {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.actions :global(.ant-input-search) {
+  min-width: 280px;
+}
+
+.tags {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.mediaType {
+  display: block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+.commands {
+  max-height: 280px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.prerequisites,
+.endpointAlert {
+  margin-top: 16px;
+}
+
+.pagination {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+@media (max-width: 767px) {
+  .toolbar {
+    display: block;
+  }
+
+  .actions {
+    display: flex;
+    justify-content: stretch;
+    width: 100%;
+  }
+
+  .actions :global(.ant-input-search) {
+    min-width: 0;
+    width: 100%;
+  }
+}

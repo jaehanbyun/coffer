@@ -28,7 +28,7 @@ Distribution, SQL, or the selected object-storage backend directly.
       push time, tags, freshness, and safe 400/401/403/404/409/503 behavior.
 - [ ] The OpenAPI document, Python client, OpenStackClient commands, Horizon
       adapter, and Skyline client validate the exact same public contract.
-- [ ] Horizon and Skyline repository detail pages expose an `Images &
+- [x] Horizon and Skyline repository detail pages expose an `Images &
       Artifacts` surface with tag, pushed time, type, size, digest, copyable
       pull reference, search, loading, empty, permission, and dependency-error
       states.
@@ -96,7 +96,7 @@ Distribution, SQL, or the selected object-storage backend directly.
 - [x] Add API resources, policies, OpenAPI schemas, client methods, CLI
       commands, bounded metrics, and tests.
 - [x] Extend Horizon's server-side adapter and repository detail UI.
-- [ ] Extend Skyline's source overlay, stores, routes/components, locales, and
+- [x] Extend Skyline's source overlay, stores, routes/components, locales, and
       tests.
 - [ ] Extend immutable UI images and Kolla artifact/config verification.
 - [ ] Run local visual/interaction QA at desktop and narrow viewports and close
@@ -183,6 +183,35 @@ Distribution, SQL, or the selected object-storage backend directly.
   contract, then add Skyline store methods before changing the repository
   detail page.
 
+### 2026-07-28 — Skyline artifact browser and connection guide completed
+
+- Completed: Added exact artifact page/detail and endpoint-discovery validators,
+  a race-safe artifact store, bounded keyset navigation, safe presentation
+  helpers, and a native Skyline repository-detail tab. The table exposes
+  tag/digest search, tags, pushed time, OCI type/media type, logical size,
+  digest, and a copyable catalog-derived pull reference with explicit loading,
+  empty, permission, dependency, and invalid-endpoint states.
+- Connection UX: Added one native Ant Design dialog with Docker, Podman, Helm,
+  and ORAS tabs. Commands are derived only after same-origin HTTPS endpoint
+  validation, use `openstack registry login` instead of rendering credentials,
+  and disable the guide when a safe host/reference cannot be constructed.
+- Correctness: Request sequencing prevents stale responses from overwriting a
+  newer repository/search page. Artifact and endpoint payloads reject unknown
+  fields, invalid digests, unsafe tags, cross-origin service paths, malformed
+  pagination markers, and inconsistent tag counts.
+- Evidence: The exact pinned Skyline Console `stable/2026.1` source passes
+  materialization, locale generation, focused ESLint, all 45 Coffer Jest
+  tests, production Webpack bundle, versioned wheel construction, bundle/wheel
+  content verification, Python compilation, and diff checks. The final test
+  addition changed test source only after the successful production
+  bundle/wheel verification.
+- Changed files: Skyline client/store/resources, repository-detail route and
+  native components/styles, tests, verifier, Makefile, README, this plan, and
+  handoff.
+- Next exact action: Extend and verify the immutable Horizon/Skyline image and
+  Kolla companion-role contracts for the plan 0029 API migration and dashboard
+  assets before changing the retained preview.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -195,6 +224,8 @@ Distribution, SQL, or the selected object-storage backend directly.
 | Horizon exact baseline and plugin suite | `make -C ui/horizon verify` | passed; Horizon 25.7.3 and 47 tests |
 | Horizon package assets | `uv build --project ui/horizon --out-dir work/horizon-dist`; wheel membership inspection | passed |
 | Horizon focused JS/diff checks | `node --check .../registry-detail.js`; `git diff --check` | passed |
+| Skyline exact source and focused suite | clean materialization; locale; ESLint; focused Jest | passed; 45 tests |
+| Skyline production package | Webpack build; wheel build; `ui/skyline/verify_build.py` | passed |
 | Full implementation and visual QA | pending | pending |
 
 ## Failures, Blockers, and Risks
@@ -212,9 +243,10 @@ Distribution, SQL, or the selected object-storage backend directly.
 ## Handoff
 
 - Current state: Active; artifact projection, admission enforcement, public
-  API/OpenAPI/client and Horizon artifact browser/connection guide are
-  complete locally.
-- Exact next action: Implement and test the Skyline artifact client and store
-  contract.
-- First file or command: `ui/skyline/overlay/src/client/coffer/index.js`
+  API/OpenAPI/client and both Horizon and Skyline artifact
+  browsers/connection guides are complete locally.
+- Exact next action: Extend the immutable dashboard images and Kolla
+  companion-role verification for migration 0007 and the new UI assets.
+- First file or command: inspect `ui/images/` and
+  `ansible/roles/coffer/tests/test_ui_image_contract.py`.
 - Questions requiring user input: None.
