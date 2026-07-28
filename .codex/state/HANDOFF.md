@@ -80,10 +80,23 @@ size conflicts fail closed. The owner-only artifact imported once into
 disposable SQLite, replayed as `already_imported`, and independently verified.
 This remains anticipatory evidence because writers were not excluded, no
 restored backup was used, and the release pair remains blocked. Seventy focused
-inventory/import tests and all 1,677 repository tests pass. The
-exact next action is to add the canonical final promotion ledger consuming
-specialist verifier outputs, bind the completed GC proof, and keep missing
-live evidence pending without self-attestation.
+inventory/import tests and all 1,677 repository tests pass.
+
+The canonical `coffer.production-promotion-ledger/v1` now fixes ten ordered
+gates and consumes only source-bound specialist verifier results. The
+disposable filesystem GC fixture reran successfully and its mode-0600 result
+binds two equal dry runs, one consumed authorization, five candidates, nine
+survivor classes, 613 reclaimed bytes, isolated restore, exact source hashes,
+and zero residue. The current ledger derives one passed gate
+(`gc_retention`), one blocked gate (`release_inputs`), eight pending gates, and
+`production_candidate=false`; `require-promotion` fails closed. Twenty-two
+promotion-ledger/readiness/GC-result tests and thirty-two focused GC compiler/
+adapter/parser tests and all 1,692 repository tests pass. The exact next action
+is to add the
+immutable-artifact specialist result contract that consumes existing native
+architecture qualification outputs but refuses blocked Distribution and
+oslo.messaging inputs; keep that gate pending until an official qualified
+release can produce complete current evidence.
 
 Plan 0028 is complete. The retained preview serves one owner-accessible
 `https://bb00.tail23b778.ts.net:18788` origin for `/v1`, `/auth/token`, and

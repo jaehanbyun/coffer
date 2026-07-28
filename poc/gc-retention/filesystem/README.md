@@ -34,6 +34,21 @@ Run from a terminal that keeps the Podman machine alive:
 make -C poc/gc-retention/filesystem verify
 ```
 
+To retain one canonical owner-only specialist result for the Stage 6 promotion
+ledger, use:
+
+```console
+make -C poc/gc-retention/filesystem promotion-evidence
+```
+
+The result compiler consumes both normalized dry runs, the destructive
+collector output, consumed single-use authorization, collected/restored
+survivor checks, reclaim proof, and exact source hashes. It stages a candidate
+before fixture removal and emits
+`work/production-promotion/gc-filesystem-result.json` only after the harness
+independently confirms zero labelled containers, networks, and runtime paths.
+The output is mode 0600 and an existing result is never overwritten.
+
 The accepted local run on 2026-07-25 reported five exact candidates, nine
 survivor classes, 613 logical filesystem bytes reclaimed, successful isolated
 restore, and zero fixture residue. This is a disposable filesystem result. It

@@ -24,6 +24,47 @@ release readiness
 Stop at the first failed or missing checkpoint. Evidence from a later
 checkpoint cannot compensate for an earlier failure.
 
+## Canonical gate ledger
+
+Refresh the complete decision surface with:
+
+```text
+make -C poc/production-promotion ledger
+```
+
+The command first refreshes release readiness, then consumes only
+schema-specific specialist results whose source hashes still match the
+checked-in verifiers. It accepts no caller-supplied gate status. The canonical
+mode-0600 result is:
+
+```text
+work/production-promotion/promotion-ledger.json
+```
+
+Every one of the ten fixed gates is exactly one of:
+
+- `passed`: a dedicated verifier accepted current source-bound evidence;
+- `blocked`: a prerequisite verifier reported a failed gate; or
+- `pending`: the required live specialist evidence is absent.
+
+A local fixture, preview observation, plan checkbox, manually authored
+`passed`, or success in another gate cannot change that classification. Use
+`make -C poc/production-promotion require-promotion` as the final enforcement
+target; it remains nonzero until the ledger itself derives
+`production_candidate=true`.
+
+The approved disposable filesystem GC result can be refreshed independently
+with:
+
+```text
+make -C poc/gc-retention/filesystem promotion-evidence
+```
+
+It is emitted only after two equal dry runs, one consumed authorization,
+destructive collection, survivor/reclaim/restore verification, and zero
+fixture residue. Its filesystem scope does not satisfy RGW/KMS, data
+protection, or load gates.
+
 ## 1. Refresh released inputs
 
 Run:

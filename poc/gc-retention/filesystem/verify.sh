@@ -10,6 +10,8 @@ topology="${script_directory}/../topology.json"
 image="docker.io/library/registry:3.1.1@sha256:1be55279f18a2fe1a74edf2664cac61c1bea305b7b4642dab412e7affdcb3e33"
 registry_port="${COFFER_GC_PORT:-55008}"
 label="org.openstack.coffer.poc=gc-filesystem"
+result_output="${COFFER_GC_RESULT_OUTPUT:-}"
+result_candidate=""
 invocation_directory=""
 storage_directory=""
 snapshot_directory=""
@@ -286,11 +288,44 @@ candidate_total="$(jq -er '.candidate_total' "${dry_one}")"
 reclaimed_bytes="$(jq -er '.logical_bytes_reclaimed' "${reclaim}")"
 survivor_count="$(jq -er '.survivor_classes | length' "${survivors}")"
 
+if test -n "${result_output}"; then
+  case "${result_output}" in
+    /*)
+      ;;
+    *)
+      printf 'GC result output must be absolute\n' >&2
+      exit 6
+      ;;
+  esac
+  result_candidate="${result_output}.candidate.$$"
+  uv run --project "${repository_root}" python \
+    "${script_directory}/result.py" stage \
+    --first "${dry_one}" \
+    --second "${dry_two}" \
+    --collection "${collection_evidence}" \
+    --authorization "${authorization}" \
+    --consumption "${consumption}" \
+    --survivors "${survivors}" \
+    --restored-survivors "${restored_survivors}" \
+    --reclaim "${reclaim}" \
+    --output "${result_candidate}"
+fi
+
 cleanup
 trap - EXIT
+if test -n "${result_candidate}"; then
+  trap 'rm -f -- "${result_candidate}"' EXIT
+fi
 test -z "$(podman ps --all --quiet --filter "label=${label}")"
 test -z "$(podman network ls --quiet --filter "label=${label}")"
 test ! -e "${work_root}"
+if test -n "${result_candidate}"; then
+  uv run --project "${repository_root}" python \
+    "${script_directory}/result.py" finalize \
+    --candidate "${result_candidate}" \
+    --output "${result_output}"
+  trap - EXIT
+fi
 printf \
   'GC filesystem fixture passed candidates=%s survivors=%s reclaimed-bytes=%s residue=0\n' \
   "${candidate_total}" \

@@ -35,3 +35,49 @@ Stage 6 sequence. The aggregate always keeps `production_candidate=false`;
 the final production decision additionally requires image, RGW/KMS,
 maintenance identity, data protection, observability, GC, load/soak, fresh
 Kolla multinode, teardown, and operator-release evidence.
+
+## Canonical promotion ledger
+
+Run:
+
+```text
+make -C poc/production-promotion ledger
+```
+
+This refreshes official release readiness, validates any retained GC result
+through its dedicated verifier, and writes the mode-0600 canonical ledger to
+`work/production-promotion/promotion-ledger.json`. The ledger has ten fixed,
+ordered gates:
+
+1. official release inputs;
+2. immutable multi-architecture artifacts;
+3. RGW/Barbican SSE-KMS;
+4. the expiring maintenance identity;
+5. backup/import/cutover/rollback;
+6. production observability;
+7. coordinated GC/restore;
+8. representative load/soak/faults;
+9. fresh Kolla multinode plus audited teardown; and
+10. operator release and supply-chain review.
+
+The command accepts no caller-supplied gate status. A gate can become `passed`
+only through a schema-specific validator over a source-bound specialist result.
+Absent live evidence remains `pending`; failed release readiness remains
+`blocked`. Local fixtures, preview observations, a plan checkbox, or a manually
+authored `passed` value cannot promote another gate.
+
+To refresh the accepted disposable filesystem GC specialist result first:
+
+```text
+make -C poc/gc-retention/filesystem promotion-evidence
+```
+
+The final enforcement target is:
+
+```text
+make -C poc/production-promotion require-promotion
+```
+
+It exits nonzero until every fixed gate is independently validated and the
+ledger itself derives `production_candidate=true`. The current stable release
+inputs fail before that point by design.

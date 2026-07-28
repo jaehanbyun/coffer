@@ -2833,6 +2833,45 @@ operator-local release.
   specialist verifier result without self-attestation, bind the completed GC
   proof, and leave every missing live result explicitly pending.
 
+### 2026-07-28 — Canonical promotion ledger and GC binding completed
+
+- Ledger: Added `coffer.production-promotion-ledger/v1` with ten fixed ordered
+  gates. It accepts release readiness plus only schema-specific specialist
+  evidence, recomputes source hashes and aggregate state, and never accepts a
+  caller-supplied gate status. Failed prerequisites are `blocked`; absent live
+  evidence is `pending`; only a specialist verifier can produce `passed`.
+- GC specialist result: The disposable exact-image filesystem fixture reran
+  through two equal dry runs, one consumed authorization, destructive
+  collection, nine survivor classes, 613 reclaimed logical bytes, isolated
+  restore, and zero container/network/runtime-path residue. The mode-0600
+  result binds the exact image and nine current verifier/config source hashes.
+  Its SHA-256 is
+  `67c97975e620f9d58ae403834f3b5aec163553a4a4ceeda13c88342dd47d88cc`.
+- Current canonical state: The mode-0600 ledger has SHA-256
+  `0308653eab2a8f079e9846cc64ea547ada55dbcaf7fbcdd1ecb638aa85811b6c`.
+  `gc_retention` is the only passed gate; `release_inputs` is blocked by the
+  five current official-release reasons; immutable artifacts, RGW/KMS,
+  maintenance identity, data protection, observability, load/soak, fresh Kolla
+  multinode, and operator release remain explicitly pending.
+  `production_candidate=false`, and the enforcement target exits nonzero.
+- Safety and cleanup: The fixture used only a new local filesystem bind mount.
+  It did not contact the retained preview, RGW, Keystone, Kolla, or a remote
+  host. The temporary Podman machine was stopped and all labelled fixture
+  resources and runtime paths are absent.
+- Verification: Twenty-two promotion-ledger/readiness/GC-result tests and
+  thirty-two focused GC compiler/adapter/parser tests pass. The live ledger
+  validates its release and GC source/digest bindings and remains fail-closed.
+  All 1,692 repository tests, compilation, focused Ruff, Bash, ShellCheck, and
+  diff checks pass.
+- Changed files: GC result compiler and harness integration, canonical ledger,
+  focused tests, promotion/GC runbooks and Makefiles, this plan, and
+  `HANDOFF.md`.
+- Next exact action: Add the immutable-artifact specialist result contract
+  that consumes the existing native architecture qualification outputs but
+  refuses the blocked Distribution and oslo.messaging inputs. Keep the gate
+  pending until a qualified official release can produce a complete current
+  result.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -2851,6 +2890,12 @@ operator-local release.
 | Retained-preview exact-release RGW inventory | read-only helper over verified TLS; local v3 import, replay, and independent verification | passed as anticipatory evidence; 1 project, 1 repository, 5 manifests, 9 descriptors, 2 blob alias sets, 2,214,809 logical bytes; zero remote transient residue |
 | Multi-media inventory/import regression | `uv run pytest -q tests/test_inventory.py tests/test_quota_import.py tests/test_quota_import_verification.py` | passed; 70 |
 | Post-v3 full Python regression | `uv run pytest -q` | passed; 1677 |
+| Promotion ledger, release readiness, and GC result contracts | `make -C poc/production-promotion verify` | passed; 22 |
+| GC result compiler, adapter, and collector contract | `uv run pytest -q tests/test_gc_filesystem_result.py tests/test_gc_filesystem_fixture.py tests/test_gc_collector_output.py` | passed; 32 |
+| Disposable GC specialist evidence | `make -C poc/gc-retention/filesystem promotion-evidence` | passed; candidates 5, survivor classes 9, reclaimed 613 bytes, restore true, residue 0, mode 0600 |
+| Canonical promotion ledger | `make -C poc/production-promotion ledger` | passed; 1 passed, 1 blocked, 8 pending, `production_candidate=false`, mode 0600 |
+| Final promotion refusal | `make -C poc/production-promotion require-promotion` | passed; failed closed while ledger is not qualified |
+| Post-ledger full Python regression | `uv run pytest -q` | passed; 1692 |
 | Full Python regression | `uv run pytest -q` | passed; 310 |
 | Kolla companion-role regression | `make -C poc/kolla-ansible-role verify` | passed; 68 |
 | Maintenance identity code/config inventory | Focused inspection of live comparison, reconciliation runner/probe, WSGI, Kolla config, secrets, and Stage 5 inputs | passed |
