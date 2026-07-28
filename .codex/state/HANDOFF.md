@@ -1,8 +1,9 @@
 # Coffer Handoff
 
 - Updated: 2026-07-28
-- Status: plan 0029 artifact discovery and registry UX is active while plan
-  0019 production promotion remains fail-closed on
+- Status: plan 0030 production gate decoupling is active; plan 0029 artifact
+  discovery and registry UX is functionally complete except for optional
+  owner-session visual comparison, while plan 0019 production promotion remains fail-closed on
   official release inputs; plans 0027 and 0028 completed with a retained live
   preview; plan 0022 remains blocked externally; plans 0020, 0021, 0023,
   0024, 0025, and 0026 completed locally;
@@ -58,12 +59,38 @@
   `docs/exec-plans/0019-stage6-production-promotion.md` and
   `docs/exec-plans/0022-native-x86-ui-image-qualification.md`
 - Active execution plan:
-  `docs/exec-plans/0029-artifact-discovery-registry-ux.md`. Plan 0019 remains
-  blocked externally and its production gates are unchanged. The retained
-  preview baseline and user endpoint remain documented by completed plans 0027
-  and 0028 and are not production evidence.
+  `docs/exec-plans/0030-production-gate-decoupling.md`. Plan 0019 remains
+  blocked externally and ledger v1 remains unchanged. Plan 0030 introduces an
+  additive ledger v2 and does not reinterpret the retained preview or local UI
+  artifacts as production evidence.
 
 ## Current Objective
+
+Plan 0030 has recovered the current ten-gate ledger v1, release aggregator,
+combined core/UI artifact verifier, Stage 6 specialist chain, relevant ADRs,
+retained owner-only outputs, and current Git state. Three independent
+read-only reviews agree that the global Distribution/Ceph/oslo.messaging
+minimum, combined core/Horizon/Skyline artifact result, and serial RGW/KMS
+prerequisite are the material over-coupling points.
+
+The accepted design direction is additive: preserve ledger v1 byte, source,
+CLI, Make, and output contracts; add ledger v2 with Registry core plus
+storage-backend, RGW/Barbican KMS, Horizon, Skyline, and Referrers profiles;
+derive top-level `production_candidate` only from core; and require selected
+profiles separately for a deployable combination. Existing v1 blocked or
+pending state cannot pass v2, and a v1 passed digest remains pending until its
+original specialist payload is revalidated.
+
+ADR 0018 is proposed pending implementation and security review. It retains
+upstream-first preference while permitting only signed official releases,
+approved vendor backports, or Coffer-maintained minimal patch releases under
+one product security/protocol threshold and increasing provenance, support,
+upstream-submission, and retirement obligations. The current Distribution,
+Ceph KMS, and UI dependency blockers remain blockers in their own scopes.
+
+Exact next action: implement the common immutable lineage manifest validator
+in `poc/production-promotion/input_lineage.py`, then add class-specific
+official, vendor, Coffer patch, VEX, support, upstream, and retirement checks.
 
 Plan 0029 is the active independently testable work package. Migration 0007,
 the storage-independent digest-addressed artifact/tag projection, concurrent
