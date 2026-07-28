@@ -675,14 +675,21 @@ def parse_manifest(body: bytes, *, media_type: str | None = None) -> ParsedManif
         raise InvalidManifest("manifest must be a schemaVersion 2 object")
 
     document_media_type = document.get("mediaType")
-    if not isinstance(document_media_type, str):
-        raise InvalidManifest("manifest mediaType is required")
+    if "mediaType" in document and not isinstance(document_media_type, str):
+        raise InvalidManifest("manifest mediaType must be a string when present")
     requested_media_type = (
         media_type.split(";", 1)[0].strip().lower()
         if media_type is not None
         else document_media_type
     )
-    if requested_media_type != document_media_type:
+    if requested_media_type is None:
+        raise InvalidManifest(
+            "manifest media type is required in mediaType or Content-Type"
+        )
+    if (
+        document_media_type is not None
+        and requested_media_type != document_media_type
+    ):
         raise InvalidManifest("Content-Type does not match manifest mediaType")
     if requested_media_type not in IMAGE_MEDIA_TYPES | INDEX_MEDIA_TYPES:
         raise InvalidManifest("manifest mediaType is not supported by quota admission")

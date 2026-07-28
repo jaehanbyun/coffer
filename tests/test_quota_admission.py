@@ -208,6 +208,34 @@ def test_manifest_projection_classifies_non_image_oci_artifact(tmp_path: Path) -
     assert artifact.tags == ("chart-1.0.0",)
 
 
+def test_manifest_projection_accepts_helm_manifest_without_top_level_media_type(
+    tmp_path: Path,
+) -> None:
+    upstream = FakeUpstream()
+    client, _quotas, token = fixture(
+        tmp_path,
+        quota_limit=10_000,
+        upstream=upstream,
+    )
+    document = json.loads(
+        manifest(config_media_type="application/vnd.cncf.helm.config.v1+json")
+    )
+    del document["mediaType"]
+    body = json.dumps(document, separators=(",", ":"), sort_keys=True).encode()
+
+    assert put(client, token, body, reference="0.1.0").status_code == 201
+
+    artifact = client.artifact_store.list_page(  # type: ignore[attr-defined]
+        PROJECT,
+        client.repository_id,  # type: ignore[attr-defined]
+        limit=10,
+    ).artifacts[0]
+    assert artifact.kind == "artifact"
+    assert artifact.artifact_type == "application/vnd.cncf.helm.config.v1+json"
+    assert artifact.media_type == "application/vnd.oci.image.manifest.v1+json"
+    assert artifact.tags == ("0.1.0",)
+
+
 def test_immutable_tag_conflict_is_rejected_before_distribution(
     tmp_path: Path,
 ) -> None:

@@ -88,6 +88,7 @@ Distribution, SQL, or the selected object-storage backend directly.
 | Model one row per manifest digest and zero-or-more tags | This matches OCI identity and supports untagged manifests, tag movement, and multi-tag digests | Treating `name:tag` as an immutable image identity; showing raw blobs/layers as top-level images | 2026-07-28 |
 | Reuse the existing single-origin catalog endpoint and finite application-credential login contract | Commands stay deployer-correct and do not invent a second authentication mechanism | Hard-coded registry hosts; rendering a secret; a Nebius-specific credential helper | 2026-07-28 |
 | Match the reference information hierarchy while retaining Horizon and Skyline design systems | Users get a familiar flow without creating a third visual system or copying another provider's branding | Pixel-cloning Nebius; replacing native dashboard navigation and components | 2026-07-28 |
+| Accept an omitted manifest JSON `mediaType` only when a supported request `Content-Type` supplies it | OCI image-spec defines the JSON field as SHOULD rather than REQUIRED, and Helm 4 emits a valid chart manifest without it; quota still needs one unambiguous supported type | Rejecting Helm 4; guessing from shape when both sources are absent; accepting a header/body mismatch | 2026-07-28 |
 
 ## Tasks
 
@@ -232,6 +233,34 @@ Distribution, SQL, or the selected object-storage backend directly.
   rebuild Coffer/Horizon/Skyline images, run migration 0007 through companion
   `reconfigure`, and verify service health before pushing fresh OCI content.
 
+### 2026-07-28 — Retained deployment activated; Helm 4 compatibility fixed
+
+- Completed: Synchronized the reviewed source and only the two verified wheels,
+  built new Coffer/Horizon/Skyline images, ran the Kolla companion
+  `reconfigure`, restarted the bounded same-host replica, and verified healthy
+  services, exact image digests, dashboard assets, public HTTP 200 responses,
+  and Alembic revision `0007_artifact_projection`.
+- Client evidence: Fresh Docker, Podman, and ORAS push/pull passed through the
+  owner endpoint, including project-B read/write denial and primary-pair
+  outage. The prior evidence was preserved in an owner-only history directory
+  and the new result remains mode 0600.
+- Failure found: Helm 4.2.3 sent the supported OCI manifest media type in the
+  HTTP `Content-Type` while omitting the optional top-level JSON `mediaType`.
+  Coffer returned a bounded 400 before Distribution. The OCI image
+  specification defines this JSON field as SHOULD and requires the declared
+  value only when it is present, so the admission parser was stricter than the
+  standard.
+- Correction: Resolve the manifest type from a supported `Content-Type` when
+  the JSON field is absent, still rejecting absence from both sources,
+  non-string JSON values, unsupported types, and header/body mismatches.
+  Thirty-four focused parser/admission tests pass, including the exact
+  Helm-shaped manifest.
+- Changed files: Manifest parser, parser/admission tests, this plan, and
+  handoff.
+- Next exact action: Commit and redeploy the compatibility correction, repeat
+  real Helm push/pull, then query the project-scoped artifact API before
+  browser QA.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -247,6 +276,9 @@ Distribution, SQL, or the selected object-storage backend directly.
 | Skyline exact source and focused suite | clean materialization; locale; ESLint; focused Jest | passed; 45 tests |
 | Skyline production package | Webpack build; wheel build; `ui/skyline/verify_build.py` | passed |
 | Preview image delivery contracts | Bash syntax; ShellCheck; focused Kolla/image tests | passed; 40 tests |
+| Retained image/migration activation | Kolla reconfigure; image/asset/schema/HTTP checks | passed |
+| Fresh Docker/Podman/ORAS acceptance | retained endpoint v2 acceptance | passed |
+| Helm 4 compatibility regression | focused quota parser/admission suite | passed; 34 tests |
 | Full implementation and visual QA | pending | pending |
 
 ## Failures, Blockers, and Risks

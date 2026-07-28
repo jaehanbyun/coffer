@@ -86,8 +86,18 @@ selected dashboard's immutable image contract and companion global. Bash
 syntax, ShellCheck, and 40 focused Kolla/image contract tests pass. The exact
 next action is synchronizing the reviewed source and wheels to the retained
 guest, rebuilding Coffer and both dashboard images, and running migration 0007
-through companion `reconfigure`. No retained preview container or production
-promotion state has changed.
+through companion `reconfigure`. That deployment is now active: Coffer and
+both dashboards are healthy on their exact new images, the public dashboard
+paths return 200, and the live schema reports `0007_artifact_projection`.
+Fresh Docker, Podman, and ORAS push/pull plus project isolation and
+primary-pair outage pass. Helm 4.2.3 exposed one standards-compatibility defect:
+it omits the top-level manifest JSON `mediaType` while supplying the supported
+OCI type in HTTP `Content-Type`; OCI image-spec defines the JSON property as
+SHOULD rather than REQUIRED. The local parser now accepts that unambiguous
+case while retaining all absence/type/mismatch/allowlist failures, and 34
+focused tests pass. The exact next action is committing and redeploying this
+correction, repeating real Helm push/pull, and querying the artifact API before
+browser QA. Plan 0019 remains unchanged.
 
 Complete every Stage 6 production promotion gate without weakening accepted
 release, security, storage, identity, data-protection, operability, or teardown
@@ -3545,10 +3555,10 @@ release contains it yet.
 
 ## Exact Next Action
 
-Run `ssh bb00 -- virsh domstate coffer-ui-preview-1`, synchronize the reviewed
-source and two verified wheels into the retained guest, rebuild Coffer and
-both immutable dashboard images, then run companion `reconfigure` so migration
-0007 and the new assets are active. Plan 0019's release refresh remains
+Commit and synchronize the optional-manifest-`mediaType` compatibility
+correction, rebuild only the Coffer runtime image, run companion
+`reconfigure`, repeat real Helm push/pull, and query the project-scoped
+artifact API before browser QA. Plan 0019's release refresh remains
 event-driven and must not be weakened or relabeled by this UI work.
 
 ## After This Work Package

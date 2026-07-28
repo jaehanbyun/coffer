@@ -111,6 +111,29 @@ def test_manifest_parser_binds_media_type_shape_and_descriptor_count() -> None:
         parse_manifest(json.dumps(amplified).encode())
 
 
+def test_manifest_parser_accepts_optional_media_type_from_content_type() -> None:
+    body = json.loads(
+        image_manifest(
+            Descriptor(digest(b"config"), 6),
+            (Descriptor(digest(b"layer"), 5),),
+        )
+    )
+    del body["mediaType"]
+    encoded = json.dumps(body, separators=(",", ":"), sort_keys=True).encode()
+
+    parsed = parse_manifest(
+        encoded,
+        media_type="application/vnd.oci.image.manifest.v1+json; charset=utf-8",
+    )
+
+    assert parsed.media_type == "application/vnd.oci.image.manifest.v1+json"
+    with pytest.raises(InvalidManifest, match="media type is required"):
+        parse_manifest(encoded)
+    body["mediaType"] = None
+    with pytest.raises(InvalidManifest, match="must be a string"):
+        parse_manifest(json.dumps(body).encode(), media_type=parsed.media_type)
+
+
 def test_logical_sizes_fit_the_signed_sql_integer_boundary(tmp_path: Path) -> None:
     with pytest.raises(InvalidManifest, match="signed 64-bit"):
         Descriptor(digest(b"too-large"), MAX_LOGICAL_BYTES + 1)
