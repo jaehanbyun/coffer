@@ -130,3 +130,68 @@ scope, or a digest mismatch forbids that replay.
 
 Operational rollback selects the old v1 consumer and original v1 evidence; it
 does not delete ledger v2 or rewrite v2 semantics.
+
+## Implemented v2 boundary
+
+Plan 0030 implements the additive path without modifying `ledger.py` or
+`readiness.py`:
+
+| Layer | Contract |
+|---|---|
+| Trust policy | Exact authority, vendor, release, builder, lifecycle-observer, VEX, replacement, support, and adapter catalogs |
+| Provider lineage | Official upstream, approved vendor backport, or Coffer minimal patch; final status is derived |
+| Migration | Embeds exact v1 ledger and release bytes, hashes every source, preserves `legacy_evidence`, and maps only negative facts |
+| Provider bundle | Independently resolves Distribution, Ceph, and `oslo.messaging` as blocked, pending, or qualified |
+| Scope evidence | Fixed checks, modes, provider bindings, backends, source closures, expiry, and non-synthetic adapter identity per scope |
+| Ledger v2 | Core candidate, five profile decisions, selected-combination constraints, and compatibility state |
+| Checkpoint verifier | Frozen versioned verifier bundle plus current policy, revocation, and semantic replay validation |
+| Rollback protocol | Signed target, writer fence, authorization, logical destination, shared-CAS claim/publication/completion, and signed receipt |
+
+All evidence paths use strict JSON, owner-only files, exact field sets, source
+hashes, canonical digests, and explicit byte budgets. The common hard ceiling
+is 16 MiB; narrower inputs retain lower limits. Production policy catalogs are
+empty by default, so a fixture authority, vendor, adapter, or release cannot
+accidentally become production trust.
+
+The rollback fixture uses an injected shared-state adapter to prove concurrency,
+destination binding, retry, and outage behavior. The production verifier
+registry contains no entry and no production shared-CAS adapter is configured.
+The production rollback command therefore refuses execution. This is an
+intentional deployment boundary rather than missing positive evidence.
+
+## Current machine-readable result
+
+The current owner-only v2 output is
+`work/production-promotion/promotion-ledger-v2.json`. It is derived from the
+retained v1 ledger and current release observation, with no v2 scope result
+promoted from a fixture:
+
+| Decision | Status | Current reason |
+|---|---|---|
+| Registry core | `blocked` | Distribution provider is explicitly blocked and scope evidence is absent |
+| Storage backend | `pending` | No v2 backend scope evidence |
+| RGW and Barbican KMS | `blocked` | Ceph and Distribution providers are blocked and scope evidence is absent |
+| Horizon | `blocked` | `oslo.messaging` provider is blocked and scope evidence is absent |
+| Skyline | `blocked` | `oslo.messaging` provider is blocked and scope evidence is absent |
+| Referrers | `pending` | No selected mode or v2 scope evidence |
+
+The aggregate is four blocked, two pending, zero qualified, and zero disabled.
+`production_candidate=false`,
+`baseline_deployment_ready=false`, and
+`rgw_barbican_kms_deployment_ready=false`.
+
+The retained v1 ledger raw digest is
+`sha256:e59fd5342d1d92f233cf9377e85c101d4781c60dd339795044ed3bc681bdf0ff`.
+The regenerated current v2 files have raw SHA-256 digests:
+
+- migration:
+  `b4f9dffb9e2227c63401b1d52d87992f5113854e6650d4fdbf28a9eb9ddd2d5b`;
+- provider inputs:
+  `6d41482254055107c480ca6a4f76c9e12a9c2272e660d951f41aef5472d29ee0`;
+- ledger:
+  `9e6eacc42d3024b6e7b39b100bebaf9b89a1fb2558d3ca6ffd518bd50fc2ffbc`.
+
+No signed pre-upgrade checkpoint exists for that retained deployment, so
+checkpoint status is `missing`, semantic replay is false, exact-v1 replay is
+ineligible, and v2-to-v1 projection is forbidden. These compatibility facts
+do not change the validity of v1 for existing v1 consumers.

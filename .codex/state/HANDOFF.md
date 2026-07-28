@@ -1,96 +1,88 @@
 # Coffer Handoff
 
-- Updated: 2026-07-28
-- Status: plan 0030 production gate decoupling is active; plan 0029 artifact
-  discovery and registry UX is functionally complete except for optional
-  owner-session visual comparison, while plan 0019 production promotion remains fail-closed on
-  official release inputs; plans 0027 and 0028 completed with a retained live
-  preview; plan 0022 remains blocked externally; plans 0020, 0021, 0023,
-  0024, 0025, and 0026 completed locally;
-  native x86_64 UI parents and derivatives built and passed provenance/runtime
-  collection, but standalone Docker Scout CVE evidence requires an unauthorized
-  Docker login; the disposable VM, volumes, key, and runtime residue are absent;
-  native ARM64 UI image qualification completed with an honest production
-  block from inherited stock-parent findings; local production observability, disposable
-  filesystem GC/restore, load model/lifecycle, and canonical evidence verifier
-  complete; raw OCI and five real-client execution boundaries complete;
-  telemetry, deterministic plan, and fixture orchestrator complete; runtime
-  manifest, control/token/quota protocol core, and owner-only control CLI
-  complete; checkpointed profile/ramp and recovery-first fault executors
-  complete; owner-only telemetry collection boundary, native
-  Prometheus/exporter parser seam, versioned native target, and exact-schema
-  collector dispatch complete; no-network disposable-pilot target renderer
-  and phase-bound auxiliary evidence compiler plus private TLS evidence server,
-  source-summary acquisition, and local secret/workload artifact collectors
-  complete; quota/reconciliation source mapping complete; read-only control
-  SQL evidence snapshot and claim-version binding complete; bounded quota
-  transaction-attempt observability and quota/reconciliation control artifact
-  collection complete; Galera transaction artifact collection complete; RGW
-  evidence source mapping and no-network artifact collection complete;
-  six-surface phase preparation and verified-HTTPS live RGW evidence adapter
-  plus qualified disposable-pilot schedule and checkpointed fixture executor
-  plus exact-prefix cleanup, non-synthetic RGW, and external fault action
-  contracts, phase materializers, deployment inputs, bounded fault controller,
-  and release-gated 53-action live invocation complete locally; UI API
-  contract, bounded repository pagination, and project quota read complete;
-  REST/OpenAPI UI contract, Kolla 2026.1 Horizon 25.7.3 baseline, and
-  server-side Horizon adapter and independently packaged Project Registry
-  dashboard complete locally; exact-revision Skyline source-overlay baseline
-  accepted; equivalent Skyline Registry pages/routes/menu/quota/artifact
-  surface, production bundle, and versioned wheel complete locally with 45
-  focused tests;
-  disabled-by-default immutable Horizon/Skyline image contracts and exact
-  fallback lifecycle complete locally with 108 role checks; four desktop/narrow
-  UI fixture screenshots visually inspected; current UI remediation suite
-  passes 190 focused checks, full Python regression passes 1,666 tests, and the
-  prior Horizon/Skyline/108-check Kolla repository gates remain complete;
-  isolated Kolla 2026.1 Coffer, Horizon, and Skyline now run on `bb00`,
-  both dashboards show the same live registry repository, restart and
-  two-project OCI isolation pass, and the retained VM remains
-  autostart-disabled and explicitly non-production; the existing system
-  HAProxy exposes the two dashboard streams and one single-origin Coffer
-  control/token/OCI route only on the `bb00` Tailscale address; real
-  Docker/Podman/ORAS, project read/write denial, restart persistence,
-  OpenStackClient, Horizon/Skyline live adapters, and same-host primary-pair
-  outage acceptance pass through that route
-- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`, `docs/exec-plans/0023-ui-parent-remediation-baseline.md`, `docs/exec-plans/0024-ui-crypto-pair-remediation.md`, `docs/exec-plans/0025-ui-cumulative-remediation-matrix.md`, `docs/exec-plans/0026-ui-residual-finding-closure.md`, `docs/exec-plans/0027-live-horizon-skyline-preview.md`, `docs/exec-plans/0028-user-registry-endpoint.md`
+- Updated: 2026-07-29
+- Status: plan 0030 production gate decoupling is complete and pushed.
+  Ledger v1 remains unchanged and fail-closed. Ledger v2 independently reports
+  four blocked, two pending, zero qualified profiles, with
+  `production_candidate=false`. Plan 0029 registry discovery UX is
+  functionally complete except for optional owner-session visual comparison;
+  the retained `bb00` preview remains explicitly non-production.
+- Completed execution plans: `docs/exec-plans/0001-product-discovery.md`, `docs/exec-plans/0003-barbican-kms-quota-poc.md`, `docs/exec-plans/0004-shared-sql-quota-reconciliation.md`, `docs/exec-plans/0005-multi-worker-reconciliation.md`, `docs/exec-plans/0006-reconciliation-runner.md`, `docs/exec-plans/0007-unified-control-schema.md`, `docs/exec-plans/0008-existing-content-inventory.md`, `docs/exec-plans/0009-transactional-inventory-import.md`, `docs/exec-plans/0010-post-import-ledger-comparison.md`, `docs/exec-plans/0011-authenticated-live-inventory-comparison.md`, `docs/exec-plans/0012-synthetic-inventory-scale-characterization.md`, `docs/exec-plans/0013-kolla-deployment-topology.md`, `docs/exec-plans/0014-kolla-runtime-images.md`, `docs/exec-plans/0015-kolla-ansible-operator-role.md`, `docs/exec-plans/0016-kolla-aio-end-to-end.md`, `docs/exec-plans/0017-production-image-remediation.md`, `docs/exec-plans/0018-kolla-multinode-ha-pilot.md`, `docs/exec-plans/0020-ui-api-horizon-skyline.md`, `docs/exec-plans/0021-ui-image-production-qualification.md`, `docs/exec-plans/0023-ui-parent-remediation-baseline.md`, `docs/exec-plans/0024-ui-crypto-pair-remediation.md`, `docs/exec-plans/0025-ui-cumulative-remediation-matrix.md`, `docs/exec-plans/0026-ui-residual-finding-closure.md`, `docs/exec-plans/0027-live-horizon-skyline-preview.md`, `docs/exec-plans/0028-user-registry-endpoint.md`, `docs/exec-plans/0030-production-gate-decoupling.md`
 - Superseded execution plan: `docs/exec-plans/0002-thin-vertical-poc.md`
 - Externally blocked execution plans:
   `docs/exec-plans/0019-stage6-production-promotion.md` and
   `docs/exec-plans/0022-native-x86-ui-image-qualification.md`
-- Active execution plan:
-  `docs/exec-plans/0030-production-gate-decoupling.md`. Plan 0019 remains
-  blocked externally and ledger v1 remains unchanged. Plan 0030 introduces an
-  additive ledger v2 and does not reinterpret the retained preview or local UI
-  artifacts as production evidence.
+- Active follow-up: plan 0029 retains only the optional authenticated visual
+  comparison. No production-qualification plan is active; plan 0019 remains
+  externally blocked and ledger v1 remains unchanged.
 
-## Current Objective
+## Latest Completed Work Package
 
-Plan 0030 has recovered the current ten-gate ledger v1, release aggregator,
-combined core/UI artifact verifier, Stage 6 specialist chain, relevant ADRs,
-retained owner-only outputs, and current Git state. Three independent
-read-only reviews agree that the global Distribution/Ceph/oslo.messaging
-minimum, combined core/Horizon/Skyline artifact result, and serial RGW/KMS
-prerequisite are the material over-coupling points.
+Plan 0030 implements the accepted ADR 0018 decision. Ledger v2 judges
+Registry core, storage backend, RGW/Barbican KMS, Horizon, Skyline, and
+Referrers independently. Top-level `production_candidate` belongs only to
+core; a deployable baseline separately requires compatible core and storage,
+and selected integrations add their own constraints.
 
-The accepted design direction is additive: preserve ledger v1 byte, source,
-CLI, Make, and output contracts; add ledger v2 with Registry core plus
-storage-backend, RGW/Barbican KMS, Horizon, Skyline, and Referrers profiles;
-derive top-level `production_candidate` only from core; and require selected
-profiles separately for a deployable combination. Existing v1 blocked or
-pending state cannot pass v2, and a v1 passed digest remains pending until its
-original specialist payload is revalidated.
+The production trust policy admits only exact signed official releases,
+approved vendor backports, or Coffer-maintained minimal patch releases. All
+three use one security/protocol/runtime threshold. Downstream lineages add
+cataloged provenance, independent rebuild, support, upstream-submission,
+lifecycle-observer, replacement, and retirement duties. Production catalogs
+are empty by default, so test fixtures cannot become production trust.
 
-ADR 0018 is proposed pending implementation and security review. It retains
-upstream-first preference while permitting only signed official releases,
-approved vendor backports, or Coffer-maintained minimal patch releases under
-one product security/protocol threshold and increasing provenance, support,
-upstream-submission, and retirement obligations. The current Distribution,
-Ceph KMS, and UI dependency blockers remain blockers in their own scopes.
+Migration embeds exact v1 ledger and release bytes, preserves each
+`legacy_evidence` reference, maps blockers first, and never turns a legacy
+pass into a v2 pass. General v2-to-v1 projection is forbidden. Signed exact-v1
+rollback additionally requires a frozen still-trusted verifier, writer fence,
+separate authorization, destination binding, and deployment-wide shared CAS.
+No production adapter or verifier-registry entry exists, so production
+rollback remains intentionally fail-closed; the fixture proves only the
+protocol.
 
-Exact next action: implement the common immutable lineage manifest validator
-in `poc/production-promotion/input_lineage.py`, then add class-specific
-official, vendor, Coffer patch, VEX, support, upstream, and retirement checks.
+Migration, provider, and ledger Make stages are independent and always
+recompute their requested decision. An existing deterministic result is
+accepted only when its exact bytes match the requested inputs and current
+source/policy. Both create and reuse paths require an absolute destination,
+owner, bounded payload, mode-0700 owner directory, and mode-0600 regular
+single-link result. Changed or removed arguments fail closed without changing
+the prior artifact.
+
+The current mode-0600 machine result reports Registry core blocked, storage
+pending, RGW/KMS blocked, Horizon blocked, Skyline blocked, and Referrers
+pending. Both deployment-combination decisions are false. The current raw
+ledger v2 SHA-256 is
+`9e6eacc42d3024b6e7b39b100bebaf9b89a1fb2558d3ca6ffd518bd50fc2ffbc`.
+
+Changed files: the new trust, lineage, migration, provider, scope, ledger,
+checkpoint, verifier-registry, rollback modules and fixtures under
+`poc/production-promotion/`; their seven test modules; the Make integration;
+ADR 0018; the coupling research note; production runbook; release note;
+README; plan 0030; and this handoff.
+
+Verification: promotion harness 315 passed; complete repository 2,036 passed;
+Ruff E/F/I, Python compilation, diff, local-link, staged Gitleaks, JSON policy
+and fixture boundary, v1 byte-compatibility, owner-mode, repeat-execution, and
+current-result checks passed. Three independent final reviews report no
+remaining P0/P1. Implementation and ADR commit `109113c` is pushed to
+`jaehanbyun/coffer` `main`.
+
+Failures resolved: initial Make file dependencies silently reused a stale
+output for changed arguments; the first correction over-coupled all three
+stages; and the existing-result branch initially lacked the destination
+checks used for first publication. Regression tests now cover all three
+failures.
+
+Remaining blockers: No production provider catalog entry or non-synthetic
+scope evidence qualifies. No signed pre-upgrade checkpoint exists for the
+retained v1 deployment. No production shared-CAS rollback adapter or trusted
+verifier-registry entry is deployed. These remain explicit blocked/pending
+states rather than waived conditions.
+
+Exact next action: start a separate work package to catalog and qualify one
+Distribution lineage and one compatible non-synthetic storage profile. Do
+not set `production_candidate=true` until all fixed Registry-core gates pass
+their real source-bound evidence.
 
 Plan 0029 is the active independently testable work package. Migration 0007,
 the storage-independent digest-addressed artifact/tag projection, concurrent

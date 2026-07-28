@@ -19,7 +19,8 @@ The service type is a project proposal and is not currently registered in the Op
 
 ## Current Baseline
 
-- Unmodified CNCF Distribution v3 data plane
+- CNCF Distribution v3 data plane; the production input must be an exact
+  official, approved-vendor, or Coffer-minimal-patch lineage under ADR 0018
 - Short-lived registry JWTs issued by a Keystone application-credential broker
 - Immutable Keystone project-ID namespaces
 - Single-region Ceph RGW storage through the upstream S3 driver
@@ -154,6 +155,9 @@ Do not place Keystone, database, signing, or cache secrets in the repository. Th
 - [M3 bounded quota design and validation](docs/research/m3-quota-enforcement-spike.md)
 - [M3 existing-content inventory boundary](docs/research/m3-existing-content-inventory.md)
 - [Stage 6 coordinated GC and retention baseline](docs/research/stage6-gc-retention.md)
+- [Production ledger v2 coupling review](docs/research/production-ledger-v2-coupling.md)
+- [Production promotion runbook](docs/runbooks/production-promotion.md)
+- [Accepted ADR 0018: decoupled production scopes and patch lineages](docs/adrs/0018-decouple-production-ledger-and-admit-patch-lineages.md)
 - [Proposed ADR 0017: coordinated upstream garbage collection](docs/adrs/0017-coordinate-upstream-garbage-collection.md)
 - [Pure coordinated GC/retention contract](poc/gc-retention/README.md)
 - [ADR 0010: Alembic repository metadata adoption](docs/adrs/0010-adopt-repository-metadata-into-alembic.md)
@@ -181,3 +185,4 @@ Do not place Keystone, database, signing, or cache secrets in the repository. Th
 - [Completed Stage 1 Kolla deployment-topology plan](docs/exec-plans/0013-kolla-deployment-topology.md)
 - [Completed Stage 2 Kolla runtime-images plan](docs/exec-plans/0014-kolla-runtime-images.md)
 - [Completed Stage 3 Kolla-Ansible operator-role plan](docs/exec-plans/0015-kolla-ansible-operator-role.md)
+- [Production gate decoupling plan](docs/exec-plans/0030-production-gate-decoupling.md)
