@@ -3042,6 +3042,51 @@ operator-local release.
   restart-correct metrics, protected scrape/aggregation, alert firing and
   recovery, failure-budget, log/secret, and zero-residue evidence.
 
+### 2026-07-28 — Production-observability specialist contract completed
+
+- Ordered prerequisite boundary: Added
+  `coffer.production-promotion-observability-result/v1`. The CLI validates the
+  exact release, artifact, RGW/KMS, maintenance-identity, and data-protection
+  results before opening observability evidence. The current release result
+  exits `3` before any missing downstream result, target, monitoring
+  credential, or evidence path is read.
+- Live topology and exposure: Only a non-synthetic disposable OpenStack run
+  can qualify. Every API, edge, reconciler, and registry replica must be
+  scraped directly over verified backend TLS, with at least two API, edge, and
+  registry replicas. VIP/public targets, public operational paths, profiling,
+  Distribution debug exposure, and forwarded client headers are refused.
+- Restart-correct signals: The evidence binds the runtime collectors, fixed
+  topology, registry proxy, Prometheus targets/rules, Grafana dashboard, and
+  runbook. It requires one worker per API/edge container, bounded labels,
+  process-start/reset semantics, stale-series removal, no duplicate healthy
+  series, exact six rules/eight alerts/eight dashboard rows, and rolling
+  restart, upgrade, and rollback with availability and rule continuity.
+- Alert, budget, audit, and teardown: All eight fixed alerts must fire and
+  recover, all six bounded dependencies must correlate with native signals,
+  and the accepted 30-day objectives must prove client/maintenance exclusions,
+  dependency failures, fast/slow burn, freeze, and recovery behavior. Nonempty
+  samples/evaluations/log scans, zero forbidden labels, secret matches,
+  unexpected errors, and monitoring/runtime residue are mandatory.
+- Current live disposition: No observability result was created. GitHub's
+  unauthenticated API rate limit returned 403 on the redundant official refresh;
+  the same-day owner-only release result still drove a direct exit-3 ordering
+  check. The current-source ledger was regenerated directly at mode 0600 with
+  SHA-256
+  `20503ddbb463198daaf76dc637285ea6208647075e11234b2737fa84e5cbb382`;
+  it remains one passed, one blocked, eight pending, and
+  `production_candidate=false`.
+- Verification: Fifteen observability specialist tests, thirty-two combined
+  observability/ledger tests, all ninety-six promotion-harness tests, and all
+  1,766 repository tests pass. Focused Ruff E/F/I, compilation, diff checks,
+  direct exit-3 refusal, result absence, and ledger mode/digest inspection
+  pass.
+- Changed files: Observability specialist compiler and tests, ledger and
+  Makefile integration, promotion README, this plan, and `HANDOFF.md`.
+- Next exact action: Before binding the load/soak result, strengthen
+  `gc_retention` so its specialist evidence is tied to the exact qualified
+  Distribution release/result transaction instead of allowing the current
+  v3.1.1 filesystem proof to survive a future release transition.
+
 ## Verification
 
 | Check | Command or method | Result |
@@ -3087,6 +3132,12 @@ operator-local release.
 | Promotion harness after data-protection integration | `make -C poc/production-promotion verify` | passed; 79 |
 | Canonical ledger after data-protection integration | `make -C poc/production-promotion ledger`; mode and SHA inspection | passed; 1 passed, 1 blocked, 8 pending, mode 0600, `production_candidate=false` |
 | Post-data-protection-contract full Python regression | `uv run pytest -q` | passed; 1749 |
+| Production-observability specialist contract | `uv run pytest -q tests/test_production_promotion_observability.py` | passed; 15 |
+| Observability plus canonical ledger contract | `uv run pytest -q tests/test_production_promotion_observability.py tests/test_production_promotion_ledger.py` | passed; 32 |
+| Current observability runtime refusal | direct `observability.py` invocation with the same-day blocked readiness result and absent downstream paths | passed; exit 3 before downstream reads, no result created |
+| Promotion harness after observability integration | `make -C poc/production-promotion verify` | passed; 96 |
+| Canonical ledger after observability integration | direct `ledger.py` compilation from owner-only release and GC results after GitHub API rate limit; mode and SHA inspection | passed; 1 passed, 1 blocked, 8 pending, mode 0600, `production_candidate=false` |
+| Post-observability-contract full Python regression | `uv run pytest -q` | passed; 1766 |
 | Full Python regression | `uv run pytest -q` | passed; 310 |
 | Kolla companion-role regression | `make -C poc/kolla-ansible-role verify` | passed; 68 |
 | Maintenance identity code/config inventory | Focused inspection of live comparison, reconciliation runner/probe, WSGI, Kolla config, secrets, and Stage 5 inputs | passed |
@@ -3320,13 +3371,11 @@ operator-local release.
   transaction without changing normalized v1. Real RGW lifecycle evidence and
   current stable dependencies remain blocked; no real identity, credential,
   certificate, endpoint, or remote state changed.
-- Exact next action: Add
-  `poc/production-promotion/observability.py` as the source-bound specialist
-  result contract. It must validate all prior transaction digests before
-  accepting non-synthetic direct-per-replica restart-correct signals, protected
-  scrape/aggregation, alert firing and recovery, failure-budget, log/secret,
-  and zero-residue evidence. Do not invoke the live pilot while official
-  release readiness remains blocked.
+- Exact next action: Add an exact-release production wrapper around the
+  existing filesystem GC specialist result and bind it into the canonical
+  ledger. The current v3.1.1 fixture must not remain a passed
+  `gc_retention` gate after a future Distribution release transition. Do not
+  invoke the live pilot while official release readiness remains blocked.
 - Questions requiring user input: None for the next local adapter milestone.
   The user has already authorized atomic milestone publication and the bounded
   disposable Stage 6 sequence; exact safety and release gates

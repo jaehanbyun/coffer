@@ -218,6 +218,46 @@ digests equal the same release, artifact, RGW/KMS, and maintenance-identity
 results already validated in that ledger transaction. The existing fixture
 or the retained UI preview cannot satisfy this live boundary.
 
+The production-observability specialist command is:
+
+```text
+make -C poc/production-promotion observability-result
+```
+
+It validates the exact release, artifact, RGW/KMS, maintenance-identity, and
+data-protection results before opening
+`work/production-promotion/observability-evidence.json`. A valid evidence
+document must bind those five digests and the checked-in runtime collectors,
+direct-target topology, registry metrics proxy, Prometheus targets/rules,
+Grafana dashboard, and runbook. Current blocked release readiness exits `3`
+before any missing target, monitoring credential, or downstream evidence is
+read.
+
+The live disposable OpenStack proof must include:
+
+- every API, edge, reconciler, and registry replica scraped directly through
+  verified backend TLS, with the public FQDN and VIP refused and at least two
+  API, edge, and registry replicas;
+- operator-network-only metrics, public operational-path denial, loopback-only
+  Distribution debug, an allowlisted metrics proxy, and denied profiling;
+- the exact bounded label, six recording-rule, eight alert, and eight dashboard
+  row contracts, one worker per API/edge container, a process-start metric,
+  valid reset semantics, stale-series removal, and zero duplicate healthy
+  series;
+- rolling restart, upgrade, and rollback across every component without loss
+  of service/rule continuity;
+- firing and recovery evidence for all eight fixed alerts, native dependency
+  correlation, and the accepted 30-day pull/publish/control/reconciliation
+  objective plus fast/slow burn and work-freeze behavior;
+- nonempty sample, alert-evaluation, and log scans with zero forbidden labels,
+  known secrets, unexpected errors, and runtime/monitoring residue.
+
+Only bounded counts, booleans, and evidence digests survive in the compact
+result; target addresses, hostnames, projects, repositories, request IDs,
+credentials, tokens, and log contents do not. The local observability fixtures
+and retained same-host preview prove implementation contracts only and cannot
+produce this `adapter=openstack`, `non_synthetic=true` specialist result.
+
 To refresh the accepted disposable filesystem GC specialist result first:
 
 ```text

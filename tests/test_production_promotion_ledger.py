@@ -21,6 +21,21 @@ ledger = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = ledger
 SPEC.loader.exec_module(ledger)
 
+OBSERVABILITY_TEST_SOURCE = (
+    ROOT / "tests" / "test_production_promotion_observability.py"
+)
+OBSERVABILITY_SPEC = importlib.util.spec_from_file_location(
+    "coffer_ledger_observability_test_helpers",
+    OBSERVABILITY_TEST_SOURCE,
+)
+assert (
+    OBSERVABILITY_SPEC is not None
+    and OBSERVABILITY_SPEC.loader is not None
+)
+observability_test = importlib.util.module_from_spec(OBSERVABILITY_SPEC)
+sys.modules[OBSERVABILITY_SPEC.name] = observability_test
+OBSERVABILITY_SPEC.loader.exec_module(observability_test)
+
 
 def release(status: str = "blocked") -> dict[str, object]:
     reason = [] if status == "candidate-qualified" else ["not qualified"]
@@ -457,6 +472,20 @@ def data_protection_result() -> dict[str, object]:
     }
 
 
+def observability_result() -> dict[str, object]:
+    result = observability_test.observability.compile_result(
+        **observability_test.compile_inputs()
+    )
+    result["prerequisites"] = {
+        "artifact_result_sha256": f"sha256:{'5' * 64}",
+        "data_protection_result_sha256": f"sha256:{'9' * 64}",
+        "maintenance_identity_result_sha256": f"sha256:{'f' * 64}",
+        "release_readiness_sha256": f"sha256:{'3' * 64}",
+        "rgw_kms_result_sha256": f"sha256:{'e' * 64}",
+    }
+    return result
+
+
 def test_blocked_release_and_passed_gc_are_reported_independently() -> None:
     result = ledger.compile_ledger(
         release_readiness=release(),
@@ -581,6 +610,38 @@ def test_valid_data_protection_requires_and_passes_all_prerequisites() -> None:
         "status": "passed",
     }
     assert len(result["pending_gates"]) == 5
+
+
+def test_valid_observability_requires_and_passes_all_prerequisites() -> None:
+    result = ledger.compile_ledger(
+        release_readiness=release(),
+        release_digest=f"sha256:{'3' * 64}",
+        artifact_result=artifact_result(),
+        artifact_digest=f"sha256:{'5' * 64}",
+        rgw_kms_result=rgw_kms_result(),
+        rgw_kms_digest=f"sha256:{'e' * 64}",
+        maintenance_identity_result=maintenance_identity_result(),
+        maintenance_identity_digest=f"sha256:{'f' * 64}",
+        data_protection_result=data_protection_result(),
+        data_protection_digest=f"sha256:{'9' * 64}",
+        observability_result=observability_result(),
+        observability_digest=f"sha256:{'8' * 64}",
+        today=date(2026, 7, 28),
+    )
+    gates = {gate["id"]: gate for gate in result["gates"]}
+
+    assert result["status"] == "blocked"
+    assert result["passed_gate_count"] == 5
+    assert gates["observability"] == {
+        "evidence": {
+            "schema": ledger.OBSERVABILITY_RESULT.SCHEMA,
+            "sha256": f"sha256:{'8' * 64}",
+        },
+        "id": "observability",
+        "reason": None,
+        "status": "passed",
+    }
+    assert len(result["pending_gates"]) == 4
 
 
 def test_qualified_release_still_cannot_self_promote_missing_gates() -> None:
@@ -844,6 +905,67 @@ def test_data_protection_result_is_atomic_and_prerequisite_bound() -> None:
             **common,
             data_protection_result=changed_binding,
             data_protection_digest=f"sha256:{'9' * 64}",
+        )
+
+
+def test_observability_result_is_atomic_and_prerequisite_bound() -> None:
+    common = {
+        "artifact_digest": f"sha256:{'5' * 64}",
+        "artifact_result": artifact_result(),
+        "data_protection_digest": f"sha256:{'9' * 64}",
+        "data_protection_result": data_protection_result(),
+        "maintenance_identity_digest": f"sha256:{'f' * 64}",
+        "maintenance_identity_result": maintenance_identity_result(),
+        "release_digest": f"sha256:{'3' * 64}",
+        "release_readiness": release(),
+        "rgw_kms_digest": f"sha256:{'e' * 64}",
+        "rgw_kms_result": rgw_kms_result(),
+        "today": date(2026, 7, 28),
+    }
+    with pytest.raises(ledger.PromotionLedgerError, match="digest"):
+        ledger.compile_ledger(
+            **common,
+            observability_result=observability_result(),
+        )
+    with pytest.raises(ledger.PromotionLedgerError, match="no specialist"):
+        ledger.compile_ledger(
+            **common,
+            observability_digest=f"sha256:{'8' * 64}",
+        )
+    with pytest.raises(ledger.PromotionLedgerError, match="prerequisite"):
+        ledger.compile_ledger(
+            release_readiness=release(),
+            release_digest=f"sha256:{'3' * 64}",
+            observability_result=observability_result(),
+            observability_digest=f"sha256:{'8' * 64}",
+            today=date(2026, 7, 28),
+        )
+
+    changed = observability_result()
+    changed["residue"]["containers"] = 1
+    changed["residue"]["total"] = 1
+    with pytest.raises(
+        ledger.PromotionLedgerError,
+        match="observability specialist",
+    ):
+        ledger.compile_ledger(
+            **common,
+            observability_result=changed,
+            observability_digest=f"sha256:{'8' * 64}",
+        )
+
+    changed_binding = observability_result()
+    changed_binding["prerequisites"][
+        "data_protection_result_sha256"
+    ] = f"sha256:{'0' * 64}"
+    with pytest.raises(
+        ledger.PromotionLedgerError,
+        match="prerequisite binding",
+    ):
+        ledger.compile_ledger(
+            **common,
+            observability_result=changed_binding,
+            observability_digest=f"sha256:{'8' * 64}",
         )
 
 

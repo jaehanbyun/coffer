@@ -128,19 +128,31 @@ operational or secret residue. Fixture and retained-preview evidence cannot
 promote it, and its compact result retains no invocation, endpoint,
 project/repository, resource, object, credential, or secret identity.
 
-The current data-protection command exits `3` before absent artifact, RGW,
-maintenance, backup, or evidence paths are read. No artifact, RGW, maintenance,
-or data-protection specialist output exists, so all four gates remain pending.
-The ledger rejects cross-release and cross-prerequisite combinations. Its
-current owner-mode-0600 SHA-256 is
-`204f2cb0e127699a613d1aeea4bb65938f4d22e9f530957dcdc4dedb01c11f69`;
+The production-observability specialist contract is now implemented. It binds
+all five prior results plus the current runtime collectors, direct-target
+topology, registry metrics proxy, Prometheus targets/rules, Grafana dashboard,
+and runbook. Only a non-synthetic disposable OpenStack run with full
+direct-per-replica verified-TLS coverage, refused VIP/public/profiling paths,
+bounded metric schema, valid process reset/stale-series behavior, rolling
+restart/upgrade/rollback, all eight alert fire/recover lifecycles, native
+dependency correlation, failure-budget behavior, audit/log scans, and zero
+monitoring/runtime or secret residue can qualify. Local fixtures and the
+retained preview cannot promote it.
+
+The current observability command exits `3` before absent artifact, RGW,
+maintenance, data-protection, target, or evidence paths are read. No live
+specialist output exists, so the affected gates remain pending. GitHub's
+unauthenticated API rate limit returned 403 on a redundant official refresh;
+the same-day owner-only release result still passed the direct ordering check.
+The current-source owner-mode-0600 ledger SHA-256 is
+`20503ddbb463198daaf76dc637285ea6208647075e11234b2737fa84e5cbb382`;
 it remains one passed, one blocked, eight pending, and
-`production_candidate=false`. Fourteen data-protection specialist,
-twenty-nine combined data-protection/ledger, seventy-nine promotion-harness,
-and all 1,749 repository tests pass. The exact next action is the
-production-observability specialist result contract, bound to every prior
-transaction and requiring live restart-correct direct-per-replica signals,
-protected aggregation, alert/failure-budget proof, and zero residue.
+`production_candidate=false`. Fifteen observability specialist, thirty-two
+combined observability/ledger, ninety-six promotion-harness, and all 1,766
+repository tests pass. The exact next action is to bind `gc_retention` to the
+exact qualified Distribution release/result transaction before building the
+load/soak specialist; the current v3.1.1 filesystem proof must not survive a
+future release transition as production evidence.
 
 Plan 0028 is complete. The retained preview serves one owner-accessible
 `https://bb00.tail23b778.ts.net:18788` origin for `/v1`, `/auth/token`, and
@@ -3436,12 +3448,11 @@ release contains it yet.
 
 ## Exact Next Action
 
-Add `poc/production-promotion/observability.py` as the source-bound specialist
-result contract. Validate every prior promotion result before accepting
-non-synthetic direct-per-replica restart-correct metrics, protected
-scrape/aggregation, alert firing and recovery, failure-budget, log/secret, and
-zero-residue evidence. Do not invoke a live production pilot while official
-release readiness remains blocked.
+Add an exact-release production wrapper around the existing filesystem GC
+specialist result and bind it into the canonical ledger. The current v3.1.1
+fixture must not remain a passed `gc_retention` gate after a future
+Distribution release transition. Do not invoke a live production pilot while
+official release readiness remains blocked.
 
 ## After This Work Package
 

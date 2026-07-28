@@ -21,6 +21,7 @@ ARTIFACT_RESULT_SOURCE = DIRECTORY / "artifacts.py"
 RGW_KMS_RESULT_SOURCE = DIRECTORY / "rgw_kms.py"
 MAINTENANCE_IDENTITY_RESULT_SOURCE = DIRECTORY / "maintenance_identity.py"
 DATA_PROTECTION_RESULT_SOURCE = DIRECTORY / "data_protection.py"
+OBSERVABILITY_RESULT_SOURCE = DIRECTORY / "observability.py"
 
 SCHEMA = "coffer.production-promotion-ledger/v1"
 RELEASE_SCHEMA = "coffer.production-promotion-release-readiness/v1"
@@ -105,6 +106,10 @@ DATA_PROTECTION_RESULT = _load_module(
     "coffer_production_promotion_data_protection_result",
     DATA_PROTECTION_RESULT_SOURCE,
 )
+OBSERVABILITY_RESULT = _load_module(
+    "coffer_production_promotion_observability_result",
+    OBSERVABILITY_RESULT_SOURCE,
+)
 
 
 def _sha256_bytes(payload: bytes) -> str:
@@ -128,6 +133,9 @@ def source_hashes() -> dict[str, str]:
         "ledger_sha256": _sha256(Path(__file__).resolve()),
         "maintenance_identity_result_verifier_sha256": _sha256(
             MAINTENANCE_IDENTITY_RESULT_SOURCE
+        ),
+        "observability_result_verifier_sha256": _sha256(
+            OBSERVABILITY_RESULT_SOURCE
         ),
         "release_readiness_verifier_sha256": _sha256(READINESS_SOURCE),
         "rgw_kms_result_verifier_sha256": _sha256(RGW_KMS_RESULT_SOURCE),
@@ -277,6 +285,8 @@ def compile_ledger(
     maintenance_identity_digest: str | None = None,
     data_protection_result: object | None = None,
     data_protection_digest: str | None = None,
+    observability_result: object | None = None,
+    observability_digest: str | None = None,
     today: date | None = None,
 ) -> dict[str, Any]:
     current = datetime.now(tz=UTC).date() if today is None else today
@@ -472,6 +482,64 @@ def compile_ledger(
             "status": "passed",
         }
 
+    if observability_result is None:
+        if observability_digest is not None:
+            raise PromotionLedgerError(
+                "observability digest has no specialist result"
+            )
+    else:
+        if observability_digest is None:
+            raise PromotionLedgerError(
+                "observability specialist result digest is required"
+            )
+        if (
+            artifact_result is None
+            or artifact_digest is None
+            or rgw_kms_result is None
+            or rgw_kms_digest is None
+            or maintenance_identity_result is None
+            or maintenance_identity_digest is None
+            or data_protection_result is None
+            or data_protection_digest is None
+        ):
+            raise PromotionLedgerError(
+                "observability prerequisite results are absent"
+            )
+        try:
+            qualified_observability = (
+                OBSERVABILITY_RESULT.validate_final_result(
+                    observability_result
+                )
+            )
+        except OBSERVABILITY_RESULT.ObservabilityResultError as error:
+            raise PromotionLedgerError(
+                "observability specialist result is invalid"
+            ) from error
+        prerequisites = _mapping(
+            qualified_observability["prerequisites"],
+            "observability prerequisites",
+        )
+        if prerequisites != {
+            "artifact_result_sha256": artifact_digest,
+            "data_protection_result_sha256": data_protection_digest,
+            "maintenance_identity_result_sha256": (
+                maintenance_identity_digest
+            ),
+            "release_readiness_sha256": release_digest,
+            "rgw_kms_result_sha256": rgw_kms_digest,
+        }:
+            raise PromotionLedgerError(
+                "observability prerequisite binding changed"
+            )
+        gates["observability"] = {
+            "evidence": _evidence(
+                qualified_observability["schema"],
+                observability_digest,
+            ),
+            "reason": None,
+            "status": "passed",
+        }
+
     if gc_result is None:
         if gc_digest is not None:
             raise PromotionLedgerError("GC digest has no specialist result")
@@ -594,6 +662,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--rgw-kms-result", type=Path)
     parser.add_argument("--maintenance-identity-result", type=Path)
     parser.add_argument("--data-protection-result", type=Path)
+    parser.add_argument("--observability-result", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--require-qualified", action="store_true")
     arguments = parser.parse_args(argv)
@@ -612,6 +681,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         maintenance_identity_digest: str | None = None
         data_protection_value: dict[str, Any] | None = None
         data_protection_digest: str | None = None
+        observability_value: dict[str, Any] | None = None
+        observability_digest: str | None = None
         if arguments.gc_result is not None:
             gc_value, gc_digest = _load_private(
                 arguments.gc_result,
@@ -639,6 +710,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 arguments.data_protection_result,
                 "data-protection specialist result",
             )
+        if arguments.observability_result is not None:
+            observability_value, observability_digest = _load_private(
+                arguments.observability_result,
+                "observability specialist result",
+            )
         ledger = compile_ledger(
             release_readiness=release,
             release_digest=release_digest,
@@ -652,6 +728,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             maintenance_identity_digest=maintenance_identity_digest,
             data_protection_result=data_protection_value,
             data_protection_digest=data_protection_digest,
+            observability_result=observability_value,
+            observability_digest=observability_digest,
         )
         _write_owner_only(arguments.output, ledger)
         print(json.dumps(ledger, indent=2, sort_keys=True))

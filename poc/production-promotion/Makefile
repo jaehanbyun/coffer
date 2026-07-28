@@ -8,10 +8,12 @@ MAINTENANCE_OUTPUT := $(REPO_ROOT)/work/production-promotion/maintenance-identit
 MAINTENANCE_EVIDENCE := $(REPO_ROOT)/work/production-promotion/maintenance-identity-evidence.json
 DATA_PROTECTION_OUTPUT := $(REPO_ROOT)/work/production-promotion/data-protection-result.json
 DATA_PROTECTION_EVIDENCE := $(REPO_ROOT)/work/production-promotion/data-protection-evidence.json
+OBSERVABILITY_OUTPUT := $(REPO_ROOT)/work/production-promotion/observability-result.json
+OBSERVABILITY_EVIDENCE := $(REPO_ROOT)/work/production-promotion/observability-evidence.json
 LEDGER_OUTPUT := $(REPO_ROOT)/work/production-promotion/promotion-ledger.json
 ARTIFACT_INPUTS := $(REPO_ROOT)/work/production-promotion/artifacts
 
-.PHONY: artifact-result check data-protection-result ledger maintenance-identity-result require-promotion require-qualified rgw-kms-result verify
+.PHONY: artifact-result check data-protection-result ledger maintenance-identity-result observability-result require-promotion require-qualified rgw-kms-result verify
 
 check:
 	cd "$(REPO_ROOT)" && uv run python \
@@ -58,6 +60,17 @@ data-protection-result: check
 		--evidence "$(DATA_PROTECTION_EVIDENCE)" \
 		--output "$(DATA_PROTECTION_OUTPUT)"
 
+observability-result: check
+	cd "$(REPO_ROOT)" && uv run python \
+		poc/production-promotion/observability.py \
+		--release-readiness "$(OUTPUT)" \
+		--artifact-result "$(ARTIFACT_OUTPUT)" \
+		--rgw-kms-result "$(RGW_KMS_OUTPUT)" \
+		--maintenance-identity-result "$(MAINTENANCE_OUTPUT)" \
+		--data-protection-result "$(DATA_PROTECTION_OUTPUT)" \
+		--evidence "$(OBSERVABILITY_EVIDENCE)" \
+		--output "$(OBSERVABILITY_OUTPUT)"
+
 ledger: check
 	cd "$(REPO_ROOT)" && set -- \
 		--release-readiness "$(OUTPUT)" \
@@ -76,6 +89,9 @@ ledger: check
 	fi; \
 	if test -f "$(DATA_PROTECTION_OUTPUT)"; then \
 		set -- "$$@" --data-protection-result "$(DATA_PROTECTION_OUTPUT)"; \
+	fi; \
+	if test -f "$(OBSERVABILITY_OUTPUT)"; then \
+		set -- "$$@" --observability-result "$(OBSERVABILITY_OUTPUT)"; \
 	fi; \
 	uv run python poc/production-promotion/ledger.py "$$@"
 
@@ -99,6 +115,9 @@ require-promotion: check
 	if test -f "$(DATA_PROTECTION_OUTPUT)"; then \
 		set -- "$$@" --data-protection-result "$(DATA_PROTECTION_OUTPUT)"; \
 	fi; \
+	if test -f "$(OBSERVABILITY_OUTPUT)"; then \
+		set -- "$$@" --observability-result "$(OBSERVABILITY_OUTPUT)"; \
+	fi; \
 	uv run python poc/production-promotion/ledger.py "$$@"
 
 verify:
@@ -109,4 +128,5 @@ verify:
 		tests/test_production_promotion_rgw_kms.py \
 		tests/test_production_promotion_maintenance_identity.py \
 		tests/test_production_promotion_data_protection.py \
+		tests/test_production_promotion_observability.py \
 		tests/test_gc_filesystem_result.py
